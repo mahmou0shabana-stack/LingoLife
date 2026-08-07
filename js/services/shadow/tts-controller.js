@@ -102,7 +102,10 @@ export function cancel() {
  * @param {{ rate?: number, voiceName?: string, signal?: AbortSignal }} options
  * @returns {Promise<{ ok: boolean, reason?: string }>}
  */
-export function speak(text, { rate = DEFAULT_RATE, voiceName = null, signal = null } = {}) {
+export function speak(
+  text,
+  { rate = DEFAULT_RATE, voiceName = null, volume = 1, signal = null } = {}
+) {
   if (!isSupported()) return Promise.resolve({ ok: false, reason: 'unsupported' });
   if (!text || !text.trim()) return Promise.resolve({ ok: false, reason: 'empty' });
   if (signal?.aborted) return Promise.resolve({ ok: false, reason: 'aborted' });
@@ -113,6 +116,7 @@ export function speak(text, { rate = DEFAULT_RATE, voiceName = null, signal = nu
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.rate = Math.max(RATE_MIN, Math.min(RATE_MAX, rate));
     utterance.pitch = 1;
+    utterance.volume = Math.max(0, Math.min(1, volume));
 
     const voice = resolveVoice(voiceName);
     if (voice) {

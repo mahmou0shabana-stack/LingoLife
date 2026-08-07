@@ -47,6 +47,7 @@ const SHELL = [
   './js/services/backup/restore.js',
   './js/services/backup/serialize.js',
   './js/services/backup/validate.js',
+  './js/services/shadow/dialect.js',
   './js/services/shadow/playback-controller.js',
   './js/services/shadow/segmenter.js',
   './js/services/shadow/shadow-session-service.js',

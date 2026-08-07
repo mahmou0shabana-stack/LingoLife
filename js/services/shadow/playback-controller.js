@@ -87,6 +87,7 @@ export function createPlaybackController({
     intervalSteps: settings.intervalSteps ?? 2,
     practiceMode: settings.practiceMode ?? PRACTICE_MODE.SENTENCE,
     autoAdvance: settings.autoAdvance ?? true,
+    volume: settings.volume ?? 1,
   };
 
   /** يُلغي أي دورة قديمة. راجع الشرح أعلى الملف. */
@@ -147,7 +148,11 @@ export function createPlaybackController({
     });
     if (myToken !== runToken || !state.running || state.paused) return;
 
-    await speaker(currentText(), { rate: config.rate, voiceName: config.voiceName });
+    await speaker(currentText(), {
+      rate: config.rate,
+      voiceName: config.voiceName,
+      volume: config.volume,
+    });
     if (myToken !== runToken || !state.running || state.paused) return;
 
     const isContinuous = config.repeatMode === REPEAT_MODE.CONTINUOUS;
