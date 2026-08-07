@@ -475,10 +475,28 @@ async function openLightbox(mediaId, sceneId) {
     <img src="${urlFor(record, { thumb: false })}" alt="${record.caption || ''}">
     <div class="lightbox-bar">
       <button data-lb="cover">اجعلها الغلاف</button>
+      <button data-lb="links">اربطها بصوت أو نصّ</button>
       <button data-lb="shadow">استخرج النصّ واتدرّب</button>
       <button data-lb="download">نزّل الأصل</button>
       <button data-lb="remove" class="danger">شيلها من الذكرى</button>
-    </div>`;
+    </div>
+    <div class="lightbox-links" data-lb-links></div>`;
+
+  // نعرض ما هو مرتبط بها فعلًا — لا يحتاج المستخدم أن يتذكّر.
+  resolveLinks(mediaId)
+    .then((links) => {
+      const host = box.querySelector('[data-lb-links]');
+      if (!host || !links.length) return;
+      host.innerHTML = links
+        .map((l) => {
+          const label = l.entity.kind === 'audio'
+            ? `🎙 ${l.entity.caption || l.entity.filename}`
+            : `📄 ${(l.entity.text || '').slice(0, 40) || 'سكريبت'}`;
+          return `<span class="link-badge">${label}</span>`;
+        })
+        .join('');
+    })
+    .catch(() => {});
 
   const close = () => {
     box.remove();
@@ -499,6 +517,11 @@ async function openLightbox(mediaId, sceneId) {
       close();
       toastOk('بقت الغلاف');
       reloadScene(sceneId);
+    }
+
+    if (action === 'links') {
+      close();
+      openLinksModal(mediaId, sceneId);
     }
 
     if (action === 'shadow') {

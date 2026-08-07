@@ -125,6 +125,13 @@ function sectionVoices(scene, audio) {
               <div class="info">
                 <b>${m.caption || m.filename}</b>
                 <span class="role">${AUDIO_ROLE_LABEL[m.role] || 'تسجيل'}</span>
+                ${raw(
+                  m.tags?.length
+                    ? html`<span class="link-badges">${raw(
+                        m.tags.map((t) => html`<span class="link-badge tag">${t}</span>`).join('')
+                      )}</span>`
+                    : ''
+                )}
               </div>
               ${raw(wave(i + 1))}
               <span class="dur">${formatDuration(m.durationMs)}</span>
