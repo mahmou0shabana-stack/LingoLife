@@ -101,6 +101,7 @@
       const { run } = await import('./test-runner.js');
       await import('./backup.test.js');
       await import('./shadow.test.js');
+      await import('./audio.test.js');
 
       const result = await run((event) => {
         if (event.type === 'suite') {

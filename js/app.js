@@ -28,6 +28,7 @@ import { SCENE_TYPES } from './config.js';
 import { icon } from './components/icons.js';
 import { toast, toastOk, toastError } from './components/toast.js';
 import { showModal, confirmAction } from './components/modal.js';
+import { stopAllAudio } from './components/audio-player.js';
 
 import { renderNow } from './views/now-view.js';
 import { renderLife } from './views/life-view.js';
@@ -53,10 +54,14 @@ function view(renderFn, opts = {}) {
     // مغادرة شاشة الظلّ لا بد أن توقف المحرّك، وإلا ظلّ الصوت شغّالًا
     // في الخلفية بعد الانتقال لشاشة أخرى.
     if (renderFn !== renderShadow) disposeShadow();
+    // الانتقال لشاشة أخرى يوقف أي صوت شغّال — لا صوت بلا مصدر مرئي.
+    stopAllAudio();
 
     main.innerHTML = '<div class="loading"><span class="spinner"></span> لحظة…</div>';
     try {
       await renderFn(main, params?.id, opts.passUi ? ui : undefined);
+      // شاشة جديدة تبدأ من أعلاها لا من موضع تمرير سابقتها.
+      window.scrollTo({ top: 0, behavior: 'instant' });
       syncNavState();
       rememberRoute();
       refreshStorageCard();
@@ -592,8 +597,43 @@ function wireActions() {
       case 'play-audio': {
         const record = await media.get(id);
         if (!record?.blob) return toastError('الملف مش موجود');
-        const audio = new Audio(urlFor(record, { thumb: false }));
-        audio.play().catch(() => toastError('مقدرناش نشغّل الملف'));
+
+        const row = target.closest('.voice-row');
+        // ضغطة ثانية على نفس الصفّ تطوي المشغّل بدل فتح ثانٍ.
+        const open = row?.nextElementSibling;
+        if (open?.classList.contains('aplayer')) {
+          stopAllAudio();
+          return;
+        }
+
+        const { createAudioPlayer } = await import('./components/audio-player.js');
+        const player = createAudioPlayer({
+          url: urlFor(record, { thumb: false }),
+          title: record.caption || record.filename || 'تسجيل',
+          async onDelete() {
+            const ok = await confirmAction({
+              title: 'حذف التسجيل',
+              message: `هيتشال «${record.caption || record.filename}» من الذكرى. تقدر تتراجع من الـ toast.`,
+              confirmLabel: 'شيله',
+              danger: true,
+            });
+            if (!ok) return;
+            const linkId = await removeFromScene(sceneId, id);
+            stopAllAudio();
+            toast('اتشال التسجيل', {
+              actionLabel: 'تراجع',
+              onAction: async () => {
+                await undoRemove(linkId);
+                toastOk('رجع');
+                reloadScene(sceneId);
+              },
+            });
+            reloadScene(sceneId);
+          },
+        });
+
+        row?.insertAdjacentElement('afterend', player.element);
+        player.element.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         return;
       }
 

@@ -1,0 +1,200 @@
+/* ══════════════════════════════════════════════════════════════
+   LingoLife — مشغّل الصوت
+
+   ليس زرّ تشغيل: أداة تدريب. المقطع الصعب يُلَفّ عليه بين نقطتين
+   ويُعاد عشرين مرة بسرعة 0.65 حتى ينضبط النطق.
+   ══════════════════════════════════════════════════════════════ */
+
+.aplayer {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface, var(--card));
+  padding: var(--sp-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.aplayer.playing { border-color: var(--accent-line); }
+
+/* ─ الرأس ─ */
+
+.ap-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.ap-play {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 0;
+  background: var(--accent);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: transform .12s var(--ease, ease), box-shadow .2s;
+}
+
+.ap-play:active { transform: scale(.93); }
+.aplayer.playing .ap-play { box-shadow: 0 0 0 5px var(--accent-wash); }
+
+.ap-title {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ap-time {
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ap-time b { color: var(--ink); }
+
+/* ─ شريط التقدّم ─ */
+
+.ap-track {
+  position: relative;
+  height: 22px;
+  cursor: pointer;
+  touch-action: none;
+  display: flex;
+  align-items: center;
+}
+
+.ap-track::before {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.ap-fill {
+  position: absolute;
+  inset-inline-start: 0;
+  height: 6px;
+  width: 0;
+  border-radius: 999px;
+  background: var(--accent);
+}
+
+/* منطقة اللوب A↔B — تظهر خلف المؤشّر فتعرف حدود ما يتكرّر */
+.ap-loop {
+  position: absolute;
+  height: 12px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--amber) 28%, transparent);
+  border-inline: 2px solid var(--amber);
+  pointer-events: none;
+}
+
+.ap-knob {
+  position: absolute;
+  width: 15px;
+  height: 15px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--surface, #fff);
+  box-shadow: var(--shadow-sm, 0 1px 4px rgba(0,0,0,.2));
+  transform: translateX(50%);
+  pointer-events: none;
+}
+
+.ap-track:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 6px; }
+
+/* ─ صفّ الأزرار ─ */
+
+.ap-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ap-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 36px;
+  padding: 0 11px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: var(--fs-sm);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  transition: background .12s, border-color .12s, color .12s;
+}
+
+/*
+ * الأرقام والعلامات تُقلب في RTL فيصير «−5s» شكل «5− s».
+ * نثبّت اتجاه هذه الأزرار وحدها على LTR.
+ */
+.ap-btn { direction: ltr; }
+.ap-btn small { font-size: 10px; opacity: .7; margin-inline-start: -2px; }
+
+/* صفّ واحد لا يلتفّ إلا عند الضرورة */
+.ap-row { justify-content: center; }
+.ap-btn:hover { border-color: var(--accent-line); color: var(--ink); }
+.ap-btn:active { transform: scale(.95); }
+
+.ap-btn.on {
+  background: var(--accent-wash);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.ap-btn.danger { color: var(--red); border-color: var(--red-line); }
+.ap-btn.danger:hover { background: var(--red-bg); }
+
+.ap-hint {
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+  text-align: center;
+  padding: 2px;
+}
+
+/* ─ النسخة المدمجة داخل القوائم ─ */
+
+.aplayer.compact { padding: var(--sp-2) var(--sp-3); gap: var(--sp-2); }
+.aplayer.compact .ap-play { width: 38px; height: 38px; }
+.aplayer.compact .ap-btn { min-height: 32px; padding: 0 9px; }
+
+/* الوضع الداكن داخل كتاب الظلّ */
+.shadow-app .aplayer {
+  background: rgba(255, 255, 255, .03);
+  border-color: var(--sh-line);
+  color: var(--sh-ink);
+}
+
+.shadow-app .ap-track::before { background: rgba(255, 255, 255, .1); }
+.shadow-app .ap-fill,
+.shadow-app .ap-play { background: var(--sh-accent); }
+.shadow-app .ap-knob { background: var(--sh-accent-2); border-color: var(--sh-page); }
+.shadow-app .ap-btn {
+  background: rgba(255, 255, 255, .03);
+  border-color: var(--sh-line);
+  color: var(--sh-mute);
+}
+.shadow-app .ap-btn.on {
+  background: rgba(139, 92, 246, .18);
+  border-color: var(--sh-accent);
+  color: var(--sh-ink);
+}
+.shadow-app .ap-title { color: var(--sh-ink); }
+.shadow-app .ap-time { color: var(--sh-mute); }
+.shadow-app .ap-time b { color: var(--sh-ink); }

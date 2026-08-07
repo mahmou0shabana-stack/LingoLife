@@ -360,3 +360,45 @@ button {
 .not-yet strong {
   color: var(--ink-soft);
 }
+
+/* ══════════════════════════════════════════════════════════════
+   نعومة التنقّل
+
+   الشاشة تُعاد كتابتها بالكامل عند كل تنقّل، فبدون انتقال يبدو
+   الأمر ومضةً حادّة. حركة قصيرة (140ms) تكفي لتقرأ العين أن
+   المحتوى تبدّل، ولا تُبطئ الإحساس بالاستجابة.
+   ══════════════════════════════════════════════════════════════ */
+
+@keyframes view-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.app-main > * {
+  animation: view-in 140ms cubic-bezier(.22, .61, .36, 1);
+}
+
+/* أثناء التمرير السريع لا نعيد تشغيل الحركة على كل عنصر */
+.app-main.no-anim > * { animation: none; }
+
+/*
+ * منع «قفزة التمرير»: الانتقال لشاشة جديدة يبدأ من أعلاها لا من
+ * موضع تمرير الشاشة السابقة.
+ */
+html { scroll-behavior: smooth; }
+
+@media (prefers-reduced-motion: reduce) {
+  .app-main > * { animation: none; }
+  html { scroll-behavior: auto; }
+}
+
+/* هدف لمس لا يقلّ عن 44px — قاعدة إتاحة لا تفصيلة */
+.btn, .mini-btn, .nav-btn, .tab, .add {
+  min-height: 40px;
+}
+
+/* استجابة فورية للّمس بدل انتظار 300ms */
+button, a, [role="button"], .slot-empty, .tile, .scene-card {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}

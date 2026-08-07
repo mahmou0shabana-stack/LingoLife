@@ -7,7 +7,7 @@
 
 export const APP_NAME = 'LingoLife';
 export const APP_TAGLINE = 'حياتك. لغتك. ذاكرتك.';
-export const APP_VERSION = '0.8.0';
+export const APP_VERSION = '0.9.0';
 export const BUILD_ID = '__BUILD__';
 
 /** مسار الجذر — يعمل تحت مسار فرعي في GitHub Pages. */
