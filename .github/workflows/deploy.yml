@@ -47,11 +47,36 @@ jobs:
           ! grep -rq "__BUILD__" service-worker.js js/config.js
           echo "✓ الفحص تمام"
 
+      - name: التأكد من تفعيل GitHub Pages
+        # ⚠️ التفعيل خطوة يدوية لمرة واحدة لا يستطيعها هذا الـ workflow.
+        #    جُرّب `enablement: true` فرفضه GitHub:
+        #      Create Pages site failed — Resource not accessible by integration
+        #    السبب: توكن Actions يملك Pages: write لكن **إنشاء** موقع Pages
+        #    يتطلّب صلاحية إدارية لا تُمنح للتوكن. مالك المستودع وحده يفعّلها.
+        #
+        #    هذه الخطوة تشرح ذلك بالعربية بدل خطأ API غامض بعد ثلاث خطوات.
+        run: |
+          status=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer ${{ github.token }}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${{ github.repository }}/pages")
+
+          if [ "$status" = "404" ]; then
+            echo "::error title=GitHub Pages غير مفعّل::خطوة يدوية مطلوبة لمرة واحدة"
+            echo ""
+            echo "  Pages لسه متفعّلش على المستودع، والنشر مش هيشتغل من غيره."
+            echo ""
+            echo "  افتح: https://github.com/${{ github.repository }}/settings/pages"
+            echo "  وتحت Source اختار: GitHub Actions"
+            echo ""
+            echo "  وبعدين شغّل الـ workflow ده تاني من تبويب Actions."
+            echo "  مرة واحدة بس — بعدها كل دفعة على main هتنشر لوحدها."
+            exit 1
+          fi
+
+          echo "✓ Pages مفعّل (HTTP $status)"
+
       - uses: actions/configure-pages@v5
-        with:
-          # يفعّل Pages تلقائيًا لو لسه متفعّلش — بدل الدخول يدويًا
-          # على Settings → Pages من التابلت.
-          enablement: true
 
       - uses: actions/upload-pages-artifact@v3
         with:
