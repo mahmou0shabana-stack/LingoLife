@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512" role="img" aria-label="LingoLife">
+  <title>LingoLife</title>
+
+  <rect width="512" height="512" rx="113" fill="#2C3A5E"/>
+
+  <!-- الورقة: عدسة من قوسين متقابلين، محورها من أسفل-اليسار إلى أعلى-اليمين -->
+  <path d="M 141 371 A 237 237 0 0 1 371 141 A 237 237 0 0 1 141 371 Z" fill="#F5F1E6"/>
+
+  <!-- العِرق الأوسط -->
+  <line x1="176" y1="336" x2="336" y2="176"
+        stroke="#4B7A5B" stroke-width="24" stroke-linecap="round"/>
+</svg>

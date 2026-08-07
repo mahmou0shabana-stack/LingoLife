@@ -1,0 +1,256 @@
+/**
+ * LingoLife — تعريف الـ Schema
+ *
+ * هذا الملف هو المصدر الوحيد لتعريف الـ stores والفهارس.
+ * لا يُنشئ شيئًا بنفسه — `migrations.js` هو من يقرأ منه.
+ *
+ * ⚠️ قاعدة ملزمة: لا تعدّل تعريف store سبق نشره.
+ *    أي تغيير يُضاف كـ migration جديد برقم جديد.
+ *    راجع docs/03-architecture.md §3.6
+ */
+
+/** إصدار الـ schema الحالي — يُكتب في كل تصدير وفي manifest السحابة. */
+export const SCHEMA_VERSION = 1;
+
+/** اسم قاعدة البيانات. تغييره = عالم جديد فارغ. لا تغيّره. */
+export const DB_NAME = 'lingolife';
+
+/**
+ * حالات السجل الثلاث (بند 52 من المواصفة).
+ * ARCHIVED موجود ويُستثنى من التدفّق اليومي. TRASHED قابل للاسترجاع.
+ */
+export const STATE = Object.freeze({
+  ACTIVE: 'active',
+  ARCHIVED: 'archived',
+  TRASHED: 'trashed',
+});
+
+/**
+ * تعريف الـ stores.
+ * keyPath افتراضيًا 'id'. الفهارس مصفوفة من [اسم, keyPath, options?].
+ */
+export const STORES = {
+  /* ---------------------------------------------------------
+     نواة المحتوى
+     --------------------------------------------------------- */
+  scenes: {
+    indexes: [
+      ['date', 'date'],
+      ['state', 'state'],
+      ['type', 'type'],
+      ['placeId', 'placeId'],
+      ['updatedAt', 'updatedAt'],
+      ['dirty', 'dirty'],
+      ['state_date', ['state', 'date']],
+    ],
+  },
+
+  /** الوسائط — الـ Blob الأصلي يعيش هنا، بلا أي إعادة ترميز. */
+  media: {
+    indexes: [
+      ['kind', 'kind'],
+      ['state', 'state'],
+      ['createdAt', 'createdAt'],
+      ['dirty', 'dirty'],
+      ['contentHash', 'contentHash'],
+    ],
+  },
+
+  /** الربط ن:م بين المشهد والوسائط + الترتيب + الأدوار. */
+  sceneMediaLinks: {
+    indexes: [
+      ['sceneId', 'sceneId'],
+      ['mediaId', 'mediaId'],
+      ['scene_order', ['sceneId', 'order']],
+      ['roles', 'roles', { multiEntry: true }],
+    ],
+  },
+
+  scripts: {
+    indexes: [
+      ['sceneId', 'sceneId'],
+      ['type', 'type'],
+      ['state', 'state'],
+      ['scene_primary', ['sceneId', 'isPrimary']],
+    ],
+  },
+
+  /** تاريخ نسخ السكريبتات — لا يُحذف أبدًا (بند 28). */
+  scriptVersions: {
+    indexes: [
+      ['scriptId', 'scriptId'],
+      ['script_version', ['scriptId', 'version']],
+    ],
+  },
+
+  /** كتل النصوص: rawTranscript / cleanTranscript / notes / context */
+  contentBlocks: {
+    indexes: [
+      ['sceneId', 'sceneId'],
+      ['kind', 'kind'],
+      ['scene_kind', ['sceneId', 'kind']],
+    ],
+  },
+
+  contentVersions: {
+    indexes: [
+      ['blockId', 'blockId'],
+      ['block_version', ['blockId', 'version']],
+    ],
+  },
+
+  conversations: {
+    indexes: [['sceneId', 'sceneId']],
+  },
+
+  conversationParts: {
+    indexes: [
+      ['conversationId', 'conversationId'],
+      ['conv_order', ['conversationId', 'order']],
+      ['personId', 'personId'],
+    ],
+  },
+
+  /* ---------------------------------------------------------
+     اللغة
+     --------------------------------------------------------- */
+
+  /** التعبير ككيان عالمي واحد، لا نسخة داخل كل مشهد. */
+  expressions: {
+    indexes: [
+      ['normalizedText', 'normalizedText', { unique: true }],
+      ['register', 'register'],
+      ['masteryState', 'masteryState'],
+      ['state', 'state'],
+    ],
+  },
+
+  /** قلب Expression Life: كل ظهور بتاريخه ومصدره (بند 38). */
+  expressionOccurrences: {
+    indexes: [
+      ['expressionId', 'expressionId'],
+      ['sceneId', 'sceneId'],
+      ['expr_time', ['expressionId', 'occurredAt']],
+      ['kind', 'kind'],
+    ],
+  },
+
+  sentencePatterns: {
+    indexes: [
+      ['normalizedText', 'normalizedText', { unique: true }],
+      ['state', 'state'],
+    ],
+  },
+
+  words: {
+    indexes: [
+      ['normalizedText', 'normalizedText', { unique: true }],
+      ['lemma', 'lemma'],
+      ['pos', 'pos'],
+      ['state', 'state'],
+    ],
+  },
+
+  /** Before / Natural — الميزة المميِّزة (بند 30). */
+  mistakeComparisons: {
+    indexes: [
+      ['sceneId', 'sceneId'],
+      ['expressionId', 'expressionId'],
+      ['mistakeType', 'mistakeType'],
+      ['state', 'state'],
+    ],
+  },
+
+  /* ---------------------------------------------------------
+     التنظيم
+     --------------------------------------------------------- */
+  people: { indexes: [['normalizedName', 'normalizedName'], ['state', 'state']] },
+  places: { indexes: [['normalizedName', 'normalizedName'], ['state', 'state']] },
+  journeys: { indexes: [['normalizedName', 'normalizedName'], ['state', 'state']] },
+  topics: { indexes: [['normalizedName', 'normalizedName'], ['state', 'state']] },
+  tags: { indexes: [['normalizedName', 'normalizedName'], ['state', 'state']] },
+
+  /** محرك العلاقات — يجعل "ظهر في 7 مشاهد" استعلامًا واحدًا (بند 56). */
+  relationships: {
+    indexes: [
+      ['fromId', 'fromId'],
+      ['toId', 'toId'],
+      ['type', 'type'],
+      ['from_type', ['fromId', 'type']],
+      ['to_type', ['toId', 'type']],
+    ],
+  },
+
+  /* ---------------------------------------------------------
+     المراجعة والبحث
+     --------------------------------------------------------- */
+  reviewItems: {
+    indexes: [
+      ['dueAt', 'dueAt'],
+      ['targetType', 'targetType'],
+      ['target', ['targetType', 'targetId']],
+    ],
+  },
+
+  reviewHistory: {
+    indexes: [
+      ['itemId', 'itemId'],
+      ['reviewedAt', 'reviewedAt'],
+    ],
+  },
+
+  /** فهرس بحث معكوس يُبنى عند الحفظ لا عند البحث. */
+  searchIndex: {
+    keyPath: ['token', 'refId'],
+    indexes: [
+      ['token', 'token'],
+      ['refId', 'refId'],
+    ],
+  },
+
+  /* ---------------------------------------------------------
+     التحليل (Living Analysis)
+     --------------------------------------------------------- */
+  analysisRuns: {
+    indexes: [
+      ['sceneId', 'sceneId'],
+      ['status', 'status'],
+      ['requestId', 'requestId'],
+    ],
+  },
+
+  /** منطقة حجر — لا يدخل شيء للقاعدة قبل موافقة صريحة (بند 18). */
+  analysisProposals: {
+    indexes: [
+      ['runId', 'runId'],
+      ['decision', 'decision'],
+      ['kind', 'kind'],
+    ],
+  },
+
+  /* ---------------------------------------------------------
+     النظام
+     --------------------------------------------------------- */
+
+  /** Outbox للمزامنة مع Drive. */
+  syncQueue: {
+    indexes: [
+      ['status', 'status'],
+      ['objectType', 'objectType'],
+      ['status_created', ['status', 'createdAt']],
+    ],
+  },
+
+  settings: { keyPath: 'key', indexes: [] },
+  projectContext: { indexes: [['createdAt', 'createdAt']] },
+  promptVersions: { indexes: [['category', 'category'], ['createdAt', 'createdAt']] },
+  backupHistory: { indexes: [['createdAt', 'createdAt']] },
+};
+
+/** أسماء كل الـ stores — يُستخدم في التصدير والإحصاءات. */
+export const STORE_NAMES = Object.keys(STORES);
+
+/** الـ stores التي تُصدَّر ضمن النسخة الاحتياطية. */
+export const EXPORTABLE_STORES = STORE_NAMES.filter(
+  (name) => name !== 'searchIndex' && name !== 'syncQueue'
+);

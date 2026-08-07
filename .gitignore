@@ -1,0 +1,16 @@
+# macOS
+.DS_Store
+._*
+
+# محرّرات
+.vscode/
+.idea/
+*.swp
+
+# مخرجات محلية
+*.log
+node_modules/
+
+# ملفات تصدير محلية — لا تُرفع بيانات شخصية للمستودع
+*.llife
+lingolife-export-*.json

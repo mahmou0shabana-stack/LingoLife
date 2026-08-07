@@ -1,0 +1,263 @@
+/* ============================================================
+   LingoLife — Layout
+   الهيكل العام: هيدر، محتوى، تنقّل سفلي، حالات فارغة.
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   الهيدر
+   ------------------------------------------------------------ */
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-header);
+  background: color-mix(in srgb, var(--bg) 92%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+  padding: var(--sp-3) var(--sp-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  padding-top: calc(var(--sp-3) + env(safe-area-inset-top));
+}
+
+.app-header .brand {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: start;
+}
+
+.app-header .brand b {
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-weight: 600;
+}
+
+.app-header .brand span {
+  font-size: 10.5px;
+  color: var(--ink-faint);
+}
+
+.header-actions {
+  display: flex;
+  gap: var(--sp-2);
+}
+
+/* مؤشر حالة المزامنة/التخزين في الهيدر */
+.header-status {
+  font-size: var(--fs-xs);
+  color: var(--ink-faint);
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.header-status .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--ink-faint);
+  flex: none;
+}
+
+.header-status.ok .dot { background: var(--green); }
+.header-status.warn .dot { background: var(--amber); }
+.header-status.err .dot { background: var(--red); }
+
+/* ------------------------------------------------------------
+   المحتوى
+   ------------------------------------------------------------ */
+.app-main {
+  flex: 1;
+  width: 100%;
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--sp-5) var(--sp-4) calc(var(--nav-h) + var(--sp-6));
+}
+
+.view-head {
+  margin-bottom: var(--sp-5);
+}
+
+.view-head h1 {
+  font-size: var(--fs-xl);
+  margin-bottom: 2px;
+}
+
+.view-head .sub {
+  font-size: var(--fs-sm);
+  color: var(--ink-faint);
+}
+
+.back-row {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+  color: var(--ink-soft);
+  font-size: var(--fs-base);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: var(--sp-2) 0;
+}
+
+.back-row svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* في RTL يشير سهم الرجوع إلى اليمين */
+[dir='rtl'] .back-row svg {
+  transform: scaleX(-1);
+}
+
+/* ------------------------------------------------------------
+   التنقّل السفلي — 3 عوالم فقط (بند 5)
+   ------------------------------------------------------------ */
+.app-nav {
+  position: fixed;
+  bottom: 0;
+  inset-inline: 0;
+  z-index: var(--z-nav);
+  background: var(--surface);
+  border-top: 1px solid var(--line);
+  display: flex;
+  justify-content: space-around;
+  padding: var(--sp-2) var(--sp-2) calc(var(--sp-2) + env(safe-area-inset-bottom));
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.nav-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: none;
+  border: none;
+  color: var(--ink-faint);
+  font-size: var(--fs-xs);
+  padding: var(--sp-2) var(--sp-4);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  min-width: 64px;
+  transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+}
+
+.nav-btn svg {
+  width: 21px;
+  height: 21px;
+}
+
+.nav-btn[aria-current='page'] {
+  color: var(--accent);
+  background: var(--surface-soft);
+}
+
+/* ------------------------------------------------------------
+   زر الإضافة العائم
+   ------------------------------------------------------------ */
+.fab {
+  position: fixed;
+  bottom: calc(var(--nav-h) + var(--sp-4) + env(safe-area-inset-bottom));
+  inset-inline-end: var(--sp-5);
+  z-index: var(--z-fab);
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--ink-invert);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.fab:active {
+  transform: scale(0.93);
+}
+
+.fab svg {
+  width: 25px;
+  height: 25px;
+}
+
+.fab[hidden] {
+  display: none;
+}
+
+/* ------------------------------------------------------------
+   الحالات الفارغة
+   ------------------------------------------------------------ */
+.empty-state {
+  text-align: center;
+  padding: var(--sp-7) var(--sp-5);
+  color: var(--ink-soft);
+}
+
+.empty-state .glyph {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto var(--sp-4);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-faint);
+}
+
+.empty-state .glyph svg {
+  width: 26px;
+  height: 26px;
+}
+
+.empty-state h2 {
+  font-size: var(--fs-lg);
+  color: var(--ink);
+  margin-bottom: var(--sp-2);
+}
+
+.empty-state p {
+  font-size: var(--fs-base);
+  line-height: 1.8;
+  max-width: 40ch;
+  margin: 0 auto var(--sp-5);
+}
+
+/* ------------------------------------------------------------
+   مؤشر التحميل
+   ------------------------------------------------------------ */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-3);
+  padding: var(--sp-7);
+  color: var(--ink-faint);
+  font-size: var(--fs-sm);
+}
+
+.spinner {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--line-strong);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

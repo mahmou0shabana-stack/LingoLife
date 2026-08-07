@@ -1,0 +1,106 @@
+/* ============================================================
+   LingoLife — Design Tokens
+   اللغة البصرية منقولة من الـ prototype ومُوسَّعة.
+   لا تكتب لونًا أو مسافة مباشرة في أي ملف آخر — استخدم متغيرًا من هنا.
+   ============================================================ */
+
+:root {
+  /* ---- الأسطح والخلفيات ---- */
+  --bg: #F5F1E6;
+  --bg-alt: #EFEADC;
+  --surface: #FFFFFF;
+  --surface-soft: #FBF7EE;
+  --line: #E6DFCF;
+  --line-strong: #D6CCB5;
+
+  /* ---- النص ---- */
+  --ink: #212A3B;
+  --ink-soft: #5B6478;
+  --ink-faint: #9098A8;
+  --ink-invert: #FFFFFF;
+
+  /* ---- الهوية ---- */
+  --accent: #2C3A5E;
+  --accent-soft: #3F5480;
+  --accent-wash: #E3EAF5;
+
+  /* ---- الدلالات (لا يُعتمد على اللون وحده — دائمًا مع نص أو أيقونة) ---- */
+  --green: #4B7A5B;
+  --green-bg: #E7F0E7;
+  --amber: #B0792B;
+  --amber-bg: #F5EBD8;
+  --red: #B23A3A;
+  --red-bg: #F6E4E1;
+  --violet: #7A3E93;
+  --violet-bg: #F1E4F6;
+
+  /* ---- الأنصاف والظلال ---- */
+  --radius-xl: 22px;
+  --radius-lg: 20px;
+  --radius-md: 14px;
+  --radius-sm: 9px;
+  --radius-pill: 999px;
+
+  --shadow: 0 8px 24px rgba(33, 42, 59, 0.10);
+  --shadow-sm: 0 2px 8px rgba(33, 42, 59, 0.08);
+  --shadow-lg: 0 16px 40px rgba(33, 42, 59, 0.16);
+
+  /* ---- المسافات ---- */
+  --sp-1: 4px;
+  --sp-2: 8px;
+  --sp-3: 12px;
+  --sp-4: 16px;
+  --sp-5: 22px;
+  --sp-6: 30px;
+  --sp-7: 44px;
+
+  /* ---- الخطوط ---- */
+  --font-ar: 'Noto Naskh Arabic', 'Geeza Pro', serif;
+  --font-latin: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-display: 'Fraunces', 'Noto Naskh Arabic', Georgia, serif;
+  --font-ru: 'Fraunces', 'Inter', Georgia, serif;
+
+  --fs-xs: 11.5px;
+  --fs-sm: 13px;
+  --fs-base: 14.5px;
+  --fs-md: 15.5px;
+  --fs-lg: 19px;
+  --fs-xl: 23px;
+  --fs-2xl: 28px;
+
+  /* ---- التخطيط ---- */
+  --header-h: 62px;
+  --nav-h: 62px;
+  --content-max: 1100px;
+
+  /* ---- الحركة ---- */
+  --ease: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-fast: 0.15s;
+  --dur: 0.25s;
+
+  /* ---- الطبقات ---- */
+  --z-header: 25;
+  --z-nav: 30;
+  --z-fab: 26;
+  --z-sticky: 15;
+  --z-overlay: 50;
+  --z-lightbox: 70;
+  --z-toast: 80;
+}
+
+/* احترام تفضيل تقليل الحركة — إلزامي (بند 70 من المواصفة) */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-fast: 0.01ms;
+    --dur: 0.01ms;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

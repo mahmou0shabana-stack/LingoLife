@@ -1,0 +1,172 @@
+/**
+ * LingoLife — Service Worker
+ *
+ * ⚠️ قاعدة حاكمة: هذا الملف يتعامل مع **الكود فقط**.
+ *    بيانات المستخدم كلها في IndexedDB ولا يقترب منها أي سطر هنا.
+ *    مسح الكاش لا يمسح ولا سجلًا واحدًا من بياناتك.
+ *    راجع docs/04-storage-decision.md §4.5 الطبقة 2
+ *
+ * الاستراتيجية:
+ *   HTML/JS/CSS  → Network-first (أحدث كود دائمًا، والكاش احتياط عند انقطاع الشبكة)
+ *   الخطوط/الصور → Cache-first (لا تتغيّر)
+ *   التحديث      → إشعار للمستخدم، لا skipWaiting صامت أثناء الكتابة
+ */
+
+/** يُستبدل تلقائيًا في GitHub Action عند النشر. */
+const BUILD = '__BUILD__';
+const CACHE = `lingolife-${BUILD}`;
+
+/** هيكل التطبيق — يُخزَّن مسبقًا ليعمل offline من أول تحميل. */
+const SHELL = [
+  './',
+  './index.html',
+  './manifest.webmanifest',
+  './css/tokens.css',
+  './css/base.css',
+  './css/layout.css',
+  './css/components.css',
+  './css/responsive.css',
+  './js/app.js',
+  './js/router.js',
+  './js/config.js',
+  './js/db/schema.js',
+  './js/db/migrations.js',
+  './js/db/database.js',
+  './js/db/repository.js',
+  './js/db/repositories.js',
+  './js/services/scene-service.js',
+  './js/services/storage-service.js',
+  './js/services/export-service.js',
+  './js/utils/ids.js',
+  './js/utils/dates.js',
+  './js/utils/dom.js',
+  './js/utils/normalization.js',
+  './js/views/now-view.js',
+  './js/views/life-view.js',
+  './js/views/language-view.js',
+  './js/views/scene-view.js',
+  './js/views/settings-view.js',
+  './js/views/trash-view.js',
+  './js/components/icons.js',
+  './js/components/toast.js',
+  './js/components/modal.js',
+  './assets/icons/icon.svg',
+];
+
+/* ------------------------------------------------------------
+   التثبيت
+   ------------------------------------------------------------ */
+self.addEventListener('install', (event) => {
+  event.waitUntil(
+    (async () => {
+      const cache = await caches.open(CACHE);
+      // addAll يفشل كليًا لو سقط ملف واحد — نضيف فرديًا لنتحمّل النقص.
+      await Promise.all(
+        SHELL.map((url) =>
+          cache.add(new Request(url, { cache: 'reload' })).catch((err) => {
+            console.warn('[sw] تعذّر تخزين', url, err);
+          })
+        )
+      );
+    })()
+  );
+});
+
+/* ------------------------------------------------------------
+   التفعيل — حذف الكاشات القديمة فقط
+   ------------------------------------------------------------ */
+self.addEventListener('activate', (event) => {
+  event.waitUntil(
+    (async () => {
+      const keys = await caches.keys();
+      await Promise.all(
+        keys
+          .filter((key) => key.startsWith('lingolife-') && key !== CACHE)
+          .map((key) => caches.delete(key))
+      );
+      await self.clients.claim();
+    })()
+  );
+});
+
+/* ------------------------------------------------------------
+   التحديث بأمر المستخدم فقط
+   ------------------------------------------------------------ */
+self.addEventListener('message', (event) => {
+  if (event.data?.type === 'SKIP_WAITING') self.skipWaiting();
+  if (event.data?.type === 'GET_BUILD') {
+    event.ports[0]?.postMessage({ build: BUILD });
+  }
+});
+
+/* ------------------------------------------------------------
+   الجلب
+   ------------------------------------------------------------ */
+
+const isAsset = (url) =>
+  /\.(?:woff2?|ttf|otf|png|jpe?g|svg|webp|ico)$/i.test(url.pathname) ||
+  url.hostname === 'fonts.gstatic.com';
+
+self.addEventListener('fetch', (event) => {
+  const { request } = event;
+
+  // GET فقط. طلبات Drive وغيرها تمرّ مباشرة بلا اعتراض.
+  if (request.method !== 'GET') return;
+
+  const url = new URL(request.url);
+  const sameOrigin = url.origin === self.location.origin;
+  const isFont = url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com';
+
+  if (!sameOrigin && !isFont) return;
+
+  // الأصول الثابتة: الكاش أولًا
+  if (isAsset(url) || isFont) {
+    event.respondWith(cacheFirst(request));
+    return;
+  }
+
+  // الكود والصفحات: الشبكة أولًا
+  if (sameOrigin) {
+    event.respondWith(networkFirst(request));
+  }
+});
+
+async function cacheFirst(request) {
+  const cached = await caches.match(request);
+  if (cached) return cached;
+  try {
+    const response = await fetch(request);
+    if (response.ok || response.type === 'opaque') {
+      const cache = await caches.open(CACHE);
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch (err) {
+    return new Response('', { status: 504, statusText: 'offline' });
+  }
+}
+
+async function networkFirst(request) {
+  try {
+    const response = await fetch(request);
+    if (response.ok) {
+      const cache = await caches.open(CACHE);
+      cache.put(request, response.clone());
+    }
+    return response;
+  } catch (err) {
+    const cached = await caches.match(request);
+    if (cached) return cached;
+
+    // تنقّل بلا شبكة وبلا كاش → نعيد هيكل التطبيق (التوجيه بالـ hash يتكفّل بالباقي)
+    if (request.mode === 'navigate') {
+      const shell = await caches.match('./index.html');
+      if (shell) return shell;
+    }
+
+    return new Response('غير متصل', {
+      status: 503,
+      headers: { 'Content-Type': 'text/plain; charset=utf-8' },
+    });
+  }
+}

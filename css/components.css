@@ -1,0 +1,392 @@
+/* ============================================================
+   LingoLife — Components
+   Toast · Modal · Scene Card · Hero · Update Banner · Meter
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   Toast — مع دعم "تراجع" (بند 53)
+   ------------------------------------------------------------ */
+.toast-host {
+  position: fixed;
+  bottom: calc(var(--nav-h) + var(--sp-5) + env(safe-area-inset-bottom));
+  inset-inline: 0;
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  pointer-events: none;
+  padding: 0 var(--sp-4);
+}
+
+.toast {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  background: var(--ink);
+  color: var(--ink-invert);
+  padding: 10px var(--sp-4);
+  border-radius: var(--radius-pill);
+  font-size: 13.5px;
+  box-shadow: var(--shadow-lg);
+  pointer-events: auto;
+  max-width: 100%;
+  animation: toast-in var(--dur) var(--ease);
+}
+
+.toast.leaving {
+  animation: toast-out var(--dur) var(--ease) forwards;
+}
+
+.toast .toast-action {
+  background: none;
+  border: none;
+  color: #A8C4FF;
+  font-weight: 700;
+  font-size: 13.5px;
+  cursor: pointer;
+  padding: 2px 4px;
+  white-space: nowrap;
+}
+
+.toast.err { background: var(--red); }
+.toast.ok { background: var(--green); }
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes toast-out {
+  to { opacity: 0; transform: translateY(10px); }
+}
+
+/* ------------------------------------------------------------
+   Modal
+   ------------------------------------------------------------ */
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(20, 24, 36, 0.5);
+  z-index: var(--z-overlay);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: fade-in var(--dur-fast) var(--ease);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal {
+  background: var(--bg);
+  width: 100%;
+  max-width: 540px;
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  padding: var(--sp-5) var(--sp-4) calc(var(--sp-5) + env(safe-area-inset-bottom));
+  max-height: 90vh;
+  max-height: 90dvh;
+  overflow-y: auto;
+  animation: sheet-up var(--dur) var(--ease);
+}
+
+@keyframes sheet-up {
+  from { transform: translateY(24px); }
+  to { transform: translateY(0); }
+}
+
+.modal h2 {
+  font-size: 18px;
+  margin-bottom: var(--sp-4);
+}
+
+.modal-actions {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: var(--sp-5);
+}
+
+.modal-actions .btn {
+  flex: 1;
+}
+
+@media (min-width: 640px) {
+  .overlay { align-items: center; }
+  .modal { border-radius: var(--radius-lg); }
+}
+
+/* ------------------------------------------------------------
+   Hero — بطاقة الذكرى الكبيرة في NOW
+   ------------------------------------------------------------ */
+.hero-card {
+  position: relative;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  background: var(--ink);
+  min-height: 320px;
+  display: flex;
+  align-items: flex-end;
+  cursor: pointer;
+  border: none;
+  padding: 0;
+  width: 100%;
+  text-align: start;
+  margin-bottom: var(--sp-5);
+}
+
+.hero-card img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.82;
+}
+
+.hero-card .no-img {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(160deg, #2C3A5E, #1A2338);
+}
+
+.hero-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 30%, rgba(15, 18, 28, 0.86) 100%);
+}
+
+.hero-body {
+  position: relative;
+  z-index: 2;
+  padding: var(--sp-5);
+  color: #fff;
+  width: 100%;
+}
+
+.hero-body .eyebrow {
+  font-size: 12px;
+  opacity: 0.75;
+  margin-bottom: var(--sp-1);
+}
+
+.hero-body h2 {
+  font-size: var(--fs-xl);
+  margin-bottom: var(--sp-1);
+}
+
+.hero-body .hero-ru {
+  font-size: var(--fs-base);
+  opacity: 0.85;
+  margin-bottom: var(--sp-3);
+}
+
+.hero-body .hero-meta {
+  font-size: 12px;
+  opacity: 0.7;
+}
+
+/* ------------------------------------------------------------
+   Scene Card — عنصر القائمة في "حياتي"
+   ------------------------------------------------------------ */
+.scene-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+.scene-card {
+  display: flex;
+  gap: var(--sp-3);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  text-align: start;
+  padding: 0;
+  width: 100%;
+  transition: box-shadow var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+
+.scene-card:hover {
+  box-shadow: var(--shadow);
+}
+
+.scene-card:active {
+  transform: scale(0.995);
+}
+
+.scene-card .thumb {
+  width: 92px;
+  min-width: 92px;
+  background: var(--surface-soft);
+  position: relative;
+}
+
+.scene-card .thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.scene-card .thumb .no-img {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-faint);
+  background: linear-gradient(160deg, #EDE6D3, #DED2AE);
+}
+
+.scene-card .thumb .no-img svg {
+  width: 22px;
+  height: 22px;
+}
+
+.scene-card .body {
+  padding: var(--sp-3);
+  padding-inline-start: 0;
+  flex: 1;
+  min-width: 0;
+}
+
+.scene-card .meta-row {
+  font-size: var(--fs-xs);
+  color: var(--ink-faint);
+  margin-bottom: 3px;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.scene-card h3 {
+  font-size: var(--fs-md);
+  margin-bottom: 2px;
+}
+
+.scene-card .ru {
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* مجموعة زمنية في الخط الزمني */
+.timeline-group {
+  margin-bottom: var(--sp-6);
+}
+
+.timeline-group > .group-label {
+  font-family: var(--font-display);
+  font-size: var(--fs-md);
+  color: var(--ink-soft);
+  margin-bottom: var(--sp-3);
+  display: flex;
+  align-items: baseline;
+  gap: var(--sp-2);
+}
+
+.timeline-group > .group-label .count {
+  font-size: var(--fs-xs);
+  color: var(--ink-faint);
+  font-family: var(--font-ar);
+}
+
+/* ------------------------------------------------------------
+   شريط التحديث — بديل skipWaiting الصامت
+   ------------------------------------------------------------ */
+.update-banner {
+  position: fixed;
+  inset-inline: 0;
+  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom));
+  z-index: var(--z-toast);
+  background: var(--accent);
+  color: var(--ink-invert);
+  padding: var(--sp-3) var(--sp-4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-4);
+  font-size: var(--fs-sm);
+  box-shadow: var(--shadow-lg);
+}
+
+.update-banner button {
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* ------------------------------------------------------------
+   مقياس التخزين
+   ------------------------------------------------------------ */
+.meter {
+  height: 8px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-alt);
+  overflow: hidden;
+  margin: var(--sp-2) 0;
+}
+
+.meter > span {
+  display: block;
+  height: 100%;
+  background: var(--accent);
+  border-radius: var(--radius-pill);
+  transition: width var(--dur) var(--ease);
+}
+
+.meter.warn > span { background: var(--amber); }
+.meter.danger > span { background: var(--red); }
+
+/* صف بيانات (مفتاح/قيمة) */
+.kv-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--sp-3);
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: var(--fs-sm);
+}
+
+.kv-row:last-child {
+  border-bottom: none;
+}
+
+.kv-row .k {
+  color: var(--ink-soft);
+}
+
+.kv-row .v {
+  color: var(--ink);
+  font-weight: 600;
+  text-align: end;
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: var(--sp-4);
+  margin-bottom: var(--sp-4);
+  box-shadow: var(--shadow-sm);
+}
+
+.panel > h3 {
+  font-size: var(--fs-md);
+  margin-bottom: var(--sp-3);
+}

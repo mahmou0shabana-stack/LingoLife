@@ -1,0 +1,10 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "lingolife",
+      "url": "http://localhost:8124",
+      "port": 8124
+    }
+  ]
+}

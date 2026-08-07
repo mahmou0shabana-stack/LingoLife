@@ -1,0 +1,101 @@
+/**
+ * LingoLife — تطبيع النصوص للبحث (بند 43)
+ *
+ * الهدف: أن يجد البحث "ещё" عند كتابة "еще"، و"المطابقة" عند كتابة "مطابقه".
+ * تُستخدم أيضًا لبناء `normalizedText` الذي يمنع تكرار التعبيرات.
+ */
+
+/** محارف التشكيل العربي. */
+const AR_DIACRITICS = /[ً-ْٰـ]/g;
+
+/**
+ * تطبيع الروسية:
+ *  - ё → е (المتحدثون يكتبونها بالشكلين)
+ *  - أحرف صغيرة
+ */
+export function normalizeRussian(text) {
+  return (text || '').toLowerCase().replace(/ё/g, 'е');
+}
+
+/**
+ * تطبيع العربية:
+ *  - إزالة التشكيل والتطويل
+ *  - أ/إ/آ → ا
+ *  - ى → ي  ·  ة → ه  ·  ؤ/ئ → ء
+ */
+export function normalizeArabic(text) {
+  return (text || '')
+    .replace(AR_DIACRITICS, '')
+    .replace(/[أإآٱ]/g, 'ا')
+    .replace(/ى/g, 'ي')
+    .replace(/ة/g, 'ه')
+    .replace(/[ؤئ]/g, 'ء');
+}
+
+/**
+ * التطبيع الشامل — يُطبَّق على أي نص قبل الفهرسة أو المقارنة.
+ * يوحّد المسافات ويزيل الترقيم ويطبّع العربية والروسية معًا.
+ */
+export function normalize(text) {
+  if (!text) return '';
+  let out = String(text).toLowerCase();
+  out = out.normalize('NFKC');
+  out = normalizeRussian(out);
+  out = normalizeArabic(out);
+  // ترقيم لاتيني وعربي وروسي
+  out = out.replace(/[.,!?;:()[\]{}"'«»—–\-_/\\|@#$%^&*+=~`،؛؟…]/g, ' ');
+  out = out.replace(/\s+/g, ' ').trim();
+  return out;
+}
+
+/** أرقام عربية-هندية إلى لاتينية. */
+export function normalizeDigits(text) {
+  return (text || '').replace(/[٠-٩]/g, (d) =>
+    String(d.charCodeAt(0) - 0x0660)
+  );
+}
+
+/** كلمات وقف — لا فائدة من فهرستها. */
+const STOP_WORDS = new Set([
+  // عربية
+  'في', 'من', 'الى', 'الي', 'على', 'عن', 'مع', 'هذا', 'هذه', 'ذلك', 'التي', 'الذي',
+  'ان', 'انا', 'كان', 'كانت', 'هو', 'هي', 'ما', 'لا', 'يا', 'او', 'و',
+  // روسية
+  'и', 'в', 'на', 'с', 'по', 'не', 'что', 'это', 'как', 'а', 'но', 'к', 'у', 'же',
+  'из', 'за', 'то', 'о', 'для',
+  // إنجليزية
+  'the', 'a', 'an', 'of', 'to', 'in', 'is', 'it', 'and', 'or', 'for', 'on', 'at',
+]);
+
+/**
+ * يقسّم نصًا إلى رموز (tokens) صالحة للفهرسة.
+ * يتجاهل الرموز الأقصر من حرفين وكلمات الوقف.
+ */
+export function tokenize(text) {
+  const normalized = normalize(text);
+  if (!normalized) return [];
+  return [...new Set(
+    normalized
+      .split(' ')
+      .filter((token) => token.length >= 2 && !STOP_WORDS.has(token))
+  )];
+}
+
+/**
+ * هل يطابق النص عبارة البحث؟ (بحث بسيط "يحتوي")
+ * للعبارة الدقيقة ضع البحث بين علامتَي اقتباس.
+ */
+export function matches(haystack, needle) {
+  if (!needle) return true;
+  const query = needle.trim();
+
+  // بحث بالعبارة الدقيقة
+  if (query.length > 1 && query.startsWith('"') && query.endsWith('"')) {
+    return normalize(haystack).includes(normalize(query.slice(1, -1)));
+  }
+
+  const terms = tokenize(query);
+  if (!terms.length) return normalize(haystack).includes(normalize(query));
+  const hay = normalize(haystack);
+  return terms.every((term) => hay.includes(term));
+}

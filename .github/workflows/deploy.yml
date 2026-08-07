@@ -1,0 +1,57 @@
+name: نشر LingoLife على GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# نشرة واحدة في المرة. لا نلغي نشرة جارية حتى لا يبقى الموقع نصف محدَّث.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: ختم رقم البناء
+        # يستبدل __BUILD__ في service-worker.js و js/config.js.
+        # رقم البناء هو اسم الكاش — تغييره يجعل المتصفح يجلب الكود الجديد
+        # ويحذف الكاش القديم، بلا أي مساس بـ IndexedDB.
+        run: |
+          BUILD="$(date -u +%Y%m%d-%H%M%S)-${GITHUB_SHA::7}"
+          echo "رقم البناء: $BUILD"
+          sed -i "s/__BUILD__/$BUILD/g" service-worker.js js/config.js
+          grep -n "$BUILD" service-worker.js js/config.js
+
+      - name: فحص سريع لصحة الملفات
+        run: |
+          set -e
+          for f in index.html manifest.webmanifest service-worker.js js/app.js; do
+            test -f "$f" || { echo "ملف ناقص: $f"; exit 1; }
+          done
+          # التأكد من أن الـ JSON سليم
+          python3 -c "import json;json.load(open('manifest.webmanifest'))"
+          # التأكد من عدم بقاء أي placeholder
+          ! grep -rq "__BUILD__" service-worker.js js/config.js
+          echo "✓ الفحص تمام"
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
