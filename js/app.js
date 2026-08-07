@@ -33,6 +33,8 @@ import { renderLife } from './views/life-view.js';
 import { renderLanguage } from './views/language-view.js';
 import { renderScene } from './views/scene-view.js';
 import { renderSettings, handleSettingsAction } from './views/settings-view.js';
+import { renderShadow, disposeShadow } from './views/shadow-view.js';
+import { createSession, sessionsForSource, SOURCE_TYPE } from './services/shadow/shadow-session-service.js';
 import { renderTrash, handleTrashAction } from './views/trash-view.js';
 
 const main = $('#app-main');
@@ -47,6 +49,10 @@ const ui = { activeScriptId: null };
 
 function view(renderFn, opts = {}) {
   return async (params) => {
+    // مغادرة شاشة الظلّ لا بد أن توقف المحرّك، وإلا ظلّ الصوت شغّالًا
+    // في الخلفية بعد الانتقال لشاشة أخرى.
+    if (renderFn !== renderShadow) disposeShadow();
+
     main.innerHTML = '<div class="loading"><span class="spinner"></span> لحظة…</div>';
     try {
       await renderFn(main, params?.id, opts.passUi ? ui : undefined);
@@ -533,6 +539,9 @@ function wireActions() {
         return;
       }
 
+      /* ---- الظلّ ---- */
+      case 'shadow-script': return openShadowForScript(id, sceneId);
+
       /* ---- المشهد ---- */
       case 'edit-scene': return openEditSceneModal(id);
 
@@ -676,6 +685,49 @@ async function registerServiceWorker() {
 }
 
 /* ============================================================
+   الظلّ
+   ============================================================ */
+
+/**
+ * يفتح الظلّ على سكريبت — **بلا نسخ ولصق**.
+ *
+ * لو فيه جلسة سابقة على نفس السكريبت نستأنفها بدل إنشاء واحدة
+ * جديدة: تكراراتك السابقة وموضعك جزء من عملك، لا شيء يُرمى.
+ */
+async function openShadowForScript(scriptId, sceneId) {
+  const script = await scripts.get(scriptId);
+  if (!script?.text?.trim()) {
+    return toastError('السكريبت ده فاضي — مفيش حاجة نتدرّب عليها');
+  }
+
+  const existing = await sessionsForSource(SOURCE_TYPE.SCRIPT, scriptId);
+  if (existing.length) {
+    const resume = existing.sort(
+      (a, b) => (b.lastPracticedAt || b.createdAt) - (a.lastPracticedAt || a.createdAt)
+    )[0];
+    return navigate(`/shadow/${resume.id}`);
+  }
+
+  const scene = sceneId ? await scenes.get(sceneId) : null;
+
+  try {
+    const { session, segments } = await createSession({
+      title: scene?.titleAr || script.title || 'تدريب بالظلّ',
+      sourceType: SOURCE_TYPE.SCRIPT,
+      sourceId: scriptId,
+      sourceVersion: script.rev ?? null,
+      sceneId: sceneId || script.sceneId || null,
+      text: script.text,
+    });
+    toastOk(`${segments.length} جملة جاهزة للتدريب`);
+    navigate(`/shadow/${session.id}`);
+  } catch (error) {
+    console.error(error);
+    toastError(error.message);
+  }
+}
+
+/* ============================================================
    الإقلاع
    ============================================================ */
 async function boot() {
@@ -705,6 +757,7 @@ async function boot() {
   route('/language', view(renderLanguage));
   route('/scene/:id', view(renderScene, { passUi: true }));
   route('/settings', view(renderSettings));
+  route('/shadow/:id', view(renderShadow));
   route('/trash', view(renderTrash));
   notFound(() => navigate('/', { replace: true }));
 

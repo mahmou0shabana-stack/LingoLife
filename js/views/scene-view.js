@@ -187,6 +187,10 @@ function sectionScripts(scene, scriptList, activeId) {
         <button class="mini-btn" data-action="copy-script" data-id="${active.id}">
           ${raw(icon('copy'))} نسخ
         </button>
+        <button class="mini-btn" data-action="shadow-script"
+          data-id="${active.id}" data-scene="${scene.id}">
+          ${raw(icon('play'))} تدرّب بالظلّ
+        </button>
         ${raw(
           active.isPrimary
             ? ''

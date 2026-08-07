@@ -1,0 +1,324 @@
+/* ══════════════════════════════════════════════════════════════
+   LingoLife — الظلّ: كتاب مفتوح بصفحتين
+
+   الفكرة: صفحة تقول «مِمَّ أتعلّم» وصفحة تقول «كيف أجعله لي».
+   ليستا شاشتين منفصلتين — هما وجها الورقة نفسها.
+
+   التابلت أفقيًا: صفحتان جنبًا إلى جنب (تجربة الظلّ الأساسية).
+   الموبايل رأسيًا: المصدر فوق والممارسة تحت، بفاصل قابل للسحب.
+   ══════════════════════════════════════════════════════════════ */
+
+.shadow-book {
+  display: flex;
+  flex-direction: column;
+  height: calc(100dvh - var(--header-h, 60px) - var(--nav-h, 64px));
+  gap: 0;
+  margin: calc(var(--sp-4) * -1);
+  background: var(--bg);
+}
+
+/* ─ الرأس: العنوان والموضع والخروج ─ */
+.shadow-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-4);
+  border-bottom: 1px solid var(--line);
+  background: var(--card);
+  flex: 0 0 auto;
+}
+
+.shadow-head h1 {
+  font-size: var(--fs-base);
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+}
+
+.shadow-pos {
+  font-variant-numeric: tabular-nums;
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+  white-space: nowrap;
+}
+
+/* ─ جسم الكتاب ─ */
+.shadow-pages {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+
+.shadow-page {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  min-height: 0;
+}
+
+.shadow-source {
+  flex: 1 1 var(--split, 60%);
+  padding: var(--sp-4);
+  background: var(--bg);
+}
+
+.shadow-practice {
+  flex: 1 1 auto;
+  padding: var(--sp-4);
+  background: var(--card);
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+}
+
+/* ─ الفاصل القابل للسحب ─ */
+.shadow-divider {
+  flex: 0 0 auto;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  cursor: row-resize;
+  touch-action: none;
+  background: var(--card);
+  border-top: 1px solid var(--line);
+}
+
+.shadow-divider::after {
+  content: '';
+  width: 46px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.shadow-divider:active::after { background: var(--accent); }
+
+/* ─ صفحة المصدر: الجمل ─ */
+.shadow-line {
+  display: block;
+  width: 100%;
+  text-align: start;
+  font: inherit;
+  padding: var(--sp-3);
+  margin-bottom: var(--sp-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--ink-soft);
+  line-height: 1.9;
+  cursor: pointer;
+  transition: background .15s, color .15s;
+}
+
+.shadow-line:hover { background: var(--accent-wash); }
+
+/* الجملة الجارية — الرابط البصري بين الصفحتين */
+.shadow-line.current {
+  background: var(--accent-wash);
+  border-color: var(--accent-line);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.shadow-line.practiced { color: var(--ink); }
+
+.shadow-line-meta {
+  display: block;
+  font-size: var(--fs-xs, 12px);
+  color: var(--ink-faint, var(--ink-soft));
+  margin-top: 2px;
+}
+
+.shadow-line.difficult { border-inline-start: 3px solid var(--amber); }
+
+/* ─ صفحة الممارسة ─ */
+.shadow-current {
+  font-size: clamp(20px, 4.2vw, 30px);
+  line-height: 1.7;
+  text-align: center;
+  padding: var(--sp-4) var(--sp-3);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  border: 1px solid var(--line);
+  direction: ltr;
+  min-height: 3.4em;
+  display: grid;
+  place-items: center;
+}
+
+.shadow-current.speaking {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-wash);
+}
+
+.shadow-translation {
+  text-align: center;
+  color: var(--ink-soft);
+  font-size: var(--fs-sm);
+  min-height: 1.4em;
+}
+
+/* ─ شريط التكرار ─ */
+.shadow-meter {
+  height: 5px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+
+.shadow-meter > span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--accent);
+  transition: width .18s;
+}
+
+/* ─ أزرار التحكّم ─ */
+.shadow-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+}
+
+.shadow-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink);
+  display: grid;
+  place-items: center;
+  font-size: 18px;
+  cursor: pointer;
+}
+
+.shadow-btn:active { transform: scale(.94); }
+.shadow-btn[disabled] { opacity: .35; cursor: default; }
+
+.shadow-btn.primary {
+  width: 62px;
+  height: 62px;
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-size: 24px;
+}
+
+/* ─ الكلمات ─ */
+.shadow-words {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  justify-content: center;
+  direction: ltr;
+}
+
+.shadow-word {
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--ink);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+.shadow-word.selected {
+  background: var(--accent-wash);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.shadow-word.speaking { box-shadow: 0 0 0 3px var(--accent-wash); }
+
+/* ─ صفّ الإعدادات السريعة ─ */
+.shadow-quick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  justify-content: center;
+}
+
+.shadow-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--line);
+  background: var(--bg);
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.shadow-chip b {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.shadow-chip.on {
+  background: var(--accent-wash);
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   من 900px: الكتاب يُفتح أفقيًا — صفحتان متجاورتان.
+   هذه هي تجربة التابلت الأساسية للظلّ.
+   ══════════════════════════════════════════════════════════════ */
+@media (min-width: 900px) {
+  .shadow-pages { flex-direction: row; }
+
+  .shadow-source {
+    flex: 0 0 var(--split, 62%);
+    border-inline-end: 1px solid var(--line);
+  }
+
+  .shadow-practice {
+    flex: 1;
+    border-top: 0;
+    justify-content: center;
+  }
+
+  .shadow-divider {
+    height: auto;
+    width: 22px;
+    cursor: col-resize;
+    border-top: 0;
+  }
+
+  .shadow-divider::after {
+    width: 4px;
+    height: 46px;
+  }
+}
+
+/* وضع التركيز — صفحة واحدة تملأ الكتاب */
+.shadow-book.focus-source .shadow-practice,
+.shadow-book.focus-source .shadow-divider { display: none; }
+.shadow-book.focus-practice .shadow-source,
+.shadow-book.focus-practice .shadow-divider { display: none; }
+.shadow-book.focus-source .shadow-source,
+.shadow-book.focus-practice .shadow-practice { flex: 1 1 100%; }
+
+/* تنبيه تغيّر المصدر */
+.shadow-stale {
+  margin: 0 0 var(--sp-3);
+  padding: var(--sp-3);
+  border-radius: var(--radius-md);
+  background: var(--amber-bg);
+  border: 1px solid var(--amber-line);
+  color: var(--amber);
+  font-size: var(--fs-sm);
+  line-height: 1.7;
+}
+
+.shadow-stale .btn { margin-top: var(--sp-2); }
