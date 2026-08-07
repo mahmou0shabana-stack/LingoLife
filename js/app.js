@@ -10,7 +10,7 @@ import { cleanupStaleSlot } from './services/backup/restore.js';
 import { route, notFound, startRouter, navigate, back, refresh, getCurrentRoute } from './router.js';
 import { requestPersistence, estimateStorage, storageLevel } from './services/storage-service.js';
 import { createScene, trashScene, restoreScene } from './services/scene-service.js';
-import { scenes, media, scripts, contentBlocks } from './db/repositories.js';
+import { scenes, media, scripts, contentBlocks, sceneMediaLinks } from './db/repositories.js';
 import {
   addFilesToScene, pickFiles, setCover, removeFromScene, undoRemove,
   urlFor, releaseUrls, startRecording, canRecord, AUDIO_ROLE,
@@ -28,7 +28,10 @@ import { SCENE_TYPES } from './config.js';
 import { icon } from './components/icons.js';
 import { toast, toastOk, toastError } from './components/toast.js';
 import { showModal, confirmAction } from './components/modal.js';
-import { stopAllAudio } from './components/audio-player.js';
+import { api as audio } from './services/audio-service.js';
+import { closeAudioPanel } from './components/audio-player.js';
+import { mountMiniPlayer } from './components/mini-player.js';
+import { LINK, AUDIO_TAGS, link, unlink, resolveLinks, setTags } from './services/link-service.js';
 
 import { renderNow } from './views/now-view.js';
 import { renderLife } from './views/life-view.js';
@@ -54,8 +57,9 @@ function view(renderFn, opts = {}) {
     // مغادرة شاشة الظلّ لا بد أن توقف المحرّك، وإلا ظلّ الصوت شغّالًا
     // في الخلفية بعد الانتقال لشاشة أخرى.
     if (renderFn !== renderShadow) disposeShadow();
-    // الانتقال لشاشة أخرى يوقف أي صوت شغّال — لا صوت بلا مصدر مرئي.
-    stopAllAudio();
+    // ⚠️ لا نوقف الصوت عند التنقّل. المشغّل يعيش خارج الشاشات عمدًا،
+    //    فتسمع تسجيلك وأنت تقرأ سكريبت ذكرى أخرى — والشريط المصغّر
+    //    يبقى ظاهرًا في كل الشاشات.
 
     main.innerHTML = '<div class="loading"><span class="spinner"></span> لحظة…</div>';
     try {
@@ -598,17 +602,26 @@ function wireActions() {
         const record = await media.get(id);
         if (!record?.blob) return toastError('الملف مش موجود');
 
+        const scene = sceneId ? await scenes.get(sceneId) : null;
+        await audio.load({
+          mediaId: record.id,
+          url: urlFor(record, { thumb: false }),
+          title: record.caption || record.filename || 'تسجيل',
+          subtitle: scene?.titleAr || '',
+        });
+
         const row = target.closest('.voice-row');
-        // ضغطة ثانية على نفس الصفّ تطوي المشغّل بدل فتح ثانٍ.
         const open = row?.nextElementSibling;
         if (open?.classList.contains('aplayer')) {
-          stopAllAudio();
+          // ضغطة ثانية تطوي اللوحة — **والصوت يكمل** في الشريط
+          // المصغّر. الطيّ إخفاء تحكّم لا إيقاف تشغيل.
+          closeAudioPanel();
           return;
         }
 
         const { createAudioPlayer } = await import('./components/audio-player.js');
         const player = createAudioPlayer({
-          url: urlFor(record, { thumb: false }),
+          mediaId: record.id,
           title: record.caption || record.filename || 'تسجيل',
           async onDelete() {
             const ok = await confirmAction({
@@ -619,7 +632,7 @@ function wireActions() {
             });
             if (!ok) return;
             const linkId = await removeFromScene(sceneId, id);
-            stopAllAudio();
+            audio.clear();
             toast('اتشال التسجيل', {
               actionLabel: 'تراجع',
               onAction: async () => {
@@ -978,6 +991,129 @@ async function openShadowFromImage(mediaId, sceneId) {
   }
 }
 
+/**
+ * ربط وسيط بالنصوص وبالوسائط الأخرى، وتصنيفه.
+ *
+ * الذكرى ليست أكوامًا منفصلة: **هذه الصورة** لها **هذا السكريبت**
+ * و**هذا التسجيل**. بدون ربط صريح تبقى المطابقة في رأسك وحدك.
+ */
+async function openLinksModal(mediaId, sceneId) {
+  const record = await media.get(mediaId);
+  if (!record) return;
+
+  const isAudio = record.kind === 'audio';
+  const [sceneScripts, sceneMedia, existing] = await Promise.all([
+    scripts.byIndex('sceneId', sceneId),
+    (async () => {
+      const links = await sceneMediaLinks.byIndex('sceneId', sceneId);
+      const rows = await Promise.all(links.map((l) => media.get(l.mediaId)));
+      return rows.filter((m) => m && m.id !== mediaId);
+    })(),
+    resolveLinks(mediaId),
+  ]);
+
+  const linkedIds = new Set(existing.map((e) => e.entity.id));
+  const tags = record.tags || [];
+
+  // الصوت يُربط بالصور، والصورة تُربط بالأصوات — الطرف المقابل دائمًا.
+  const others = sceneMedia.filter((m) => (isAudio ? m.kind === 'image' : m.kind === 'audio'));
+  const pairKind = isAudio ? LINK.AUDIO_IMAGE : LINK.IMAGE_SCRIPT;
+  const scriptKind = isAudio ? LINK.AUDIO_SCRIPT : LINK.IMAGE_SCRIPT;
+
+  let form = null;
+  await showModal({
+    title: isAudio ? 'اربط التسجيل وصنّفه' : 'اربط الصورة',
+    submitLabel: 'احفظ',
+    body: html`
+      <p class="text-soft text-sm" style="margin-bottom:var(--sp-3)">
+        ${record.caption || record.filename}
+      </p>
+
+      ${raw(
+        isAudio
+          ? html`<div class="field">
+              <label>التصنيف</label>
+              <div class="tag-pick">
+                ${raw(
+                  AUDIO_TAGS.map(
+                    (tag) => html`<label class="tag-chip${tags.includes(tag) ? ' on' : ''}">
+                      <input type="checkbox" name="tag:${tag}" ${tags.includes(tag) ? 'checked' : ''} />
+                      <span>${tag}</span>
+                    </label>`
+                  ).join('')
+                )}
+              </div>
+            </div>`
+          : ''
+      )}
+
+      ${raw(
+        sceneScripts.length
+          ? html`<div class="field">
+              <label>${isAudio ? 'بينطق أنهي سكريبت؟' : 'أنهي سكريبت بيشرحها؟'}</label>
+              ${raw(
+                sceneScripts
+                  .map(
+                    (sc) => html`<label class="pick-row">
+                      <input type="checkbox" name="script:${sc.id}" ${linkedIds.has(sc.id) ? 'checked' : ''} />
+                      <span dir="ltr">${(sc.text || '').slice(0, 90) || sc.title || 'سكريبت'}</span>
+                    </label>`
+                  )
+                  .join('')
+              )}
+            </div>`
+          : html`<p class="field-hint">مفيش سكريبتات في الذكرى دي لسه.</p>`
+      )}
+
+      ${raw(
+        others.length
+          ? html`<div class="field">
+              <label>${isAudio ? 'التسجيل ده بتاع أنهي صورة؟' : 'أنهي تسجيل صوت الصورة دي؟'}</label>
+              ${raw(
+                others
+                  .map(
+                    (m) => html`<label class="pick-row">
+                      <input type="checkbox" name="media:${m.id}" ${linkedIds.has(m.id) ? 'checked' : ''} />
+                      <span>${m.caption || m.filename}</span>
+                    </label>`
+                  )
+                  .join('')
+              )}
+            </div>`
+          : ''
+      )}`,
+    onSubmit(data, close) {
+      form = data;
+      close();
+    },
+  });
+
+  if (!form) return;
+
+  const keys = Object.keys(form);
+  const picked = (prefix) =>
+    new Set(keys.filter((k) => k.startsWith(prefix)).map((k) => k.slice(prefix.length)));
+
+  const wantScripts = picked('script:');
+  const wantMedia = picked('media:');
+
+  // نُطبّق الفرق فقط: نربط الجديد ونفكّ ما أُزيل.
+  await Promise.all([
+    ...[...wantScripts].map((id) => link(mediaId, id, scriptKind)),
+    ...[...wantMedia].map((id) => link(mediaId, id, pairKind)),
+    ...existing
+      .filter((e) => !wantScripts.has(e.entity.id) && !wantMedia.has(e.entity.id))
+      .map((e) => unlink(mediaId, e.entity.id, e.kind)),
+  ]);
+
+  if (isAudio) {
+    await setTags(mediaId, [...picked('tag:')]);
+  }
+
+  toastOk('اتحفظت الروابط');
+  reloadScene(sceneId);
+}
+
 /* ============================================================
    الإقلاع
    ============================================================ */
@@ -1013,6 +1149,12 @@ async function boot() {
   notFound(() => navigate('/', { replace: true }));
 
   wireActions();
+  // اللوحة لا تعرف شاشات التطبيق فتُطلق حدثًا، ونحن نفتح النافذة.
+  document.body.addEventListener('audio:links', (event) => {
+    const sceneId = getCurrentRoute()?.params?.id || getCurrentRoute()?.path?.split('/')[2];
+    openLinksModal(event.detail.mediaId, sceneId);
+  });
+  mountMiniPlayer();
   registerServiceWorker();
 
   // تحرير روابط الكائنات عند مغادرة الصفحة

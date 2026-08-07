@@ -6,7 +6,8 @@
  */
 
 import { describe, it, expect } from './test-runner.js';
-import { createAudioPlayer, stopAllAudio } from '../js/components/audio-player.js';
+import { createAudioPlayer, stopAllAudio, closeAudioPanel } from '../js/components/audio-player.js';
+import { api as audio } from '../js/services/audio-service.js';
 
 /** WAV صامت صالح — المتصفّح يقرأ ميتاداتاه فعلًا. */
 function silentWav(seconds = 1) {
@@ -32,16 +33,20 @@ function silentWav(seconds = 1) {
   return URL.createObjectURL(new Blob([buffer], { type: 'audio/wav' }));
 }
 
-function mount() {
-  const url = silentWav();
-  const player = createAudioPlayer({ url, title: 'تجربة' });
+let counter = 0;
+
+/** يحمّل مقطعًا في الخدمة ويفتح لوحته. */
+async function mount() {
+  const mediaId = `MED_TEST_${++counter}`;
+  await audio.load({ mediaId, url: silentWav(2), title: 'تجربة' }).catch(() => {});
+  const player = createAudioPlayer({ mediaId, title: 'تجربة' });
   document.body.append(player.element);
   return player;
 }
 
 describe('مشغّل الصوت', () => {
-  it('يبني كل عناصر التحكّم', () => {
-    const player = mount();
+  it('يبني كل عناصر التحكّم', async () => {
+    const player = await mount();
     const root = player.element;
     for (const name of ['toggle', 'back', 'fwd', 'rate', 'reps', 'loop', 'ab']) {
       expect(Boolean(root.querySelector(`[data-ap="${name}"]`))).toBeTruthy();
@@ -50,17 +55,17 @@ describe('مشغّل الصوت', () => {
   });
 
   it('يعرض زرّ الحذف فقط عند تمرير onDelete', () => {
-    const withDelete = createAudioPlayer({ url: silentWav(), onDelete: () => {} });
+    const withDelete = createAudioPlayer({ mediaId: 'A', onDelete: () => {} });
     expect(Boolean(withDelete.element.querySelector('[data-ap="del"]'))).toBeTruthy();
     withDelete.destroy();
 
-    const without = createAudioPlayer({ url: silentWav() });
+    const without = createAudioPlayer({ mediaId: 'B' });
     expect(Boolean(without.element.querySelector('[data-ap="del"]'))).toBeFalsy();
     without.destroy();
   });
 
-  it('يدوّر السرعة في سلّمها', () => {
-    const player = mount();
+  it('يدوّر السرعة في سلّمها', async () => {
+    const player = await mount();
     const rate = player.element.querySelector('[data-ap="rate"]');
     expect(rate.textContent).toBe('1×');
     rate.click();
@@ -68,8 +73,8 @@ describe('مشغّل الصوت', () => {
     player.destroy();
   });
 
-  it('يزيد عدد التكرار ويلفّ من عشرين إلى واحد', () => {
-    const player = mount();
+  it('يزيد عدد التكرار ويلفّ من عشرين إلى واحد', async () => {
+    const player = await mount();
     const reps = player.element.querySelector('[data-ap="reps"]');
     const value = () => Number(reps.querySelector('b').textContent);
 
@@ -81,8 +86,8 @@ describe('مشغّل الصوت', () => {
     player.destroy();
   });
 
-  it('لوب A↔B يمرّ بثلاث حالات', () => {
-    const player = mount();
+  it('لوب A↔B يمرّ بثلاث حالات', async () => {
+    const player = await mount();
     const ab = player.element.querySelector('[data-ap="ab"]');
     const band = player.element.querySelector('[data-ap-loop]');
 
@@ -99,22 +104,38 @@ describe('مشغّل الصوت', () => {
     player.destroy();
   });
 
-  it('مشغّل واحد حيّ فقط — فتح ثانٍ يوقف الأول', () => {
-    const first = mount();
+  it('لوحة واحدة مفتوحة — فتح ثانية يغلق الأولى', async () => {
+    const first = await mount();
     expect(document.body.contains(first.element)).toBeTruthy();
 
-    const second = mount();
-    // الأول يُدمَّر تلقائيًا فلا يعمل صوتان معًا أبدًا.
+    const second = await mount();
     expect(document.body.contains(first.element)).toBeFalsy();
     expect(document.body.contains(second.element)).toBeTruthy();
 
-    stopAllAudio();
+    closeAudioPanel();
     expect(document.body.contains(second.element)).toBeFalsy();
   });
 
-  it('التدمير يزيل العنصر من الصفحة', () => {
-    const player = mount();
-    player.destroy();
+  it('⚠️ غلق اللوحة لا يوقف الصوت — يكمل في الشريط المصغّر', async () => {
+    const player = await mount();
+    const id = audio.state.mediaId;
+    expect(audio.state.hasTrack).toBeTruthy();
+
+    closeAudioPanel();
+    // اللوحة راحت والمقطع باقٍ: هذا ما يجعل الصوت يعبر بين الشاشات.
     expect(document.body.contains(player.element)).toBeFalsy();
+    expect(audio.state.hasTrack).toBeTruthy();
+    expect(audio.state.mediaId).toBe(id);
+
+    stopAllAudio();
+    expect(audio.state.hasTrack).toBeFalsy();
+  });
+
+  it('عنصر الصوت واحد مهما فُتح من لوحات', async () => {
+    await mount();
+    await mount();
+    await mount();
+    expect(document.querySelectorAll('audio')).toHaveLength(1);
+    stopAllAudio();
   });
 });

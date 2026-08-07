@@ -106,6 +106,25 @@ export const MIGRATIONS = [
     },
   },
 
+  {
+    v: 4,
+    note: 'ربط الوسائط بالنصوص وببعضها + تصنيف التسجيلات',
+    up(db, tx) {
+      // فهرس مركّب يجعل «هات كل ما يرتبط بهذا العنصر من هذا النوع»
+      // استعلامًا واحدًا بدل مسح كل الروابط وتصفيتها في الذاكرة.
+      addIndexIfMissing(tx, 'relationships', 'from_to', ['fromId', 'toId']);
+      addIndexIfMissing(tx, 'relationships', 'kind', 'kind');
+
+      // تصنيف حرّ للتسجيلات فوق الدور المحدود.
+      return backfill(tx, 'media', (record) => {
+        if (record.tags === undefined) {
+          record.tags = [];
+          return record;
+        }
+      });
+    },
+  },
+
   // ------------------------------------------------------------------
   // الترقيات القادمة تُضاف هنا برقم جديد.
   // ممنوع تعديل ترقية سبق نشرها — راجع docs/03-architecture.md §3.6

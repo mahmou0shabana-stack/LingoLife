@@ -198,3 +198,171 @@
 .shadow-app .ap-title { color: var(--sh-ink); }
 .shadow-app .ap-time { color: var(--sh-mute); }
 .shadow-app .ap-time b { color: var(--sh-ink); }
+
+/* ══════════════════════════════════════════════════════════════
+   الشريط المصغّر
+
+   يعيش خارج `#app-main` فلا تمسحه إعادة كتابة الشاشات. تسمع تسجيلك
+   وأنت تتنقّل بين الذكريات، ويستمرّ حين تخرج من التطبيق.
+   ══════════════════════════════════════════════════════════════ */
+
+.mini-player {
+  position: fixed;
+  inset-inline: 0;
+  bottom: calc(var(--nav-h, 64px) + env(safe-area-inset-bottom, 0px));
+  z-index: 55;
+  background: var(--ink);
+  color: var(--ink-invert, #fff);
+  box-shadow: 0 -6px 24px rgba(0, 0, 0, .22);
+  animation: mp-up 200ms cubic-bezier(.22, .61, .36, 1);
+}
+
+@keyframes mp-up {
+  from { transform: translateY(100%); }
+  to   { transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mini-player { animation: none; }
+}
+
+/* شريط التقدّم فوق الحافّة مباشرةً — أنحف من أن يزاحم، وواضح */
+.mp-bar {
+  height: 4px;
+  background: rgba(255, 255, 255, .16);
+  cursor: pointer;
+  touch-action: none;
+}
+
+.mp-bar > span {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--accent-soft, #8B7CF0);
+}
+
+.mp-body {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 8px 12px;
+}
+
+.mp-play {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  border: 0;
+  background: var(--accent);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.mp-play:active { transform: scale(.93); }
+
+.mp-info {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.35;
+}
+
+.mp-info b {
+  display: block;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mp-info span {
+  font-size: 11px;
+  opacity: .65;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
+.mp-time {
+  font-size: 11.5px;
+  opacity: .7;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.mp-btn {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 auto;
+  border-radius: 10px;
+  border: 0;
+  background: rgba(255, 255, 255, .08);
+  color: inherit;
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.mp-btn:active { background: rgba(255, 255, 255, .18); }
+
+/* المحتوى يفسح مكانًا للشريط فلا يغطّي آخر عنصر */
+body.has-mini-player .app-main { padding-bottom: 76px; }
+
+/* داخل الظلّ الشريط السفلي مختلف — نرفعه فوقه */
+body.shadow-open .mini-player { bottom: env(safe-area-inset-bottom, 0px); }
+
+@media (min-width: 768px) {
+  .mini-player { bottom: 0; }
+  body.has-mini-player .app-main { padding-bottom: 84px; }
+}
+
+/* ─ اختيار التصنيفات ─ */
+
+.tag-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 13px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--line);
+  background: var(--bg);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  user-select: none;
+}
+
+.tag-chip input { position: absolute; opacity: 0; pointer-events: none; }
+.tag-chip:has(input:checked) {
+  background: var(--accent-wash);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* شارات الروابط تحت صفّ الصوت */
+.link-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 4px;
+}
+
+.link-badge {
+  font-size: var(--fs-2xs, 11px);
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--accent-wash);
+  color: var(--accent);
+  border: 1px solid var(--accent-line);
+}
+
+.link-badge.tag { background: var(--bg-alt, #F1EEE4); color: var(--ink-soft); border-color: var(--line); }
