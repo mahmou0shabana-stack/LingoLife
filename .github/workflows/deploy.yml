@@ -48,6 +48,10 @@ jobs:
           echo "✓ الفحص تمام"
 
       - uses: actions/configure-pages@v5
+        with:
+          # يفعّل Pages تلقائيًا لو لسه متفعّلش — بدل الدخول يدويًا
+          # على Settings → Pages من التابلت.
+          enablement: true
 
       - uses: actions/upload-pages-artifact@v3
         with:
