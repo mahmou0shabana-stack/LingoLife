@@ -1,49 +1,66 @@
 /* ============================================================
    LingoLife — Design Tokens
-   اللغة البصرية منقولة من الـ prototype ومُوسَّعة.
+   اللغة البصرية مأخوذة من صور التصميم:
+   خلفية كريمية هادئة · بطاقات بيضاء · لمسة بنفسجية · دلالات أخضر/أحمر/كهرماني
    لا تكتب لونًا أو مسافة مباشرة في أي ملف آخر — استخدم متغيرًا من هنا.
    ============================================================ */
 
 :root {
-  /* ---- الأسطح والخلفيات ---- */
-  --bg: #F5F1E6;
-  --bg-alt: #EFEADC;
+  /* ---- الأسطح ---- */
+  --bg: #F7F4EE;
+  --bg-alt: #F0ECE3;
   --surface: #FFFFFF;
-  --surface-soft: #FBF7EE;
-  --line: #E6DFCF;
-  --line-strong: #D6CCB5;
+  --surface-soft: #FAF8F4;
+  --surface-tint: #F4F2FB;
+  --line: #E9E4DA;
+  --line-soft: #F0ECE4;
+  --line-strong: #D8D1C4;
 
   /* ---- النص ---- */
-  --ink: #212A3B;
-  --ink-soft: #5B6478;
-  --ink-faint: #9098A8;
+  --ink: #1F2430;
+  --ink-soft: #5C6373;
+  --ink-faint: #949BA9;
   --ink-invert: #FFFFFF;
 
-  /* ---- الهوية ---- */
-  --accent: #2C3A5E;
-  --accent-soft: #3F5480;
-  --accent-wash: #E3EAF5;
+  /* ---- الهوية: بنفسجي ---- */
+  --accent: #6C5CE7;
+  --accent-hover: #5B4BD6;
+  --accent-soft: #8B7CF0;
+  --accent-wash: #EFECFD;
+  --accent-line: #DDD6FA;
 
-  /* ---- الدلالات (لا يُعتمد على اللون وحده — دائمًا مع نص أو أيقونة) ---- */
-  --green: #4B7A5B;
-  --green-bg: #E7F0E7;
-  --amber: #B0792B;
-  --amber-bg: #F5EBD8;
-  --red: #B23A3A;
-  --red-bg: #F6E4E1;
+  /* ---- الدلالات (دائمًا مع نص أو أيقونة، لا لون وحده) ---- */
+  --green: #1F9D62;
+  --green-bg: #E6F5EC;
+  --green-line: #BFE5D0;
+
+  --red: #D6414B;
+  --red-bg: #FCEAEB;
+  --red-line: #F3C9CC;
+
+  --amber: #B57A1B;
+  --amber-bg: #FCF1DC;
+  --amber-line: #EFDCB4;
+
+  --blue: #2F6FBF;
+  --blue-bg: #E8F0FB;
+
   --violet: #7A3E93;
-  --violet-bg: #F1E4F6;
+  --violet-bg: #F5E9F9;
 
-  /* ---- الأنصاف والظلال ---- */
+  /* ---- الأنصاف ---- */
   --radius-xl: 22px;
-  --radius-lg: 20px;
+  --radius-lg: 18px;
   --radius-md: 14px;
-  --radius-sm: 9px;
+  --radius-sm: 10px;
+  --radius-xs: 7px;
   --radius-pill: 999px;
 
-  --shadow: 0 8px 24px rgba(33, 42, 59, 0.10);
-  --shadow-sm: 0 2px 8px rgba(33, 42, 59, 0.08);
-  --shadow-lg: 0 16px 40px rgba(33, 42, 59, 0.16);
+  /* ---- الظلال — خفيفة جدًا، الصور فيها هدوء لا ثقل ---- */
+  --shadow-xs: 0 1px 2px rgba(31, 36, 48, 0.04);
+  --shadow-sm: 0 2px 8px rgba(31, 36, 48, 0.05);
+  --shadow: 0 6px 20px rgba(31, 36, 48, 0.07);
+  --shadow-lg: 0 16px 40px rgba(31, 36, 48, 0.14);
 
   /* ---- المسافات ---- */
   --sp-1: 4px;
@@ -58,20 +75,21 @@
   --font-ar: 'Noto Naskh Arabic', 'Geeza Pro', serif;
   --font-latin: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   --font-display: 'Fraunces', 'Noto Naskh Arabic', Georgia, serif;
-  --font-ru: 'Fraunces', 'Inter', Georgia, serif;
+  --font-ru: 'Inter', 'Fraunces', Georgia, sans-serif;
 
+  --fs-2xs: 10.5px;
   --fs-xs: 11.5px;
   --fs-sm: 13px;
   --fs-base: 14.5px;
   --fs-md: 15.5px;
-  --fs-lg: 19px;
-  --fs-xl: 23px;
-  --fs-2xl: 28px;
+  --fs-lg: 18px;
+  --fs-xl: 22px;
+  --fs-2xl: 27px;
 
   /* ---- التخطيط ---- */
-  --header-h: 62px;
-  --nav-h: 62px;
-  --content-max: 1100px;
+  --sidebar-w: 236px;
+  --nav-h: 64px;
+  --content-max: 1280px;
 
   /* ---- الحركة ---- */
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
@@ -79,16 +97,15 @@
   --dur: 0.25s;
 
   /* ---- الطبقات ---- */
-  --z-header: 25;
-  --z-nav: 30;
-  --z-fab: 26;
   --z-sticky: 15;
+  --z-header: 25;
+  --z-fab: 26;
+  --z-nav: 30;
   --z-overlay: 50;
   --z-lightbox: 70;
   --z-toast: 80;
 }
 
-/* احترام تفضيل تقليل الحركة — إلزامي (بند 70 من المواصفة) */
 @media (prefers-reduced-motion: reduce) {
   :root {
     --dur-fast: 0.01ms;

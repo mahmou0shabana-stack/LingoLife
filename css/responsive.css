@@ -1,6 +1,7 @@
 /* ============================================================
    LingoLife — Responsive
-   الهاتف أولًا. التابلت ليس هاتفًا ممدودًا (بند 13).
+   تخطيط الشريط الجانبي يعيش في layout.css.
+   هنا تعديلات المقاسات الصغيرة فقط.
    الحد الأدنى المدعوم: 320px بلا أي تمرير أفقي.
    ============================================================ */
 
@@ -15,135 +16,61 @@
   }
 
   .nav-btn {
-    padding: var(--sp-2) var(--sp-2);
-    min-width: 56px;
+    padding: var(--sp-2);
+    min-width: 54px;
   }
 
   .scene-card .thumb {
-    width: 76px;
-    min-width: 76px;
+    width: 74px;
+    min-width: 74px;
+  }
+
+  .tool-btn {
+    min-width: 50px;
+    padding: 8px 10px;
+  }
+
+  .recall-row {
+    gap: 6px;
   }
 }
 
 /* ------------------------------------------------------------
-   تابلت — 768px فأعلى
-   التنقّل ينتقل إلى شريط جانبي، والمحتوى يستفيد من العرض.
+   الهاتف — الترويسة تتكدّس رأسيًا
    ------------------------------------------------------------ */
-@media (min-width: 768px) {
-  body {
-    flex-direction: row;
-  }
-
-  .app-header {
-    position: fixed;
-    top: 0;
-    inset-inline-start: 0;
-    width: var(--sidebar-w, 220px);
-    height: 100vh;
-    height: 100dvh;
+@media (max-width: 599px) {
+  .scene-top {
     flex-direction: column;
-    align-items: stretch;
-    justify-content: flex-start;
-    gap: var(--sp-5);
-    border-bottom: none;
-    border-inline-end: 1px solid var(--line);
-    padding: var(--sp-5) var(--sp-4);
-    background: var(--bg);
-    backdrop-filter: none;
+    padding: var(--sp-4);
   }
 
-  .app-header .brand b {
-    font-size: 22px;
-  }
-
-  .header-actions {
-    flex-direction: column;
-    gap: var(--sp-2);
-    margin-top: auto;
-  }
-
-  .app-nav {
-    position: static;
-    flex-direction: column;
-    background: none;
-    border-top: none;
-    padding: 0;
-    max-width: none;
-    margin: 0;
-    gap: var(--sp-1);
-    order: -1;
-  }
-
-  .nav-btn {
-    flex-direction: row;
-    justify-content: flex-start;
-    gap: var(--sp-3);
-    font-size: var(--fs-base);
-    padding: 11px var(--sp-3);
+  .top-actions {
     width: 100%;
-    min-width: 0;
+    justify-content: flex-start;
   }
 
-  .app-main {
-    margin-inline-start: var(--sidebar-w, 220px);
-    padding: var(--sp-6) var(--sp-6) var(--sp-7);
-    max-width: none;
+  .hero {
+    min-height: 280px;
   }
 
-  .fab {
-    bottom: var(--sp-6);
-    inset-inline-end: var(--sp-6);
+  .hero-body {
+    padding: var(--sp-4);
   }
 
-  .toast-host,
-  .update-banner {
-    bottom: var(--sp-5);
-    inset-inline-start: var(--sidebar-w, 220px);
+  /* الموزاييك يبقى 3 أعمدة على الشاشة الضيقة */
+  .mosaic {
+    grid-template-columns: repeat(3, 1fr);
   }
 
-  .scene-list {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-    gap: var(--sp-4);
-  }
-
-  .hero-card {
-    min-height: 380px;
+  .lightbox-bar button {
+    padding: 8px 13px;
+    font-size: var(--fs-xs);
   }
 }
 
-/* ------------------------------------------------------------
-   سطح المكتب — 1200px فأعلى
-   ------------------------------------------------------------ */
-@media (min-width: 1200px) {
-  :root {
-    --sidebar-w: 250px;
-  }
-
-  .app-main {
-    max-width: 1180px;
-  }
-
-  .hero-card {
-    min-height: 420px;
-  }
-}
-
-/* ------------------------------------------------------------
-   طباعة
-   ------------------------------------------------------------ */
-@media print {
-  .app-header,
-  .app-nav,
-  .fab,
-  .toast-host,
-  .update-banner {
-    display: none !important;
-  }
-
-  .app-main {
-    margin: 0;
-    padding: 0;
-    max-width: none;
-  }
+/* لا شيء يتجاوز عرض الشاشة أبدًا */
+img,
+video,
+canvas {
+  max-width: 100%;
 }

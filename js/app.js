@@ -1,21 +1,31 @@
 /**
  * LingoLife — نقطة الدخول
  *
- * الإقلاع: فتح القاعدة → طلب التخزين الدائم → تسجيل Service Worker →
- * تشغيل الموجّه. لا يُحمَّل شيء من القاعدة قبل الحاجة إليه (بند 69).
+ * الإقلاع: فتح القاعدة → التخزين الدائم → Service Worker → الموجّه.
+ * كل الأحداث تمرّ من مستمع واحد على body (الشاشات تُعاد كتابتها بالكامل).
  */
 
 import { openDB } from './db/database.js';
 import { route, notFound, startRouter, navigate, back, refresh, getCurrentRoute } from './router.js';
-import { requestPersistence } from './services/storage-service.js';
-import { createScene, trashScene } from './services/scene-service.js';
+import { requestPersistence, estimateStorage, storageLevel } from './services/storage-service.js';
+import { createScene, trashScene, restoreScene } from './services/scene-service.js';
+import { scenes, media, scripts, contentBlocks } from './db/repositories.js';
+import {
+  addFilesToScene, pickFiles, setCover, removeFromScene, undoRemove,
+  urlFor, releaseUrls, startRecording, canRecord, AUDIO_ROLE,
+} from './services/media-service.js';
+import {
+  addScript, updateScript, setPrimaryScript, SCRIPT_TYPES,
+  addConversationPart, addMistake, MISTAKE_TYPES,
+  addExpression, REGISTERS, saveBlock, getBlock,
+} from './services/content-service.js';
 import { settings } from './db/repositories.js';
 import { today } from './utils/dates.js';
-import { html, raw, $, delegate } from './utils/dom.js';
+import { html, raw, $, delegate, formatBytes, copyToClipboard } from './utils/dom.js';
 import { SCENE_TYPES } from './config.js';
 import { icon } from './components/icons.js';
 import { toast, toastOk, toastError } from './components/toast.js';
-import { showModal } from './components/modal.js';
+import { showModal, confirmAction } from './components/modal.js';
 
 import { renderNow } from './views/now-view.js';
 import { renderLife } from './views/life-view.js';
@@ -27,18 +37,21 @@ import { renderTrash, handleTrashAction } from './views/trash-view.js';
 const main = $('#app-main');
 const LAST_ROUTE_KEY = 'ui.lastRoute';
 
-/* ------------------------------------------------------------
-   عرض الشاشات
-   ------------------------------------------------------------ */
+/** حالة عابرة للشاشة الحالية (أي سكريبت معروض مثلًا). */
+const ui = { activeScriptId: null };
 
-/** يغلّف عرض شاشة بمعالجة أخطاء — لا شاشة بيضاء أبدًا. */
-function view(renderFn) {
+/* ============================================================
+   عرض الشاشات
+   ============================================================ */
+
+function view(renderFn, opts = {}) {
   return async (params) => {
     main.innerHTML = '<div class="loading"><span class="spinner"></span> لحظة…</div>';
     try {
-      await renderFn(main, params?.id);
+      await renderFn(main, params?.id, opts.passUi ? ui : undefined);
       syncNavState();
       rememberRoute();
+      refreshStorageCard();
     } catch (err) {
       console.error('[view] فشل العرض', err);
       main.innerHTML = html`
@@ -52,32 +65,71 @@ function view(renderFn) {
   };
 }
 
-/** يحدّث الزر النشط في شريط التنقّل. */
 function syncNavState() {
   const path = getCurrentRoute()?.path || '/';
   const active =
-    path === '/' ? 'now' : path.startsWith('/life') || path.startsWith('/scene') ? 'life'
-    : path.startsWith('/language') ? 'language' : null;
+    path === '/' ? 'now'
+    : path.startsWith('/life') || path.startsWith('/scene') ? 'life'
+    : path.startsWith('/language') ? 'language'
+    : path.startsWith('/trash') ? 'trash'
+    : path.startsWith('/settings') ? 'settings'
+    : null;
 
   document.querySelectorAll('.nav-btn').forEach((btn) => {
     if (btn.dataset.nav === active) btn.setAttribute('aria-current', 'page');
     else btn.removeAttribute('aria-current');
   });
 
-  // زر الإضافة يظهر في العوالم الرئيسية فقط.
   const fab = $('#fab');
   if (fab) fab.hidden = !(path === '/' || path.startsWith('/life'));
 }
 
-/** يحفظ آخر مسار لاستعادته عند إعادة الفتح (بند 85.34). */
 function rememberRoute() {
   const path = getCurrentRoute()?.path;
   if (path && path !== '/settings') settings.set(LAST_ROUTE_KEY, path).catch(() => {});
 }
 
-/* ------------------------------------------------------------
-   إنشاء مشهد
-   ------------------------------------------------------------ */
+/** بطاقة التخزين في الشريط الجانبي — أرقام حقيقية. */
+async function refreshStorageCard() {
+  const card = $('#storage-card');
+  if (!card) return;
+  try {
+    const { usage, quota, percent } = await estimateStorage();
+    const bar = card.querySelector('.meter');
+    const text = card.querySelector('[data-storage-text]');
+    if (percent !== null) {
+      bar.className = `meter ${storageLevel(percent) === 'ok' ? '' : storageLevel(percent)}`;
+      bar.firstElementChild.style.width = `${Math.max(percent, 1)}%`;
+      text.innerHTML = `<bdi>${formatBytes(usage)}</bdi> من <bdi>${formatBytes(quota)}</bdi>`;
+    } else {
+      text.textContent = 'غير متاح';
+    }
+  } catch {
+    /* غير حرج */
+  }
+}
+
+/** يعيد عرض المشهد الحالي بعد تعديل. */
+async function reloadScene(sceneId) {
+  const path = getCurrentRoute()?.path || '';
+  if (path.startsWith('/scene/')) {
+    await renderScene(main, sceneId, ui);
+    refreshStorageCard();
+  } else {
+    navigate(`/scene/${sceneId}`);
+  }
+}
+
+/* ============================================================
+   نماذج الإضافة
+   ============================================================ */
+
+function selectOptions(items, selected) {
+  return items
+    .map((t) => `<option value="${t.id}"${t.id === selected ? ' selected' : ''}>${t.label}</option>`)
+    .join('');
+}
+
 async function openNewSceneModal() {
   await showModal({
     title: 'ذكرى جديدة',
@@ -100,9 +152,7 @@ async function openNewSceneModal() {
         </div>
         <div class="field">
           <label for="f-type">النوع</label>
-          <select id="f-type" name="type">
-            ${raw(SCENE_TYPES.map((t) => `<option value="${t.id}">${t.label}</option>`).join(''))}
-          </select>
+          <select id="f-type" name="type">${raw(selectOptions(SCENE_TYPES))}</select>
         </div>
       </div>
       <div class="field">
@@ -111,8 +161,7 @@ async function openNewSceneModal() {
       </div>
       <div class="field">
         <label for="f-context">سياق قصير</label>
-        <textarea id="f-context" name="context"
-          placeholder="إيه اللي حصل في اللحظة دي؟"></textarea>
+        <textarea id="f-context" name="context" placeholder="إيه اللي حصل في اللحظة دي؟"></textarea>
       </div>`,
 
     async onSubmit(data, close) {
@@ -128,33 +177,368 @@ async function openNewSceneModal() {
   });
 }
 
-/* ------------------------------------------------------------
-   تفويض الأحداث — مستمع واحد لكل التطبيق
-   ------------------------------------------------------------ */
+async function openEditSceneModal(sceneId) {
+  const scene = await scenes.get(sceneId);
+  if (!scene) return;
+
+  await showModal({
+    title: 'تعديل بيانات الذكرى',
+    body: html`
+      <div class="field">
+        <label for="e-titleAr">العنوان بالعربي</label>
+        <input id="e-titleAr" name="titleAr" type="text" value="${scene.titleAr || ''}" />
+      </div>
+      <div class="field">
+        <label for="e-titleRu">العنوان بالروسي</label>
+        <input id="e-titleRu" name="titleRu" type="text" dir="ltr" lang="ru" value="${scene.titleRu || ''}" />
+      </div>
+      <div class="field-row">
+        <div class="field">
+          <label for="e-date">التاريخ</label>
+          <input id="e-date" name="date" type="date" value="${scene.date || today()}" />
+        </div>
+        <div class="field">
+          <label for="e-type">النوع</label>
+          <select id="e-type" name="type">${raw(selectOptions(SCENE_TYPES, scene.type))}</select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="e-place">المكان</label>
+        <input id="e-place" name="placeName" type="text" value="${scene.placeName || ''}" />
+      </div>
+      <div class="field">
+        <label for="e-context">سياق قصير</label>
+        <textarea id="e-context" name="context">${scene.context || ''}</textarea>
+      </div>`,
+
+    async onSubmit(data, close) {
+      await scenes.update(sceneId, data);
+      close();
+      toastOk('اتحفظ');
+      reloadScene(sceneId);
+    },
+  });
+}
+
+async function openScriptModal(sceneId, scriptId = null) {
+  const existing = scriptId ? await scripts.get(scriptId) : null;
+
+  await showModal({
+    title: existing ? 'تعديل السكريبت' : 'سكريبت جديد',
+    body: html`
+      <div class="field-row">
+        <div class="field">
+          <label for="s-title">الاسم</label>
+          <input id="s-title" name="title" type="text" value="${existing?.title || ''}"
+            placeholder="السكريبت الأساسي" />
+        </div>
+        <div class="field">
+          <label for="s-type">النوع</label>
+          <select id="s-type" name="type">${raw(selectOptions(SCRIPT_TYPES, existing?.type))}</select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="s-text">النص بالروسي</label>
+        <textarea id="s-text" name="text" dir="ltr" lang="ru" style="min-height:180px"
+          placeholder="Сегодня мы обсуждали…">${existing?.text || ''}</textarea>
+      </div>`,
+
+    async onSubmit(data, close) {
+      if (existing) {
+        await updateScript(scriptId, data);
+      } else {
+        const created = await addScript(sceneId, data);
+        ui.activeScriptId = created.id;
+      }
+      close();
+      toastOk(existing ? 'اتحفظ — واتسجّلت نسخة في التاريخ' : 'السكريبت اتضاف');
+      reloadScene(sceneId);
+    },
+  });
+}
+
+async function openPartModal(sceneId) {
+  await showModal({
+    title: 'جزء من المحادثة',
+    submitLabel: 'أضف',
+    body: html`
+      <div class="field-row">
+        <div class="field">
+          <label for="p-speaker">المتحدث</label>
+          <input id="p-speaker" name="speaker" type="text" placeholder="Алексей" />
+        </div>
+        <div class="field">
+          <label for="p-mine">مين بيتكلم</label>
+          <select id="p-mine" name="isMine">
+            <option value="">شخص تاني</option>
+            <option value="1">أنا</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="p-text">الكلام بالروسي</label>
+        <textarea id="p-text" name="text" dir="ltr" lang="ru"
+          placeholder="Сейчас одно несоответствие ещё согласовывается."></textarea>
+      </div>
+      <div class="field">
+        <label for="p-tr">الترجمة (اختياري)</label>
+        <input id="p-tr" name="translation" type="text" placeholder="دلوقتي في عدم مطابقة واحد لسه بيتوافق عليه" />
+      </div>`,
+
+    async onSubmit(data, close) {
+      if (!data.text?.trim()) {
+        toastError('الكلام مطلوب');
+        throw new Error('فارغ');
+      }
+      await addConversationPart(sceneId, data);
+      close();
+      toastOk('الجزء اتضاف');
+      reloadScene(sceneId);
+    },
+  });
+}
+
+async function openMistakeModal(sceneId) {
+  await showModal({
+    title: 'تصحيح — خطأ / طبيعي',
+    submitLabel: 'أضف',
+    body: html`
+      <div class="field">
+        <label for="m-wrong">اللي قلته</label>
+        <textarea id="m-wrong" name="wrong" dir="ltr" lang="ru"
+          placeholder="Сейчас один несоответствие согласовывается."></textarea>
+      </div>
+      <div class="field">
+        <label for="m-nat">اللي المفروض يتقال</label>
+        <textarea id="m-nat" name="natural" dir="ltr" lang="ru"
+          placeholder="Сейчас одно несоответствие ещё согласовывается."></textarea>
+      </div>
+      <div class="field">
+        <label for="m-type">نوع الخطأ</label>
+        <select id="m-type" name="mistakeType">${raw(selectOptions(MISTAKE_TYPES, 'gender'))}</select>
+      </div>
+      <div class="field">
+        <label for="m-exp">الشرح بالمصري</label>
+        <textarea id="m-exp" name="explanation"
+          placeholder="несоответствие كلمة محايدة، فبنقول одно مش один."></textarea>
+      </div>`,
+
+    async onSubmit(data, close) {
+      if (!data.wrong?.trim() || !data.natural?.trim()) {
+        toastError('لازم تكتب النسختين');
+        throw new Error('ناقص');
+      }
+      await addMistake(sceneId, data);
+      close();
+      toastOk('التصحيح اتضاف');
+      reloadScene(sceneId);
+    },
+  });
+}
+
+async function openExpressionModal(sceneId) {
+  await showModal({
+    title: 'تعبير جديد',
+    submitLabel: 'أضف',
+    body: html`
+      <div class="field">
+        <label for="x-text">التعبير بالروسي</label>
+        <input id="x-text" name="text" type="text" dir="ltr" lang="ru"
+          placeholder="направить на согласование" />
+      </div>
+      <div class="field">
+        <label for="x-mean">معناه بالمصري</label>
+        <input id="x-mean" name="meaningAr" type="text" placeholder="يبعت للموافقة" />
+      </div>
+      <div class="field">
+        <label for="x-reg">التصنيف</label>
+        <select id="x-reg" name="register">${raw(selectOptions(REGISTERS, 'professional'))}</select>
+      </div>
+      <div class="field">
+        <label for="x-note">ملاحظة (اختياري)</label>
+        <textarea id="x-note" name="note" placeholder="بيتقال في الشغل الرسمي"></textarea>
+      </div>`,
+
+    async onSubmit(data, close) {
+      if (!data.text?.trim()) {
+        toastError('نص التعبير مطلوب');
+        throw new Error('فارغ');
+      }
+      const { isNew } = await addExpression(sceneId, data);
+      close();
+      toastOk(isNew ? 'التعبير اتضاف' : 'التعبير موجود — سجّلنا ظهوره في الذكرى دي');
+      reloadScene(sceneId);
+    },
+  });
+}
+
+/* ============================================================
+   الوسائط
+   ============================================================ */
+
+async function handleAddImages(sceneId) {
+  const files = await pickFiles({ accept: 'image/*', multiple: true });
+  if (!files.length) return;
+
+  const dismiss = toast(`بيتحفظ ${files.length} ملف…`, { duration: 60000 });
+  const result = await addFilesToScene(sceneId, files, { kind: 'image' });
+  dismiss();
+
+  if (result.added) toastOk(`اتضاف ${result.added} صورة بحجمها الأصلي`);
+  if (result.failed) toastError(`${result.failed} ملف فشل`);
+  reloadScene(sceneId);
+}
+
+async function handleAddAudio(sceneId) {
+  const files = await pickFiles({ accept: 'audio/*', multiple: true });
+  if (!files.length) return;
+
+  const dismiss = toast('بيتحفظ…', { duration: 60000 });
+  const result = await addFilesToScene(sceneId, files, { kind: 'audio', role: AUDIO_ROLE.ORIGINAL });
+  dismiss();
+
+  if (result.added) toastOk(`اتضاف ${result.added} ملف صوت`);
+  if (result.failed) toastError(`${result.failed} ملف فشل`);
+  reloadScene(sceneId);
+}
+
+/** التسجيل الجاري — لو موجود، الضغطة التانية بتوقّفه. */
+let activeRecording = null;
+
+async function handleRecord(sceneId, buttonEl, role = AUDIO_ROLE.RETELLING) {
+  if (activeRecording) {
+    const { session, timer, btn } = activeRecording;
+    clearInterval(timer);
+    btn?.classList.remove('recording');
+    activeRecording = null;
+
+    const file = await session.stop();
+    const result = await addFilesToScene(sceneId, [file], { kind: 'audio', role });
+    if (result.added) toastOk('التسجيل اتحفظ');
+    else toastError('فشل حفظ التسجيل');
+    reloadScene(sceneId);
+    return;
+  }
+
+  if (!canRecord()) {
+    toastError('المتصفح ده مش بيدعم التسجيل الصوتي');
+    return;
+  }
+
+  try {
+    const session = await startRecording();
+    buttonEl?.classList.add('recording');
+
+    const timeEl = document.querySelector('[data-rec-time]');
+    const startedAt = Date.now();
+    const timer = setInterval(() => {
+      const s = Math.floor((Date.now() - startedAt) / 1000);
+      if (timeEl) {
+        timeEl.textContent = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+      }
+    }, 250);
+
+    activeRecording = { session, timer, btn: buttonEl };
+    toast('بيسجّل… اضغط تاني علشان توقف');
+  } catch (err) {
+    console.error(err);
+    toastError('مقدرناش نوصل للميكروفون — اسمح بالإذن وجرّب تاني');
+  }
+}
+
+/** عارض الصورة — مع تعيين غلاف وتنزيل الأصل وإزالة. */
+async function openLightbox(mediaId, sceneId) {
+  const record = await media.get(mediaId);
+  if (!record) return;
+
+  const box = document.createElement('div');
+  box.className = 'lightbox';
+  box.innerHTML = html`
+    <button class="lightbox-close" aria-label="إغلاق">✕</button>
+    <img src="${urlFor(record, { thumb: false })}" alt="${record.caption || ''}">
+    <div class="lightbox-bar">
+      <button data-lb="cover">اجعلها الغلاف</button>
+      <button data-lb="download">نزّل الأصل</button>
+      <button data-lb="remove" class="danger">شيلها من الذكرى</button>
+    </div>`;
+
+  const close = () => {
+    box.remove();
+    document.removeEventListener('keydown', onKey);
+  };
+  const onKey = (e) => {
+    if (e.key === 'Escape') close();
+  };
+
+  box.addEventListener('click', async (e) => {
+    if (e.target === box || e.target.closest('.lightbox-close')) return close();
+
+    const action = e.target.closest('[data-lb]')?.dataset.lb;
+    if (!action) return;
+
+    if (action === 'cover') {
+      await setCover(sceneId, mediaId);
+      close();
+      toastOk('بقت الغلاف');
+      reloadScene(sceneId);
+    }
+
+    if (action === 'download') {
+      const { downloadBlob } = await import('./utils/dom.js');
+      // الأصل كما رُفع — بايت ببايت
+      downloadBlob(record.blob, record.filename || `${record.id}.jpg`);
+    }
+
+    if (action === 'remove') {
+      const linkId = await removeFromScene(sceneId, mediaId);
+      close();
+      toast('اتشالت من الذكرى', {
+        actionLabel: 'تراجع',
+        onAction: async () => {
+          await undoRemove(linkId);
+          toastOk('رجعت');
+          reloadScene(sceneId);
+        },
+      });
+      reloadScene(sceneId);
+    }
+  });
+
+  document.addEventListener('keydown', onKey);
+  document.body.append(box);
+}
+
+/* ============================================================
+   تفويض الأحداث
+   ============================================================ */
 function wireActions() {
   delegate(document.body, 'click', '[data-action]', async (event, target) => {
-    const { action, id, target: scrollTarget } = target.dataset;
+    const { action, id, scene: sceneAttr, target: scrollTarget } = target.dataset;
+    const sceneId = sceneAttr || id;
 
     switch (action) {
-      case 'new-scene':
-        return openNewSceneModal();
-
-      case 'open-scene':
-        return navigate(`/scene/${id}`);
-
-      case 'go-life':
-        return navigate('/life');
-
-      case 'back':
-        return back();
-
-      case 'reload':
-        return refresh();
+      /* ---- تنقّل ---- */
+      case 'new-scene': return openNewSceneModal();
+      case 'open-scene': return navigate(`/scene/${id}`);
+      case 'go-life': return navigate('/life');
+      case 'go-settings': return navigate('/settings');
+      case 'back': return back();
+      case 'reload': return refresh();
 
       case 'scroll-to': {
-        const el = document.getElementById(scrollTarget);
-        el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        document.getElementById(scrollTarget)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        document.querySelectorAll('.index-btn').forEach((b) => b.classList.remove('active'));
+        target.classList.add('active');
         return;
+      }
+
+      /* ---- المشهد ---- */
+      case 'edit-scene': return openEditSceneModal(id);
+
+      case 'toggle-fav': {
+        const scene = await scenes.get(id);
+        await scenes.update(id, { isFavorite: scene.isFavorite ? 0 : 1 });
+        return reloadScene(id);
       }
 
       case 'trash-scene': {
@@ -162,35 +546,88 @@ function wireActions() {
         toast('اتنقلت لسلة المهملات', {
           actionLabel: 'تراجع',
           onAction: async () => {
-            const { restoreScene } = await import('./services/scene-service.js');
             await restoreScene(id);
             toastOk('رجعت تاني');
-            refresh();
+            navigate(`/scene/${id}`);
           },
         });
         return navigate('/life');
       }
 
-      case 'edit-scene':
-        return toast('تعديل البيانات الوصفية — المرحلة 1');
+      case 'export-scene': {
+        const scene = await scenes.get(id);
+        const text = [scene.titleAr, scene.titleRu, scene.context].filter(Boolean).join('\n');
+        const ok = await copyToClipboard(text);
+        return ok ? toastOk('اتنسخ') : toastError('مقدرناش ننسخ');
+      }
+
+      /* ---- الوسائط ---- */
+      case 'add-images': return handleAddImages(sceneId);
+      case 'add-audio': return handleAddAudio(sceneId);
+      case 'open-image': return openLightbox(id, sceneId);
+      case 'record-audio': return handleRecord(sceneId, target, AUDIO_ROLE.NOTE);
+      case 'record-retell': return handleRecord(sceneId, target, AUDIO_ROLE.RETELLING);
+
+      case 'play-audio': {
+        const record = await media.get(id);
+        if (!record?.blob) return toastError('الملف مش موجود');
+        const audio = new Audio(urlFor(record, { thumb: false }));
+        audio.play().catch(() => toastError('مقدرناش نشغّل الملف'));
+        return;
+      }
+
+      case 'retell': {
+        navigate(`/scene/${id}`);
+        setTimeout(() => {
+          document.getElementById('sec-recall')?.scrollIntoView({ behavior: 'smooth' });
+        }, 400);
+        return;
+      }
+
+      /* ---- المحتوى ---- */
+      case 'add-script': return openScriptModal(sceneId);
+      case 'edit-script': return openScriptModal(sceneId, id);
+      case 'add-part': return openPartModal(sceneId);
+      case 'add-mistake': return openMistakeModal(sceneId);
+      case 'add-expression': return openExpressionModal(sceneId);
+
+      case 'show-script': {
+        ui.activeScriptId = id;
+        return reloadScene(sceneId);
+      }
+
+      case 'primary-script': {
+        await setPrimaryScript(sceneId, id);
+        toastOk('بقى السكريبت الأساسي');
+        return reloadScene(sceneId);
+      }
+
+      case 'copy-script': {
+        const script = await scripts.get(id);
+        const ok = await copyToClipboard(script?.text || '');
+        return ok ? toastOk('اتنسخ') : toastError('مقدرناش ننسخ');
+      }
 
       default: {
-        // شاشات لها معالجاتها الخاصة
         if (await handleSettingsAction(action)) return;
         if (await handleTrashAction(action, id)) return;
       }
     }
   });
+
+  // حفظ الملاحظات عند مغادرة الحقل
+  delegate(document.body, 'focusout', '[data-notes]', async (event, target) => {
+    const sceneId = target.dataset.id;
+    const block = await getBlock(sceneId, 'notes');
+    if (block.text === target.value) return;
+    await saveBlock(sceneId, 'notes', target.value);
+    toastOk('الملاحظات اتحفظت');
+  });
 }
 
-/* ------------------------------------------------------------
-   Service Worker + شريط التحديث
-   ------------------------------------------------------------ */
-/**
- * إعادة التحميل مسموحة فقط لو المستخدم ضغط "حدّث".
- * بدون هذا العلم، `clients.claim()` عند أول تثبيت يطلق controllerchange
- * فيعيد تحميل الصفحة بلا سبب — وممكن يضيّع نموذجًا نصف مملوء.
- */
+/* ============================================================
+   Service Worker
+   ============================================================ */
 let updateAccepted = false;
 
 function showUpdateBanner(worker) {
@@ -207,13 +644,11 @@ function showUpdateBanner(worker) {
 
 async function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
-  // file:// لا يدعم Service Worker — نتخطاه بهدوء أثناء التطوير المحلي.
   if (window.location.protocol === 'file:') return;
 
   try {
     const registration = await navigator.serviceWorker.register('./service-worker.js');
 
-    // لو في نسخة منتظرة بالفعل عند التحميل
     if (registration.waiting && navigator.serviceWorker.controller) {
       showUpdateBanner(registration.waiting);
     }
@@ -221,7 +656,6 @@ async function registerServiceWorker() {
     registration.addEventListener('updatefound', () => {
       const installing = registration.installing;
       installing?.addEventListener('statechange', () => {
-        // "installed" مع وجود controller = تحديث لا تثبيت أول
         if (installing.state === 'installed' && navigator.serviceWorker.controller) {
           showUpdateBanner(installing);
         }
@@ -240,9 +674,9 @@ async function registerServiceWorker() {
   }
 }
 
-/* ------------------------------------------------------------
+/* ============================================================
    الإقلاع
-   ------------------------------------------------------------ */
+   ============================================================ */
 async function boot() {
   try {
     await openDB();
@@ -259,25 +693,21 @@ async function boot() {
     return;
   }
 
-  // التخزين الدائم — بدونه ممكن المتصفح يمسح البيانات عند امتلاء الجهاز.
-  requestPersistence()
-    .then((result) => {
-      if (result.asked && !result.persisted) {
-        console.warn('[storage] المتصفح رفض التخزين الدائم');
-      }
-    })
-    .catch(() => {});
+  requestPersistence().catch(() => {});
 
   route('/', view(renderNow));
   route('/life', view(renderLife));
   route('/language', view(renderLanguage));
-  route('/scene/:id', view(renderScene));
+  route('/scene/:id', view(renderScene, { passUi: true }));
   route('/settings', view(renderSettings));
   route('/trash', view(renderTrash));
   notFound(() => navigate('/', { replace: true }));
 
   wireActions();
   registerServiceWorker();
+
+  // تحرير روابط الكائنات عند مغادرة الصفحة
+  window.addEventListener('pagehide', releaseUrls);
 
   await startRouter();
 }

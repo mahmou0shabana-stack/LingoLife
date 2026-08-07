@@ -1,31 +1,31 @@
 /* ============================================================
    LingoLife — Layout
-   الهيكل العام: هيدر، محتوى، تنقّل سفلي، حالات فارغة.
+   الشريط الجانبي (تابلت/سطح مكتب) · تنقّل سفلي (هاتف) · المحتوى
    ============================================================ */
 
 /* ------------------------------------------------------------
-   الهيدر
+   الشريط الجانبي / الهيدر
    ------------------------------------------------------------ */
 .app-header {
   position: sticky;
   top: 0;
   z-index: var(--z-header);
-  background: color-mix(in srgb, var(--bg) 92%, transparent);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  /* ⚠️ ممنوع backdrop-filter هنا: أي عنصر بـ filter يصير الحاوي المرجعي
+     لأبنائه ذوي position:fixed — وده كان بيرمي شريط التنقّل السفلي لفوق. */
+  background: var(--bg);
   border-bottom: 1px solid var(--line);
   padding: var(--sp-3) var(--sp-4);
+  padding-top: calc(var(--sp-3) + env(safe-area-inset-top));
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--sp-3);
-  padding-top: calc(var(--sp-3) + env(safe-area-inset-top));
 }
 
-.app-header .brand {
+.brand {
   display: flex;
-  flex-direction: column;
-  line-height: 1.2;
+  align-items: center;
+  gap: var(--sp-3);
   cursor: pointer;
   background: none;
   border: none;
@@ -33,42 +33,93 @@
   text-align: start;
 }
 
-.app-header .brand b {
-  font-family: var(--font-display);
-  font-size: 20px;
-  font-weight: 600;
+.brand-mark {
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  flex: none;
 }
 
-.app-header .brand span {
-  font-size: 10.5px;
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.2;
+}
+
+.brand-text b {
+  font-family: var(--font-display);
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.brand-text span {
+  font-size: var(--fs-2xs);
   color: var(--ink-faint);
 }
 
+/* أدوات الهيدر على الهاتف */
 .header-actions {
   display: flex;
   gap: var(--sp-2);
 }
 
-/* مؤشر حالة المزامنة/التخزين في الهيدر */
-.header-status {
-  font-size: var(--fs-xs);
-  color: var(--ink-faint);
+/* بطاقات أسفل الشريط الجانبي — تظهر على الشاشات الكبيرة فقط */
+.sidebar-foot {
+  display: none;
+}
+
+/* ------------------------------------------------------------
+   التنقّل
+   ------------------------------------------------------------ */
+.app-nav {
+  position: fixed;
+  bottom: 0;
+  inset-inline: 0;
+  z-index: var(--z-nav);
+  background: var(--surface);
+  border-top: 1px solid var(--line);
   display: flex;
+  justify-content: space-around;
+  padding: var(--sp-2) var(--sp-2) calc(var(--sp-2) + env(safe-area-inset-bottom));
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+/* عناصر التنقّل الثانوية تختفي على الهاتف (تصل من الهيدر) */
+.nav-btn.secondary {
+  display: none;
+}
+
+.nav-btn {
+  display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 5px;
+  gap: 3px;
+  background: none;
+  border: none;
+  color: var(--ink-faint);
+  font-size: var(--fs-xs);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  min-width: 62px;
+  transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
 }
 
-.header-status .dot {
-  width: 7px;
-  height: 7px;
-  border-radius: 50%;
-  background: var(--ink-faint);
-  flex: none;
+.nav-btn svg {
+  width: 21px;
+  height: 21px;
 }
 
-.header-status.ok .dot { background: var(--green); }
-.header-status.warn .dot { background: var(--amber); }
-.header-status.err .dot { background: var(--red); }
+.nav-btn:hover {
+  color: var(--ink-soft);
+}
+
+.nav-btn[aria-current='page'] {
+  color: var(--accent);
+  background: var(--accent-wash);
+}
 
 /* ------------------------------------------------------------
    المحتوى
@@ -78,16 +129,23 @@
   width: 100%;
   max-width: var(--content-max);
   margin: 0 auto;
-  padding: var(--sp-5) var(--sp-4) calc(var(--nav-h) + var(--sp-6));
+  padding: var(--sp-5) var(--sp-4) calc(var(--nav-h) + var(--sp-7));
+  min-width: 0;
 }
 
+/* رأس الشاشة */
 .view-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-4);
   margin-bottom: var(--sp-5);
+  flex-wrap: wrap;
 }
 
 .view-head h1 {
   font-size: var(--fs-xl);
-  margin-bottom: 2px;
+  margin-bottom: 3px;
 }
 
 .view-head .sub {
@@ -113,52 +171,8 @@
   height: 18px;
 }
 
-/* في RTL يشير سهم الرجوع إلى اليمين */
 [dir='rtl'] .back-row svg {
   transform: scaleX(-1);
-}
-
-/* ------------------------------------------------------------
-   التنقّل السفلي — 3 عوالم فقط (بند 5)
-   ------------------------------------------------------------ */
-.app-nav {
-  position: fixed;
-  bottom: 0;
-  inset-inline: 0;
-  z-index: var(--z-nav);
-  background: var(--surface);
-  border-top: 1px solid var(--line);
-  display: flex;
-  justify-content: space-around;
-  padding: var(--sp-2) var(--sp-2) calc(var(--sp-2) + env(safe-area-inset-bottom));
-  max-width: 640px;
-  margin: 0 auto;
-}
-
-.nav-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  background: none;
-  border: none;
-  color: var(--ink-faint);
-  font-size: var(--fs-xs);
-  padding: var(--sp-2) var(--sp-4);
-  border-radius: var(--radius-md);
-  cursor: pointer;
-  min-width: 64px;
-  transition: color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
-}
-
-.nav-btn svg {
-  width: 21px;
-  height: 21px;
-}
-
-.nav-btn[aria-current='page'] {
-  color: var(--accent);
-  background: var(--surface-soft);
 }
 
 /* ------------------------------------------------------------
@@ -169,8 +183,8 @@
   bottom: calc(var(--nav-h) + var(--sp-4) + env(safe-area-inset-bottom));
   inset-inline-end: var(--sp-5);
   z-index: var(--z-fab);
-  width: 56px;
-  height: 56px;
+  width: 54px;
+  height: 54px;
   border-radius: 50%;
   background: var(--accent);
   color: var(--ink-invert);
@@ -178,7 +192,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: var(--shadow);
+  box-shadow: 0 8px 22px rgba(108, 92, 231, 0.35);
   cursor: pointer;
   transition: transform var(--dur-fast) var(--ease);
 }
@@ -188,8 +202,8 @@
 }
 
 .fab svg {
-  width: 25px;
-  height: 25px;
+  width: 24px;
+  height: 24px;
 }
 
 .fab[hidden] {
@@ -197,7 +211,7 @@
 }
 
 /* ------------------------------------------------------------
-   الحالات الفارغة
+   الحالات الفارغة العامة
    ------------------------------------------------------------ */
 .empty-state {
   text-align: center;
@@ -206,21 +220,20 @@
 }
 
 .empty-state .glyph {
-  width: 56px;
-  height: 56px;
+  width: 60px;
+  height: 60px;
   margin: 0 auto var(--sp-4);
   border-radius: var(--radius-lg);
-  background: var(--surface);
-  border: 1px solid var(--line);
+  background: var(--accent-wash);
+  color: var(--accent);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--ink-faint);
 }
 
 .empty-state .glyph svg {
-  width: 26px;
-  height: 26px;
+  width: 27px;
+  height: 27px;
 }
 
 .empty-state h2 {
@@ -232,12 +245,12 @@
 .empty-state p {
   font-size: var(--fs-base);
   line-height: 1.8;
-  max-width: 40ch;
+  max-width: 42ch;
   margin: 0 auto var(--sp-5);
 }
 
 /* ------------------------------------------------------------
-   مؤشر التحميل
+   التحميل
    ------------------------------------------------------------ */
 .loading {
   display: flex;
@@ -250,8 +263,8 @@
 }
 
 .spinner {
-  width: 18px;
-  height: 18px;
+  width: 17px;
+  height: 17px;
   border: 2px solid var(--line-strong);
   border-top-color: var(--accent);
   border-radius: 50%;
@@ -260,4 +273,148 @@
 
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+/* ============================================================
+   تابلت وسطح المكتب — الشريط الجانبي
+   ============================================================ */
+@media (min-width: 768px) {
+  :root {
+    /* أضيق قليلًا على التابلت ليبقى للمحتوى مساحة كافية */
+    --sidebar-w: 198px;
+  }
+
+  body {
+    flex-direction: row;
+  }
+
+  .app-header {
+    position: fixed;
+    top: 0;
+    inset-inline-start: 0;
+    width: var(--sidebar-w);
+    height: 100vh;
+    height: 100dvh;
+    flex-direction: column;
+    align-items: stretch;
+    justify-content: flex-start;
+    gap: var(--sp-5);
+    padding: var(--sp-5) var(--sp-4);
+    background: var(--surface);
+    border-bottom: none;
+    border-inline-end: 1px solid var(--line);
+    overflow-y: auto;
+  }
+
+  .app-header .header-actions {
+    display: none;
+  }
+
+  .app-nav {
+    position: static;
+    flex-direction: column;
+    background: none;
+    border-top: none;
+    padding: 0;
+    max-width: none;
+    margin: 0;
+    gap: 2px;
+  }
+
+  .nav-btn,
+  .nav-btn.secondary {
+    display: flex;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: var(--sp-3);
+    font-size: var(--fs-base);
+    padding: 10px var(--sp-3);
+    width: 100%;
+    min-width: 0;
+  }
+
+  .nav-btn svg {
+    width: 19px;
+    height: 19px;
+    flex: none;
+  }
+
+  /* فاصل قبل العناصر الثانوية */
+  .nav-btn.divide-before {
+    margin-top: var(--sp-3);
+    padding-top: var(--sp-4);
+    border-top: 1px solid var(--line-soft);
+    border-radius: 0;
+  }
+
+  /* ---- بطاقات أسفل الشريط ---- */
+  .sidebar-foot {
+    display: block;
+    margin-top: auto;
+    padding-top: var(--sp-4);
+  }
+
+  .side-card {
+    background: var(--surface-soft);
+    border: 1px solid var(--line-soft);
+    border-radius: var(--radius-md);
+    padding: var(--sp-3);
+    margin-bottom: var(--sp-3);
+  }
+
+  .side-card .label {
+    font-size: var(--fs-2xs);
+    color: var(--ink-faint);
+    margin-bottom: var(--sp-1);
+  }
+
+  .side-card .value {
+    font-size: var(--fs-sm);
+    font-weight: 600;
+    color: var(--ink);
+  }
+
+  .app-main {
+    margin-inline-start: var(--sidebar-w);
+    padding: var(--sp-6) var(--sp-6) var(--sp-7);
+  }
+
+  .fab {
+    bottom: var(--sp-6);
+    inset-inline-end: var(--sp-6);
+  }
+
+  .toast-host,
+  .update-banner {
+    bottom: var(--sp-5);
+    inset-inline-start: var(--sidebar-w);
+  }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --sidebar-w: 236px;
+  }
+}
+
+@media (min-width: 1280px) {
+  :root {
+    --sidebar-w: 252px;
+  }
+}
+
+@media print {
+  .app-header,
+  .app-nav,
+  .fab,
+  .toast-host,
+  .update-banner {
+    display: none !important;
+  }
+
+  .app-main {
+    margin: 0;
+    padding: 0;
+    max-width: none;
+  }
 }

@@ -63,6 +63,27 @@ export const icons = {
   info: () => wrap('<circle cx="12" cy="12" r="9"/><path d="M12 16v-5M12 8h.01"/>'),
 
   leaf: () => wrap('<path d="M11 20A7 7 0 0 1 4 13c0-6 7-10 16-10 0 9-4 16-9 17Z"/><path d="M4 21c2-6 5-9 9-11"/>'),
+
+  play: () => `<svg viewBox="0 0 24 24" width="24" height="24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.87l11-6.5a1 1 0 0 0 0-1.74l-11-6.5A1 1 0 0 0 8 5.5Z"/></svg>`,
+
+  edit: () => wrap('<path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/>'),
+
+  copy: () => wrap('<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>'),
+
+  calendar: () =>
+    wrap('<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 11h18"/>'),
+
+  tag: () =>
+    wrap('<path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9-9-9Z"/><circle cx="7.5" cy="7.5" r="1.3"/>'),
+
+  note: () =>
+    wrap('<path d="M4 5a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2Z"/><path d="M8 8h8M8 12h8M8 16h5"/>'),
+
+  review: () =>
+    wrap('<path d="M3 12a9 9 0 1 0 2.6-6.4M3 4v5h5"/><path d="M12 8v4l3 2"/>'),
+
+  sparkle: () =>
+    wrap('<path d="M12 3l1.8 4.7L18.5 9.5 13.8 11.3 12 16l-1.8-4.7L5.5 9.5l4.7-1.8Z"/><path d="M18.5 15.5l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8Z"/>'),
 };
 
 /** يعيد أيقونة بالاسم، أو فراغًا إن لم توجد. */

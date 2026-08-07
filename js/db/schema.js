@@ -108,6 +108,8 @@ export const STORES = {
       ['conversationId', 'conversationId'],
       ['conv_order', ['conversationId', 'order']],
       ['personId', 'personId'],
+      // أُضيف في الترقية v2 — يسمح بجلب أجزاء المشهد باستعلام واحد
+      ['sceneId', 'sceneId'],
     ],
   },
 

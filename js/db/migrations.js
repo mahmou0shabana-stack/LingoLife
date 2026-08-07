@@ -80,19 +80,24 @@ export const MIGRATIONS = [
     },
   },
 
+  {
+    v: 2,
+    note: 'فهرس sceneId على أجزاء المحادثة — لجلب أجزاء المشهد باستعلام واحد',
+    up(db, tx) {
+      addIndexIfMissing(tx, 'conversationParts', 'sceneId', 'sceneId');
+      // سجلات قديمة قد لا تحمل الحقل — نعطيها قيمة افتراضية بدل كسرها.
+      return backfill(tx, 'conversationParts', (rec) => {
+        if (rec.sceneId === undefined) {
+          rec.sceneId = null;
+          return rec;
+        }
+      });
+    },
+  },
+
   // ------------------------------------------------------------------
-  // الترقيات القادمة تُضاف هنا. مثال للمرجع فقط:
-  //
-  // {
-  //   v: 2,
-  //   note: 'إضافة فهرس المفضّلة للمشاهد',
-  //   up(db, tx) {
-  //     addIndexIfMissing(tx, 'scenes', 'isFavorite', 'isFavorite');
-  //     return backfill(tx, 'scenes', (rec) => {
-  //       if (rec.isFavorite === undefined) { rec.isFavorite = 0; return rec; }
-  //     });
-  //   },
-  // },
+  // الترقيات القادمة تُضاف هنا برقم جديد.
+  // ممنوع تعديل ترقية سبق نشرها — راجع docs/03-architecture.md §3.6
   // ------------------------------------------------------------------
 ];
 

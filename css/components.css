@@ -1,10 +1,10 @@
 /* ============================================================
    LingoLife — Components
-   Toast · Modal · Scene Card · Hero · Update Banner · Meter
+   Toast · Modal · Hero · بطاقات المشاهد · Lightbox · مقاييس
    ============================================================ */
 
 /* ------------------------------------------------------------
-   Toast — مع دعم "تراجع" (بند 53)
+   Toast — مع "تراجع" للإجراءات المهمة (بند 53)
    ------------------------------------------------------------ */
 .toast-host {
   position: fixed;
@@ -41,7 +41,7 @@
 .toast .toast-action {
   background: none;
   border: none;
-  color: #A8C4FF;
+  color: #B9AEFF;
   font-weight: 700;
   font-size: 13.5px;
   cursor: pointer;
@@ -83,7 +83,7 @@
 .modal {
   background: var(--bg);
   width: 100%;
-  max-width: 540px;
+  max-width: 560px;
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   padding: var(--sp-5) var(--sp-4) calc(var(--sp-5) + env(safe-area-inset-bottom));
   max-height: 90vh;
@@ -98,7 +98,7 @@
 }
 
 .modal h2 {
-  font-size: 18px;
+  font-size: var(--fs-lg);
   margin-bottom: var(--sp-4);
 }
 
@@ -118,45 +118,41 @@
 }
 
 /* ------------------------------------------------------------
-   Hero — بطاقة الذكرى الكبيرة في NOW
+   الهيرو — بطاقة الذكرى الكبيرة في "دلوقتي"
    ------------------------------------------------------------ */
-.hero-card {
+.hero {
   position: relative;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-xl);
   overflow: hidden;
   box-shadow: var(--shadow);
   background: var(--ink);
-  min-height: 320px;
+  min-height: 330px;
   display: flex;
   align-items: flex-end;
   cursor: pointer;
-  border: none;
-  padding: 0;
-  width: 100%;
-  text-align: start;
-  margin-bottom: var(--sp-5);
+  margin-bottom: var(--sp-4);
 }
 
-.hero-card img {
+.hero img,
+.hero-fallback {
   position: absolute;
   inset: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  opacity: 0.82;
+  opacity: 0.85;
 }
 
-.hero-card .no-img {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(160deg, #2C3A5E, #1A2338);
+.hero-fallback {
+  background: linear-gradient(150deg, #4B3FA8 0%, #2A2550 60%, #1B1834 100%);
+  opacity: 1;
 }
 
-.hero-card::after {
+.hero::after {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 30%, rgba(15, 18, 28, 0.86) 100%);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 34%, rgba(12, 14, 24, 0.88) 100%);
 }
 
 .hero-body {
@@ -168,34 +164,126 @@
 }
 
 .hero-body .eyebrow {
-  font-size: 12px;
-  opacity: 0.75;
+  font-size: var(--fs-xs);
+  opacity: 0.78;
   margin-bottom: var(--sp-1);
 }
 
 .hero-body h2 {
   font-size: var(--fs-xl);
-  margin-bottom: var(--sp-1);
+  margin-bottom: 3px;
 }
 
-.hero-body .hero-ru {
+.hero-ru {
   font-size: var(--fs-base);
-  opacity: 0.85;
-  margin-bottom: var(--sp-3);
+  opacity: 0.86;
 }
 
-.hero-body .hero-meta {
-  font-size: 12px;
-  opacity: 0.7;
+.hero-ctx {
+  font-size: var(--fs-sm);
+  opacity: 0.78;
+  line-height: 1.8;
+  margin: var(--sp-2) 0 0;
+  max-width: 52ch;
+}
+
+.hero-actions {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  margin-top: var(--sp-4);
+}
+
+.btn-glass {
+  background: rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  color: #fff;
+  backdrop-filter: blur(4px);
+}
+
+.btn-glass:hover {
+  background: rgba(255, 255, 255, 0.26);
 }
 
 /* ------------------------------------------------------------
-   Scene Card — عنصر القائمة في "حياتي"
+   شبكة "دلوقتي"
+   ------------------------------------------------------------ */
+.now-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--sp-4);
+}
+
+@media (min-width: 760px) {
+  .now-grid {
+    grid-template-columns: 1.5fr 1fr;
+  }
+}
+
+.recall-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--sp-2);
+}
+
+.recall-card {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-align: start;
+  min-width: 0;
+}
+
+.recall-card .thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 4 / 3;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg-alt);
+  color: var(--ink-faint);
+  margin-bottom: 6px;
+}
+
+.recall-card .thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.recall-card .thumb svg {
+  width: 20px;
+  height: 20px;
+}
+
+.recall-card b {
+  font-size: var(--fs-xs);
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.recall-card .d {
+  font-size: var(--fs-2xs);
+  color: var(--ink-faint);
+}
+
+/* ------------------------------------------------------------
+   بطاقة المشهد في "حياتي"
    ------------------------------------------------------------ */
 .scene-list {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: 1fr;
   gap: var(--sp-3);
+}
+
+@media (min-width: 700px) {
+  .scene-list {
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  }
 }
 
 .scene-card {
@@ -206,26 +294,27 @@
   border-radius: var(--radius-md);
   overflow: hidden;
   cursor: pointer;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-xs);
   text-align: start;
   padding: 0;
   width: 100%;
-  transition: box-shadow var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+  transition: box-shadow var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
 }
 
 .scene-card:hover {
-  box-shadow: var(--shadow);
-}
-
-.scene-card:active {
-  transform: scale(0.995);
+  box-shadow: var(--shadow-sm);
+  border-color: var(--accent-line);
 }
 
 .scene-card .thumb {
-  width: 92px;
-  min-width: 92px;
-  background: var(--surface-soft);
+  width: 88px;
+  min-width: 88px;
+  background: var(--bg-alt);
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--ink-faint);
 }
 
 .scene-card .thumb img {
@@ -234,19 +323,9 @@
   object-fit: cover;
 }
 
-.scene-card .thumb .no-img {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--ink-faint);
-  background: linear-gradient(160deg, #EDE6D3, #DED2AE);
-}
-
-.scene-card .thumb .no-img svg {
-  width: 22px;
-  height: 22px;
+.scene-card .thumb svg {
+  width: 20px;
+  height: 20px;
 }
 
 .scene-card .body {
@@ -257,7 +336,7 @@
 }
 
 .scene-card .meta-row {
-  font-size: var(--fs-xs);
+  font-size: var(--fs-2xs);
   color: var(--ink-faint);
   margin-bottom: 3px;
   display: flex;
@@ -267,8 +346,11 @@
 }
 
 .scene-card h3 {
-  font-size: var(--fs-md);
+  font-size: var(--fs-base);
   margin-bottom: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .scene-card .ru {
@@ -279,7 +361,7 @@
   white-space: nowrap;
 }
 
-/* مجموعة زمنية في الخط الزمني */
+/* مجموعة الشهر في الخط الزمني */
 .timeline-group {
   margin-bottom: var(--sp-6);
 }
@@ -301,7 +383,71 @@
 }
 
 /* ------------------------------------------------------------
-   شريط التحديث — بديل skipWaiting الصامت
+   Lightbox
+   ------------------------------------------------------------ */
+.lightbox {
+  position: fixed;
+  inset: 0;
+  background: rgba(10, 12, 18, 0.94);
+  z-index: var(--z-lightbox);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-5);
+  gap: var(--sp-4);
+}
+
+.lightbox img {
+  max-width: 100%;
+  max-height: 72vh;
+  border-radius: var(--radius-md);
+  object-fit: contain;
+}
+
+.lightbox-bar {
+  display: flex;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.lightbox-bar button {
+  background: rgba(255, 255, 255, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  color: #fff;
+  padding: 9px 16px;
+  border-radius: var(--radius-pill);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.lightbox-bar button:hover {
+  background: rgba(255, 255, 255, 0.24);
+}
+
+.lightbox-bar button.danger {
+  color: #FFB4B4;
+  border-color: rgba(255, 180, 180, 0.4);
+}
+
+.lightbox-close {
+  position: absolute;
+  top: var(--sp-4);
+  inset-inline-start: var(--sp-4);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.14);
+  border: none;
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+}
+
+/* ------------------------------------------------------------
+   شريط التحديث
    ------------------------------------------------------------ */
 .update-banner {
   position: fixed;
@@ -320,21 +466,22 @@
 }
 
 .update-banner button {
-  background: rgba(255, 255, 255, 0.18);
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: rgba(255, 255, 255, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.42);
   color: #fff;
   padding: 6px 14px;
   border-radius: var(--radius-pill);
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
+  font-family: inherit;
 }
 
 /* ------------------------------------------------------------
-   مقياس التخزين
+   مقاييس وصفوف بيانات
    ------------------------------------------------------------ */
 .meter {
-  height: 8px;
+  height: 7px;
   border-radius: var(--radius-pill);
   background: var(--bg-alt);
   overflow: hidden;
@@ -352,14 +499,13 @@
 .meter.warn > span { background: var(--amber); }
 .meter.danger > span { background: var(--red); }
 
-/* صف بيانات (مفتاح/قيمة) */
 .kv-row {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
   gap: var(--sp-3);
-  padding: 10px 0;
-  border-bottom: 1px solid var(--line);
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line-soft);
   font-size: var(--fs-sm);
 }
 
@@ -380,13 +526,22 @@
 .panel {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
   padding: var(--sp-4);
   margin-bottom: var(--sp-4);
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-xs);
 }
 
 .panel > h3 {
-  font-size: var(--fs-md);
+  font-size: var(--fs-base);
   margin-bottom: var(--sp-3);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.panel > h3 svg {
+  width: 17px;
+  height: 17px;
+  color: var(--accent);
 }

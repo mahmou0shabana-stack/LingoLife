@@ -1,0 +1,1020 @@
+/* ============================================================
+   LingoLife — Scene Journal Board
+   صفحة الذكرى: بطاقات أقسام في شبكة، كل قسم بخانة فاضية جاهزة للإضافة.
+   المرجع: صور التصميم — بطاقات بيضاء على كريمي، عناوين صغيرة بحروف واضحة.
+   ============================================================ */
+
+/* ------------------------------------------------------------
+   ترويسة المشهد
+   ------------------------------------------------------------ */
+.scene-top {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-5);
+  margin-bottom: var(--sp-4);
+  box-shadow: var(--shadow-xs);
+  display: flex;
+  gap: var(--sp-4);
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.scene-top .titles {
+  flex: 1;
+  min-width: 220px;
+}
+
+.scene-top h1 {
+  font-size: var(--fs-xl);
+  line-height: 1.3;
+  margin-bottom: var(--sp-1);
+}
+
+.scene-top .title-ru {
+  font-size: var(--fs-md);
+  color: var(--ink-soft);
+  margin-bottom: var(--sp-3);
+}
+
+.meta-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: var(--fs-xs);
+  color: var(--ink-soft);
+  background: var(--surface-soft);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-pill);
+  padding: 5px 11px;
+  white-space: nowrap;
+}
+
+.chip svg {
+  width: 13px;
+  height: 13px;
+  color: var(--ink-faint);
+  flex: none;
+}
+
+.chip.editable {
+  cursor: pointer;
+}
+
+.chip.editable:hover {
+  border-color: var(--accent-line);
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.chip.empty {
+  border-style: dashed;
+  color: var(--ink-faint);
+}
+
+/* أزرار الترويسة */
+.top-actions {
+  display: flex;
+  gap: var(--sp-2);
+  flex: none;
+}
+
+.tool-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: var(--surface-soft);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  padding: 9px 13px;
+  font-size: var(--fs-2xs);
+  color: var(--ink-soft);
+  cursor: pointer;
+  min-width: 58px;
+}
+
+.tool-btn:hover {
+  background: var(--accent-wash);
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+
+.tool-btn svg {
+  width: 17px;
+  height: 17px;
+}
+
+.star-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--ink-faint);
+  padding: var(--sp-1);
+}
+
+.star-btn.on {
+  color: #E5A83B;
+}
+
+.star-btn.on svg {
+  fill: currentColor;
+}
+
+.star-btn svg {
+  width: 21px;
+  height: 21px;
+}
+
+/* ------------------------------------------------------------
+   الفهرس المصغّر اللاصق
+   ------------------------------------------------------------ */
+.mini-index {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-sticky);
+  background: color-mix(in srgb, var(--bg) 94%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  margin: 0 calc(var(--sp-4) * -1) var(--sp-4);
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid var(--line);
+  overflow-x: auto;
+  white-space: nowrap;
+  scrollbar-width: none;
+  display: flex;
+  gap: var(--sp-2);
+}
+
+.mini-index::-webkit-scrollbar {
+  display: none;
+}
+
+.index-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--ink-soft);
+  font-size: var(--fs-sm);
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  flex: none;
+}
+
+.index-btn:hover {
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+
+.index-btn.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--ink-invert);
+}
+
+.index-btn .n {
+  font-size: var(--fs-2xs);
+  background: var(--surface-soft);
+  color: var(--ink-faint);
+  border-radius: var(--radius-pill);
+  padding: 1px 6px;
+  min-width: 18px;
+  text-align: center;
+}
+
+.index-btn.active .n {
+  background: rgba(255, 255, 255, 0.24);
+  color: #fff;
+}
+
+/* ------------------------------------------------------------
+   شبكة اللوحة
+   ------------------------------------------------------------ */
+.board {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: var(--sp-4);
+  align-items: start;
+  /* dense يملأ الفجوات التي تتركها الأقسام العريضة بدل ترك فراغات */
+  grid-auto-flow: dense;
+}
+
+/* عنصر يمتد على كل العرض */
+.board > .span-all {
+  grid-column: 1 / -1;
+}
+
+/* ------------------------------------------------------------
+   بطاقة القسم
+   ------------------------------------------------------------ */
+.sec {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: var(--sp-4);
+  box-shadow: var(--shadow-xs);
+  scroll-margin-top: 76px;
+  min-width: 0;
+}
+
+.sec-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+}
+
+.sec-head h2 {
+  font-family: var(--font-ar);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--ink-soft);
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.sec-head h2 svg {
+  width: 16px;
+  height: 16px;
+  color: var(--accent);
+}
+
+.sec-head .count {
+  font-size: var(--fs-xs);
+  color: var(--ink-faint);
+  font-weight: 400;
+}
+
+.sec-head .add {
+  margin-inline-start: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  cursor: pointer;
+  padding: 5px 9px;
+  border-radius: var(--radius-sm);
+  white-space: nowrap;
+}
+
+.sec-head .add:hover {
+  background: var(--accent-wash);
+}
+
+.sec-head .add svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* ------------------------------------------------------------
+   الخانة الفاضية داخل قسم — تدعو للإضافة، لا تعتذر
+   ------------------------------------------------------------ */
+.slot-empty {
+  border: 1.5px dashed var(--line-strong);
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+  padding: var(--sp-5) var(--sp-4);
+  text-align: center;
+  cursor: pointer;
+  color: var(--ink-faint);
+  transition: border-color var(--dur-fast) var(--ease), background var(--dur-fast) var(--ease);
+  display: block;
+  width: 100%;
+}
+
+.slot-empty:hover {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.slot-empty .ic {
+  width: 38px;
+  height: 38px;
+  margin: 0 auto var(--sp-2);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: inherit;
+}
+
+.slot-empty .ic svg {
+  width: 18px;
+  height: 18px;
+}
+
+.slot-empty .t {
+  display: block;
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--ink-soft);
+  margin-bottom: 3px;
+  line-height: 1.5;
+}
+
+.slot-empty:hover .t {
+  color: var(--accent);
+}
+
+.slot-empty .h {
+  display: block;
+  font-size: var(--fs-xs);
+  color: var(--ink-faint);
+  line-height: 1.6;
+}
+
+/* ------------------------------------------------------------
+   الهيرو — صورة الغلاف
+   ------------------------------------------------------------ */
+.scene-hero {
+  position: relative;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  aspect-ratio: 16 / 8;
+  background: var(--bg-alt);
+  margin-bottom: var(--sp-4);
+  display: block;
+  width: 100%;
+  border: 1px solid var(--line);
+  padding: 0;
+  cursor: pointer;
+}
+
+.scene-hero img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.scene-hero .cap {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  padding: var(--sp-5) var(--sp-4) var(--sp-4);
+  background: linear-gradient(180deg, transparent, rgba(15, 18, 28, 0.82));
+  color: #fff;
+  text-align: start;
+}
+
+.scene-hero .cap b {
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  display: block;
+}
+
+.scene-hero .cap span {
+  font-size: var(--fs-xs);
+  opacity: 0.82;
+}
+
+/* الهيرو الفاضي */
+.scene-hero.is-empty {
+  border: 1.5px dashed var(--line-strong);
+  background: var(--surface-soft);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-2);
+  color: var(--ink-faint);
+  aspect-ratio: 16 / 7;
+}
+
+.scene-hero.is-empty:hover {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.scene-hero.is-empty svg {
+  width: 30px;
+  height: 30px;
+}
+
+.scene-hero.is-empty .t {
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
+.scene-hero.is-empty:hover .t {
+  color: var(--accent);
+}
+
+/* ------------------------------------------------------------
+   موزاييك الصور
+   ------------------------------------------------------------ */
+.mosaic {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--sp-2);
+}
+
+.tile {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg-alt);
+  cursor: pointer;
+  border: none;
+  padding: 0;
+  display: block;
+}
+
+.tile img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* أول بلاطة أكبر — يعطي إيقاعًا بصريًا بدل شبكة رتيبة */
+.mosaic .tile:first-child {
+  grid-column: span 2;
+  grid-row: span 2;
+  aspect-ratio: auto;
+}
+
+.tile .badge-cover {
+  position: absolute;
+  top: 6px;
+  inset-inline-end: 6px;
+  background: var(--accent);
+  color: #fff;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: var(--radius-pill);
+}
+
+.tile .more-count {
+  position: absolute;
+  inset: 0;
+  background: rgba(31, 36, 48, 0.62);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+}
+
+/* بلاطة فاضية / زر إضافة */
+.tile-add {
+  border: 1.5px dashed var(--line-strong);
+  background: var(--surface-soft);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  color: var(--ink-faint);
+  font-size: var(--fs-2xs);
+  cursor: pointer;
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+}
+
+.tile-add:hover {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+
+.tile-add svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* بلاطة شبح — تحجز المكان لتبقى الشبكة متوازنة وهي فاضية */
+.tile-ghost {
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+  background: repeating-linear-gradient(
+    -45deg,
+    var(--surface-soft),
+    var(--surface-soft) 7px,
+    var(--bg-alt) 7px,
+    var(--bg-alt) 14px
+  );
+  opacity: 0.55;
+}
+
+/* ------------------------------------------------------------
+   الأصوات
+   ------------------------------------------------------------ */
+.voice-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.voice-row:last-child {
+  border-bottom: none;
+}
+
+.play-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--accent-wash);
+  color: var(--accent);
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex: none;
+}
+
+.play-btn:hover {
+  background: var(--accent);
+  color: #fff;
+}
+
+.play-btn svg {
+  width: 15px;
+  height: 15px;
+  fill: currentColor;
+  stroke: none;
+}
+
+.voice-row .info {
+  flex: 1;
+  min-width: 0;
+}
+
+.voice-row .info b {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.voice-row .info .role {
+  font-size: var(--fs-2xs);
+  color: var(--ink-faint);
+}
+
+.voice-row .dur {
+  font-size: var(--fs-xs);
+  color: var(--ink-faint);
+  font-variant-numeric: tabular-nums;
+  flex: none;
+}
+
+/* موجة صوتية مرسومة بـ CSS — تمثيل بصري لا ادّعاء تحليل */
+.wave {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 24px;
+  flex: none;
+  width: 76px;
+}
+
+.wave i {
+  flex: 1;
+  background: var(--accent-line);
+  border-radius: 1px;
+  min-height: 3px;
+}
+
+/* ------------------------------------------------------------
+   السكريبتات
+   ------------------------------------------------------------ */
+.tabs {
+  display: flex;
+  gap: var(--sp-2);
+  overflow-x: auto;
+  scrollbar-width: none;
+  margin-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--line-soft);
+  padding-bottom: var(--sp-2);
+}
+
+.tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.tab {
+  background: none;
+  border: none;
+  color: var(--ink-faint);
+  font-size: var(--fs-sm);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  white-space: nowrap;
+  flex: none;
+}
+
+.tab:hover {
+  color: var(--ink-soft);
+  background: var(--surface-soft);
+}
+
+.tab.active {
+  background: var(--accent-wash);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.script-body {
+  font-size: var(--fs-base);
+  line-height: 2;
+  white-space: pre-wrap;
+  color: var(--ink);
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.script-foot {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px solid var(--line-soft);
+  flex-wrap: wrap;
+}
+
+/* ------------------------------------------------------------
+   المحادثة
+   ------------------------------------------------------------ */
+.bubble-row {
+  display: flex;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+  align-items: flex-end;
+}
+
+.bubble-row.mine {
+  flex-direction: row-reverse;
+}
+
+.avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent-wash);
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  flex: none;
+}
+
+.bubble {
+  background: var(--surface-soft);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  padding: 9px 13px;
+  max-width: 78%;
+  min-width: 0;
+}
+
+.bubble-row.mine .bubble {
+  background: var(--accent-wash);
+  border-color: var(--accent-line);
+}
+
+.bubble .who {
+  font-size: var(--fs-2xs);
+  color: var(--ink-faint);
+  margin-bottom: 2px;
+}
+
+.bubble .txt {
+  font-size: var(--fs-sm);
+  line-height: 1.75;
+}
+
+.bubble .foot {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: 5px;
+  font-size: var(--fs-2xs);
+  color: var(--ink-faint);
+}
+
+/* ------------------------------------------------------------
+   خطأ / طبيعي — الميزة المميِّزة
+   ------------------------------------------------------------ */
+.mistake {
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+  padding: var(--sp-3);
+  margin-bottom: var(--sp-3);
+}
+
+.mistake:last-child {
+  margin-bottom: 0;
+}
+
+.m-line {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  font-size: var(--fs-sm);
+  line-height: 1.7;
+}
+
+.m-line .mark {
+  flex: none;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  margin-top: 3px;
+}
+
+.m-line.wrong {
+  background: var(--red-bg);
+  color: var(--red);
+}
+
+.m-line.wrong .mark {
+  background: var(--red);
+  color: #fff;
+}
+
+.m-line.right {
+  background: var(--green-bg);
+  color: var(--green);
+  font-weight: 600;
+}
+
+.m-line.right .mark {
+  background: var(--green);
+  color: #fff;
+}
+
+.m-arrow {
+  text-align: center;
+  color: var(--ink-faint);
+  font-size: var(--fs-sm);
+  line-height: 1;
+  padding: 3px 0;
+}
+
+.m-note {
+  font-size: var(--fs-xs);
+  color: var(--ink-soft);
+  line-height: 1.75;
+  margin-top: var(--sp-2);
+  padding-inline-start: var(--sp-3);
+  border-inline-start: 2px solid var(--line);
+}
+
+/* ------------------------------------------------------------
+   اللغة داخل الذكرى
+   ------------------------------------------------------------ */
+.lang-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.lang-row:last-child {
+  border-bottom: none;
+}
+
+.lang-row .txt {
+  flex: 1;
+  font-size: var(--fs-sm);
+  min-width: 0;
+}
+
+.lang-row .meaning {
+  font-size: var(--fs-2xs);
+  color: var(--ink-faint);
+  display: block;
+}
+
+.tag {
+  font-size: var(--fs-2xs);
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  background: var(--blue-bg);
+  color: var(--blue);
+  flex: none;
+}
+
+.tag.tech { background: var(--violet-bg); color: var(--violet); }
+.tag.pro { background: var(--blue-bg); color: var(--blue); }
+.tag.daily { background: var(--green-bg); color: var(--green); }
+
+/* ------------------------------------------------------------
+   Expression Life — الخط الزمني
+   ------------------------------------------------------------ */
+.life-track {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-1);
+  position: relative;
+  padding: var(--sp-4) var(--sp-1) var(--sp-2);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.life-track::-webkit-scrollbar {
+  display: none;
+}
+
+.life-step {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 62px;
+  flex: 1;
+  text-align: center;
+  position: relative;
+}
+
+/* الخط الواصل بين النقاط */
+.life-step:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 6px;
+  inset-inline-start: 50%;
+  width: 100%;
+  height: 2px;
+  background: var(--line);
+  z-index: 0;
+}
+
+.life-step .dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--line-strong);
+  border: 2px solid var(--surface);
+  box-shadow: 0 0 0 2px var(--line);
+  position: relative;
+  z-index: 1;
+}
+
+.life-step.done .dot { background: var(--green); box-shadow: 0 0 0 2px var(--green-line); }
+.life-step.now .dot { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-line); }
+.life-step.warn .dot { background: var(--amber); box-shadow: 0 0 0 2px var(--amber-line); }
+.life-step.err .dot { background: var(--red); box-shadow: 0 0 0 2px var(--red-line); }
+
+.life-step .t {
+  font-size: var(--fs-2xs);
+  color: var(--ink-soft);
+  line-height: 1.4;
+}
+
+.life-step .d {
+  font-size: 9.5px;
+  color: var(--ink-faint);
+}
+
+.life-step.pending .t,
+.life-step.pending .d {
+  opacity: 0.5;
+}
+
+/* ------------------------------------------------------------
+   احكيها دلوقتي
+   ------------------------------------------------------------ */
+.tell-now {
+  text-align: center;
+  padding: var(--sp-4) var(--sp-3);
+}
+
+.tell-now p {
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+  line-height: 1.8;
+  max-width: 34ch;
+  margin: 0 auto var(--sp-4);
+}
+
+.rec-btn {
+  width: 62px;
+  height: 62px;
+  border-radius: 50%;
+  background: var(--red);
+  color: #fff;
+  border: 4px solid var(--red-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  margin: 0 auto var(--sp-2);
+  transition: transform var(--dur-fast) var(--ease);
+}
+
+.rec-btn:hover {
+  transform: scale(1.05);
+}
+
+.rec-btn.recording {
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.rec-btn svg {
+  width: 24px;
+  height: 24px;
+}
+
+@keyframes pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(214, 65, 75, 0.45); }
+  50% { box-shadow: 0 0 0 14px rgba(214, 65, 75, 0); }
+}
+
+.rec-time {
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-soft);
+}
+
+/* ------------------------------------------------------------
+   الملاحظات الشخصية
+   ------------------------------------------------------------ */
+.notes-area {
+  width: 100%;
+  border: none;
+  background: repeating-linear-gradient(
+    var(--surface),
+    var(--surface) 31px,
+    var(--line-soft) 31px,
+    var(--line-soft) 32px
+  );
+  line-height: 32px;
+  font-family: var(--font-ar);
+  font-size: var(--fs-base);
+  color: var(--ink);
+  padding: 0;
+  min-height: 128px;
+  resize: vertical;
+}
+
+.notes-area:focus {
+  outline: none;
+}
+
+/* ------------------------------------------------------------
+   الشاشات الكبيرة — لوحة بعمودين ثم ثلاثة
+   ------------------------------------------------------------ */
+@media (min-width: 640px) {
+  .board {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mini-index {
+    margin-inline: 0;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--line);
+    top: var(--sp-3);
+  }
+}
+
+@media (min-width: 1180px) {
+  .board {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  /* الأقسام النصّية الطويلة تأخذ عمودين */
+  .board > .wide {
+    grid-column: span 2;
+  }
+}
