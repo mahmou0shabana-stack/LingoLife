@@ -125,6 +125,9 @@ export async function createSession(input) {
       // لقطة لا مرجع — راجع الشرح أعلى الملف.
       sourceTextSnapshot: segment.text,
       translationSnapshot: segment.translation ?? null,
+      // مَن قال هذا المقطع — يفعّل «تدرّب على دورك» في المحادثات.
+      speaker: segment.speaker ?? null,
+      isMine: segment.isMine ? 1 : 0,
       order,
       difficulty: 0,
       repetitionsCompleted: 0,

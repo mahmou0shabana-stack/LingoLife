@@ -789,6 +789,8 @@ async function openShadowForConversation(sceneId) {
       text: part.text,
       translation: part.translation || null,
       sourceObjectId: part.id,
+      speaker: part.speaker || null,
+      isMine: Boolean(part.isMine),
     })),
   });
 

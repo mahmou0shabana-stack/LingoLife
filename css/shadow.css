@@ -989,3 +989,54 @@ body.shadow-open { overflow: hidden; }
   .sh-core { width: 50px; height: 50px; font-size: 20px; }
   .sh-book { margin: 0 16px 8px; }
 }
+
+/* ─────────────── علامات التحليل ─────────────── */
+
+.sh-marks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+  margin-top: 10px;
+}
+
+.sh-marks:empty { display: none; }
+
+/*
+ * خفيفة عمدًا: التحليل يخدم الظلّ لا يقاطعه (بند 20). لو صرخت
+ * العلامة بلون قويّ لسحبت العين من الجملة نفسها.
+ */
+.sh-mark {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px dashed rgba(252, 211, 77, .35);
+  background: rgba(252, 211, 77, .07);
+  color: #FCD34D;
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+  direction: ltr;
+}
+
+.sh-mark:hover { background: rgba(252, 211, 77, .14); border-style: solid; }
+
+/* زرّ ثانوي بنفس هيئة سجّل الآن */
+.sh-record.ghost {
+  background: rgba(255, 255, 255, .03);
+  border-color: var(--sh-line);
+  color: var(--sh-mute);
+  font-size: 14px;
+  padding: 12px;
+}
+
+.sh-record.ghost:hover { color: var(--sh-ink); border-color: var(--sh-accent); }
+.sh-record.ghost.recording { color: #FCA5A5; }
+
+/* دورك: البطاقة تتحوّل للأخضر والتطبيق صامت */
+.sh-current-card.your-turn {
+  border-color: #34D399;
+  box-shadow: 0 0 0 3px rgba(52, 211, 153, .16);
+}
+
+.sh-current-card.your-turn .sh-current-text { color: #A7F3D0; }
+.sh-current-card.your-turn .sh-wave i { background: #34D399; }

@@ -12,7 +12,7 @@
 import { html, raw, esc } from '../utils/dom.js';
 import { icon } from '../components/icons.js';
 import { toast, toastOk, toastError } from '../components/toast.js';
-import { showModal } from '../components/modal.js';
+import { showModal, confirmAction } from '../components/modal.js';
 import { navigate } from '../router.js';
 import { splitWords } from '../services/shadow/segmenter.js';
 import { toEgyptian } from '../services/shadow/dialect.js';
@@ -33,6 +33,9 @@ import {
   saveSessionSettings,
 } from '../services/shadow/shadow-session-service.js';
 import { markSentence, loadUserDictionary } from '../services/shadow/stress.js';
+import {
+  loadExpressionIndex, clearExpressionIndex, expressionsIn, expressionDetail,
+} from '../services/shadow/analysis-link.js';
 import { FONTS, applyFont, ensureFontsLoaded, nextFont } from '../services/shadow/fonts.js';
 import { LANGUAGES, languageByCode, translate, isEnabled as trEnabled, setEnabled as setTrEnabled } from '../services/shadow/translate.js';
 import { practiceStreak, recentPractice } from '../services/shadow/shadow-session-service.js';
@@ -54,6 +57,7 @@ export function disposeShadow() {
   ctx = null;
   recorder?.cancel?.();
   recorder = null;
+  clearExpressionIndex();
   document.body.classList.remove('shadow-open');
 }
 
@@ -139,6 +143,7 @@ export async function renderShadow(main, sessionId) {
   // الخطوط تُحقن مرّة واحدة هنا فلا تُثقل بقية التطبيق.
   ensureFontsLoaded();
   await loadUserDictionary();
+  await loadExpressionIndex();
 
   // الشعلة رقم محسوب من دليل ممارسة حقيقي — لا عدّاد يُزاد يدويًا.
   practiceStreak()
@@ -238,6 +243,7 @@ function shell() {
               <div class="sh-current-lbl">الجملة الحالية</div>
               <div class="sh-current-text" data-text></div>
               <div class="sh-current-tr" data-tr></div>
+              <div class="sh-marks" data-marks></div>
               <div class="sh-wave">${raw('<i></i>'.repeat(21))}</div>
             </div>
 
@@ -283,7 +289,11 @@ function shell() {
             <div class="sh-seg">
               <button data-sh="words">✦ الكلمات</button>
               <button data-sh="difficult">صعبة</button>
-              <button data-sh="voices">🎙 الصوت</button>
+              ${raw(
+                segments.some((seg) => seg.isMine)
+                  ? html`<button data-sh="my-role">🎭 دوري</button>`
+                  : html`<button data-sh="voices">🎙 الصوت</button>`
+              )}
             </div>
 
             <div class="sh-words" data-words hidden></div>
@@ -294,6 +304,9 @@ function shell() {
 
             <button class="sh-record" data-sh="record">
               🎙 سجّل الآن
+            </button>
+            <button class="sh-record ghost" data-sh="tell">
+              🗣 احكيها الآن
             </button>
             <div class="sh-hint" data-hint>
               سجّل بصوتك وقارن نفسك بالنطق الأصلي
@@ -439,12 +452,22 @@ function handleEvent(event) {
       if (counter) counter.textContent = counting ? `${event.repetition} / ${s.repeatCount}` : `×${event.repetition}`;
       if (bar) bar.style.width = counting ? `${Math.min(100, (event.repetition / s.repeatCount) * 100)}%` : '100%';
       card?.classList.add('speaking');
+      card?.classList.remove('your-turn');
       highlightWord(event.wordIndex);
+      break;
+    }
+
+    case 'your-turn': {
+      const card = $('[data-card]');
+      card?.classList.add('your-turn');
+      const status = $('[data-status]');
+      if (status) status.textContent = 'دورك — قول!';
       break;
     }
 
     case 'seek':
     case 'word-select':
+      $('[data-card]')?.classList.remove('your-turn');
       syncSegment();
       break;
 
@@ -504,6 +527,7 @@ function syncSegment() {
   const words = $('[data-words]');
   if (words && !words.hidden) renderWords();
 
+  renderMarks(segment);
   savePosition(ctx.session.id, index).catch(() => {});
   // الترجمة الناقصة تُجلب في الخلفية إن فعّل المستخدم ذلك.
   fetchMissingTranslation(segment).catch(() => {});
@@ -589,6 +613,89 @@ async function finishSession() {
       </p>`,
     actions: [{ label: 'تمام', value: null, variant: 'primary' }],
   });
+}
+
+/** علامات التعبيرات المحلَّلة داخل الجملة — خفيفة لا تقاطع. */
+function renderMarks(segment) {
+  const host = $('[data-marks]');
+  if (!host) return;
+  const found = expressionsIn(segment.sourceTextSnapshot);
+  host.innerHTML = found
+    .map((e) => `<button class="sh-mark" data-expr="${e.id}">✦ ${esc(e.text)}</button>`)
+    .join('');
+}
+
+/** درج التحليل — يفتح ويغلق والجلسة كما هي. */
+async function openAnalysisDrawer(expressionId) {
+  const detail = await expressionDetail(expressionId);
+  if (!detail) return;
+
+  const wasPlaying = player.state.running && !player.state.paused;
+  player.pause();
+
+  await showModal({
+    title: '✦ التعبير ده',
+    body: html`
+      <p dir="ltr" style="font-size:19px;line-height:1.7;margin-bottom:var(--sp-3)">
+        ${detail.text}
+      </p>
+      ${raw(detail.meaningAr ? html`<div class="kv-row"><span class="k">بالمصري</span>
+        <span class="v">${detail.meaningAr}</span></div>` : '')}
+      ${raw(detail.literal ? html`<div class="kv-row"><span class="k">حرفيًا</span>
+        <span class="v">${detail.literal}</span></div>` : '')}
+      <div class="kv-row"><span class="k">السجلّ</span><span class="v">${detail.register || '—'}</span></div>
+      <div class="kv-row"><span class="k">ظهر في</span>
+        <span class="v num">${detail.sceneCount} مشهد · ${detail.occurrenceCount} مرة</span></div>
+      ${raw(detail.explanation ? html`<p class="field-hint" style="margin-top:var(--sp-3)">
+        ${detail.explanation}</p>` : '')}`,
+    actions: [{ label: 'كمّل التدريب', value: null, variant: 'primary' }],
+  });
+
+  // نعيد التشغيل من حيث كان — الدرج لا يفقد الموضع.
+  if (wasPlaying) player.resume();
+}
+
+/**
+ * احكيها الآن — تسجّل نفسك وأنت تعيد السرد بلا قراءة.
+ *
+ * تُحفظ بدور `retelling` مرتبطة بالمشهد، فتصير دليلًا على أنك
+ * استطعت إنتاج اللغة لا مجرّد تكرارها.
+ */
+async function tellItNow(button) {
+  if (recorder) {
+    const file = await recorder.stop();
+    recorder = null;
+    button.classList.remove('recording');
+    button.innerHTML = '🗣 احكيها الآن';
+
+    if (!ctx.session.sceneId) return toast('اتسجّل — بس الجلسة مش مربوطة بمشهد');
+
+    await addFilesToScene(ctx.session.sceneId, [file], {
+      kind: 'audio',
+      roles: [AUDIO_ROLE.RETELLING],
+    });
+    return toastOk('اتحفظ في الذكرى كإعادة سرد');
+  }
+
+  if (!canRecord()) return toastError('المتصفح ده مش بيدعم التسجيل');
+
+  const ok = await confirmAction({
+    title: 'احكيها الآن',
+    message:
+      'اقفل عينك عن النصّ واحكي الموقف بالروسي من دماغك. ده اللي بيحوّل ' +
+      'التكرار إلى كلام حقيقي — والتسجيل هيتحفظ في الذكرى.',
+    confirmLabel: 'يلا',
+  });
+  if (!ok) return;
+
+  try {
+    player.pause();
+    recorder = await startRecording();
+    button.classList.add('recording');
+    button.innerHTML = '⏹ خلصت';
+  } catch {
+    toastError('محتاج إذن الميكروفون');
+  }
 }
 
 function renderWords() {
@@ -807,6 +914,9 @@ function wireInteractions(main) {
     const line = event.target.closest('[data-line]');
     if (line) return player.goTo(Number(line.dataset.line));
 
+    const mark = event.target.closest('[data-expr]');
+    if (mark) return openAnalysisDrawer(mark.dataset.expr);
+
     const word = event.target.closest('[data-word]');
     if (word) {
       document.querySelectorAll('[data-word]').forEach((n) => n.classList.remove('selected'));
@@ -909,6 +1019,23 @@ function wireInteractions(main) {
 
       case 'record':
         return toggleRecording(btn);
+
+      case 'tell':
+        return tellItNow(btn);
+
+      case 'my-role': {
+        const on = player.state.settings.practiceMode !== PRACTICE_MODE.MY_ROLE;
+        player.updateSettings({
+          practiceMode: on ? PRACTICE_MODE.MY_ROLE : PRACTICE_MODE.SENTENCE,
+          // في وضع الدور نمرّ مرّة واحدة على كل مقطع ونتقدّم تلقائيًا،
+          // فالمحادثة تجري كمحادثة لا كتمرين تكرار.
+          repeatCount: on ? 1 : ctx.session.repeatCount,
+          autoAdvance: true,
+        });
+        btn.classList.toggle('on', on);
+        toast(on ? 'دورك: التطبيق هيسكت عشان تقول' : 'رجعنا للتدريب العادي');
+        return;
+      }
 
       case 'go':
         return navigate(btn.dataset.to);

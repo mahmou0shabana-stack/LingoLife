@@ -29,7 +29,10 @@ import {
   SOURCE_TYPE,
   SEGMENT_STATUS,
 } from '../js/services/shadow/shadow-session-service.js';
-import { practiceEvidence, shadowSessions, shadowSegments } from '../js/db/repositories.js';
+import { practiceEvidence, shadowSessions, shadowSegments, ALL_REPOS } from '../js/db/repositories.js';
+import {
+  loadExpressionIndex, clearExpressionIndex, expressionsIn,
+} from '../js/services/shadow/analysis-link.js';
 import { withTx } from '../js/db/database.js';
 
 /** نطق وهمي فوري — يجعل اختبار آلة الحالة حتميًا. */
@@ -624,5 +627,114 @@ describe('الجلسات القابلة للاستئناف', () => {
     });
     await completeSession(session.id);
     expect(await resumableSessions()).toHaveLength(0);
+  });
+});
+
+/* ================================================================== *
+ * تدرّب على دورك
+ * ================================================================== */
+
+describe('وضع «تدرّب على دورك»', () => {
+  const dialogue = [
+    { id: 'a', text: 'Привет как дела', isMine: 0 },
+    { id: 'b', text: 'Хорошо спасибо', isMine: 1 },
+    { id: 'c', text: 'Отлично рад слышать', isMine: 0 },
+  ];
+
+  it('ينطق الطرف الآخر ويصمت في دورك', async () => {
+    const spoken = [];
+    const turns = [];
+
+    const player = createPlaybackController({
+      segments: dialogue,
+      settings: {
+        practiceMode: PRACTICE_MODE.MY_ROLE,
+        repeatCount: 1,
+        intervalUnit: 'ms',
+        intervalSteps: 1,
+        autoAdvance: true,
+      },
+      speaker: (text) => {
+        spoken.push(text);
+        return Promise.resolve({ ok: true });
+      },
+      onEvent: (e) => {
+        if (e.type === 'your-turn') turns.push(e.text);
+      },
+    });
+
+    player.start();
+    await waitFor(() => player.state.finished, 12000);
+
+    // مقطعا الطرف الآخر نُطقا، ومقطعي أنا لم يُنطق.
+    expect(spoken).toHaveLength(2);
+    expect(spoken.join('|')).toBe('Привет как дела|Отлично рад слышать');
+    expect(turns).toHaveLength(1);
+    expect(turns[0]).toBe('Хорошо спасибо');
+    player.destroy();
+  });
+
+  it('ينطق كل المقاطع في الوضع العادي', async () => {
+    const spoken = [];
+    const player = createPlaybackController({
+      segments: dialogue,
+      settings: {
+        practiceMode: PRACTICE_MODE.SENTENCE,
+        repeatCount: 1,
+        intervalUnit: 'ms',
+        intervalSteps: 1,
+        autoAdvance: true,
+      },
+      speaker: (text) => {
+        spoken.push(text);
+        return Promise.resolve({ ok: true });
+      },
+    });
+
+    player.start();
+    await waitFor(() => player.state.finished, 12000);
+    expect(spoken).toHaveLength(3);
+    player.destroy();
+  });
+});
+
+/* ================================================================== *
+ * ربط التحليل
+ * ================================================================== */
+
+describe('علامات التحليل داخل الظلّ', () => {
+  it('يلتقط تعبيرًا محلَّلًا داخل الجملة', async () => {
+    await withTx('expressions', 'readwrite', (tx) => tx.objectStore('expressions').clear());
+    await ALL_REPOS.expressions.create({
+      text: 'спасибо большое',
+      normalizedText: 'спасибо большое',
+      meaningAr: 'شكرًا جزيلًا',
+      register: 'neutral',
+    });
+    await loadExpressionIndex();
+
+    const found = expressionsIn('Он сказал спасибо большое и ушёл.');
+    expect(found).toHaveLength(1);
+    expect(found[0].text).toBe('спасибо большое');
+  });
+
+  it('لا يلتقط ما ليس في الجملة', async () => {
+    expect(expressionsIn('Привет как дела')).toHaveLength(0);
+  });
+
+  it('يفضّل التعبير الأطول فلا يبتلعه الأقصر', async () => {
+    await ALL_REPOS.expressions.create({
+      text: 'спасибо',
+      normalizedText: 'спасибо',
+      meaningAr: 'شكرًا',
+      register: 'neutral',
+    });
+    await loadExpressionIndex();
+
+    // «спасибо большое» موجود، فلا يُبلَّغ عن «спасибо» وحده داخله.
+    const found = expressionsIn('спасибо большое');
+    expect(found).toHaveLength(1);
+    expect(found[0].text).toBe('спасибо большое');
+    clearExpressionIndex();
   });
 });

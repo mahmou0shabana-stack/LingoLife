@@ -36,6 +36,11 @@ export const PRACTICE_MODE = Object.freeze({
   WORD: 'word',
   /** يمرّ على كل المقاطع تباعًا بلا تكرار لكل واحد. */
   CONTINUOUS: 'continuous',
+  /**
+   * تدرّب على دورك: النظام ينطق مقاطع الطرف الآخر، ويصمت عند مقاطعك
+   * مهلةً تقولها فيها بصوتك، ثم يكمل.
+   */
+  MY_ROLE: 'myRole',
 });
 
 /**
@@ -110,6 +115,11 @@ export function createPlaybackController({
     });
   }
 
+  /** هل المقطع الحالي دورُ المستخدم (فيُصمت له)؟ */
+  function isMyTurn() {
+    return config.practiceMode === PRACTICE_MODE.MY_ROLE && Boolean(segments[state.index]?.isMine);
+  }
+
   /** النصّ المنطوق حاليًا — جملة أو كلمة حسب الوضع. */
   function currentText() {
     const segment = segments[state.index];
@@ -148,11 +158,23 @@ export function createPlaybackController({
     });
     if (myToken !== runToken || !state.running || state.paused) return;
 
-    await speaker(currentText(), {
-      rate: config.rate,
-      voiceName: config.voiceName,
-      volume: config.volume,
-    });
+    if (isMyTurn()) {
+      // دورك: صمت بقدر طول الجملة تقريبًا بدل نطقها لك.
+      emit('your-turn', { text: currentText() });
+      // ⚠️ لا تسمِّه `words` — الاسم مستعمَل لكلمات وضع الكلمة أعلاه،
+      //    وتظليله هنا يفسد التقسيم عند العودة لذلك الوضع.
+      const wordCount = currentText().split(/\s+/).length;
+      const silence = Math.max(2000, wordCount * 700);
+      await new Promise((resolve) => {
+        timer = setTimeout(resolve, silence);
+      });
+    } else {
+      await speaker(currentText(), {
+        rate: config.rate,
+        voiceName: config.voiceName,
+        volume: config.volume,
+      });
+    }
     if (myToken !== runToken || !state.running || state.paused) return;
 
     const isContinuous = config.repeatMode === REPEAT_MODE.CONTINUOUS;
