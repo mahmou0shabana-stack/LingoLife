@@ -5,8 +5,9 @@
  * لا يستدعي هذا الملف أحدٌ إلا `repository.js`. الشاشات لا تلمسه إطلاقًا.
  */
 
-import { DB_NAME, STORE_NAMES } from './schema.js';
+import { STORE_NAMES } from './schema.js';
 import { MIGRATIONS, TARGET_VERSION, runMigrations } from './migrations.js';
+import { activeDbName } from './db-slots.js';
 
 /** @type {IDBDatabase | null} */
 let _db = null;
@@ -16,64 +17,85 @@ let _opening = null;
 /** معلومات آخر ترقية — تُعرض في شاشة الإعدادات. */
 export const dbInfo = {
   version: TARGET_VERSION,
+  name: null,
   appliedMigrations: [],
   openedAt: null,
   wasUpgraded: false,
 };
 
 /**
- * يفتح قاعدة البيانات (مرة واحدة، مع إعادة استخدام الوعد).
+ * يفتح قاعدة باسم صريح ويشغّل ترقياتها.
+ *
+ * يُستخدم للقاعدة النشطة وللخانة المؤقّتة أثناء الاسترجاع على السواء —
+ * فكلتاهما تحتاج نفس الـ stores ونفس الترقيات بالضبط. توحيد المسار
+ * يضمن أن قاعدة الاسترجاع ليست نسخة مختلفة بأي حال.
+ *
+ * @param {string} name
+ * @param {boolean} track — هل نحدّث dbInfo؟ (للقاعدة النشطة فقط)
+ * @returns {Promise<IDBDatabase>}
+ */
+export function openNamed(name, track = false) {
+  return new Promise((resolve, reject) => {
+    if (!('indexedDB' in globalThis)) {
+      reject(new Error('المتصفح لا يدعم IndexedDB — التطبيق لا يعمل بدونها.'));
+      return;
+    }
+
+    const request = indexedDB.open(name, TARGET_VERSION);
+
+    request.onupgradeneeded = (event) => {
+      const db = request.result;
+      const tx = request.transaction;
+      const from = event.oldVersion;
+      const to = event.newVersion ?? TARGET_VERSION;
+
+      console.info(`[db:${name}] ترقية من v${from} إلى v${to}`);
+      const applied = runMigrations(db, tx, from, to);
+
+      if (track) {
+        dbInfo.appliedMigrations = applied;
+        dbInfo.wasUpgraded = from > 0;
+      }
+
+      applied.forEach((v) => {
+        const note = MIGRATIONS.find((m) => m.v === v)?.note || '';
+        console.info(`[db:${name}] ✓ ترقية v${v} — ${note}`);
+      });
+    };
+
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error(`تعذّر فتح القاعدة: ${name}`));
+    request.onblocked = () => {
+      console.warn(`[db:${name}] الترقية محجوبة — أغلق تبويبات LingoLife الأخرى.`);
+    };
+  });
+}
+
+/**
+ * يفتح القاعدة النشطة (مرة واحدة، مع إعادة استخدام الوعد).
+ * الاسم يأتي من مؤشّر الخانات لا من ثابت — راجع `db-slots.js`.
  * @returns {Promise<IDBDatabase>}
  */
 export function openDB() {
   if (_db) return Promise.resolve(_db);
   if (_opening) return _opening;
 
-  _opening = new Promise((resolve, reject) => {
-    if (!('indexedDB' in globalThis)) {
-      reject(new Error('المتصفح لا يدعم IndexedDB — التطبيق لا يعمل بدونها.'));
-      return;
-    }
+  const name = activeDbName();
+  dbInfo.name = name;
 
-    const req = indexedDB.open(DB_NAME, TARGET_VERSION);
+  _opening = openNamed(name, true).then((db) => {
+    _db = db;
+    dbInfo.openedAt = Date.now();
 
-    req.onupgradeneeded = (event) => {
-      const db = req.result;
-      const tx = req.transaction;
-      const from = event.oldVersion;
-      const to = event.newVersion ?? TARGET_VERSION;
-
-      console.info(`[db] ترقية من v${from} إلى v${to}`);
-      const applied = runMigrations(db, tx, from, to);
-      dbInfo.appliedMigrations = applied;
-      dbInfo.wasUpgraded = from > 0;
-
-      applied.forEach((v) => {
-        const note = MIGRATIONS.find((m) => m.v === v)?.note || '';
-        console.info(`[db] ✓ ترقية v${v} — ${note}`);
-      });
+    // إن حاول تبويب آخر ترقية القاعدة، نغلق نسختنا لنسمح له بالمرور.
+    _db.onversionchange = () => {
+      _db?.close();
+      _db = null;
+      _opening = null;
+      console.warn('[db] نسخة أخرى من التطبيق تطلب ترقية — أُغلق الاتصال.');
     };
 
-    req.onsuccess = () => {
-      _db = req.result;
-      dbInfo.openedAt = Date.now();
-
-      // إن حاول تبويب آخر ترقية القاعدة، نغلق نسختنا لنسمح له بالمرور.
-      _db.onversionchange = () => {
-        _db?.close();
-        _db = null;
-        _opening = null;
-        console.warn('[db] نسخة أخرى من التطبيق تطلب ترقية — أُغلق الاتصال.');
-      };
-
-      resolve(_db);
-    };
-
-    req.onerror = () => reject(req.error || new Error('تعذّر فتح قاعدة البيانات'));
-
-    req.onblocked = () => {
-      console.warn('[db] الترقية محجوبة — أغلق تبويبات LingoLife الأخرى.');
-    };
+    return _db;
   });
 
   return _opening;

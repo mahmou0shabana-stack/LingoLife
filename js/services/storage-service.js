@@ -9,7 +9,7 @@
 
 import { countAll, dbInfo } from '../db/database.js';
 import { settings } from '../db/repositories.js';
-import { SCHEMA_VERSION } from '../db/schema.js';
+import { TARGET_VERSION } from '../db/migrations.js';
 
 const PERSIST_KEY = 'storage.persistRequested';
 
@@ -71,7 +71,7 @@ export async function storageReport() {
     counts,
     totalRecords,
     persisted,
-    schemaVersion: SCHEMA_VERSION,
+    schemaVersion: TARGET_VERSION,
     dbVersion: dbInfo.version,
     appliedMigrations: dbInfo.appliedMigrations,
   };

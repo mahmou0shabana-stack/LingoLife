@@ -545,3 +545,36 @@
   height: 17px;
   color: var(--accent);
 }
+
+/* ------------------------------------------------------------
+   تنبيهات فحص النسخة الاحتياطية
+   الأحمر يمنع الاسترجاع، والأصفر يُعرض ويقرّر المستخدم.
+   ------------------------------------------------------------ */
+
+.issue {
+  font-size: var(--fs-sm);
+  line-height: 1.7;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  margin-top: var(--sp-2);
+  border-inline-start: 3px solid;
+}
+
+.issue-fatal {
+  color: var(--red);
+  background: var(--red-bg);
+  border-inline-start-color: var(--red-line);
+}
+
+.issue-warn {
+  color: var(--amber);
+  background: var(--amber-bg);
+  border-inline-start-color: var(--amber-line);
+}
+
+/* تفاصيل قابلة للطي داخل اللوحات */
+.panel details > summary {
+  cursor: pointer;
+  padding: var(--sp-2) 0;
+  user-select: none;
+}

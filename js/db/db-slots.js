@@ -1,0 +1,75 @@
+/**
+ * LingoLife — خانتا قاعدة البيانات والمؤشّر بينهما
+ *
+ * المشكلة التي يحلّها هذا الملف: **الاسترجاع الذرّي.**
+ *
+ * IndexedDB تُنهي المعاملة تلقائيًا بمجرّد انتظار وعد من خارجها. ولأن
+ * الاسترجاع يفكّ أرشيفًا ويقرأ ملفات، يستحيل إبقاء معاملة واحدة تغطّيه
+ * كله. فلو كتبنا فوق القاعدة مباشرةً وانقطعت الكهرباء في المنتصف،
+ * لبقيت نصف ذكرياتك من نسخة ونصفها من أخرى — وهي أسوأ من لا شيء.
+ *
+ * الحلّ: خانتان ومؤشّر.
+ *
+ *   lingolife     ← الخانة أ (الاسم الأصلي، فبيانات المستخدمين الحاليين
+ *                   لا تُمَسّ ولا تحتاج نقلًا)
+ *   lingolife-b   ← الخانة ب
+ *
+ *   الاسترجاع يكتب في الخانة الخاملة على مهله، ثم يتحقّق، ثم يحرّك
+ *   المؤشّر بكتابة واحدة. تلك الكتابة هي اللحظة الذرّية: قبلها القاعدة
+ *   القديمة سليمة تمامًا لم تُلمس، وبعدها الجديدة كاملة. لا حالة بين.
+ *
+ * الثمن الصريح: تُشغل الخانتان معًا **أثناء الاسترجاع فقط**، أي ذروة
+ * تساوي ضعف حجم بياناتك. تُحذف القديمة فور نجاح التحويل.
+ *
+ * راجع docs/07-backup-format.md §7.8
+ */
+
+/** الخانة أ تحمل الاسم التاريخي — لا تغيّره، فهو موطن بيانات موجودة. */
+export const SLOT_A = 'lingolife';
+export const SLOT_B = 'lingolife-b';
+
+/**
+ * المؤشّر في localStorage لا في IndexedDB.
+ * السبب: قراءته وكتابته متزامنتان وذرّيتان، ولا يمكن أن يتعطّلا في
+ * منتصف عملية. مؤشّر داخل القاعدة التي يشير إليها لا معنى له.
+ */
+const POINTER_KEY = 'lingolife.activeDB';
+
+/** اسم القاعدة النشطة حاليًا. */
+export function activeDbName() {
+  try {
+    const stored = localStorage.getItem(POINTER_KEY);
+    if (stored === SLOT_A || stored === SLOT_B) return stored;
+  } catch {
+    // وضع التصفّح الخاص قد يمنع localStorage — نعود للخانة الأصلية.
+  }
+  return SLOT_A;
+}
+
+/** اسم الخانة الخاملة — وجهة الاسترجاع. */
+export function stagingDbName() {
+  return activeDbName() === SLOT_A ? SLOT_B : SLOT_A;
+}
+
+/**
+ * يحرّك المؤشّر. هذه هي اللحظة الذرّية للاسترجاع.
+ * @param {string} name
+ */
+export function setActiveDbName(name) {
+  if (name !== SLOT_A && name !== SLOT_B) {
+    throw new Error(`اسم خانة غير صالح: ${name}`);
+  }
+  localStorage.setItem(POINTER_KEY, name);
+}
+
+/** يحذف قاعدة بالاسم. يُستخدم لتنظيف الخانة القديمة بعد نجاح التحويل. */
+export function deleteDatabase(name) {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.deleteDatabase(name);
+    request.onsuccess = () => resolve(true);
+    request.onerror = () => reject(request.error);
+    // محجوب = تبويب آخر ما زال ممسكًا بها. ليست حالة فشل — نمضي
+    // وسيُحذف لاحقًا؛ المهم أن المؤشّر تحرّك بالفعل.
+    request.onblocked = () => resolve(false);
+  });
+}

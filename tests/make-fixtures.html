@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <title>توليد الملفات الذهبية</title>
+</head>
+<body>
+  <p>بيولّد ملفات <code>.llife</code> الذهبية للاختبار…</p>
+  <pre id="log"></pre>
+
+  <script type="module">
+    /**
+     * يبني الملفات الذهبية التي تحرس التوافق الخلفي.
+     * تُولَّد مرة واحدة وتُودَع في git، ثم **لا تُعدَّل أبدًا** — قيمتها
+     * كلها في كونها أُنتجت بصيغة ذلك اليوم لا صيغة اليوم.
+     */
+    import { buildFixtureWorld } from './fixtures.js';
+    import { ALL_REPOS, settings } from '../js/db/repositories.js';
+    import { withTx } from '../js/db/database.js';
+    import { buildBackup } from '../js/services/backup/export.js';
+
+    const log = (msg) => {
+      document.getElementById('log').textContent += msg + '\n';
+      console.info(msg);
+    };
+
+    async function wipe() {
+      const names = Object.keys(ALL_REPOS).concat('settings');
+      await withTx(names, 'readwrite', (tx) => {
+        for (const name of names) tx.objectStore(name).clear();
+      });
+    }
+
+    async function seed(world) {
+      for (const [store, rows] of Object.entries(world)) {
+        if (store === 'settings' || store === 'mediaBlobs' || !rows.length) continue;
+        if (store === 'media') {
+          for (const record of rows) {
+            const b = world.mediaBlobs.get(record.id);
+            await ALL_REPOS.media.putRaw({ ...record, blob: b.blob, thumbBlob: b.thumb });
+          }
+          continue;
+        }
+        for (const record of rows) await ALL_REPOS[store].putRaw(record);
+      }
+      for (const [key, value] of Object.entries(world.settings)) await settings.set(key, value);
+    }
+
+    const outputs = {};
+
+    async function make(name, options) {
+      await wipe();
+      await seed(buildFixtureWorld(options));
+      const { blob, manifest } = await buildBackup();
+      const bytes = new Uint8Array(await blob.arrayBuffer());
+      outputs[name] = [...bytes];
+      log(`${name}: ${bytes.length} بايت · ${manifest.totalRecords} سجل · ${manifest.blobs.length} ملف`);
+    }
+
+    await make('v1-minimal.llife', { scenes: 1, mediaPerScene: 1 });
+    await make('v1-media.llife', { scenes: 4, mediaPerScene: 3 });
+
+    await wipe();
+    window.__fixtures = outputs;
+    log('تمّ.');
+    document.title = 'DONE';
+  </script>
+</body>
+</html>

@@ -4,13 +4,17 @@
  * التصدير هو شبكة الأمان الأخيرة: ملكيتك الكاملة لبياناتك،
  * مستقلة عن هذا التطبيق وعن Google (docs/04 §4.5 الطبقة 5).
  *
- * الحالة في المرحلة 0: تصدير JSON للبيانات النصية.
- * حزمة .llife الكاملة (ZIP + الوسائط الأصلية) في المرحلة 1.
+ * ⚠️ هذا تصدير نصّي سريع للمعاينة — **وليس نسخة احتياطية**. لا يتضمّن
+ *    الصور ولا الأصوات، فلا يمكن استرجاع عالمك منه.
+ *
+ *    النسخة الاحتياطية الحقيقية هي حزمة `.llife` في `backup/` — أرشيف
+ *    قائم بذاته يحمل البايتات الأصلية للوسائط ويُسترجَع ذرّيًا.
+ *    راجع docs/07-backup-format.md
  */
 
 import { ALL_REPOS, settings } from '../db/repositories.js';
 import { EXPORTABLE_STORES } from '../db/schema.js';
-import { SCHEMA_VERSION } from '../db/schema.js';
+import { TARGET_VERSION } from '../db/migrations.js';
 import { downloadBlob } from '../utils/dom.js';
 import { APP_VERSION } from '../config.js';
 
@@ -43,7 +47,7 @@ export async function buildExport() {
   return {
     format: 'lingolife-export',
     formatVersion: '1.0',
-    schemaVersion: SCHEMA_VERSION,
+    schemaVersion: TARGET_VERSION,
     appVersion: APP_VERSION,
     exportedAt: new Date().toISOString(),
     includesMedia: false,

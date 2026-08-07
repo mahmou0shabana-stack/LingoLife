@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>اختبارات LingoLife</title>
+  <style>
+    :root { color-scheme: light; }
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: #F5F1E6; color: #1F2430;
+      margin: 0; padding: 24px; line-height: 1.7;
+    }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    .sub { color: #6B7280; font-size: 14px; margin-bottom: 20px; }
+    .suite { font-weight: 700; margin: 20px 0 8px; font-size: 15px; }
+    .case { padding: 5px 12px; border-inline-start: 3px solid transparent; font-size: 14px; }
+    .pass { border-inline-start-color: #1F9D62; }
+    .fail { border-inline-start-color: #D6414B; background: #FCEAEB; }
+    .err { color: #D6414B; font-size: 13px; white-space: pre-wrap;
+           margin: 4px 0 0 0; padding-inline-start: 16px; }
+    .ms { color: #9AA1AC; font-size: 12px; }
+    #summary {
+      position: sticky; top: 0; background: #fff; padding: 14px 18px;
+      border-radius: 14px; border: 1px solid #E5E1D6; margin-bottom: 8px;
+      font-weight: 700;
+    }
+    .ok { color: #1F9D62; }
+    .bad { color: #D6414B; }
+  </style>
+</head>
+<body>
+  <h1>اختبارات النسخ الاحتياطي</h1>
+  <div class="sub">
+    تعمل على IndexedDB وBlobs حقيقية داخل متصفح حقيقي — لأن ما تختبره
+    لا يوجد له بديل مقنع خارجه.
+  </div>
+
+  <div id="summary">بيشتغل…</div>
+  <div id="out"></div>
+
+  <script type="module">
+    import { run } from './test-runner.js';
+    import './backup.test.js';
+
+    const out = document.getElementById('out');
+    const summary = document.getElementById('summary');
+    let currentSuite = null;
+
+    const result = await run((event) => {
+      if (event.type === 'suite') {
+        currentSuite = document.createElement('div');
+        currentSuite.className = 'suite';
+        currentSuite.textContent = event.name;
+        out.append(currentSuite);
+        return;
+      }
+
+      const row = document.createElement('div');
+      row.className = `case ${event.type === 'pass' ? 'pass' : 'fail'}`;
+      row.innerHTML =
+        `${event.type === 'pass' ? '✓' : '✗'} ${event.name} <span class="ms">${event.ms}ms</span>`;
+      out.append(row);
+
+      if (event.type === 'fail') {
+        const err = document.createElement('pre');
+        err.className = 'err';
+        err.textContent = event.error;
+        out.append(err);
+      }
+    });
+
+    summary.innerHTML = result.failed
+      ? `<span class="bad">✗ ${result.failed} فشل</span> من ${result.total}`
+      : `<span class="ok">✓ كل الاختبارات نجحت (${result.passed})</span>`;
+
+    // للقراءة من Playwright
+    window.__testResult = result;
+    document.title = result.failed ? `✗ ${result.failed} فشل` : `✓ ${result.passed} نجح`;
+  </script>
+</body>
+</html>

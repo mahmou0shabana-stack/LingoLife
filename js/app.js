@@ -6,6 +6,7 @@
  */
 
 import { openDB } from './db/database.js';
+import { cleanupStaleSlot } from './services/backup/restore.js';
 import { route, notFound, startRouter, navigate, back, refresh, getCurrentRoute } from './router.js';
 import { requestPersistence, estimateStorage, storageLevel } from './services/storage-service.js';
 import { createScene, trashScene, restoreScene } from './services/scene-service.js';
@@ -694,6 +695,10 @@ async function boot() {
   }
 
   requestPersistence().catch(() => {});
+
+  // خانة استرجاع نصف مكتوبة من محاولة فاشلة سابقة تحتلّ مساحة بلا فائدة.
+  // لا يلمس هذا القاعدة النشطة إطلاقًا — راجع db/db-slots.js
+  cleanupStaleSlot().catch(() => {});
 
   route('/', view(renderNow));
   route('/life', view(renderLife));
