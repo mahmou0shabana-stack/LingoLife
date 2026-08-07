@@ -201,6 +201,58 @@ export const STORES = {
   },
 
   /* ---------------------------------------------------------
+     الشادوينج — طبقة ممارسة عامة فوق أي محتوى
+     --------------------------------------------------------- */
+
+  /**
+   * جلسة ظلّ. تحفظ موضعك وإعداداتك بالضبط، فتغلق التطبيق وتعود
+   * للجملة نفسها. مرتبطة دائمًا بمصدرها — لا تعيش معلّقة في الهواء.
+   */
+  shadowSessions: {
+    indexes: [
+      ['sourceType', 'sourceType'],
+      ['sourceId', 'sourceId'],
+      ['sceneId', 'sceneId'],
+      ['status', 'status'],
+      ['lastPracticedAt', 'lastPracticedAt'],
+      ['state', 'state'],
+      ['source', ['sourceType', 'sourceId']],
+    ],
+  },
+
+  /**
+   * مقطع ممارسة داخل جلسة.
+   *
+   * ⚠️ يحمل لقطة من نصّ المصدر وقت الإنشاء (`sourceTextSnapshot`)
+   *    لا مرجعًا حيًّا إليه. لو عدّلت السكريبت بعدها، تظل الجلسة
+   *    تعرض ما كنت تتدرّب عليه فعلًا بدل أن يتبدّل تحت يدك صامتًا.
+   */
+  shadowSegments: {
+    indexes: [
+      ['sessionId', 'sessionId'],
+      ['session_order', ['sessionId', 'order']],
+      ['sourceObjectId', 'sourceObjectId'],
+      ['practiceStatus', 'practiceStatus'],
+    ],
+  },
+
+  /**
+   * دليل ممارسة. تكرار الجملة حدث حقيقي يُسجَّل — لكنه يعني
+   * «تُدُرِّب عليها» فقط. لا يرتقي وحده إلى إتقان ولا إلى استخدام
+   * حقيقي في الحياة (بند 19 من مواصفة الشادوينج).
+   */
+  practiceEvidence: {
+    indexes: [
+      ['sessionId', 'sessionId'],
+      ['targetType', 'targetType'],
+      ['targetId', 'targetId'],
+      ['practiceType', 'practiceType'],
+      ['practicedAt', 'practicedAt'],
+      ['target', ['targetType', 'targetId']],
+    ],
+  },
+
+  /* ---------------------------------------------------------
      المراجعة والبحث
      --------------------------------------------------------- */
   reviewItems: {

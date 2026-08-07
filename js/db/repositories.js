@@ -35,6 +35,11 @@ export const topics = createRepository('topics', PREFIX.TOPIC);
 export const tags = createRepository('tags', PREFIX.TAG);
 export const relationships = createRepository('relationships', PREFIX.RELATION);
 
+/* ---- الشادوينج ---- */
+export const shadowSessions = createRepository('shadowSessions', PREFIX.SHADOW_SESSION);
+export const shadowSegments = createRepository('shadowSegments', PREFIX.SHADOW_SEGMENT);
+export const practiceEvidence = createRepository('practiceEvidence', PREFIX.EVIDENCE);
+
 /* ---- المراجعة ---- */
 export const reviewItems = createRepository('reviewItems', PREFIX.REVIEW);
 export const reviewHistory = createRepository('reviewHistory', PREFIX.REVIEW_LOG);
@@ -102,6 +107,9 @@ export const ALL_REPOS = {
   topics,
   tags,
   relationships,
+  shadowSessions,
+  shadowSegments,
+  practiceEvidence,
   reviewItems,
   reviewHistory,
   analysisRuns,

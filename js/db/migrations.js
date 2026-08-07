@@ -95,6 +95,17 @@ export const MIGRATIONS = [
     },
   },
 
+  {
+    v: 3,
+    note: 'الشادوينج — جلسات ومقاطع ودليل ممارسة',
+    up(db) {
+      // stores جديدة بالكامل: لا سجل قائم يُمَسّ، والترقية إضافة محضة.
+      createStore(db, 'shadowSessions');
+      createStore(db, 'shadowSegments');
+      createStore(db, 'practiceEvidence');
+    },
+  },
+
   // ------------------------------------------------------------------
   // الترقيات القادمة تُضاف هنا برقم جديد.
   // ممنوع تعديل ترقية سبق نشرها — راجع docs/03-architecture.md §3.6
