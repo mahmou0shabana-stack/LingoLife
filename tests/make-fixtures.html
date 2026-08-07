@@ -5,7 +5,19 @@
   <title>توليد الملفات الذهبية</title>
 </head>
 <body>
-  <p>بيولّد ملفات <code>.llife</code> الذهبية للاختبار…</p>
+  <h1 style="font:700 18px system-ui">توليد الملفات الذهبية</h1>
+
+  <!-- نفس خطر صفحة الاختبارات: يفضّي القاعدة على هذا الـ origin. -->
+  <div id="gate" style="background:#FCEAEB;border:2px solid #D6414B;
+       border-radius:14px;padding:18px;font:15px/1.7 system-ui;max-width:640px">
+    <strong style="color:#D6414B">⚠️ ده هيمسح بيانات المتصفح ده</strong>
+    <p>التوليد بيفضّي قاعدة البيانات عشان يزرع بيانات صناعية مكانها.</p>
+    <button id="go" style="font:700 15px system-ui;padding:11px 18px;
+      border:0;border-radius:11px;background:#D6414B;color:#fff;cursor:pointer">
+      فاهم — ولّد الملفات
+    </button>
+  </div>
+
   <pre id="log"></pre>
 
   <script type="module">
@@ -47,6 +59,7 @@
     }
 
     const outputs = {};
+    window.__fixtures = outputs;
 
     async function make(name, options) {
       await wipe();
@@ -57,13 +70,19 @@
       log(`${name}: ${bytes.length} بايت · ${manifest.totalRecords} سجل · ${manifest.blobs.length} ملف`);
     }
 
-    await make('v1-minimal.llife', { scenes: 1, mediaPerScene: 1 });
-    await make('v1-media.llife', { scenes: 4, mediaPerScene: 3 });
+    async function generate() {
+      document.getElementById('gate').hidden = true;
+      await make('v1-minimal.llife', { scenes: 1, mediaPerScene: 1 });
+      await make('v1-media.llife', { scenes: 4, mediaPerScene: 3 });
+      await wipe();
+      log('تمّ.');
+      document.title = 'DONE';
+    }
 
-    await wipe();
-    window.__fixtures = outputs;
-    log('تمّ.');
-    document.title = 'DONE';
+    document.getElementById('go').addEventListener('click', generate);
+
+    // ?run=1 للأتمتة فقط.
+    if (new URLSearchParams(location.search).get('run') === '1') generate();
   </script>
 </body>
 </html>

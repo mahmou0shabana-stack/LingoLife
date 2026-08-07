@@ -1,0 +1,66 @@
+name: اختبارات LingoLife
+
+on:
+  push:
+    branches: [main, 'claude/**']
+  pull_request:
+  workflow_dispatch:
+
+# لا داعي لتشغيل نسختين على نفس الفرع.
+concurrency:
+  group: tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  browser-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: التأكد من وجود الملفات الذهبية
+        # .gitignore يحجب *.llife، ولولا الاستثناء الصريح لاختفت هذه
+        # الملفات صامتةً وبقي وعد التوافق الخلفي بلا حارس.
+        run: |
+          set -e
+          for f in tests/fixtures/v1-minimal.llife tests/fixtures/v1-media.llife; do
+            test -s "$f" || { echo "❌ ملف ذهبي مفقود أو فارغ: $f"; exit 1; }
+            echo "✓ $f ($(stat -c%s "$f") بايت)"
+          done
+
+      - name: التأكد من أن الملفات الذهبية أرشيفات ZIP سليمة
+        # فحص بأداة النظام لا بكودنا — هذا ما يثبت أن الملف يُقرأ
+        # بأي أداة zip بعد سنوات، لا بقارئنا وحده.
+        run: |
+          set -e
+          for f in tests/fixtures/*.llife; do
+            unzip -t "$f" > /dev/null && echo "✓ $f أرشيف سليم"
+          done
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: تثبيت Playwright خارج المستودع
+        # ⚠️ عمدًا في مجلد مؤقّت: لا package.json يدخل المشروع، فيبقى
+        #    HTML/CSS/JS خامًا بلا خطوة بناء.
+        #    الوصلة الرمزية وحدها هي ما يراه Node، و node_modules متجاهَل
+        #    في .gitignore أصلًا فلا شيء يُلوّث المستودع.
+        run: |
+          mkdir -p "$RUNNER_TEMP/pw"
+          cd "$RUNNER_TEMP/pw"
+          npm init -y > /dev/null
+          npm install playwright@latest --no-audit --no-fund > /dev/null
+          npx playwright install --with-deps chromium
+          ln -sfn "$RUNNER_TEMP/pw/node_modules" "$GITHUB_WORKSPACE/node_modules"
+
+      - name: تشغيل الاختبارات وفحص الإقلاع
+        # الخادم والاختبارات في خطوة واحدة: كل خطوة في GitHub Actions
+        # تعمل في shell مستقلّ، فخادم يُشغَّل في خطوة لا يعيش في التالية.
+        run: |
+          python3 -m http.server 8124 > /dev/null 2>&1 &
+          for i in $(seq 1 20); do
+            curl -sf http://localhost:8124/index.html > /dev/null && break
+            sleep 0.5
+          done
+          node tests/run-headless.mjs http://localhost:8124

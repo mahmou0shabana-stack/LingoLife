@@ -10,9 +10,28 @@
       font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
       background: #F5F1E6; color: #1F2430;
       margin: 0; padding: 24px; line-height: 1.7;
+      max-width: 900px; margin-inline: auto;
     }
     h1 { font-size: 20px; margin: 0 0 4px; }
     .sub { color: #6B7280; font-size: 14px; margin-bottom: 20px; }
+
+    .gate {
+      background: #FCEAEB; border: 2px solid #D6414B;
+      border-radius: 16px; padding: 20px; margin-bottom: 20px;
+    }
+    .gate h2 { color: #D6414B; margin: 0 0 10px; font-size: 17px; }
+    .gate p { margin: 0 0 12px; font-size: 15px; }
+    .gate strong { color: #D6414B; }
+    .gate button {
+      font: inherit; font-weight: 700; cursor: pointer;
+      padding: 12px 20px; border-radius: 12px; border: 0;
+      background: #D6414B; color: #fff;
+    }
+    .gate .safe {
+      background: #fff; color: #1F2430; border: 1px solid #E5E1D6;
+      margin-inline-end: 8px;
+    }
+
     .suite { font-weight: 700; margin: 20px 0 8px; font-size: 15px; }
     .case { padding: 5px 12px; border-inline-start: 3px solid transparent; font-size: 14px; }
     .pass { border-inline-start-color: #1F9D62; }
@@ -27,6 +46,7 @@
     }
     .ok { color: #1F9D62; }
     .bad { color: #D6414B; }
+    code { background: #EFECFD; padding: 1px 6px; border-radius: 5px; font-size: 13px; }
   </style>
 </head>
 <body>
@@ -36,47 +56,87 @@
     لا يوجد له بديل مقنع خارجه.
   </div>
 
-  <div id="summary">بيشتغل…</div>
+  <!--
+    بوابة أمان.
+
+    الاختبارات تمسح قاعدة البيانات وتبدّل خانتها، وهي تعمل على **نفس
+    الـ origin** الذي يعمل عليه التطبيق. فتح هذه الصفحة على الجهاز الذي
+    فيه ذكرياتك الحقيقية يمحوها.
+
+    لذلك لا تعمل تلقائيًا أبدًا إلا بـ ?run=1 (للأتمتة والـ CI).
+  -->
+  <div class="gate" id="gate">
+    <h2>⚠️ الاختبارات دي هتمسح بياناتك على المتصفح ده</h2>
+    <p>
+      الاختبارات بتفضّي قاعدة البيانات وبتبدّل خانتها عشان تجرّب
+      الاسترجاع. وهي شغالة على <strong>نفس النطاق</strong> بتاع التطبيق —
+      يعني لو فيه ذكريات حقيقية على الجهاز ده، <strong>هتروح</strong>.
+    </p>
+    <p>
+      <strong>اعمل نسخة <code>.llife</code> الأول</strong> من الإعدادات،
+      أو افتح الصفحة دي في نافذة تصفّح خاص أو على متصفح تاني.
+    </p>
+    <p style="margin-top:16px">
+      <button class="safe" id="back">ارجع للتطبيق</button>
+      <button id="go">فاهم — شغّل الاختبارات وامسح البيانات</button>
+    </p>
+  </div>
+
+  <div id="summary" hidden>بيشتغل…</div>
   <div id="out"></div>
 
   <script type="module">
-    import { run } from './test-runner.js';
-    import './backup.test.js';
-
-    const out = document.getElementById('out');
+    const gate = document.getElementById('gate');
     const summary = document.getElementById('summary');
-    let currentSuite = null;
+    const out = document.getElementById('out');
 
-    const result = await run((event) => {
-      if (event.type === 'suite') {
-        currentSuite = document.createElement('div');
-        currentSuite.className = 'suite';
-        currentSuite.textContent = event.name;
-        out.append(currentSuite);
-        return;
-      }
-
-      const row = document.createElement('div');
-      row.className = `case ${event.type === 'pass' ? 'pass' : 'fail'}`;
-      row.innerHTML =
-        `${event.type === 'pass' ? '✓' : '✗'} ${event.name} <span class="ms">${event.ms}ms</span>`;
-      out.append(row);
-
-      if (event.type === 'fail') {
-        const err = document.createElement('pre');
-        err.className = 'err';
-        err.textContent = event.error;
-        out.append(err);
-      }
+    document.getElementById('back').addEventListener('click', () => {
+      window.location.href = '../index.html';
     });
 
-    summary.innerHTML = result.failed
-      ? `<span class="bad">✗ ${result.failed} فشل</span> من ${result.total}`
-      : `<span class="ok">✓ كل الاختبارات نجحت (${result.passed})</span>`;
+    async function start() {
+      gate.hidden = true;
+      summary.hidden = false;
 
-    // للقراءة من Playwright
-    window.__testResult = result;
-    document.title = result.failed ? `✗ ${result.failed} فشل` : `✓ ${result.passed} نجح`;
+      const { run } = await import('./test-runner.js');
+      await import('./backup.test.js');
+
+      const result = await run((event) => {
+        if (event.type === 'suite') {
+          const head = document.createElement('div');
+          head.className = 'suite';
+          head.textContent = event.name;
+          out.append(head);
+          return;
+        }
+
+        const row = document.createElement('div');
+        row.className = `case ${event.type === 'pass' ? 'pass' : 'fail'}`;
+        row.innerHTML =
+          `${event.type === 'pass' ? '✓' : '✗'} ${event.name} <span class="ms">${event.ms}ms</span>`;
+        out.append(row);
+
+        if (event.type === 'fail') {
+          const err = document.createElement('pre');
+          err.className = 'err';
+          err.textContent = event.error;
+          out.append(err);
+        }
+      });
+
+      summary.innerHTML = result.failed
+        ? `<span class="bad">✗ ${result.failed} فشل</span> من ${result.total}`
+        : `<span class="ok">✓ كل الاختبارات نجحت (${result.passed})</span>`;
+
+      // للقراءة من Playwright و CI
+      window.__testResult = result;
+      document.title = result.failed ? `✗ ${result.failed} فشل` : `✓ ${result.passed} نجح`;
+    }
+
+    document.getElementById('go').addEventListener('click', start);
+
+    // ?run=1 يتخطّى البوابة — للأتمتة فقط، لا يحدث بالفتح العادي.
+    if (new URLSearchParams(location.search).get('run') === '1') start();
   </script>
 </body>
 </html>
