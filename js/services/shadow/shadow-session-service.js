@@ -281,6 +281,68 @@ export async function resumableSessions(limit = 5) {
     .slice(0, limit);
 }
 
+/**
+ * سلسلة الأيام المتتالية التي تدرّبت فيها.
+ *
+ * ⚠️ محسوبة من `practiceEvidence` الحقيقي لا من عدّاد يُزاد يدويًا.
+ *    رقم لا يمكن إثباته بالنقر ليس رقمًا (بند 59).
+ */
+export async function practiceStreak() {
+  const rows = await practiceEvidence.getAll();
+  if (!rows.length) return 0;
+
+  const days = new Set(
+    rows.map((row) => new Date(row.practicedAt).toISOString().slice(0, 10))
+  );
+
+  const dayMs = 86400000;
+  const today = new Date().toISOString().slice(0, 10);
+  const yesterday = new Date(Date.now() - dayMs).toISOString().slice(0, 10);
+
+  // السلسلة حيّة إن تدرّبت اليوم أو أمس — وإلا فقد انقطعت.
+  let cursor = days.has(today) ? today : days.has(yesterday) ? yesterday : null;
+  if (!cursor) return 0;
+
+  let streak = 0;
+  let time = new Date(cursor).getTime();
+  while (days.has(new Date(time).toISOString().slice(0, 10))) {
+    streak++;
+    time -= dayMs;
+  }
+  return streak;
+}
+
+/**
+ * سجلّ الجمل التي تدرّبت عليها مؤخّرًا — بديل «آخر 20 جملة» القديم.
+ *
+ * الفارق أن هذا السجلّ مبنيّ على دليل ممارسة حقيقي مربوط بمشهده
+ * وجلسته، لا مجرّد نصوص في localStorage.
+ */
+export async function recentPractice(limit = 20) {
+  const rows = await practiceEvidence.getAll();
+  const seen = new Map();
+
+  for (const row of rows.sort((a, b) => b.practicedAt - a.practicedAt)) {
+    if (!row.text) continue;
+    const existing = seen.get(row.text);
+    if (existing) {
+      existing.repetitions += row.repetitions || 0;
+      continue;
+    }
+    seen.set(row.text, {
+      text: row.text,
+      repetitions: row.repetitions || 0,
+      practicedAt: row.practicedAt,
+      sessionId: row.sessionId,
+      sceneId: row.sceneId,
+      sourceLabel: row.sourceLabel,
+    });
+    if (seen.size >= limit) break;
+  }
+
+  return [...seen.values()];
+}
+
 /** جلسات مرتبطة بمصدر بعينه — لعرض «تدرّبت على ده قبل كده». */
 export async function sessionsForSource(sourceType, sourceId) {
   const rows = await shadowSessions.byIndex('source', [sourceType, sourceId]);

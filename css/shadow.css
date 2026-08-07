@@ -781,3 +781,211 @@ body.shadow-open { overflow: hidden; }
  *    من الأعلى تُبقي كل شيء قابلًا للوصول بالتمرير.
  */
 .sh-right > * { flex: 0 0 auto; }
+
+/* ══════════════════════════════════════════════════════════════
+   شريط التطبيق العلوي — بشكل التصميم
+   ══════════════════════════════════════════════════════════════ */
+
+.sh-appbar {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 18px 4px;
+  flex: 0 0 auto;
+}
+
+.sh-brand {
+  font-size: 19px;
+  font-weight: 300;
+  letter-spacing: .5px;
+  color: var(--sh-accent-2);
+  white-space: nowrap;
+}
+
+.sh-brand b { font-weight: 700; color: var(--sh-ink); }
+.sh-brand i { font-style: normal; font-size: 12px; }
+
+.sh-navpills {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 999px;
+  border: 1px solid var(--sh-line);
+  background: rgba(255, 255, 255, .025);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.sh-navpills::-webkit-scrollbar { display: none; }
+
+.sh-navpills button {
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 0;
+  background: transparent;
+  color: var(--sh-mute);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.sh-navpills button.on {
+  background: linear-gradient(120deg, var(--sh-accent), #7C3AED);
+  color: #fff;
+  font-weight: 600;
+  box-shadow: 0 4px 16px var(--sh-glow);
+}
+
+.sh-streak {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1px solid rgba(251, 146, 60, .28);
+  background: rgba(251, 146, 60, .1);
+  color: #FDBA74;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.sh-streak b { color: #FED7AA; font-variant-numeric: tabular-nums; }
+
+/* ─── الطابع الزمني وأيقونة النطق على السطر ─── */
+
+.sh-line .meta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.sh-line .ts { font-variant-numeric: tabular-nums; opacity: .8; }
+.sh-line .reps { color: var(--sh-accent-2); }
+.sh-line.current .reps { color: #fff; }
+.sh-line .spk { font-size: 13px; }
+
+/* ─── علامة النبر ─── */
+
+.sh-stress {
+  font-weight: inherit;
+  color: var(--sh-accent-2);
+  text-decoration: underline;
+  text-decoration-color: rgba(167, 139, 250, .5);
+  text-underline-offset: 4px;
+}
+
+.sh-current-text .sh-stress { color: #FCD34D; text-decoration-color: rgba(252, 211, 77, .45); }
+
+/* الخطّ المختار يضبط الحجم نسبيًا */
+.sh-current-text { font-size: calc(clamp(19px, 3.4vw, 27px) * var(--font-scale, 1)); }
+
+/* ─── علامة القرص في الركن ─── */
+
+.sh-dial { position: relative; }
+
+.sh-dial-mark {
+  position: absolute;
+  inset-inline-end: 8px;
+  top: 7px;
+  font-size: 10px;
+  color: var(--sh-faint);
+  opacity: .6;
+}
+
+.sh-pill .caret { opacity: .6; font-size: 10px; }
+.sh-pill.on {
+  background: rgba(139, 92, 246, .18);
+  border-color: var(--sh-accent);
+  color: var(--sh-ink);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   الشريط السفلي — خمسة عناصر بزرّ مضيء في المنتصف
+   كل زرّ يفعل شيئًا حقيقيًا: لا تحديات ولا تقارير مفبركة.
+   ══════════════════════════════════════════════════════════════ */
+
+.sh-bottom {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  gap: 6px;
+  padding: 6px 14px calc(10px + env(safe-area-inset-bottom, 0px));
+}
+
+.sh-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 6px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--sh-mute);
+  font: inherit;
+  font-size: 16px;
+  cursor: pointer;
+  border-radius: 12px;
+  min-width: 62px;
+}
+
+.sh-tab span { font-size: 10.5px; }
+.sh-tab:active { background: rgba(255, 255, 255, .04); }
+.sh-tab:hover { color: var(--sh-ink); }
+
+/* الزرّ المضيء — تقسيم الكلمات، وهو أكثر ما يُستخدم أثناء التدريب */
+.sh-core {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: 0;
+  background: linear-gradient(150deg, var(--sh-accent-2), #6D28D9);
+  color: #fff;
+  font-size: 22px;
+  cursor: pointer;
+  flex: 0 0 auto;
+  box-shadow: 0 0 0 7px rgba(139, 92, 246, .1), 0 10px 26px var(--sh-glow);
+  animation: shCore 3.5s ease-in-out infinite;
+}
+
+.sh-core:active { transform: scale(.93); }
+.sh-core.on { background: linear-gradient(150deg, #FCD34D, #F59E0B); animation: none; }
+
+@keyframes shCore {
+  0%, 100% { box-shadow: 0 0 0 7px rgba(139, 92, 246, .1),  0 10px 26px var(--sh-glow); }
+  50%      { box-shadow: 0 0 0 12px rgba(139, 92, 246, .04), 0 10px 30px var(--sh-glow); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sh-core { animation: none; }
+}
+
+/* شاشات ضيّقة: نخفي شريط التنقّل العلوي ونُبقي الهوية والشعلة */
+@media (max-width: 720px) {
+  .sh-navpills { display: none; }
+  .sh-appbar { padding: 10px 14px 2px; }
+  .sh-brand { font-size: 16px; }
+}
+
+/*
+ * أيقونة النطق تُرسم على كل سطر ويُظهرها CSS للجارية وحدها.
+ * حقنها في HTML مرّة واحدة عند العرض كان يُبقيها على الجملة الأولى
+ * للأبد، لأن التنقّل يبدّل الأصناف ولا يعيد بناء السطور.
+ */
+.sh-line .spk { display: none; font-size: 13px; }
+.sh-line.current .spk { display: inline; }
+
+/* تقليل ارتفاع الشريط السفلي ليتّسع الكتاب */
+@media (min-width: 900px) {
+  .sh-bottom { padding: 4px 14px calc(8px + env(safe-area-inset-bottom, 0px)); }
+  .sh-tab { padding: 4px 10px; }
+  .sh-core { width: 50px; height: 50px; font-size: 20px; }
+  .sh-book { margin: 0 16px 8px; }
+}

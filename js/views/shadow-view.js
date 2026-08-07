@@ -32,7 +32,11 @@ import {
   savePosition,
   saveSessionSettings,
 } from '../services/shadow/shadow-session-service.js';
-import { scripts, contentBlocks, scenes, sceneMediaLinks, media } from '../db/repositories.js';
+import { markSentence, loadUserDictionary } from '../services/shadow/stress.js';
+import { FONTS, applyFont, ensureFontsLoaded, nextFont } from '../services/shadow/fonts.js';
+import { LANGUAGES, languageByCode, translate, isEnabled as trEnabled, setEnabled as setTrEnabled } from '../services/shadow/translate.js';
+import { practiceStreak, recentPractice } from '../services/shadow/shadow-session-service.js';
+import { scripts, contentBlocks, scenes, sceneMediaLinks, media, shadowSegments } from '../db/repositories.js';
 import { urlFor, startRecording, canRecord, addFilesToScene, AUDIO_ROLE } from '../services/media-service.js';
 
 /** حالة الشاشة الحيّة. */
@@ -123,10 +127,26 @@ export async function renderShadow(main, sessionId) {
     voices,
     display: session.displayMode || DISPLAY.RU,
     volume: session.volume ?? 1,
+    lang: session.translationLang || 'ams',
+    font: session.fontId || 'philosopher',
+    stress: session.showStress ?? true,
+    autoRead: false,
   };
 
   main.innerHTML = shell();
   document.body.classList.add('shadow-open');
+
+  // الخطوط تُحقن مرّة واحدة هنا فلا تُثقل بقية التطبيق.
+  ensureFontsLoaded();
+  await loadUserDictionary();
+
+  // الشعلة رقم محسوب من دليل ممارسة حقيقي — لا عدّاد يُزاد يدويًا.
+  practiceStreak()
+    .then((days) => {
+      const el = main.querySelector('[data-streak]');
+      if (el) el.textContent = days;
+    })
+    .catch(() => {});
 
   player = createPlaybackController({
     segments: segments.map((s) => ({ id: s.id, text: s.sourceTextSnapshot })),
@@ -146,9 +166,20 @@ function shell() {
 
   return html`
     <div class="shadow-app">
+      <div class="sh-appbar">
+        <div class="sh-brand">Lingo<b>Life</b> <i>✦</i></div>
+        <nav class="sh-navpills">
+          <button data-sh="go" data-to="/">الرئيسية</button>
+          <button data-sh="go" data-to="/life">المكتبة</button>
+          <button data-sh="go" data-to="/language">لغتي</button>
+          <button class="on">Shadowing</button>
+        </nav>
+        <div class="sh-streak" title="أيام متتالية فيها تدريب حقيقي">🔥 <b data-streak>—</b></div>
+      </div>
+
       <div class="sh-top">
-        <button class="sh-pill" data-sh="exit">${raw(icon('back', 15))} رجوع</button>
-        <div class="sh-top-title"><span>كتاب الظلّ · ${session.title}</span></div>
+        <button class="sh-pill" data-sh="exit">${raw(icon('back', 15))} رجوع للمكتبة</button>
+        <div class="sh-top-title"><span>Shadowing Book · كتاب الظلّ</span></div>
         <button class="sh-pill" data-sh="tips">${raw(icon('info', 15))} نصائح</button>
       </div>
 
@@ -176,8 +207,13 @@ function shell() {
             </div>
 
             <div class="sh-left-foot">
-              <button class="sh-pill" data-sh="toggle-tr">📖 عرض الترجمة</button>
-              <button class="sh-pill" data-sh="voice">🎙 اختيار الصوت</button>
+              <button class="sh-pill" data-sh="toggle-tr">📖 عرض الترجمة <span class="caret">▾</span></button>
+              <button class="sh-pill" data-sh="lang" data-lang="${ctx.lang}">
+                <span data-lang-flag>${languageByCode(ctx.lang).flag}</span>
+                <span data-lang-label>${languageByCode(ctx.lang).label}</span>
+              </button>
+              <button class="sh-pill" data-sh="font">✍️ <span data-font-label>الخطّ</span></button>
+              <button class="sh-pill" data-sh="stress">◌́ النبر</button>
             </div>
           </div>
 
@@ -265,12 +301,26 @@ function shell() {
           </div>
         </div>
       </div>
+
+      <!--
+        الشريط السفلي بشكل التصميم — وكل زرّ فيه يفعل شيئًا حقيقيًا.
+        لا «تحديات» ولا «تقارير» مفبركة: التقارير أرقام الجلسة الفعلية،
+        والمفضّلة هي الجمل التي علّمتها صعبة، والسجلّ ممارستك المسجّلة.
+      -->
+      <div class="sh-bottom">
+        <button class="sh-tab" data-sh="panel" data-panel="settings">⚙️<span>الإعدادات</span></button>
+        <button class="sh-tab" data-sh="panel" data-panel="report">📊<span>التقرير</span></button>
+        <button class="sh-core" data-sh="words" aria-label="تقسيم الكلمات">✦</button>
+        <button class="sh-tab" data-sh="panel" data-panel="difficult">♡<span>الصعبة</span></button>
+        <button class="sh-tab" data-sh="panel" data-panel="history">🕘<span>السجلّ</span></button>
+      </div>
     </div>`;
 }
 
 function dial(label, glyph, value, key) {
   return html`
     <div class="sh-dial">
+      <span class="sh-dial-mark">⊙</span>
       <div class="sh-dial-lbl">${glyph} ${label}</div>
       <div class="sh-dial-val" data-dial="${key}">${value}</div>
       <div class="sh-dial-btns">
@@ -312,11 +362,33 @@ function lineHtml(segment, index, isCurrent) {
 
   return html`<button class="${classes}" data-line="${index}">
     <span class="n">${index + 1}</span>
-    <span class="tx">${segment.sourceTextSnapshot}${raw(
+    <span class="tx" data-line-text>${segment.sourceTextSnapshot}${raw(
       segment.translationSnapshot ? html`<span class="tr" hidden>${segment.translationSnapshot}</span>` : ''
     )}</span>
-    <span class="meta">${done ? `×${segment.repetitionsCompleted}` : ''}</span>
+    <span class="meta">
+      ${raw(done ? html`<span class="reps">×${segment.repetitionsCompleted}</span>` : '')}
+      <span class="ts">${stamp(index)}</span>
+      <span class="spk">🔊</span>
+    </span>
   </button>`;
+}
+
+/**
+ * طابع زمني تقديري لبداية الجملة.
+ *
+ * ⚠️ تقدير من طول النصّ لا قياس من صوت حقيقي — التطبيق ينطق بـ TTS
+ *    فلا يوجد شريط صوتي تُقاس عليه المواضع. يُعرض ليساعدك على تقدير
+ *    طول المقطع، ولا يُدّعى أنه دقيق.
+ */
+function stamp(index) {
+  let seconds = 0;
+  for (let i = 0; i < index; i++) {
+    const words = (ctx.segments[i]?.sourceTextSnapshot || '').split(/\s+/).length;
+    seconds += Math.max(2, Math.round(words * 0.55) + 1);
+  }
+  const m = String(Math.floor(seconds / 60)).padStart(2, '0');
+  const s = String(seconds % 60).padStart(2, '0');
+  return `${m}:${s}`;
 }
 
 function staleBanner(change) {
@@ -403,7 +475,14 @@ function syncSegment() {
   const trEl = $('[data-tr]');
 
   if (textEl) {
-    textEl.textContent = segment.sourceTextSnapshot;
+    // النبر يحتاج HTML، وبدونه نكتب نصًّا خامًا فلا يمرّ شيء غير آمن.
+    if (ctx.stress) {
+      const marked = markSentence(segment.sourceTextSnapshot);
+      textEl.innerHTML = marked.html;
+    } else {
+      textEl.textContent = segment.sourceTextSnapshot;
+    }
+    applyFont(textEl, ctx.font);
     textEl.classList.toggle('hidden-mode', ctx.display === DISPLAY.HIDDEN);
   }
 
@@ -426,6 +505,8 @@ function syncSegment() {
   if (words && !words.hidden) renderWords();
 
   savePosition(ctx.session.id, index).catch(() => {});
+  // الترجمة الناقصة تُجلب في الخلفية إن فعّل المستخدم ذلك.
+  fetchMissingTranslation(segment).catch(() => {});
 }
 
 /**
@@ -436,8 +517,29 @@ function syncSegment() {
  */
 function translationFor(segment) {
   const stored = segment.translationSnapshot;
-  if (!stored) return ctx.display === DISPLAY.RU ? '' : 'مفيش ترجمة محفوظة للجملة دي';
-  return ctx.display === DISPLAY.EGY ? toEgyptian(stored) : stored;
+  if (!stored) return '';
+  return ctx.lang === 'ams' ? toEgyptian(stored) : stored;
+}
+
+/**
+ * يجلب ترجمة مفقودة من الإنترنت **إن فعّلها المستخدم**، ويحفظها في
+ * المقطع فتصير جزءًا من بياناتك ولا تُطلب مرّة ثانية.
+ */
+async function fetchMissingTranslation(segment) {
+  if (segment.translationSnapshot) return;
+  const el = $('[data-tr]');
+  if (el) el.textContent = '⟳ بنترجم…';
+
+  const result = await translate(segment.sourceTextSnapshot, ctx.lang);
+  if (!result) {
+    if (el) el.textContent = 'مفيش ترجمة محفوظة — فعّل الترجمة من الإعدادات';
+    return;
+  }
+
+  const updated = await shadowSegments.update(segment.id, { translationSnapshot: result });
+  const index = ctx.segments.findIndex((s) => s.id === segment.id);
+  if (index >= 0) ctx.segments[index] = updated;
+  if (el && player.state.index === index) el.textContent = translationFor(updated);
 }
 
 async function persistSegment(event) {
@@ -597,6 +699,91 @@ function showTips() {
   });
 }
 
+/** لوحات الشريط السفلي — كلها أرقام حقيقية من القاعدة. */
+async function openPanel(name) {
+  if (name === 'report') {
+    const practiced = ctx.segments.filter((s) => s.repetitionsCompleted > 0);
+    const total = ctx.segments.reduce((sum, s) => sum + (s.repetitionsCompleted || 0), 0);
+    return showModal({
+      title: '📊 تقرير الجلسة',
+      body: html`
+        <div class="kv-row"><span class="k">جمل اتدرّبت عليها</span>
+          <span class="v num">${practiced.length} من ${ctx.segments.length}</span></div>
+        <div class="kv-row"><span class="k">إجمالي التكرارات</span><span class="v num">${total}</span></div>
+        <div class="kv-row"><span class="k">جمل صعبة</span>
+          <span class="v num">${ctx.segments.filter((s) => s.practiceStatus === 'difficult').length}</span></div>
+        <div class="kv-row"><span class="k">السرعة</span><span class="v num">${player.state.settings.rate}×</span></div>
+        <p class="field-hint" style="margin-top:var(--sp-3)">
+          الأرقام دي <strong>ممارسة</strong> — مش إتقان.
+        </p>`,
+      actions: [{ label: 'تمام', value: null, variant: 'primary' }],
+    });
+  }
+
+  if (name === 'difficult') {
+    const hard = ctx.segments.filter((s) => s.practiceStatus === 'difficult');
+    return showModal({
+      title: '♡ الجمل الصعبة',
+      body: hard.length
+        ? hard
+            .map(
+              (s) =>
+                html`<div class="kv-row"><span class="k" dir="ltr">${s.sourceTextSnapshot}</span>
+                  <span class="v num">×${s.repetitionsCompleted}</span></div>`
+            )
+            .join('')
+        : '<p class="field-hint">مفيش جمل معلّمة صعبة لسه. اضغط «صعبة» على أي جملة.</p>',
+      actions: [{ label: 'تمام', value: null, variant: 'primary' }],
+    });
+  }
+
+  if (name === 'history') {
+    const rows = await recentPractice(20);
+    return showModal({
+      title: '🕘 آخر اللي اتدرّبت عليه',
+      body: rows.length
+        ? rows
+            .map(
+              (r) =>
+                html`<div class="kv-row"><span class="k" dir="ltr">${r.text}</span>
+                  <span class="v num">×${r.repetitions}</span></div>`
+            )
+            .join('')
+        : '<p class="field-hint">لسه مفيش ممارسة مسجّلة.</p>',
+      actions: [{ label: 'تمام', value: null, variant: 'primary' }],
+    });
+  }
+
+  if (name === 'settings') {
+    const online = await trEnabled();
+    const value = await showModal({
+      title: '⚙️ إعدادات الظلّ',
+      body: html`
+        <div class="kv-row"><span class="k">الخطّ</span>
+          <span class="v">${FONTS.find((f) => f.id === ctx.font)?.label}</span></div>
+        <div class="kv-row"><span class="k">لغة الترجمة</span>
+          <span class="v">${languageByCode(ctx.lang).label}</span></div>
+        <div class="kv-row"><span class="k">علامات النبر</span>
+          <span class="v">${ctx.stress ? 'مفعّلة' : 'مطفية'}</span></div>
+        <div class="kv-row"><span class="k">قراءة مستمرة</span>
+          <span class="v">${ctx.autoRead ? 'مفعّلة' : 'مطفية'}</span></div>
+        <p class="field-hint" style="margin:var(--sp-3) 0">
+          <strong>الترجمة عبر الإنترنت ${online ? 'مفعّلة' : 'مطفية'}.</strong>
+          الترجمة المحفوظة عندك بتتعرض دايمًا. دي بس بتجيب الناقص من
+          خدمات خارجية — يعني بتخرج بياناتك برّه جهازك.
+        </p>`,
+      actions: [
+        { label: 'إغلاق', value: null, variant: 'ghost' },
+        { label: online ? 'اطفي الترجمة الأونلاين' : 'فعّل الترجمة الأونلاين', value: 'submit', variant: 'primary' },
+      ],
+    });
+    if (value === 'submit') {
+      const now = await setTrEnabled(!online);
+      toast(now ? 'الترجمة الأونلاين اتفعّلت' : 'الترجمة الأونلاين اتطفت');
+    }
+  }
+}
+
 function wireInteractions(main) {
   main.addEventListener('input', (event) => {
     if (event.target.dataset.sh === 'volume') {
@@ -675,7 +862,12 @@ function wireInteractions(main) {
       case 'words': {
         const host = $('[data-words]');
         host.hidden = !host.hidden;
-        btn.classList.toggle('on', !host.hidden);
+        // زرّان يفتحان الكلمات (الشريط السفلي والصفّ الجانبي) — نُبقي
+        // إضاءتهما متطابقة مهما ضُغط أيّهما.
+        document
+          .querySelectorAll('[data-sh="words"]')
+          .forEach((node) => node.classList.toggle('on', !host.hidden));
+        if (!host.hidden) host.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         if (host.hidden) player.updateSettings({ practiceMode: PRACTICE_MODE.SENTENCE });
         else renderWords();
         return;
@@ -718,12 +910,47 @@ function wireInteractions(main) {
       case 'record':
         return toggleRecording(btn);
 
+      case 'go':
+        return navigate(btn.dataset.to);
+
+      case 'lang': {
+        const index = LANGUAGES.findIndex((l) => l.code === ctx.lang);
+        const next = LANGUAGES[(index + 1) % LANGUAGES.length];
+        ctx.lang = next.code;
+        btn.querySelector('[data-lang-flag]').textContent = next.flag;
+        btn.querySelector('[data-lang-label]').textContent = next.label;
+        syncSegment();
+        return saveSessionSettings(ctx.session.id, { translationLang: next.code });
+      }
+
+      case 'font': {
+        const next = nextFont(ctx.font);
+        ctx.font = next.id;
+        btn.querySelector('[data-font-label]').textContent = next.label;
+        applyFont($('[data-text]'), ctx.font);
+        return saveSessionSettings(ctx.session.id, { fontId: next.id });
+      }
+
+      case 'stress': {
+        ctx.stress = !ctx.stress;
+        btn.classList.toggle('on', ctx.stress);
+        syncSegment();
+        return saveSessionSettings(ctx.session.id, { showStress: ctx.stress });
+      }
+
+      case 'panel':
+        return openPanel(btn.dataset.panel);
+
       default:
         return;
     }
   });
 
-  // الحالة الابتدائية للأزرار المقطعية
+  // الحالة الابتدائية للأزرار
+  main.querySelector('[data-sh="stress"]')?.classList.toggle('on', ctx.stress);
+  const fontLabel = main.querySelector('[data-font-label]');
+  if (fontLabel) fontLabel.textContent = FONTS.find((f) => f.id === ctx.font)?.label || 'الخطّ';
+
   setSegActive('[data-display-seg]', ctx.display);
   setSegActive(
     '[data-repeat-seg]',
