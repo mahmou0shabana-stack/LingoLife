@@ -12,6 +12,9 @@ import { html, raw } from '../utils/dom.js';
 import { formatDate, relativeDate } from '../utils/dates.js';
 import { sceneTypeLabel } from '../config.js';
 import { icon } from '../components/icons.js';
+import { resumableSessions } from '../services/shadow/shadow-session-service.js';
+import { shadowSegments } from '../db/repositories.js';
+import { relativeTime } from '../utils/dates.js';
 
 /** يجلب صورة غلاف مشهد (المصغّرة) إن وُجدت. */
 async function coverOf(scene) {
@@ -25,12 +28,30 @@ async function coverOf(scene) {
   return first ? media.get(first.mediaId) : null;
 }
 
+/**
+ * جلسات ظلّ يمكن استئنافها — تفتح على نفس الجملة وبنفس الإعدادات.
+ * لا يظهر القسم أصلًا إن لم تكن هناك جلسة، فلا صندوق فارغ.
+ */
+async function resumableRows() {
+  const sessions = await resumableSessions(3);
+  return Promise.all(
+    sessions.map(async (session) => ({
+      id: session.id,
+      title: session.title,
+      currentSegmentIndex: session.currentSegmentIndex || 0,
+      count: (await shadowSegments.byIndex('sessionId', session.id)).length,
+      when: relativeTime(session.lastPracticedAt || session.createdAt),
+    }))
+  );
+}
+
 export async function renderNow(main) {
-  const [scene, total, recent, expressionCount] = await Promise.all([
+  const [scene, total, recent, expressionCount, shadowRows] = await Promise.all([
     latestScene(),
     countActiveScenes(),
     listScenes({ limit: 4 }),
     expressions.count(),
+    resumableRows(),
   ]);
 
   if (!scene) {
@@ -106,6 +127,29 @@ export async function renderNow(main) {
               </p>`
         )}
       </section>
+
+      ${raw(
+        shadowRows.length
+          ? html`
+              <section class="sec">
+                <div class="sec-head">
+                  <h2>${raw(icon('play'))} كمّل الظلّ</h2>
+                </div>
+                ${raw(
+                  shadowRows
+                    .map(
+                      (row) => html`
+                        <button class="resume-row" data-action="open-shadow" data-id="${row.id}">
+                          <span class="t">${row.title}</span>
+                          <span class="p">جملة ${row.currentSegmentIndex + 1} من ${row.count}</span>
+                          <span class="w">${row.when}</span>
+                        </button>`
+                    )
+                    .join('')
+                )}
+              </section>`
+          : ''
+      )}
 
       <section class="sec">
         <div class="sec-head">

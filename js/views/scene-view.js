@@ -191,6 +191,10 @@ function sectionScripts(scene, scriptList, activeId) {
           data-id="${active.id}" data-scene="${scene.id}">
           ${raw(icon('play'))} تدرّب بالظلّ
         </button>
+        <button class="mini-btn" data-action="shadow-selection"
+          data-id="${active.id}" data-scene="${scene.id}">
+          ${raw(icon('check'))} تدرّب على جمل مختارة
+        </button>
         ${raw(
           active.isPrimary
             ? ''
@@ -223,6 +227,15 @@ function sectionConversation(scene, parts) {
     <section class="sec wide" id="sec-conversation">
       ${raw(head('chat', 'المحادثة الحقيقية', parts.length || '', 'add-part', scene.id, 'أضف جزء'))}
       ${raw(body)}
+      ${raw(
+        parts.length
+          ? html`<div class="script-foot">
+              <button class="mini-btn" data-action="shadow-conversation" data-scene="${scene.id}">
+                ${raw(icon('play'))} تدرّب بالظلّ
+              </button>
+            </div>`
+          : ''
+      )}
     </section>`;
 }
 

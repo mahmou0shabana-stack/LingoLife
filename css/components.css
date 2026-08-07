@@ -578,3 +578,43 @@
   padding: var(--sp-2) 0;
   user-select: none;
 }
+
+/* ------------------------------------------------------------
+   صفّ استئناف الظلّ في «دلوقتي»
+   ------------------------------------------------------------ */
+
+.resume-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  text-align: start;
+  font: inherit;
+  padding: var(--sp-3);
+  margin-bottom: var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--card);
+  cursor: pointer;
+}
+
+.resume-row:active { transform: scale(.99); }
+.resume-row:hover { border-color: var(--accent-line); background: var(--accent-wash); }
+.resume-row .t { flex: 1; font-weight: 600; min-width: 0; }
+.resume-row .p { font-size: var(--fs-sm); color: var(--accent); white-space: nowrap; }
+.resume-row .w { font-size: var(--fs-sm); color: var(--ink-soft); white-space: nowrap; }
+
+/* صفّ اختيار الجمل قبل بدء الظلّ */
+.pick-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  line-height: 1.8;
+}
+
+.pick-row:hover { background: var(--accent-wash); }
+.pick-row input { margin-top: 5px; flex: 0 0 auto; width: 17px; height: 17px; accent-color: var(--accent); }
+.pick-row span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
