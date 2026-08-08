@@ -1018,3 +1018,49 @@
     grid-column: span 2;
   }
 }
+
+/* ------------------------------------------------------------
+   زرّ الحذف في الصفوف
+
+   يبقى باهتًا حتى تقصده: الحذف ليس إجراءً يُدعى إليه. ومساحة اللمس
+   تظلّ 40px كاملة رغم أن الأيقونة أصغر — على التابلت الإصبع لا تُصيب
+   16 بكسل.
+   ------------------------------------------------------------ */
+.row-del {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  color: var(--ink-faint);
+  opacity: 0.45;
+  cursor: pointer;
+  transition: opacity var(--dur-fast) var(--ease), color var(--dur-fast) var(--ease);
+}
+
+.row-del:hover,
+.row-del:focus-visible {
+  opacity: 1;
+  color: var(--red);
+  background: var(--red-bg);
+}
+
+/* التصحيح بطاقة لا صفّ — الزرّ يقف في ركنها بدل أن يزيح محتواها. */
+.mistake { position: relative; }
+
+.row-del.corner {
+  position: absolute;
+  inset-block-start: 4px;
+  inset-inline-end: 4px;
+}
+
+.mini-btn.danger { color: var(--red); }
+
+.mini-btn.danger:hover {
+  background: var(--red-bg);
+  border-color: var(--red);
+}

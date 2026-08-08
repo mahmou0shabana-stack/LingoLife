@@ -4,7 +4,14 @@
  * يدعم Escape، النقر خارج النافذة، وحبس التركيز.
  */
 
-let openModal = null;
+/**
+ * مكدّس النوافذ.
+ *
+ * كان متغيّرًا واحدًا، فكانت كل نافذة جديدة تغلق التي قبلها. لكن بعض
+ * الطرق تمرّ بنافذتين: تفتح «ذكرى جديدة» ← «أنواع» ← «ادمج». إغلاق
+ * الأولى عند فتح الثانية كان يبتلع ما كتبته.
+ */
+const stack = [];
 
 /**
  * يفتح نافذة.
@@ -13,8 +20,6 @@ let openModal = null;
  * @returns {Promise<string|null>} قيمة الزر المضغوط، أو null عند الإلغاء
  */
 export function showModal({ title, body, actions, onSubmit, submitLabel = 'حفظ' }) {
-  closeModal();
-
   return new Promise((resolve) => {
     const overlay = document.createElement('div');
     overlay.className = 'overlay';
@@ -45,12 +50,14 @@ export function showModal({ title, body, actions, onSubmit, submitLabel = 'حف�
     const finish = (value) => {
       document.removeEventListener('keydown', onKey);
       overlay.remove();
-      openModal = null;
+      const index = stack.indexOf(overlay);
+      if (index >= 0) stack.splice(index, 1);
       resolve(value);
     };
 
     const onKey = (event) => {
-      if (event.key === 'Escape') finish(null);
+      // Escape يغلق الأعلى فقط، لا المكدّس كلّه.
+      if (event.key === 'Escape' && stack[stack.length - 1] === overlay) finish(null);
     };
 
     overlay.addEventListener('click', (event) => {
@@ -59,7 +66,10 @@ export function showModal({ title, body, actions, onSubmit, submitLabel = 'حف�
 
     const form = overlay.querySelector('[data-modal-form]');
 
-    overlay.querySelectorAll('button[type="button"]').forEach((button) => {
+    // أزرار الإغلاق هي أزرار الصفّ السفلي وحدها. كان الاستعلام يشمل
+    // كل `button[type="button"]` في النافذة، فأيّ زرّ أداة داخل النموذج
+    // (مثل «أنواع») كان يغلقها ويبتلع ما كُتب فيها.
+    overlay.querySelectorAll('.modal-actions button[type="button"]').forEach((button) => {
       button.addEventListener('click', () => finish(button.dataset.value || null));
     });
 
@@ -81,18 +91,43 @@ export function showModal({ title, body, actions, onSubmit, submitLabel = 'حف�
     });
 
     document.addEventListener('keydown', onKey);
+    // كل طبقة أعلى من التي تحتها، وإلا اختفت خلفها.
+    overlay.style.zIndex = `calc(var(--z-overlay) + ${stack.length})`;
     document.body.append(overlay);
-    openModal = overlay;
+    stack.push(overlay);
 
     const firstField = overlay.querySelector('input, textarea, select');
     firstField?.focus();
   });
 }
 
-/** يغلق النافذة المفتوحة إن وُجدت. */
+/** يغلق كل النوافذ المفتوحة. */
 export function closeModal() {
-  openModal?.remove();
-  openModal = null;
+  while (stack.length) stack.pop().remove();
+}
+
+/**
+ * يُدخل طبقةً بُنيت خارج `showModal` في نفس المكدّس.
+ *
+ * لوحة الأنواع تبني طبقتها بنفسها (لأنها ليست نموذجًا يُرسَل)، ومع
+ * ذلك يجب أن تعرف ترتيبها: تعلو نموذج الذكرى الذي فُتحت منه، وتقبع
+ * تحت نافذة الدمج التي تفتحها.
+ *
+ * @param {HTMLElement} overlay
+ * @returns {() => void} نداء الإخراج — استدعِه عند الإغلاق
+ */
+export function registerOverlay(overlay) {
+  overlay.style.zIndex = `calc(var(--z-overlay) + ${stack.length})`;
+  stack.push(overlay);
+  return () => {
+    const index = stack.indexOf(overlay);
+    if (index >= 0) stack.splice(index, 1);
+  };
+}
+
+/** هل هذه الطبقة هي الأعلى الآن؟ — لتوجيه Escape للأعلى فقط. */
+export function isTopOverlay(overlay) {
+  return stack[stack.length - 1] === overlay;
 }
 
 /**

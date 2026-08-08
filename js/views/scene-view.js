@@ -10,7 +10,7 @@ import { listConversationParts, listSceneExpressions, getBlock, scriptTypeLabel,
 import { urlFor, releaseUrls, AUDIO_ROLE_LABEL } from '../services/media-service.js';
 import { html, raw, formatDuration } from '../utils/dom.js';
 import { formatDate } from '../utils/dates.js';
-import { sceneTypeLabel } from '../config.js';
+import { typeLabel } from '../services/type-service.js';
 import { icon } from '../components/icons.js';
 
 /** أقسام اللوحة — العدد يظهر في الفهرس المصغّر. */
@@ -135,6 +135,10 @@ function sectionVoices(scene, audio) {
               </div>
               ${raw(wave(i + 1))}
               <span class="dur">${formatDuration(m.durationMs)}</span>
+              <button class="row-del" data-action="delete-audio" data-id="${m.id}"
+                data-scene="${scene.id}" aria-label="حذف التسجيل">
+                ${raw(icon('trash', 16))}
+              </button>
             </div>`
         )
         .join('')
@@ -209,6 +213,10 @@ function sectionScripts(scene, scriptList, activeId) {
                 ${raw(icon('star'))} اجعله الأساسي
               </button>`
         )}
+        <button class="mini-btn danger" data-action="delete-script"
+          data-id="${active.id}" data-scene="${scene.id}">
+          ${raw(icon('trash'))} حذف
+        </button>
       </div>
     </section>`;
 }
@@ -225,6 +233,10 @@ function sectionConversation(scene, parts) {
                 <div class="txt ru" dir="ltr" lang="ru">${p.text}</div>
                 ${raw(p.translation ? html`<div class="foot">${p.translation}</div>` : '')}
               </div>
+              <button class="row-del" data-action="delete-part" data-id="${p.id}"
+                data-scene="${scene.id}" aria-label="حذف الجزء">
+                ${raw(icon('trash', 15))}
+              </button>
             </div>`
         )
         .join('')
@@ -262,6 +274,10 @@ function sectionMistakes(scene, mistakes) {
                 <span class="ru" dir="ltr" lang="ru">${m.natural}</span>
               </div>
               ${raw(m.explanation ? html`<div class="m-note">${m.explanation}</div>` : '')}
+              <button class="row-del corner" data-action="delete-mistake" data-id="${m.id}"
+                data-scene="${scene.id}" aria-label="حذف التصحيح">
+                ${raw(icon('trash', 15))}
+              </button>
             </div>`
         )
         .join('')
@@ -289,6 +305,10 @@ function sectionLanguage(scene, expressionList) {
                   ? html`<span class="tag ${registerClass(e.register)}">${registerLabel(e.register)}</span>`
                   : ''
               )}
+              <button class="row-del" data-action="delete-expression" data-id="${e.id}"
+                data-scene="${scene.id}" aria-label="حذف التعبير">
+                ${raw(icon('trash', 15))}
+              </button>
             </div>`
         )
         .join('')
@@ -425,7 +445,7 @@ export async function renderScene(main, sceneId, options = {}) {
         ${raw(scene.titleRu && scene.titleAr ? html`<div class="title-ru ru" dir="ltr" lang="ru">${scene.titleRu}</div>` : '')}
         <div class="meta-chips">
           <span class="chip">${raw(icon('calendar'))} ${formatDate(scene.date)}</span>
-          <span class="chip">${raw(icon('tag'))} ${sceneTypeLabel(scene.type)}</span>
+          <span class="chip">${raw(icon('tag'))} ${typeLabel(scene.type)}</span>
           ${raw(
             scene.placeName
               ? html`<span class="chip">${raw(icon('place'))} ${scene.placeName}</span>`

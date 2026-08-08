@@ -13,18 +13,8 @@ export const BUILD_ID = '__BUILD__';
 /** مسار الجذر — يعمل تحت مسار فرعي في GitHub Pages. */
 export const BASE_PATH = new URL('.', import.meta.url).pathname.replace(/js\/$/, '');
 
-/** أنواع المشاهد المتاحة. */
-export const SCENE_TYPES = [
-  { id: 'work', label: 'عمل' },
-  { id: 'meeting', label: 'اجتماع' },
-  { id: 'travel', label: 'سفر' },
-  { id: 'daily', label: 'يومي' },
-  { id: 'study', label: 'دراسة' },
-  { id: 'call', label: 'مكالمة' },
-  { id: 'personal', label: 'شخصي' },
-  { id: 'other', label: 'أخرى' },
-];
-
-export function sceneTypeLabel(id) {
-  return SCENE_TYPES.find((t) => t.id === id)?.label || 'أخرى';
-}
+/*
+ * أنواع المشاهد انتقلت إلى `js/services/type-service.js`.
+ * كانت قائمة ثابتة هنا، والحياة لا تُستوعَب في قائمة ثابتة —
+ * صارت بياناتٍ تُضاف وتُعدَّل وتتفرّع.
+ */

@@ -618,3 +618,109 @@
 .pick-row:hover { background: var(--accent-wash); }
 .pick-row input { margin-top: 5px; flex: 0 0 auto; width: 17px; height: 17px; accent-color: var(--accent); }
 .pick-row span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+
+/* ------------------------------------------------------------
+   منتقي النوع ولوحة إدارة الأنواع
+   ------------------------------------------------------------ */
+.type-field {
+  display: flex;
+  gap: var(--sp-2);
+  align-items: stretch;
+}
+
+.type-field select {
+  flex: 1;
+  min-width: 0;
+}
+
+.type-field .btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.tm-hint {
+  color: var(--ink-soft);
+  font-size: var(--fs-sm);
+  line-height: 1.8;
+  margin-bottom: var(--sp-3);
+}
+
+.tm-list {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.tm-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  /* الفرع يزيح قليلًا فتُرى تبعيّته بلا خطوط شجرة تُشوّش. */
+  padding: var(--sp-2) var(--sp-3);
+  padding-inline-start: calc(var(--sp-3) + var(--depth, 0) * var(--sp-5));
+  border-bottom: 1px solid var(--line);
+}
+
+.tm-row:last-child { border-bottom: 0; }
+
+.tm-row.is-archived .tm-label {
+  color: var(--ink-soft);
+  text-decoration: line-through;
+  text-decoration-thickness: 1px;
+}
+
+.tm-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tm-branch { color: var(--ink-soft); }
+
+.tm-count {
+  flex: 0 0 auto;
+  font-size: var(--fs-xs);
+  color: var(--ink-soft);
+  background: var(--bg-alt);
+  border-radius: var(--radius-sm);
+  padding: 2px var(--sp-2);
+}
+
+.tm-tools {
+  display: flex;
+  gap: 2px;
+  flex: 0 0 auto;
+}
+
+.tm-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.tm-icon:hover {
+  background: var(--bg-alt);
+  color: var(--ink);
+}
+
+.tm-row-edit input {
+  flex: 1;
+  min-width: 0;
+}
+
+.tm-add {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+}
+
+.tm-add input { flex: 1; min-width: 0; }

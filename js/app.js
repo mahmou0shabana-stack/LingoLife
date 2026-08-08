@@ -10,24 +10,30 @@ import { cleanupStaleSlot } from './services/backup/restore.js';
 import { route, notFound, startRouter, navigate, back, refresh, getCurrentRoute } from './router.js';
 import { requestPersistence, estimateStorage, storageLevel } from './services/storage-service.js';
 import { createScene, trashScene, restoreScene } from './services/scene-service.js';
-import { scenes, media, scripts, contentBlocks, sceneMediaLinks } from './db/repositories.js';
+import {
+  scenes, media, scripts, contentBlocks, sceneMediaLinks,
+  conversationParts, mistakeComparisons, expressions,
+} from './db/repositories.js';
 import {
   addFilesToScene, pickFiles, setCover, removeFromScene, undoRemove,
   urlFor, releaseUrls, startRecording, canRecord, AUDIO_ROLE,
 } from './services/media-service.js';
 import {
-  addScript, updateScript, setPrimaryScript, SCRIPT_TYPES,
+  addScript, updateScript, setPrimaryScript, SCRIPT_TYPES, scriptTypeLabel,
   addConversationPart, addMistake, MISTAKE_TYPES,
   addExpression, REGISTERS, saveBlock, getBlock, listConversationParts,
+  removeExpressionFromScene, undoRemoveExpression,
 } from './services/content-service.js';
 import { splitSentences } from './services/shadow/segmenter.js';
 import { settings } from './db/repositories.js';
 import { today } from './utils/dates.js';
-import { html, raw, $, delegate, formatBytes, copyToClipboard } from './utils/dom.js';
-import { SCENE_TYPES } from './config.js';
+import { html, raw, esc, $, delegate, formatBytes, copyToClipboard } from './utils/dom.js';
+import { typeTree, listTypes, addType, updateType, archiveType, usageCount, mergeInto, primeTypes, typeLabel } from './services/type-service.js';
 import { icon } from './components/icons.js';
 import { toast, toastOk, toastError } from './components/toast.js';
 import { showModal, confirmAction } from './components/modal.js';
+import { openTypeManager } from './components/type-manager.js';
+import { deleteWithUndo, actWithUndo } from './services/delete-service.js';
 import { api as audio } from './services/audio-service.js';
 import { closeAudioPanel } from './components/audio-player.js';
 import { mountMiniPlayer } from './components/mini-player.js';
@@ -147,7 +153,49 @@ function selectOptions(items, selected) {
     .join('');
 }
 
+/**
+ * منتقي النوع — الجذور وفروعها في `optgroup` واحد لكل جذر.
+ * الفرع يبقى ظاهرًا تحت أبيه فلا تضيع علاقتهما.
+ */
+async function typeOptions(selected) {
+  const tree = await typeTree();
+  return tree
+    .map((root) => {
+      const self = `<option value="${root.id}"${root.id === selected ? ' selected' : ''}>${esc(root.label)}</option>`;
+      if (!root.children.length) return self;
+      const kids = root.children
+        .map(
+          (c) =>
+            `<option value="${c.id}"${c.id === selected ? ' selected' : ''}>&nbsp;&nbsp;↳ ${esc(c.label)}</option>`
+        )
+        .join('');
+      return `<optgroup label="${esc(root.label)}">${self}${kids}</optgroup>`;
+    })
+    .join('');
+}
+
+async function typeSelect(name, selected) {
+  return html`
+    <div class="type-field">
+      <select id="f-${name}" name="${name}">${raw(await typeOptions(selected))}</select>
+      <button type="button" class="btn btn-ghost btn-sm" data-action="manage-types">
+        ${raw(icon('plus', 15))} أنواع
+      </button>
+    </div>`;
+}
+
+/**
+ * يعيد بناء خيارات منتقٍ مفتوح بعد تعديل الأنواع.
+ * يحاول إبقاء ما كان مختارًا؛ فإن أُرشِف أو دُمج يقع على أول خيار.
+ */
+async function refreshTypeSelect(select) {
+  const previous = select.value;
+  select.innerHTML = await typeOptions(previous);
+  if (select.value !== previous) select.selectedIndex = 0;
+}
+
 async function openNewSceneModal() {
+  const typeField = await typeSelect('type');
   await showModal({
     title: 'ذكرى جديدة',
     submitLabel: 'أنشئ',
@@ -169,7 +217,7 @@ async function openNewSceneModal() {
         </div>
         <div class="field">
           <label for="f-type">النوع</label>
-          <select id="f-type" name="type">${raw(selectOptions(SCENE_TYPES))}</select>
+          ${raw(typeField)}
         </div>
       </div>
       <div class="field">
@@ -198,6 +246,7 @@ async function openEditSceneModal(sceneId) {
   const scene = await scenes.get(sceneId);
   if (!scene) return;
 
+  const typeField = await typeSelect('type', scene.type);
   await showModal({
     title: 'تعديل بيانات الذكرى',
     body: html`
@@ -215,8 +264,8 @@ async function openEditSceneModal(sceneId) {
           <input id="e-date" name="date" type="date" value="${scene.date || today()}" />
         </div>
         <div class="field">
-          <label for="e-type">النوع</label>
-          <select id="e-type" name="type">${raw(selectOptions(SCENE_TYPES, scene.type))}</select>
+          <label for="f-type">النوع</label>
+          ${raw(typeField)}
         </div>
       </div>
       <div class="field">
@@ -240,6 +289,11 @@ async function openEditSceneModal(sceneId) {
 async function openScriptModal(sceneId, scriptId = null) {
   const existing = scriptId ? await scripts.get(scriptId) : null;
 
+  // نوع الموقف يرث نوع الذكرى، ويجوز أن يختلف: ذكرى «فحص» قد يكون
+  // فيها سكريبت للمكالمة التي سبقته.
+  const scene = await scenes.get(sceneId);
+  const sceneTypeField = await typeSelect('sceneType', existing?.sceneType || scene?.type);
+
   await showModal({
     title: existing ? 'تعديل السكريبت' : 'سكريبت جديد',
     body: html`
@@ -250,9 +304,13 @@ async function openScriptModal(sceneId, scriptId = null) {
             placeholder="السكريبت الأساسي" />
         </div>
         <div class="field">
-          <label for="s-type">النوع</label>
+          <label for="s-type">صيغة النص</label>
           <select id="s-type" name="type">${raw(selectOptions(SCRIPT_TYPES, existing?.type))}</select>
         </div>
+      </div>
+      <div class="field">
+        <label for="f-sceneType">نوع الموقف</label>
+        ${raw(sceneTypeField)}
       </div>
       <div class="field">
         <label for="s-text">النص بالروسي</label>
@@ -536,17 +594,20 @@ async function openLightbox(mediaId, sceneId) {
     }
 
     if (action === 'remove') {
-      const linkId = await removeFromScene(sceneId, mediaId);
-      close();
-      toast('اتشالت من الذكرى', {
-        actionLabel: 'تراجع',
-        onAction: async () => {
-          await undoRemove(linkId);
-          toastOk('رجعت');
-          reloadScene(sceneId);
+      // الملف نفسه يبقى في `media`؛ الذي يُشال هو ربطه بالذكرى —
+      // فالتراجع لا يحتاج أن يجد الـ Blob من جديد.
+      let linkId = null;
+      await actWithUndo({
+        what: 'الصورة دي',
+        detail: record.caption || record.filename || '',
+        confirmLabel: 'شيلها',
+        remove: async () => {
+          linkId = await removeFromScene(sceneId, mediaId);
+          close();
         },
+        restore: () => undoRemove(linkId),
+        after: () => reloadScene(sceneId),
       });
-      reloadScene(sceneId);
     }
   });
 
@@ -585,6 +646,16 @@ function wireActions() {
       case 'shadow-selection': return openShadowSelection(id, sceneId);
       case 'shadow-image': return openShadowFromImage(id, sceneId);
 
+      /* ---- الأنواع ---- */
+      case 'manage-types': {
+        // اللوحة تُفتح فوق النموذج المفتوح ولا تغلقه؛ بعدها نُحدِّث
+        // خيارات المنتقي في مكانه فيظهر النوع الجديد فورًا.
+        const select = target.closest('.type-field')?.querySelector('select');
+        const changed = await openTypeManager();
+        if (changed && select) await refreshTypeSelect(select);
+        return;
+      }
+
       /* ---- المشهد ---- */
       case 'edit-scene': return openEditSceneModal(id);
 
@@ -595,16 +666,19 @@ function wireActions() {
       }
 
       case 'trash-scene': {
-        await trashScene(id);
-        toast('اتنقلت لسلة المهملات', {
-          actionLabel: 'تراجع',
-          onAction: async () => {
+        const scene = await scenes.get(id);
+        return void actWithUndo({
+          what: 'الذكرى دي',
+          detail: scene?.titleAr || scene?.titleRu || '',
+          remove: () => trashScene(id),
+          restore: async () => {
             await restoreScene(id);
-            toastOk('رجعت تاني');
             navigate(`/scene/${id}`);
           },
+          after: () => {
+            if (getCurrentRoute()?.path?.startsWith('/scene/')) navigate('/life');
+          },
         });
-        return navigate('/life');
       }
 
       case 'export-scene': {
@@ -647,24 +721,18 @@ function wireActions() {
           mediaId: record.id,
           title: record.caption || record.filename || 'تسجيل',
           async onDelete() {
-            const ok = await confirmAction({
-              title: 'حذف التسجيل',
-              message: `هيتشال «${record.caption || record.filename}» من الذكرى. تقدر تتراجع من الـ toast.`,
+            let linkId = null;
+            await actWithUndo({
+              what: 'التسجيل ده',
+              detail: record.caption || record.filename || '',
               confirmLabel: 'شيله',
-              danger: true,
-            });
-            if (!ok) return;
-            const linkId = await removeFromScene(sceneId, id);
-            audio.clear();
-            toast('اتشال التسجيل', {
-              actionLabel: 'تراجع',
-              onAction: async () => {
-                await undoRemove(linkId);
-                toastOk('رجع');
-                reloadScene(sceneId);
+              remove: async () => {
+                linkId = await removeFromScene(sceneId, id);
+                audio.clear();
               },
+              restore: () => undoRemove(linkId),
+              after: () => reloadScene(sceneId),
             });
-            reloadScene(sceneId);
           },
         });
 
@@ -703,6 +771,76 @@ function wireActions() {
         const script = await scripts.get(id);
         const ok = await copyToClipboard(script?.text || '');
         return ok ? toastOk('اتنسخ') : toastError('مقدرناش ننسخ');
+      }
+
+      /* ---- الحذف ----
+         كلّها تمرّ بنفس البوابة: تأكيد يذكر ما ستفقده، ونقلٌ للسلة لا
+         محو، وإشعار فيه «تراجع». (بند 52) */
+
+      case 'delete-script': {
+        const script = await scripts.get(id);
+        return void deleteWithUndo({
+          repo: scripts,
+          id,
+          what: 'السكريبت ده',
+          detail: script?.title || scriptTypeLabel(script?.type),
+          after: () => reloadScene(sceneId),
+        });
+      }
+
+      case 'delete-audio': {
+        const record = await media.get(id);
+        // كالصورة: يُشال ربطه بالذكرى ويبقى الملف في `media` — فالتراجع
+        // لا يحتاج أن يجد الـ Blob من جديد.
+        let audioLinkId = null;
+        return void actWithUndo({
+          what: 'التسجيل ده',
+          detail: record?.caption || record?.filename || '',
+          remove: async () => {
+            // صوتٌ يكمل بعد شيل صاحبه مربك — نوقفه أولًا.
+            if (audio.state.mediaId === id) audio.stop();
+            audioLinkId = await removeFromScene(sceneId, id);
+          },
+          restore: () => undoRemove(audioLinkId),
+          after: () => reloadScene(sceneId),
+        });
+      }
+
+      case 'delete-part': {
+        const part = await conversationParts.get(id);
+        return void deleteWithUndo({
+          repo: conversationParts,
+          id,
+          what: 'الجزء ده',
+          detail: part?.text || '',
+          after: () => reloadScene(sceneId),
+        });
+      }
+
+      case 'delete-mistake': {
+        const mistake = await mistakeComparisons.get(id);
+        return void deleteWithUndo({
+          repo: mistakeComparisons,
+          id,
+          what: 'التصحيح ده',
+          detail: mistake?.natural || mistake?.wrong || '',
+          after: () => reloadScene(sceneId),
+        });
+      }
+
+      case 'delete-expression': {
+        const expression = await expressions.get(id);
+        let undoData = null;
+        return void actWithUndo({
+          what: 'التعبير ده',
+          detail: expression?.text || '',
+          confirmLabel: 'شيله',
+          remove: async () => {
+            undoData = await removeExpressionFromScene(sceneId, id);
+          },
+          restore: () => undoRemoveExpression(id, undoData),
+          after: () => reloadScene(sceneId),
+        });
       }
 
       default: {
@@ -1157,6 +1295,8 @@ async function boot() {
   }
 
   requestPersistence().catch(() => {});
+  // الأنواع تُحمَّل مرة هنا لتقرأها الشاشات متزامنةً.
+  await primeTypes();
 
   // خانة استرجاع نصف مكتوبة من محاولة فاشلة سابقة تحتلّ مساحة بلا فائدة.
   // لا يلمس هذا القاعدة النشطة إطلاقًا — راجع db/db-slots.js

@@ -10,7 +10,7 @@ import { sceneMediaLinks, media, expressions } from '../db/repositories.js';
 import { urlFor } from '../services/media-service.js';
 import { html, raw } from '../utils/dom.js';
 import { formatDate, relativeDate } from '../utils/dates.js';
-import { sceneTypeLabel } from '../config.js';
+import { typeLabel } from '../services/type-service.js';
 import { icon } from '../components/icons.js';
 import { resumableSessions } from '../services/shadow/shadow-session-service.js';
 import { shadowSegments } from '../db/repositories.js';
@@ -82,7 +82,7 @@ export async function renderNow(main) {
           : '<div class="hero-fallback"></div>'
       )}
       <div class="hero-body">
-        <div class="eyebrow">${relativeDate(scene.date)} · ${sceneTypeLabel(scene.type)}</div>
+        <div class="eyebrow">${relativeDate(scene.date)} · ${typeLabel(scene.type)}</div>
         <h2>${scene.titleAr || scene.titleRu || 'ذكرى بلا عنوان'}</h2>
         ${raw(scene.titleRu && scene.titleAr ? html`<div class="hero-ru ru" dir="ltr" lang="ru">${scene.titleRu}</div>` : '')}
         ${raw(scene.context ? html`<p class="hero-ctx">${scene.context}</p>` : '')}

@@ -34,8 +34,14 @@ export function scriptTypeLabel(id) {
   return SCRIPT_TYPES.find((t) => t.id === id)?.label || 'سكريبت';
 }
 
-/** يضيف سكريبتًا. أول سكريبت يصير الأساسي تلقائيًا. */
-export async function addScript(sceneId, { title, text, type = 'main' }) {
+/**
+ * يضيف سكريبتًا. أول سكريبت يصير الأساسي تلقائيًا.
+ *
+ * `sceneType` نوع الموقف الذي يصفه هذا السكريبت — يرث نوع الذكرى
+ * افتراضيًّا، ويجوز أن يختلف: ذكرى «فحص» قد يكون فيها سكريبت للمكالمة
+ * التي سبقته. `type` شيء آخر تمامًا: صيغة النصّ (أساسي، مختصر، رسمي).
+ */
+export async function addScript(sceneId, { title, text, type = 'main', sceneType = null }) {
   const existing = await scripts.byIndex('sceneId', sceneId);
   const isFirst = existing.filter((s) => s.state === STATE.ACTIVE).length === 0;
 
@@ -44,6 +50,7 @@ export async function addScript(sceneId, { title, text, type = 'main' }) {
     title: (title || scriptTypeLabel(type)).trim(),
     text: text || '',
     type,
+    sceneType: sceneType || null,
     language: 'ru',
     register: null,
     isPrimary: isFirst ? 1 : 0,
@@ -63,7 +70,7 @@ export async function addScript(sceneId, { title, text, type = 'main' }) {
 }
 
 /** يحدّث سكريبتًا وينشئ نسخة جديدة في التاريخ. */
-export async function updateScript(scriptId, { title, text }) {
+export async function updateScript(scriptId, { title, text, sceneType }) {
   const current = await scripts.get(scriptId);
   if (!current) throw new Error('السكريبت غير موجود');
 
@@ -71,6 +78,7 @@ export async function updateScript(scriptId, { title, text }) {
   const updated = await scripts.update(scriptId, {
     title: title ?? current.title,
     text: text ?? current.text,
+    sceneType: sceneType ?? current.sceneType ?? null,
     version,
   });
 
@@ -225,12 +233,46 @@ export async function addExpression(sceneId, { text, meaningAr, register = 'prof
 
 /** تعبيرات مشهد معيّن مع بيانات كل تعبير. */
 export async function listSceneExpressions(sceneId) {
-  const occurrences = await expressionOccurrences.byIndex('sceneId', sceneId);
+  const occurrences = (await expressionOccurrences.byIndex('sceneId', sceneId))
+    // الظهور المُزال يختفي من هذه الذكرى وحدها؛ التعبير نفسه قد يظلّ
+    // حيًّا في ذكريات أخرى.
+    .filter((o) => o.state === STATE.ACTIVE);
   if (!occurrences.length) return [];
 
   const unique = [...new Set(occurrences.map((o) => o.expressionId))];
   const records = await expressions.getMany(unique);
   return records.filter(Boolean).filter((e) => e.state === STATE.ACTIVE);
+}
+
+/**
+ * يشيل تعبيرًا من ذكرى بعينها.
+ *
+ * الحذف هنا يعني «ما ظهرش في اللحظة دي»، لا «امسح التعبير من حياتي».
+ * فنُزيل ظهوره في هذه الذكرى فقط. وإن لم يبقَ له ظهورٌ في أيّ ذكرى،
+ * يُنقل التعبير نفسه للسلة — لأن تعبيرًا بلا موطن لا معنى له.
+ *
+ * @returns {Promise<{ occurrenceIds: string[], trashedExpression: boolean }>}
+ *          ما يلزم للتراجع
+ */
+export async function removeExpressionFromScene(sceneId, expressionId) {
+  const here = (await expressionOccurrences.byIndex('sceneId', sceneId)).filter(
+    (o) => o.expressionId === expressionId && o.state === STATE.ACTIVE
+  );
+  for (const occurrence of here) await expressionOccurrences.trash(occurrence.id);
+
+  const remaining = (await expressionOccurrences.byIndex('expressionId', expressionId)).filter(
+    (o) => o.state === STATE.ACTIVE
+  );
+  const trashedExpression = remaining.length === 0;
+  if (trashedExpression) await expressions.trash(expressionId);
+
+  return { occurrenceIds: here.map((o) => o.id), trashedExpression };
+}
+
+/** يتراجع عن `removeExpressionFromScene` بنفس ما أعادته. */
+export async function undoRemoveExpression(expressionId, { occurrenceIds, trashedExpression }) {
+  if (trashedExpression) await expressions.restore(expressionId);
+  for (const id of occurrenceIds || []) await expressionOccurrences.restore(id);
 }
 
 /**

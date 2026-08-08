@@ -8,7 +8,7 @@ import { media, sceneMediaLinks } from '../db/repositories.js';
 import { urlFor, releaseUrls } from '../services/media-service.js';
 import { html, raw } from '../utils/dom.js';
 import { formatMonth, formatDate } from '../utils/dates.js';
-import { sceneTypeLabel } from '../config.js';
+import { typeLabel } from '../services/type-service.js';
 import { icon } from '../components/icons.js';
 
 /** يجهّز صور الغلاف لكل المشاهد دفعة واحدة. */
@@ -48,7 +48,7 @@ function sceneCard(scene, cover) {
       <div class="body">
         <div class="meta-row">
           <span>${formatDate(scene.date)}</span>
-          <span class="chip">${sceneTypeLabel(scene.type)}</span>
+          <span class="chip">${typeLabel(scene.type)}</span>
         </div>
         <h3>${scene.titleAr || scene.titleRu || 'ذكرى بلا عنوان'}</h3>
         ${raw(scene.titleRu ? html`<div class="ru" dir="ltr" lang="ru">${scene.titleRu}</div>` : '')}
