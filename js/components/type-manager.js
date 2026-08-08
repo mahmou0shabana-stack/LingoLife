@@ -233,9 +233,9 @@ export function openTypeManager({ focusId = null } = {}) {
       if (!(await run(async () => archiveType(id, true)))) return;
 
       // رسالة الاستعادة بعد التنفيذ — الأرشفة قرار قابل للرجوع.
-      toast(`«${type.label}» اتأرشف.`, {
+      toast(`أرشفنا «${type.label}».`, {
         actionLabel: 'تراجع',
-        onAction: () => run(async () => archiveType(id, false), 'رجع تاني.'),
+        onAction: () => run(async () => archiveType(id, false), 'تمّ التراجع.'),
       });
     }
 
@@ -270,7 +270,7 @@ export function openTypeManager({ focusId = null } = {}) {
       }
       if (button.dataset.archive) return void askArchive(button.dataset.archive);
       if (button.dataset.restore) {
-        return void run(async () => archiveType(button.dataset.restore, false), 'رجع تاني.');
+        return void run(async () => archiveType(button.dataset.restore, false), 'رجّعناه.');
       }
       if (button.dataset.merge) return void openMerge(button.dataset.merge);
     });
@@ -285,14 +285,14 @@ export function openTypeManager({ focusId = null } = {}) {
         return void run(async () => {
           await addType({ label, parentId: null });
           form.reset();
-        }, `«${label}» اتضاف.`);
+        }, `ضفنا «${label}».`);
       }
       if (form.dataset.addChild) {
         const parentId = form.dataset.addChild;
         return void run(async () => {
           await addType({ label, parentId });
           editing = null;
-        }, `«${label}» اتضاف كفرع.`);
+        }, `ضفنا «${label}» كفرع.`);
       }
       if (form.dataset.edit) {
         const id = form.dataset.edit;

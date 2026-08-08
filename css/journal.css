@@ -1049,13 +1049,17 @@
   background: var(--red-bg);
 }
 
-/* التصحيح بطاقة لا صفّ — الزرّ يقف في ركنها بدل أن يزيح محتواها. */
-.mistake { position: relative; }
+/* التصحيح بطاقة لا صفّ — الزرّ يقف في ركنها. الشريط العلوي يحجز له
+   مكانًا فلا يركب على سطر «الخطأ»، والبطاقة تبقى بسطريها كما هي. */
+.mistake {
+  position: relative;
+  padding-block-start: calc(var(--sp-3) + 26px);
+}
 
 .row-del.corner {
   position: absolute;
-  inset-block-start: 4px;
-  inset-inline-end: 4px;
+  inset-block-start: 2px;
+  inset-inline-end: 2px;
 }
 
 .mini-btn.danger { color: var(--red); }

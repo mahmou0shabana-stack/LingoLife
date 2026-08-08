@@ -67,13 +67,15 @@ export async function deleteWithUndo({
 
   await after?.();
 
-  toast(`${what} اتنقلت للسلة`, {
+  // صيغة المتكلّم الجمع لأنها بلا جنس: «نقلنا الصورة دي» و«نقلنا
+  // التعبير ده» صحيحتان معًا، بخلاف «اتشالت/اتشال».
+  toast(`نقلنا ${what} للسلة`, {
     actionLabel: 'تراجع',
     onAction: async () => {
       try {
         await repo.restore(id);
         await after?.();
-        toast('رجعت تاني', { type: 'ok' });
+        toast('تمّ التراجع', { type: 'ok' });
       } catch (err) {
         toastError(err.message || 'مقدرناش نرجّعها');
       }
@@ -123,13 +125,14 @@ export async function actWithUndo({
 
   await after?.();
 
-  toast(`${what} اتشالت`, {
+  // بلا جنس — انظر التعليق في `deleteWithUndo`.
+  toast(`شيلنا ${what}`, {
     actionLabel: 'تراجع',
     onAction: async () => {
       try {
         await restore();
         await after?.();
-        toast('رجعت تاني', { type: 'ok' });
+        toast('تمّ التراجع', { type: 'ok' });
       } catch (err) {
         toastError(err.message || 'مقدرناش نرجّعها');
       }
