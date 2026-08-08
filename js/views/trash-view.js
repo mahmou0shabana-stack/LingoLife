@@ -1,27 +1,72 @@
 /**
  * LingoLife — سلة المهملات
- * ثلاث حالات: نشط / مؤرشف / في السلة. الحذف النهائي بتأكيد صريح (بند 52).
+ *
+ * كانت تعرض المشاهد وحدها بينما التطبيق ينقل سبعة أنواع إلى السلة —
+ * فكان كل ما عدا الذكرى يختفي بعد زوال إشعار «تراجع» ويبقى في القاعدة
+ * بلا طريق إليه.
+ *
+ * صارت تُبنى من `TRASHABLE` في `trash-service.js`: مجموعةٌ لكل نوع،
+ * والنوع مكتوبٌ صراحةً على الصفّ فتعرف ما تستعيده. والحذف النهائي
+ * يعرض ما سيُفقَد معه قبل أن يسأل (بند 12).
  */
 
-import { listTrashed, restoreScene } from '../services/scene-service.js';
-import { scenes } from '../db/repositories.js';
-import { html, raw } from '../utils/dom.js';
+import { html, raw, esc } from '../utils/dom.js';
 import { relativeTime } from '../utils/dates.js';
 import { icon } from '../components/icons.js';
-import { toastOk } from '../components/toast.js';
-import { confirmAction } from '../components/modal.js';
+import { toast, toastOk, toastError } from '../components/toast.js';
+import { confirmAction, showModal } from '../components/modal.js';
 import { refresh } from '../router.js';
+import {
+  listTrash,
+  restoreItem,
+  restoreBlockedBy,
+  destroyItem,
+  linkedTo,
+} from '../services/trash-service.js';
+
+/** الصفوف المعروضة الآن — نقرأ منها عند الضغط بدل إعادة الاستعلام. */
+let shown = new Map();
+
+function itemRow(item) {
+  return html`
+    <div class="trash-row">
+      <span class="trash-icon">${raw(icon(item.icon || 'trash', 17))}</span>
+      <div class="trash-main">
+        <div class="trash-title${item.ru ? ' ru' : ''}"
+          ${raw(item.ru ? 'dir="ltr" lang="ru"' : '')}>${item.title}</div>
+        ${raw(item.subtitle ? html`<div class="trash-sub">${item.subtitle}</div>` : '')}
+        <div class="trash-when">اتشال ${relativeTime(item.deletedAt)}</div>
+      </div>
+      <div class="trash-tools">
+        <button class="mini-btn" data-action="trash-restore" data-key="${item.store}:${item.id}">
+          ${raw(icon('restore', 15))} استرجاع
+        </button>
+        <button class="mini-btn danger" data-action="trash-destroy"
+          data-key="${item.store}:${item.id}">
+          حذف نهائي
+        </button>
+      </div>
+    </div>`;
+}
 
 export async function renderTrash(main) {
-  const items = await listTrashed();
+  const groups = await listTrash();
 
-  if (!items.length) {
+  shown = new Map();
+  for (const group of groups) {
+    for (const item of group.items) shown.set(`${item.store}:${item.id}`, item);
+  }
+
+  const total = groups.reduce((sum, g) => sum + g.items.length, 0);
+
+  if (!total) {
     main.innerHTML = html`
       <button class="back-row" data-action="back">${raw(icon('back'))} رجوع</button>
       <div class="empty-state">
         <div class="glyph">${raw(icon('trash'))}</div>
         <h2>السلة فاضية</h2>
-        <p>أي ذكرى تنقلها للسلة هتفضل هنا لحد ما تسترجعها أو تمسحها نهائيًا.</p>
+        <p>أي حاجة تحذفها — ذكرى أو سكريبت أو صورة أو تعبير — هتفضل هنا
+          لحد ما تسترجعها أو تمسحها نهائيًا.</p>
       </div>`;
     return;
   }
@@ -30,49 +75,95 @@ export async function renderTrash(main) {
     <button class="back-row" data-action="back">${raw(icon('back'))} رجوع</button>
     <div class="view-head">
       <h1>سلة المهملات</h1>
-      <div class="sub">${items.length} عنصر · قابل للاسترجاع</div>
+      <div class="sub">${total} عنصر · كلها قابلة للاسترجاع</div>
     </div>
 
     ${raw(
-      items
+      groups
         .map(
-          (scene) => html`
-            <div class="panel" style="display:flex;justify-content:space-between;gap:var(--sp-3);align-items:center">
-              <div style="min-width:0">
-                <strong>${scene.titleAr || scene.titleRu || 'ذكرى بلا عنوان'}</strong>
-                <div class="text-sm text-faint">اتنقلت ${relativeTime(scene.deletedAt)}</div>
+          (group) => html`
+            <section class="trash-group">
+              <div class="group-label">
+                ${group.label}
+                <span class="count">${group.items.length}</span>
               </div>
-              <div style="display:flex;gap:var(--sp-2);flex:none">
-                <button class="mini-btn" data-action="restore-scene" data-id="${scene.id}">استرجاع</button>
-                <button class="mini-btn" data-action="destroy-scene" data-id="${scene.id}"
-                  style="color:var(--red)">حذف نهائي</button>
+              <div class="panel trash-list">
+                ${raw(group.items.map(itemRow).join(''))}
               </div>
-            </div>`
+            </section>`
         )
         .join('')
     )}`;
 }
 
 /** إجراءات السلة — يُستدعى من app.js. */
-export async function handleTrashAction(action, id) {
-  if (action === 'restore-scene') {
-    await restoreScene(id);
-    toastOk('الذكرى رجعت');
+export async function handleTrashAction(action, id, target) {
+  const key = target?.dataset?.key;
+
+  if (action === 'trash-restore') {
+    const item = shown.get(key);
+    if (!item) return true;
+
+    // سكريبتٌ يعود بينما ذكراه في السلة يعود إلى الاختفاء نفسه —
+    // نكشفها قبل الاستعادة فيقرّر المستخدم.
+    const blocker = await restoreBlockedBy(item);
+    let withScene = false;
+
+    if (blocker.blocked) {
+      const value = await showModal({
+        title: 'الذكرى نفسها في السلة',
+        body: html`
+          <p style="line-height:1.9;color:var(--ink-soft)">
+            «${item.title}» تابع لذكرى <strong>${blocker.sceneTitle}</strong>
+            وهي نفسها في السلة. لو رجّعناه لوحده مش هيبان في أي شاشة.
+          </p>`,
+        actions: [
+          { label: 'إلغاء', value: null, variant: 'ghost' },
+          { label: 'رجّع الاتنين', value: 'submit', variant: 'primary' },
+        ],
+      });
+      if (value !== 'submit') return true;
+      withScene = true;
+    }
+
+    try {
+      await restoreItem(item, { withScene });
+      toastOk(withScene ? 'رجعوا الاتنين' : 'رجع تاني');
+    } catch (err) {
+      toastError(err.message || 'مقدرناش نرجّعه');
+    }
     await refresh();
     return true;
   }
 
-  if (action === 'destroy-scene') {
+  if (action === 'trash-destroy') {
+    const item = shown.get(key);
+    if (!item) return true;
+
+    // البند 12: لا تدمير صامت للمرتبطات — نعرضها بالاسم والعدد.
+    const links = await linkedTo(item);
+    const linkLines = links.length
+      ? `<br><br>هيتشال معاه:<br>${links
+          .map((l) => `· ${l.count} ${esc(l.label)}`)
+          .join('<br>')}`
+      : '';
+
     const ok = await confirmAction({
       title: 'حذف نهائي',
       message:
-        'ده هيمسح الذكرى دي من الجهاز نهائيًا. مفيش تراجع بعد كده. متأكد؟',
+        `«${esc(item.title)}»${linkLines}<br><br>` +
+        '<strong>ده هيمسحه من الجهاز نهائيًا. مفيش تراجع بعد كده.</strong>',
       confirmLabel: 'امسح نهائيًا',
       danger: true,
     });
     if (!ok) return true;
-    await scenes.destroy(id);
-    toastOk('اتمسحت نهائيًا');
+
+    try {
+      await destroyItem(item);
+      toast('اتمسح نهائيًا');
+    } catch (err) {
+      toastError(err.message || 'مقدرناش نمسحه');
+    }
     await refresh();
     return true;
   }

@@ -845,7 +845,9 @@ function wireActions() {
 
       default: {
         if (await handleSettingsAction(action)) return;
-        if (await handleTrashAction(action, id)) return;
+        // `target` لازم للسلة: مفتاح الصفّ فيه اسم الـ store مع المعرّف،
+        // فالمعرّف وحده لا يكفي لمعرفة أي مستودع نستعيد منه.
+        if (await handleTrashAction(action, id, target)) return;
       }
     }
   });
