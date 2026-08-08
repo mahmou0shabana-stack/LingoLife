@@ -744,7 +744,18 @@ function handleEvent(event) {
     case 'word-select':
       $('[data-card]')?.classList.remove('your-turn');
       highlightWord(event.wordIndex);
+      // يجلب الكلمة الجارية لمرأى العين حين يمرّ المحرّك عليها وحده.
+      document
+        .querySelector(`[data-word="${event.wordIndex}"]`)
+        ?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
       break;
+
+    case 'words-complete': {
+      // مرّ على كلمات الجملة كلها — يعود العدّ للجملة لا للكلمة.
+      const done = $('[data-counter]');
+      if (done) done.textContent = '—';
+      break;
+    }
 
     case 'segment-complete':
       persistSegment(event);

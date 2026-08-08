@@ -1009,6 +1009,40 @@
   flex-wrap: wrap;
 }
 
+/* ═══════════════ التابلت رأسيًّا — الكتاب يبقى كتابًا ═══════════════
+
+   كانت نقطة التحوّل 900px وحدها، فكل تابلت رأسي (768 · 810 · 834)
+   يقع على تخطيط الموبايل: المصدر فوق والممارسة تحت. والبند 7 يطلب
+   بقاء فكرة الصفحتين المتقابلتين على التابلت.
+
+   الصفحتان هنا أضيق، فالنسبة الافتراضية تميل للمصدر أقلّ (48%)
+   ويقلّ الحشو — الكتاب أنحف لا مقطوع.
+   ═══════════════════════════════════════════════════════════════ */
+@media (min-width: 700px) and (max-width: 899px) and (orientation: portrait) {
+  .sh-pages { flex-direction: row; }
+
+  .sh-left {
+    flex: 0 0 var(--split, 48%);
+    padding: 14px 15px;
+  }
+
+  .sh-right { flex: 1; padding: 14px 15px; }
+
+  .sh-spine {
+    height: auto;
+    width: 16px;
+    cursor: col-resize;
+    background: linear-gradient(180deg, transparent, rgba(139, 92, 246, .16), transparent);
+  }
+
+  .sh-spine::after { width: 3px; height: 44px; }
+
+  .sh-book { margin: 0 12px 12px; }
+
+  /* الصفحة أضيق: الجملة الجارية تصغر قليلًا فلا تُقطَع كلماتها. */
+  .sh-current-text { font-size: calc(clamp(17px, 2.6vw, 22px) * var(--sh-font-size, 1) * var(--font-scale, 1)); }
+}
+
 /* ═══════════════ التابلت أفقيًا — الكتاب يُفتح ═══════════════ */
 @media (min-width: 900px) {
   .sh-pages { flex-direction: row; }

@@ -804,6 +804,128 @@ describe('اختيار الكلمة', () => {
     player.destroy();
   });
 
+  /* ---------------------------------------------------------------- *
+   * جملة المواصفة بعينها (بند 20)
+   *
+   * العطل المُبلَّغ كان: «بيقرا أول كلمة بس». أُصلح شقٌّ منه — إعادة
+   * الرسم كانت تُلغي الاختيار — لكن الشقّ الأكبر بقي: **لم يكن هناك
+   * تسلسلٌ أصلًا**. اكتمال تكرارات الكلمة كان يقفز إلى المقطع التالي،
+   * فلا سبيل إلى المرور على كلمات الجملة تباعًا.
+   * ---------------------------------------------------------------- */
+
+  const SPEC = [{ id: 'spec', text: 'После того как документ все подпишут' }];
+  const SPEC_WORDS = ['После', 'того', 'как', 'документ', 'все', 'подпишут'];
+
+  function wordPlayer(onSpeak, settings = {}) {
+    return createPlaybackController({
+      segments: SPEC,
+      settings: {
+        // فاصل صفري: الاختبار يفحص التسلسل لا التوقيت.
+        repeatCount: 1, intervalMsValue: 0,
+        practiceMode: PRACTICE_MODE.WORD, autoAdvance: true, ...settings,
+      },
+      speaker: (text) => { onSpeak(text); return Promise.resolve({ ok: true }); },
+    });
+  }
+
+  it('جملة المواصفة تنقسم إلى ستّ كلمات بالضبط', () => {
+    expect(splitWords(SPEC[0].text).map((w) => w.spoken)).toEqual(SPEC_WORDS);
+  });
+
+  it('⚠️ التسلسل الكامل: الستّ كلمات كلّها تُقرأ بالترتيب', async () => {
+    const spoken = [];
+    const player = wordPlayer((t) => spoken.push(t));
+    player.setWords(splitWords(SPEC[0].text));
+    player.start();
+
+    await waitFor(() => spoken.length >= 6, 4000);
+    expect(spoken).toEqual(SPEC_WORDS);
+    player.destroy();
+  });
+
+  it('كل كلمة تُكرَّر عددها قبل الانتقال للتالية', async () => {
+    const spoken = [];
+    const player = wordPlayer((t) => spoken.push(t), { repeatCount: 3 });
+    player.setWords(splitWords(SPEC[0].text));
+    player.start();
+
+    await waitFor(() => spoken.length >= 6, 4000);
+    expect(spoken.slice(0, 6)).toEqual([
+      'После', 'После', 'После', 'того', 'того', 'того',
+    ]);
+    player.destroy();
+  });
+
+  it('التالي والسابق يتنقّلان بين الكلمات لا بين الجمل', () => {
+    const player = wordPlayer(() => {});
+    player.setWords(splitWords(SPEC[0].text));
+
+    player.next();
+    expect(player.state.wordIndex).toBe(1);
+    player.next();
+    expect(player.state.wordIndex).toBe(2);
+    player.previous();
+    expect(player.state.wordIndex).toBe(1);
+    // والمقطع لم يتحرّك: التنقّل بالكلمات لا يفقدك جملتك.
+    expect(player.state.index).toBe(0);
+    player.destroy();
+  });
+
+  it('بلا تقدّم تلقائي يقف عند الكلمة ولا يقفز', async () => {
+    const spoken = [];
+    const player = wordPlayer((t) => spoken.push(t), { autoAdvance: false });
+    player.setWords(splitWords(SPEC[0].text));
+    player.start();
+
+    await waitFor(() => !player.state.running, 3000);
+    expect(spoken).toEqual(['После']);
+    player.destroy();
+  });
+
+  it('⚠️ الوضعان يحفظان موضعيهما مستقلَّين', () => {
+    const player = createPlaybackController({
+      segments: [SPEC[0], { id: 'b', text: 'Вторая фраза здесь' }],
+      settings: { practiceMode: PRACTICE_MODE.SENTENCE, autoAdvance: false },
+      speaker: silentSpeaker,
+    });
+
+    // في وضع الجملة: التالي ينقل المقطع.
+    player.next();
+    expect(player.state.index).toBe(1);
+
+    // ندخل وضع الكلمة على المقطع الثاني.
+    player.updateSettings({ practiceMode: PRACTICE_MODE.WORD });
+    player.setWords(splitWords('Вторая фраза здесь'));
+    player.next();
+    expect(player.state.wordIndex).toBe(1);
+    // المقطع بقي كما هو — لم تُبتلَع الجملة بتنقّل الكلمات.
+    expect(player.state.index).toBe(1);
+
+    // والعودة لوضع الجملة تجد الجملة حيث تُركت.
+    player.updateSettings({ practiceMode: PRACTICE_MODE.SENTENCE });
+    expect(player.state.index).toBe(1);
+    player.destroy();
+  });
+
+  it('آخر كلمة تُنهي المقطع لا تعلق عنده', async () => {
+    const events = [];
+    const player = createPlaybackController({
+      segments: SPEC,
+      settings: {
+        repeatCount: 1, intervalMsValue: 0,
+        practiceMode: PRACTICE_MODE.WORD, autoAdvance: true,
+      },
+      speaker: silentSpeaker,
+      onEvent: (e) => events.push(e.type),
+    });
+    player.setWords(splitWords(SPEC[0].text));
+    player.start();
+
+    await waitFor(() => events.includes('words-complete'), 4000);
+    expect(events).toContain('words-complete');
+    player.destroy();
+  });
+
   it('كلمات مختلفة تصفّر الاختيار', () => {
     const player = createPlaybackController({ segments: one, speaker: silentSpeaker, settings: {} });
     player.setWords(splitWords('один два три'));

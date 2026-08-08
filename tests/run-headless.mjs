@@ -37,7 +37,10 @@ page.on('console', (message) => {
 
 console.log(`تشغيل: ${url}\n`);
 await page.goto(url);
-await page.waitForFunction(() => window.__testResult, { timeout: 180_000 });
+// ⚠️ التوقيع `waitForFunction(fn, arg, options)`. تمرير الخيارات في
+//    موضع `arg` يجعلها وسيطًا للدالّة لا خيارًا — فتظلّ مهلة 30 ثانية
+//    الافتراضية سارية. لم يظهر ذلك إلا حين تجاوزت الاختبارات نصف دقيقة.
+await page.waitForFunction(() => window.__testResult, null, { timeout: 180_000 });
 
 const result = await page.evaluate(() => window.__testResult);
 

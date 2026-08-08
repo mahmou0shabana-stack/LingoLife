@@ -249,6 +249,36 @@ export function createPlaybackController({
       return;
     }
 
+    /*
+     * في وضع الكلمة اكتملت **كلمة** لا مقطع.
+     *
+     * ⚠️ هذا كان ناقصًا: كان اكتمال تكرارات الكلمة يقفز إلى المقطع
+     *    التالي، فلا سبيل إلى المرور على كلمات الجملة تباعًا. «После
+     *    того как документ все подпишут» ستّ كلمات — كانت تُقرأ
+     *    الأولى ثم تُقفَز الجملة كلها.
+     */
+    if (config.practiceMode === PRACTICE_MODE.WORD && words.length) {
+      emit('word-complete', { index: wordIndex, repetitions: state.repetition });
+
+      if (wordIndex < words.length - 1) {
+        if (!config.autoAdvance) {
+          state.running = false;
+          emit('stop');
+          return;
+        }
+        wordIndex++;
+        state.repetition = 0;
+        emit('word-select', { word: words[wordIndex], index: wordIndex });
+        timer = setTimeout(() => {
+          if (myToken === runToken) cycle();
+        }, intervalMs(config));
+        return;
+      }
+
+      // آخر كلمة: المقطع اكتمل بكلماته كلها.
+      emit('words-complete', { count: words.length });
+    }
+
     // اكتمل هذا المقطع.
     emit('segment-complete', { repetitions: state.repetition });
 
@@ -270,7 +300,10 @@ export function createPlaybackController({
 
   const controller = {
     get state() {
-      return { ...state, settings: { ...config } };
+      // `wordIndex` و`words` خارج كائن `state` لأنهما يخصّان وضع
+      // الكلمة وحده — لكنهما جزء من الموضع الذي تحتاج الواجهة قراءته،
+      // فيُضمّان هنا لا في الداخل.
+      return { ...state, wordIndex, wordCount: words.length, settings: { ...config } };
     },
 
     get segments() {
@@ -342,7 +375,20 @@ export function createPlaybackController({
       }
     },
 
+    /**
+     * التالي — **بحسب الوضع**.
+     *
+     * ⚠️ كان ينقل المقطع دائمًا حتى في وضع الكلمة، فيقفز الجملة كلها
+     *    بينما أنت تتنقّل بين كلماتها. الوضعان يحفظان موضعيهما
+     *    مستقلَّين: التنقّل بالكلمات لا يفقدك جملتك، والعودة لوضع
+     *    الجملة تجدها حيث تركتها.
+     */
     next() {
+      if (config.practiceMode === PRACTICE_MODE.WORD && words.length) {
+        if (wordIndex < words.length - 1) return controller.selectWord(wordIndex + 1);
+        // آخر كلمة: ننتقل للمقطع التالي ونبدأ من كلمته الأولى.
+      }
+
       if (state.index >= segments.length - 1) {
         halt();
         state.running = false;
@@ -354,6 +400,9 @@ export function createPlaybackController({
     },
 
     previous() {
+      if (config.practiceMode === PRACTICE_MODE.WORD && words.length && wordIndex > 0) {
+        return controller.selectWord(wordIndex - 1);
+      }
       controller.goTo(state.index - 1);
     },
 
@@ -381,7 +430,7 @@ export function createPlaybackController({
       halt();
       wordIndex = Math.max(0, Math.min(words.length - 1, index));
       state.repetition = 0;
-      emit('word-select', { word: words[wordIndex] });
+      emit('word-select', { word: words[wordIndex], index: wordIndex });
       if (wasRunning) {
         state.running = true;
         cycle();
