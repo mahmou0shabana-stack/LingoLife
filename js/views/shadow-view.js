@@ -41,6 +41,7 @@ import { LANGUAGES, languageByCode, translate, isEnabled as trEnabled, setEnable
 import { practiceStreak, recentPractice } from '../services/shadow/shadow-session-service.js';
 import { scripts, contentBlocks, scenes, sceneMediaLinks, media, shadowSegments } from '../db/repositories.js';
 import { urlFor, startRecording, canRecord, addFilesToScene, AUDIO_ROLE } from '../services/media-service.js';
+import { resolveLinks, LINK } from '../services/link-service.js';
 
 /** حالة الشاشة الحيّة. */
 let player = null;
@@ -122,6 +123,22 @@ export async function renderShadow(main, sessionId) {
 
   const change = current ? detectSourceChange(session, current) : { changed: false };
 
+  /*
+   * التسجيل البشري المربوط بالمصدر — «بشري إن وُجد وإلا TTS» من
+   * التطبيق القديم. صار ممكنًا بحقّه الآن لأن الربط صريح في القاعدة:
+   * تسجيل مربوط بهذا السكريبت يُنطق بدل الصوت الآلي.
+   */
+  let humanAudioUrl = null;
+  if (session.sourceId) {
+    try {
+      const links = await resolveLinks(session.sourceId, LINK.AUDIO_SCRIPT);
+      const record = links.map((l) => l.entity).find((e) => e?.kind === 'audio' && e.blob);
+      if (record) humanAudioUrl = urlFor(record, { thumb: false });
+    } catch {
+      /* الربط اختياري — غيابه يعني TTS فقط */
+    }
+  }
+
   ctx = {
     session,
     segments,
@@ -135,6 +152,8 @@ export async function renderShadow(main, sessionId) {
     font: session.fontId || 'philosopher',
     stress: session.showStress ?? true,
     autoRead: false,
+    humanAudioUrl,
+    audioSource: session.audioSource || 'human',
   };
 
   main.innerHTML = shell();
@@ -154,8 +173,12 @@ export async function renderShadow(main, sessionId) {
     .catch(() => {});
 
   player = createPlaybackController({
-    segments: segments.map((s) => ({ id: s.id, text: s.sourceTextSnapshot })),
-    settings: { ...session, volume: ctx.volume },
+    segments: segments.map((s) => ({
+      id: s.id,
+      text: s.sourceTextSnapshot,
+      humanAudioUrl,
+    })),
+    settings: { ...session, volume: ctx.volume, audioSource: ctx.audioSource },
     onEvent: handleEvent,
   });
 
@@ -292,7 +315,9 @@ function shell() {
               ${raw(
                 segments.some((seg) => seg.isMine)
                   ? html`<button data-sh="my-role">🎭 دوري</button>`
-                  : html`<button data-sh="voices">🎙 الصوت</button>`
+                  : html`<button data-sh="audio-source" class="${ctx.audioSource === 'human' ? 'on' : ''}">
+                      ${ctx.humanAudioUrl ? '👤 بشري' : '🤖 آلي'}
+                    </button>`
               )}
             </div>
 
@@ -465,10 +490,26 @@ function handleEvent(event) {
       break;
     }
 
+    case 'source': {
+      const status = $('[data-status]');
+      if (status) status.textContent = event.source === 'human' ? 'بصوتك' : 'بيشتغل';
+      break;
+    }
+
     case 'seek':
-    case 'word-select':
       $('[data-card]')?.classList.remove('your-turn');
       syncSegment();
+      break;
+
+    /*
+     * ⚠️ لا تستدعِ `syncSegment` هنا.
+     *    كانت تستدعيه، فتعيد بناء شرائح الكلمات، و`setWords` تصفّر
+     *    الفهرس إلى صفر — فأيًّا كانت الكلمة التي تضغطها تُنطق الأولى.
+     *    الاختيار لا يغيّر المقطع، فيكفي إبراز الكلمة.
+     */
+    case 'word-select':
+      $('[data-card]')?.classList.remove('your-turn');
+      highlightWord(event.wordIndex);
       break;
 
     case 'segment-complete':
@@ -1022,6 +1063,18 @@ function wireInteractions(main) {
 
       case 'tell':
         return tellItNow(btn);
+
+      case 'audio-source': {
+        if (!ctx.humanAudioUrl) {
+          return toast('مفيش تسجيل بشري مربوط بالنصّ ده — اربط تسجيل من المشغّل');
+        }
+        ctx.audioSource = ctx.audioSource === 'human' ? 'tts' : 'human';
+        player.updateSettings({ audioSource: ctx.audioSource });
+        btn.classList.toggle('on', ctx.audioSource === 'human');
+        btn.textContent = ctx.audioSource === 'human' ? '👤 بشري' : '🤖 آلي';
+        toast(ctx.audioSource === 'human' ? 'هيشغّل تسجيلك البشري' : 'هينطق آليًا');
+        return saveSessionSettings(ctx.session.id, { audioSource: ctx.audioSource });
+      }
 
       case 'my-role': {
         const on = player.state.settings.practiceMode !== PRACTICE_MODE.MY_ROLE;

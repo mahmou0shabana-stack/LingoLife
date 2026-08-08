@@ -93,6 +93,11 @@ export function createPlaybackController({
     practiceMode: settings.practiceMode ?? PRACTICE_MODE.SENTENCE,
     autoAdvance: settings.autoAdvance ?? true,
     volume: settings.volume ?? 1,
+    /**
+     * مصدر الصوت: `human` يعني «تسجيل بشري إن وُجد، وإلا TTS» —
+     * نفس سلوك التطبيق القديم. `tts` يفرض النطق الآلي دائمًا.
+     */
+    audioSource: settings.audioSource ?? 'human',
   };
 
   /** يُلغي أي دورة قديمة. راجع الشرح أعلى الملف. */
@@ -137,11 +142,43 @@ export function createPlaybackController({
     }
   }
 
+  /** عنصر تشغيل التسجيلات البشرية — واحد يُعاد استخدامه. */
+  let humanEl = null;
+
+  /**
+   * يشغّل تسجيلًا بشريًا ويعيد وعدًا ينتهي مع انتهائه.
+   * لا يُرفَض أبدًا: فشل ملف واحد يجب ألّا يكسر الجلسة.
+   */
+  function playHuman(url, rate, volume) {
+    return new Promise((resolve) => {
+      if (!humanEl) {
+        humanEl = new Audio();
+        humanEl.setAttribute('playsinline', '');
+      }
+      humanEl.src = url;
+      humanEl.playbackRate = Math.max(0.25, Math.min(4, rate));
+      humanEl.volume = Math.max(0, Math.min(1, volume));
+
+      const done = () => {
+        humanEl.onended = null;
+        humanEl.onerror = null;
+        resolve({ ok: true });
+      };
+      humanEl.onended = done;
+      humanEl.onerror = done;
+      humanEl.play().catch(done);
+    });
+  }
+
   /** يوقف كل صوت ويُبطل كل دورة معلّقة. */
   function halt() {
     runToken++;
     clearTimer();
     cancelSpeech();
+    if (humanEl) {
+      humanEl.pause();
+      humanEl.currentTime = 0;
+    }
   }
 
   /** دورة تكرار واحدة. */
@@ -169,11 +206,23 @@ export function createPlaybackController({
         timer = setTimeout(resolve, silence);
       });
     } else {
-      await speaker(currentText(), {
-        rate: config.rate,
-        voiceName: config.voiceName,
-        volume: config.volume,
-      });
+      // تسجيلك بصوتك أصدق من أي TTS — يُقدَّم عليه متى وُجد.
+      const human =
+        config.audioSource === 'human' && config.practiceMode !== PRACTICE_MODE.WORD
+          ? segments[state.index]?.humanAudioUrl
+          : null;
+
+      if (human) {
+        emit('source', { source: 'human' });
+        await playHuman(human, config.rate, config.volume);
+      } else {
+        emit('source', { source: 'tts' });
+        await speaker(currentText(), {
+          rate: config.rate,
+          voiceName: config.voiceName,
+          volume: config.volume,
+        });
+      }
     }
     if (myToken !== runToken || !state.running || state.paused) return;
 
@@ -295,10 +344,22 @@ export function createPlaybackController({
       controller.goTo(state.index - 1);
     },
 
-    /** يضبط كلمات المقطع الحالي (وضع الكلمة). */
+    /**
+     * يضبط كلمات المقطع الحالي (وضع الكلمة).
+     *
+     * ⚠️ لا يصفّر الفهرس إن كانت الكلمات نفسها. إعادة الرسم تُنادي
+     *    هذه الدالة، فتصفير غير مشروط يُلغي اختيار المستخدم ويُعيد
+     *    النطق إلى الكلمة الأولى دائمًا.
+     */
     setWords(list) {
-      words = list || [];
-      wordIndex = 0;
+      const next = list || [];
+      const same =
+        next.length === words.length &&
+        next.every((word, i) => word.spoken === words[i]?.spoken);
+
+      words = next;
+      if (!same) wordIndex = 0;
+      else wordIndex = Math.min(wordIndex, Math.max(0, words.length - 1));
     },
 
     /** يختار كلمة للتدريب عليها وحدها. */
@@ -326,6 +387,10 @@ export function createPlaybackController({
     destroy() {
       halt();
       state.running = false;
+      if (humanEl) {
+        humanEl.src = '';
+        humanEl = null;
+      }
     },
   };
 

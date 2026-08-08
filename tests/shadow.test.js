@@ -738,3 +738,122 @@ describe('علامات التحليل داخل الظلّ', () => {
     clearExpressionIndex();
   });
 });
+
+/* ================================================================== *
+ * وضع الكلمة — باج تاريخي
+ * ================================================================== */
+
+describe('اختيار الكلمة', () => {
+  const one = [{ id: 'a', text: 'Привет как дела сегодня' }];
+
+  it('ينطق الكلمة المختارة لا الأولى دائمًا', async () => {
+    const spoken = [];
+    const player = createPlaybackController({
+      segments: one,
+      settings: { repeatCount: 1, intervalUnit: 'ms', intervalSteps: 1, autoAdvance: false,
+                  practiceMode: PRACTICE_MODE.WORD },
+      speaker: (text) => { spoken.push(text); return Promise.resolve({ ok: true }); },
+    });
+
+    const words = splitWords(one[0].text);
+    player.setWords(words);
+    player.selectWord(3);          // «сегодня»
+    player.start();
+
+    await waitFor(() => spoken.length > 0);
+    expect(spoken[0]).toBe('сегодня');
+    player.destroy();
+  });
+
+  it('إعادة ضبط نفس الكلمات لا تُلغي الاختيار', async () => {
+    // كان `setWords` يصفّر الفهرس بلا شرط، وإعادة الرسم تناديها —
+    // فأيًّا كانت الكلمة المضغوطة تُنطق الأولى.
+    const spoken = [];
+    const player = createPlaybackController({
+      segments: one,
+      settings: { repeatCount: 1, intervalUnit: 'ms', intervalSteps: 1, autoAdvance: false,
+                  practiceMode: PRACTICE_MODE.WORD },
+      speaker: (text) => { spoken.push(text); return Promise.resolve({ ok: true }); },
+    });
+
+    player.setWords(splitWords(one[0].text));
+    player.selectWord(2);                          // «дела»
+    player.setWords(splitWords(one[0].text));      // إعادة رسم
+    player.start();
+
+    await waitFor(() => spoken.length > 0);
+    expect(spoken[0]).toBe('дела');
+    player.destroy();
+  });
+
+  it('كلمات مختلفة تصفّر الاختيار', () => {
+    const player = createPlaybackController({ segments: one, speaker: silentSpeaker, settings: {} });
+    player.setWords(splitWords('один два три'));
+    player.selectWord(2);
+    player.setWords(splitWords('Привет мир'));
+    expect(player.state.running).toBeFalsy();
+    player.destroy();
+  });
+});
+
+/* ================================================================== *
+ * الصوت البشري
+ * ================================================================== */
+
+describe('مصدر الصوت', () => {
+  it('يفضّل التسجيل البشري على TTS حين يوجد', async () => {
+    const spoken = [];
+    const sources = [];
+    // ملف صامت صالح — لا نطق آليًا يُسجَّل حين يعمل البشري.
+    const url = URL.createObjectURL(new Blob([new Uint8Array(44)], { type: 'audio/wav' }));
+
+    const player = createPlaybackController({
+      segments: [{ id: 'a', text: 'Привет', humanAudioUrl: url }],
+      settings: { repeatCount: 1, intervalUnit: 'ms', intervalSteps: 1,
+                  autoAdvance: false, audioSource: 'human' },
+      speaker: (text) => { spoken.push(text); return Promise.resolve({ ok: true }); },
+      onEvent: (e) => { if (e.type === 'source') sources.push(e.source); },
+    });
+
+    player.start();
+    await waitFor(() => sources.length > 0, 4000);
+    expect(sources[0]).toBe('human');
+    expect(spoken).toHaveLength(0);
+    player.destroy();
+    URL.revokeObjectURL(url);
+  });
+
+  it('يسقط إلى TTS حين لا تسجيل', async () => {
+    const sources = [];
+    const player = createPlaybackController({
+      segments: [{ id: 'a', text: 'Привет', humanAudioUrl: null }],
+      settings: { repeatCount: 1, intervalUnit: 'ms', intervalSteps: 1,
+                  autoAdvance: false, audioSource: 'human' },
+      speaker: silentSpeaker,
+      onEvent: (e) => { if (e.type === 'source') sources.push(e.source); },
+    });
+
+    player.start();
+    await waitFor(() => sources.length > 0);
+    expect(sources[0]).toBe('tts');
+    player.destroy();
+  });
+
+  it('وضع tts يتجاهل التسجيل البشري', async () => {
+    const sources = [];
+    const url = URL.createObjectURL(new Blob([new Uint8Array(44)], { type: 'audio/wav' }));
+    const player = createPlaybackController({
+      segments: [{ id: 'a', text: 'Привет', humanAudioUrl: url }],
+      settings: { repeatCount: 1, intervalUnit: 'ms', intervalSteps: 1,
+                  autoAdvance: false, audioSource: 'tts' },
+      speaker: silentSpeaker,
+      onEvent: (e) => { if (e.type === 'source') sources.push(e.source); },
+    });
+
+    player.start();
+    await waitFor(() => sources.length > 0);
+    expect(sources[0]).toBe('tts');
+    player.destroy();
+    URL.revokeObjectURL(url);
+  });
+});
