@@ -39,6 +39,7 @@ export const relationships = createRepository('relationships', PREFIX.RELATION);
 export const shadowSessions = createRepository('shadowSessions', PREFIX.SHADOW_SESSION);
 export const shadowSegments = createRepository('shadowSegments', PREFIX.SHADOW_SEGMENT);
 export const practiceEvidence = createRepository('practiceEvidence', PREFIX.EVIDENCE);
+export const savedItems = createRepository('savedItems', PREFIX.SAVED);
 
 /* ---- المراجعة ---- */
 export const reviewItems = createRepository('reviewItems', PREFIX.REVIEW);
@@ -110,6 +111,7 @@ export const ALL_REPOS = {
   shadowSessions,
   shadowSegments,
   practiceEvidence,
+  savedItems,
   reviewItems,
   reviewHistory,
   analysisRuns,

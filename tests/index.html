@@ -104,6 +104,7 @@
       await import('./audio.test.js');
       await import('./types.test.js');
       await import('./delete.test.js');
+      await import('./saved.test.js');
 
       const result = await run((event) => {
         if (event.type === 'suite') {

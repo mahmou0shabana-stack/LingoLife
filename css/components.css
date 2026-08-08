@@ -724,3 +724,70 @@
 }
 
 .tm-add input { flex: 1; min-width: 0; }
+
+/* ------------------------------------------------------------
+   المحفوظات — تصنيفات وصفوف
+   ------------------------------------------------------------ */
+.sv-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-2);
+}
+
+.sv-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--line);
+  background: var(--surface-soft);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+}
+
+/* الصندوق مخفيّ والرقاقة كلها هي مساحة اللمس. */
+.sv-tag input { position: absolute; opacity: 0; pointer-events: none; }
+
+.sv-tag:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+  font-weight: 600;
+}
+
+.sv-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: var(--sp-2) 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.sv-row:last-of-type { border-bottom: 0; }
+.sv-row[hidden] { display: none; }
+
+.sv-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sv-row-main .ru { overflow-wrap: anywhere; }
+
+.sv-row-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+
+.sv-chip {
+  font-size: var(--fs-xs);
+  color: var(--ink-soft);
+  background: var(--bg-alt);
+  border-radius: var(--radius-sm);
+  padding: 2px var(--sp-2);
+}
+
+.sv-row-note {
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+}

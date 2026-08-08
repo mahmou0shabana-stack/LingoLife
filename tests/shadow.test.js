@@ -14,6 +14,8 @@ import {
   PRACTICE_MODE,
   intervalMs,
   intervalLabel,
+  INTERVAL_MIN_MS,
+  INTERVAL_MAX_MS,
 } from '../js/services/shadow/playback-controller.js';
 import { stepRate, RATE_STEPS } from '../js/services/shadow/tts-controller.js';
 import {
@@ -165,6 +167,22 @@ describe('السرعة والفواصل', () => {
     expect(intervalMs({ unit: 's', steps: 2 })).toBe(1000);
     expect(intervalMs({ unit: 'ms', steps: 5 })).toBe(500);
     expect(intervalLabel({ unit: 's', steps: 3 })).toBe('1.5s');
+  });
+
+  it('القيمة الحرّة بالملّي تسبق سلّم الوحدات', () => {
+    // جلسة قديمة فيها unit/steps + قيمة حرّة جديدة: الحرّة هي الحاكمة.
+    expect(intervalMs({ unit: 's', steps: 2, intervalMsValue: 250 })).toBe(250);
+    expect(intervalLabel({ intervalMsValue: 250 })).toBe('250ms');
+    expect(intervalLabel({ intervalMsValue: 1500 })).toBe('1.5s');
+  });
+
+  it('القيمة الحرّة تُقصّ عند الحدّين', () => {
+    expect(intervalMs({ intervalMsValue: -300 })).toBe(INTERVAL_MIN_MS);
+    expect(intervalMs({ intervalMsValue: 999999 })).toBe(INTERVAL_MAX_MS);
+  });
+
+  it('غياب القيمة الحرّة يُبقي الجلسات القديمة تعمل كما كانت', () => {
+    expect(intervalMs({ unit: 's', steps: 4, intervalMsValue: null })).toBe(2000);
   });
 });
 

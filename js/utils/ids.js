@@ -44,6 +44,7 @@ export const PREFIX = Object.freeze({
   SHADOW_SESSION: 'SHS',
   SHADOW_SEGMENT: 'SHG',
   EVIDENCE: 'EVD',
+  SAVED: 'SAV',
 });
 
 function encodeTime(ms, len = 10) {

@@ -21,8 +21,11 @@ import {
   PRACTICE_MODE,
   REPEAT_MODE,
   intervalLabel,
+  intervalMs,
+  INTERVAL_MIN_MS,
+  INTERVAL_MAX_MS,
 } from '../services/shadow/playback-controller.js';
-import { listVoices, loadVoices, stepRate } from '../services/shadow/tts-controller.js';
+import { listVoices, loadVoices, RATE_MIN, RATE_MAX } from '../services/shadow/tts-controller.js';
 import {
   completeSession,
   detectSourceChange,
@@ -36,17 +39,33 @@ import { markSentence, loadUserDictionary } from '../services/shadow/stress.js';
 import {
   loadExpressionIndex, clearExpressionIndex, expressionsIn, expressionDetail,
 } from '../services/shadow/analysis-link.js';
-import { FONTS, applyFont, ensureFontsLoaded, nextFont } from '../services/shadow/fonts.js';
+import { FONTS, applyFont, ensureFontsLoaded, fontById } from '../services/shadow/fonts.js';
 import { LANGUAGES, languageByCode, translate, isEnabled as trEnabled, setEnabled as setTrEnabled } from '../services/shadow/translate.js';
 import { practiceStreak, recentPractice } from '../services/shadow/shadow-session-service.js';
 import { scripts, contentBlocks, scenes, sceneMediaLinks, media, shadowSegments } from '../db/repositories.js';
 import { urlFor, startRecording, canRecord, addFilesToScene, AUDIO_ROLE } from '../services/media-service.js';
 import { resolveLinks, LINK } from '../services/link-service.js';
+import {
+  SAVED_KIND, listSavedTags, addSavedTag, saveItem, listSaved, isSaved,
+} from '../services/saved-service.js';
+import { savedItems } from '../db/repositories.js';
+import { deleteWithUndo } from '../services/delete-service.js';
 
 /** حالة الشاشة الحيّة. */
 let player = null;
 let ctx = null;
 let recorder = null;
+/** مستمع على `document` لأن نوافذ اللوحات تُلحَق خارج `main`. */
+let modalClickHandler = null;
+/**
+ * محرّك منفصل للنصّ الخارجي.
+ *
+ * منفصلٌ عمدًا: نصٌّ كتبته الآن ليس جزءًا من الجلسة، فلا يُحسب في
+ * تقدّمها ولا يُسجَّل كممارسة على مقطع لم تمرّ عليه — وفي الوقت نفسه
+ * يُقرأ بنفس السرعة والتكرار والصوت، لأنها إعداداتك أنت لا إعدادات
+ * النصّ.
+ */
+let scratchPlayer = null;
 
 /** أوضاع عرض النصّ. */
 const DISPLAY = Object.freeze({ RU: 'ru', EGY: 'egy', HIDDEN: 'hidden' });
@@ -55,10 +74,16 @@ const DISPLAY = Object.freeze({ RU: 'ru', EGY: 'egy', HIDDEN: 'hidden' });
 export function disposeShadow() {
   player?.destroy();
   player = null;
+  scratchPlayer?.destroy();
+  scratchPlayer = null;
   ctx = null;
   recorder?.cancel?.();
   recorder = null;
   clearExpressionIndex();
+  if (modalClickHandler) {
+    document.removeEventListener('click', modalClickHandler);
+    modalClickHandler = null;
+  }
   document.body.classList.remove('shadow-open');
 }
 
@@ -154,6 +179,10 @@ export async function renderShadow(main, sessionId) {
     autoRead: false,
     humanAudioUrl,
     audioSource: session.audioSource || 'human',
+    coverHeight: session.coverHeight || 200,
+    coverZoom: session.coverZoom || 100,
+    coverPinned: session.coverPinned ?? false,
+    fontSize: session.fontSize ?? 1,
   };
 
   main.innerHTML = shell();
@@ -185,7 +214,38 @@ export async function renderShadow(main, sessionId) {
   player.goTo(session.currentSegmentIndex || 0);
   syncSegment();
   wireSpine(main);
+  wireCoverResize(main);
   wireInteractions(main);
+  wireModalActions();
+}
+
+/**
+ * أفعالٌ داخل النوافذ المنبثقة.
+ *
+ * النوافذ تُلحَق بـ`document.body` لا بـ`main`، فمستمع الشاشة لا
+ * يراها. مستمع واحد على `document` يُزال عند مغادرة الظلّ.
+ */
+function wireModalActions() {
+  if (modalClickHandler) document.removeEventListener('click', modalClickHandler);
+
+  modalClickHandler = async (event) => {
+    const btn = event.target.closest('[data-sh="unsave"]');
+    if (!btn) return;
+
+    const item = await savedItems.get(btn.dataset.id);
+    await deleteWithUndo({
+      repo: savedItems,
+      id: btn.dataset.id,
+      what: 'المحفوظة دي',
+      detail: item?.text || '',
+      confirmLabel: 'شيلها',
+      // الصفّ يختفي فورًا بدل إعادة بناء اللوحة كلها — والتراجع يعيد
+      // إظهاره.
+      after: () => btn.closest('.sv-row')?.toggleAttribute('hidden'),
+    });
+  };
+
+  document.addEventListener('click', modalClickHandler);
 }
 
 function shell() {
@@ -221,7 +281,7 @@ function shell() {
             </div>
 
             ${raw(change.changed ? staleBanner(change) : '')}
-            ${raw(cover ? html`<img class="sh-cover" src="${cover}" alt="" />` : '')}
+            ${raw(cover ? coverPanel(cover) : '')}
             ${raw(
               scene
                 ? html`<div class="sh-scene-title">🎬 <b>${scene.titleRu || scene.titleAr}</b>
@@ -233,6 +293,8 @@ function shell() {
             <div data-lines>
               ${raw(segments.map((s, i) => lineHtml(s, i, i === idx)).join(''))}
             </div>
+
+            ${raw(fontPanel())}
 
             <div class="sh-left-foot">
               <button class="sh-pill" data-sh="toggle-tr">📖 عرض الترجمة <span class="caret">▾</span></button>
@@ -263,38 +325,45 @@ function shell() {
             </div>
 
             <div class="sh-current-card" data-card>
-              <div class="sh-current-lbl">الجملة الحالية</div>
+              <div class="sh-current-head">
+                <span class="sh-current-lbl" data-current-lbl>الجملة الحالية</span>
+                <span class="sh-current-tools">
+                  <button data-sh="scratch-open" title="اكتب كلمة أو جملة من برّه">✎</button>
+                  <button data-sh="scratch-clear" title="امسح النصّ من مربع القراءة" hidden
+                    data-scratch-clear>✕</button>
+                </span>
+              </div>
               <div class="sh-current-text" data-text></div>
               <div class="sh-current-tr" data-tr></div>
               <div class="sh-marks" data-marks></div>
               <div class="sh-wave">${raw('<i></i>'.repeat(21))}</div>
             </div>
 
-            <div>
-              <div class="sh-section-lbl">إعدادات الظلّ</div>
-              <div class="sh-dials">
-                ${raw(dial('السرعة', '🎚', `${session.speed}x`, 'speed'))}
-                ${raw(dial('التكرار', '🔁', `×${session.repeatCount}`, 'repeat'))}
-                ${raw(dial('التوقّف', '⏳', intervalLabel({ unit: session.intervalUnit, steps: session.intervalSteps }), 'pause'))}
-              </div>
-            </div>
+            <!--
+              مربع النصّ الخارجي: كلمة أو جملة من خارج المصدر تُقرأ
+              هنا بنفس المحرّك — بنفس السرعة والتكرار والصوت — بلا أن
+              تُضاف إلى الجلسة ولا تُحسب ممارسةً على نصٍّ لم تتدرّب
+              عليه.
+            -->
+            <form class="sh-scratch" data-scratch hidden>
+              <input type="text" name="scratch" dir="ltr" lang="ru" data-scratch-input
+                placeholder="اكتب كلمة أو جملة روسية…" autocomplete="off" />
+              <button type="submit" class="sh-pill">اقرأها</button>
+              <button type="button" class="sh-pill" data-sh="scratch-close">✕</button>
+            </form>
 
-            <div>
-              <div class="sh-section-lbl">وضع العرض</div>
-              <div class="sh-seg" data-display-seg>
-                <button data-sh="display" data-val="ru" class="on">RU<small>الروسي</small></button>
-                <button data-sh="display" data-val="egy">مصري<small>الترجمة</small></button>
-                <button data-sh="display" data-val="hidden">مخفي<small>اكشفها</small></button>
-              </div>
-            </div>
-
-            <div>
-              <div class="sh-section-lbl">وضع التكرار</div>
-              <div class="sh-seg" data-repeat-seg>
-                <button data-sh="mode" data-val="count">بالعدد<small>يقف بعد ×${session.repeatCount}</small></button>
-                <button data-sh="mode" data-val="continuous">مستمرّ<small>بلا توقّف</small></button>
-              </div>
-            </div>
+            <!--
+              شريط القراءة السريعة: القيم الثلاث الحيّة في سطر واحد،
+              والنقر على أيّها يفتح الدرج عندها. كانت هذه القيم ثلاث
+              بطاقات تأكل نصف الصفحة، وأنت لا تغيّرها كل جملة —
+              تقرأها كثيرًا وتضبطها قليلًا.
+            -->
+            <button class="sh-quick" data-sh="drawer">
+              <span><i>🎚</i><b data-dial="speed">${session.speed}x</b></span>
+              <span><i>🔁</i><b data-dial="repeat">×${session.repeatCount}</b></span>
+              <span><i>⏳</i><b data-dial="pause">${intervalLabel(session)}</b></span>
+              <span class="sh-quick-more">⚙︎ اضبط</span>
+            </button>
 
             <div class="sh-transport">
               <button class="sh-nav-btn" data-sh="prev">⏮ السابق</button>
@@ -302,16 +371,10 @@ function shell() {
               <button class="sh-nav-btn" data-sh="next">التالي ⏭</button>
             </div>
 
-            <div class="sh-volume">
-              <span>🔈</span>
-              <input type="range" min="0" max="100" value="${Math.round(ctx.volume * 100)}"
-                data-sh="volume" aria-label="مستوى الصوت" />
-              <span>🔊</span>
-            </div>
-
             <div class="sh-seg">
               <button data-sh="words">✦ الكلمات</button>
               <button data-sh="difficult">صعبة</button>
+              <button data-sh="save-item">🔖 احفظها</button>
               ${raw(
                 segments.some((seg) => seg.isMine)
                   ? html`<button data-sh="my-role">🎭 دوري</button>`
@@ -322,10 +385,6 @@ function shell() {
             </div>
 
             <div class="sh-words" data-words hidden></div>
-
-            <select class="sh-select" data-sh="voice-select" hidden>
-              ${raw(voiceOptions(voices, session.voiceId))}
-            </select>
 
             <button class="sh-record" data-sh="record">
               🎙 سجّل الآن
@@ -352,18 +411,193 @@ function shell() {
         <button class="sh-tab" data-sh="panel" data-panel="difficult">♡<span>الصعبة</span></button>
         <button class="sh-tab" data-sh="panel" data-panel="history">🕘<span>السجلّ</span></button>
       </div>
+
+      ${raw(settingsDrawer())}
     </div>`;
 }
 
-function dial(label, glyph, value, key) {
+/**
+ * صفٌّ واحد للتحكّم: منزلق للضبط السريع، وخانة رقم للقيمة بالضبط.
+ *
+ * المنزلق وحده لا يكفي — 0.85× و0.9× بينهما بكسلان على تابلت. وخانة
+ * الرقم وحدها بطيئة. الاثنان معًا على نفس القيمة: تسحب لتقترب، وتكتب
+ * حين تعرف ما تريد بالضبط.
+ */
+function tuner({ key, label, hint, min, max, step, value, unit = '' }) {
   return html`
-    <div class="sh-dial">
-      <span class="sh-dial-mark">⊙</span>
-      <div class="sh-dial-lbl">${glyph} ${label}</div>
-      <div class="sh-dial-val" data-dial="${key}">${value}</div>
-      <div class="sh-dial-btns">
-        <button data-sh="dial-down" data-key="${key}" aria-label="أقل">−</button>
-        <button data-sh="dial-up" data-key="${key}" aria-label="أكثر">+</button>
+    <div class="sh-tuner" data-tuner="${key}">
+      <div class="sh-tuner-head">
+        <span class="sh-tuner-lbl">${label}</span>
+        <span class="sh-tuner-box">
+          <input type="number" data-tune-num="${key}" value="${value}"
+            min="${min}" max="${max}" step="${step}" inputmode="decimal"
+            aria-label="${label}" />
+          <small>${unit}</small>
+        </span>
+      </div>
+      <input type="range" class="sh-range" data-tune-range="${key}"
+        min="${min}" max="${max}" step="${step}" value="${value}" aria-label="${label}" />
+      <div class="sh-tuner-hint">${hint}</div>
+    </div>`;
+}
+
+/**
+ * درج الإعدادات — ينزلق من الحافّة ويرجع مكانه.
+ *
+ * كان كل هذا مبسوطًا في الصفحة اليمنى فأزاح الجملة التي تتدرّب عليها
+ * إلى أسفل الشاشة. صار درجًا: يظهر حين تضبط، ويختفي حين تتدرّب.
+ */
+function settingsDrawer() {
+  const { session, voices } = ctx;
+  const pauseMs = intervalMs(session);
+
+  return html`
+    <div class="sh-drawer-veil" data-drawer-veil hidden></div>
+    <aside class="sh-drawer" data-drawer hidden aria-label="إعدادات الظلّ">
+      <div class="sh-drawer-head">
+        <b>⚙︎ اضبط الظلّ</b>
+        <button data-sh="drawer-close" aria-label="إغلاق">✕</button>
+      </div>
+
+      <div class="sh-drawer-body">
+        ${raw(
+          tuner({
+            key: 'speed',
+            label: '🎚 السرعة',
+            hint: 'ابدأ بطيء واطلع بالتدريج. الفرق بين 0.85 و0.9 مسموع.',
+            min: RATE_MIN, max: RATE_MAX, step: 0.05,
+            value: session.speed ?? 0.8, unit: '×',
+          })
+        )}
+
+        ${raw(
+          tuner({
+            key: 'repeat',
+            label: '🔁 عدد التكرار',
+            hint: 'كام مرّة تتقال الجملة قبل ما ينتقل للي بعدها.',
+            min: 1, max: 99, step: 1,
+            value: session.repeatCount ?? 5, unit: 'مرّة',
+          })
+        )}
+
+        ${raw(
+          tuner({
+            key: 'pause',
+            label: '⏳ الفاصل بين التكرارات',
+            hint: 'المهلة اللي بتقول فيها الجملة بصوتك. بالملّي ثانية.',
+            min: 0, max: 10000, step: 50,
+            value: pauseMs, unit: 'ms',
+          })
+        )}
+
+        ${raw(
+          tuner({
+            key: 'volume',
+            label: '🔊 مستوى الصوت',
+            hint: '',
+            min: 0, max: 100, step: 1,
+            value: Math.round(ctx.volume * 100), unit: '%',
+          })
+        )}
+
+        <div class="sh-drawer-sec">
+          <div class="sh-section-lbl">وضع العرض</div>
+          <div class="sh-seg" data-display-seg>
+            <button data-sh="display" data-val="ru">RU<small>الروسي</small></button>
+            <button data-sh="display" data-val="egy">مصري<small>الترجمة</small></button>
+            <button data-sh="display" data-val="hidden">مخفي<small>اكشفها</small></button>
+          </div>
+        </div>
+
+        <div class="sh-drawer-sec">
+          <div class="sh-section-lbl">وضع التكرار</div>
+          <div class="sh-seg" data-repeat-seg>
+            <button data-sh="mode" data-val="count">بالعدد<small>يقف بعد العدد</small></button>
+            <button data-sh="mode" data-val="continuous">مستمرّ<small>بلا توقّف</small></button>
+          </div>
+        </div>
+
+        <div class="sh-drawer-sec">
+          <div class="sh-section-lbl">الصوت المنطوق</div>
+          <select class="sh-select" data-sh="voice-select">
+            ${raw(voiceOptions(voices, session.voiceId))}
+          </select>
+        </div>
+
+        <p class="sh-drawer-note">
+          الخطّ والنبر والترجمة مع النصّ نفسه — في أسفل الصفحة اليسرى،
+          جنب الكلام اللي بتقرأه.
+        </p>
+      </div>
+    </aside>`;
+}
+
+/**
+ * لوحة الصورة.
+ *
+ * ثلاث حاجات في تصميم واحد:
+ *  · **إطار خاصّ بها** — تتحرّك الصورة داخله بلا أن تأخذ عرض الصفحة،
+ *    فتبقى الجمل مقروءة تحتها.
+ *  · **تثبيت** — تلتصق أعلى الصفحة فتراها وأنت تقلّب في الجمل، ومع
+ *    ذلك تظلّ قابلةً للتمرير داخل إطارها.
+ *  · **تحجيم** — مقبض تحت الإطار يغيّر ارتفاعه، لأن صورة الوثيقة
+ *    تحتاج مساحةً لا تحتاجها صورة المكان.
+ *
+ * الارتفاع والتكبير والتثبيت تُحفظ في الجلسة — إعدادك لا يضيع عند
+ * إعادة الفتح.
+ */
+function coverPanel(url) {
+  const { coverHeight, coverZoom, coverPinned } = ctx;
+  return html`
+    <div class="sh-cover-box${coverPinned ? ' pinned' : ''}" data-cover-box
+      style="--cover-h:${coverHeight}px;--cover-zoom:${coverZoom}%">
+      <div class="sh-cover-scroll" data-cover-scroll>
+        <img class="sh-cover" src="${url}" alt="الصورة اللي بتتدرّب على نصّها" />
+      </div>
+      <div class="sh-cover-tools">
+        <button data-sh="cover-pin" class="${coverPinned ? 'on' : ''}"
+          aria-pressed="${coverPinned ? 'true' : 'false'}" title="ثبّت الصورة وانت بتقلّب">📌</button>
+        <button data-sh="cover-zoom" data-dir="-1" aria-label="صغّر">−</button>
+        <span class="sh-cover-zoom" data-cover-zoom>${coverZoom}%</span>
+        <button data-sh="cover-zoom" data-dir="1" aria-label="كبّر">+</button>
+        <button data-sh="cover-fit" title="ارجعها لمقاس الإطار">⤢</button>
+      </div>
+      <div class="sh-cover-grip" data-cover-grip role="separator"
+        aria-label="اسحب لتغيير ارتفاع الصورة"></div>
+    </div>`;
+}
+
+/**
+ * لوحة الخطّ — مطويّة حتى تُطلَب.
+ *
+ * كان زرّ الخطّ يدوّر على العشرة واحدًا واحدًا: للوصول إلى «مذكّرة»
+ * تضغط خمس مرّات وتقرأ خمسة أشكال لا تريدها. صارت اللوحة تعرضها كلها
+ * **بخطّها نفسه** — تختار بالنظر لا بالتجربة.
+ *
+ * ومقياس الحجم معها، لأن الخطّ والحجم قرارٌ واحد: خطّ «راقص» صغير
+ * غير مقروء، والمطبعي الكبير يبتلع الشاشة.
+ */
+function fontPanel() {
+  return html`
+    <div class="sh-fontpanel" data-fontpanel hidden>
+      <div class="sh-fontpanel-grid">
+        ${raw(
+          FONTS.map(
+            (f) => html`
+              <button class="sh-fontchip ${f.id === ctx.font ? 'on' : ''}" data-sh="font-pick"
+                data-font="${f.id}" style="font-family:${f.stack};font-style:${f.style}"
+                lang="ru">
+                <b>Аа</b><small>${f.label}</small>
+              </button>`
+          ).join('')
+        )}
+      </div>
+      <div class="sh-fontpanel-size">
+        <span>حجم النصّ</span>
+        <input type="range" class="sh-range" data-font-size
+          min="80" max="180" step="5" value="${Math.round(ctx.fontSize * 100)}"
+          aria-label="حجم النصّ" />
+        <b data-font-size-label>${Math.round(ctx.fontSize * 100)}%</b>
       </div>
     </div>`;
 }
@@ -762,33 +996,115 @@ function highlightWord(wordIndex) {
  * التفاعل
  * ------------------------------------------------------------------ */
 
-/** يعدّل قيمة قرص ويحفظها. */
-async function adjustDial(key, direction) {
-  const s = player.state.settings;
-  const el = document.querySelector(`[data-dial="${key}"]`);
+/**
+ * حدود كل قيمة قابلة للضبط ومعناها.
+ *
+ * جدول واحد بدل شروط متفرّقة: كل مفتاح يعرف مداه، وكيف يُقرأ في
+ * الشريط السريع، وأين يُحفظ في الجلسة. إضافة قيمة جديدة سطرٌ هنا.
+ */
+const TUNERS = {
+  speed: {
+    min: RATE_MIN, max: RATE_MAX, step: 0.05, decimals: 2,
+    label: (v) => `${v}x`,
+    patch: (v) => ({ rate: v }),
+    persist: (v) => ({ speed: v }),
+  },
+  repeat: {
+    min: 1, max: 99, step: 1, decimals: 0,
+    label: (v) => `×${v}`,
+    patch: (v) => ({ repeatCount: v }),
+    persist: (v) => ({ repeatCount: v }),
+  },
+  pause: {
+    min: INTERVAL_MIN_MS, max: INTERVAL_MAX_MS, step: 50, decimals: 0,
+    label: (v) => intervalLabel({ intervalMsValue: v }),
+    patch: (v) => ({ intervalMsValue: v }),
+    persist: (v) => ({ intervalMsValue: v }),
+  },
+  volume: {
+    min: 0, max: 100, step: 1, decimals: 0,
+    label: (v) => `${v}%`,
+    patch: (v) => {
+      ctx.volume = v / 100;
+      return { volume: ctx.volume };
+    },
+    persist: (v) => ({ volume: v / 100 }),
+  },
+};
 
-  if (key === 'speed') {
-    const next = stepRate(s.rate, direction);
-    player.updateSettings({ rate: next });
-    if (el) el.textContent = `${next}x`;
-    return saveSessionSettings(ctx.session.id, { speed: next });
-  }
+/**
+ * يضبط قيمة من المنزلق أو من خانة الرقم.
+ *
+ * المنزلق وخانة الرقم يقودان نفس القيمة، فيلزم أن يتبع كلٌّ الآخر —
+ * وإلا رأيت رقمًا وسمعت غيره. و`silent` يمنع الحفظ أثناء السحب:
+ * كتابةٌ لكل بكسل تُثقل القاعدة بلا فائدة.
+ */
+function setTuner(key, raw, { silent = false } = {}) {
+  const spec = TUNERS[key];
+  if (!spec) return;
 
-  if (key === 'repeat') {
-    const next = Math.max(1, Math.min(50, s.repeatCount + direction));
-    player.updateSettings({ repeatCount: next });
-    if (el) el.textContent = `×${next}`;
-    document.querySelector('[data-repeat-seg] [data-val="count"] small').textContent =
-      `يقف بعد ×${next}`;
-    return saveSessionSettings(ctx.session.id, { repeatCount: next });
-  }
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed)) return;
 
-  if (key === 'pause') {
-    const next = Math.max(1, Math.min(60, s.intervalSteps + direction));
-    player.updateSettings({ intervalSteps: next });
-    if (el) el.textContent = intervalLabel({ unit: s.intervalUnit, steps: next });
-    return saveSessionSettings(ctx.session.id, { intervalSteps: next });
-  }
+  // التقريب إلى مضاعفات الخطوة يمنع 0.8500000000000001 من الظهور.
+  const snapped = Math.round(parsed / spec.step) * spec.step;
+  const value = Number(
+    Math.max(spec.min, Math.min(spec.max, snapped)).toFixed(spec.decimals)
+  );
+
+  // المحرّكان معًا: الإعداد لك لا للنصّ، فلا يختلف صوتُ جملةٍ كتبتها
+  // عن صوت جملةٍ من السكريبت.
+  const patch = spec.patch(value);
+  player?.updateSettings(patch);
+  scratchPlayer?.updateSettings(patch);
+
+  const range = document.querySelector(`[data-tune-range="${key}"]`);
+  const num = document.querySelector(`[data-tune-num="${key}"]`);
+  if (range && Number(range.value) !== value) range.value = value;
+  if (num && Number(num.value) !== value) num.value = value;
+
+  const quick = document.querySelector(`[data-dial="${key}"]`);
+  if (quick) quick.textContent = spec.label(value);
+
+  if (silent) return;
+  return saveSessionSettings(ctx.session.id, spec.persist(value)).catch(() => {});
+}
+
+/**
+ * يطبّق الخطّ وحجمه على الجملة الحالية وعلى سطور المصدر معًا.
+ *
+ * كان الخطّ يُطبَّق على البطاقة وحدها، فتقرأ الجملة بخطٍّ وترى بقيّة
+ * النصّ بخطٍّ آخر. الخطّ قرارٌ للنصّ الروسي كلّه.
+ */
+function applyFonts() {
+  const font = fontById(ctx.font);
+
+  applyFont($('[data-text]'), ctx.font);
+  document.querySelectorAll('.sh-line [data-line-text]').forEach((node) => applyFont(node, ctx.font));
+
+  const app = document.querySelector('.shadow-app');
+  if (app) app.style.setProperty('--sh-font-size', ctx.fontSize);
+
+  document.querySelectorAll('[data-font-label]').forEach((n) => { n.textContent = font.label; });
+  document.querySelectorAll('[data-sh="font-pick"]').forEach((n) => {
+    n.classList.toggle('on', n.dataset.font === ctx.font);
+  });
+
+  const sizeLabel = $('[data-font-size-label]');
+  if (sizeLabel) sizeLabel.textContent = `${Math.round(ctx.fontSize * 100)}%`;
+}
+
+/** يفتح الدرج أو يغلقه. */
+function toggleDrawer(open) {
+  const drawer = $('[data-drawer]');
+  const veil = $('[data-drawer-veil]');
+  if (!drawer) return;
+  const next = open ?? drawer.hidden;
+  drawer.hidden = !next;
+  if (veil) veil.hidden = !next;
+  // التحريك يحتاج إطارًا بعد رفع `hidden` وإلا انتقل فورًا بلا انزلاق.
+  requestAnimationFrame(() => drawer.classList.toggle('open', next));
+  if (next) drawer.querySelector('input, select, button')?.focus();
 }
 
 function setSegActive(container, value) {
@@ -847,6 +1163,187 @@ function showTips() {
   });
 }
 
+/* ------------------------------------------------------------------ *
+ * النصّ الخارجي
+ * ------------------------------------------------------------------ */
+
+/** المحرّك الفاعل الآن: الخارجي إن كان مفتوحًا، وإلا محرّك الجلسة. */
+function activePlayer() {
+  return scratchPlayer || player;
+}
+
+/** يقرأ نصًّا كتبته بنفسك بنفس إعدادات الجلسة. */
+function readScratch(text) {
+  const clean = (text || '').trim();
+  if (!clean) return;
+
+  // محرّك الجلسة يصمت: صوتان معًا لا يُفهم منهما شيء.
+  player.pause();
+  scratchPlayer?.destroy();
+
+  ctx.scratch = clean;
+
+  scratchPlayer = createPlaybackController({
+    segments: [{ id: 'scratch', text: clean }],
+    settings: { ...player.state.settings, autoAdvance: false },
+    onEvent: handleScratchEvent,
+  });
+
+  const textEl = $('[data-text]');
+  if (textEl) {
+    if (ctx.stress) textEl.innerHTML = markSentence(clean).html;
+    else textEl.textContent = clean;
+    textEl.classList.remove('hidden-mode');
+    applyFonts();
+  }
+
+  const trEl = $('[data-tr]');
+  if (trEl) trEl.textContent = '';
+  const marks = $('[data-marks]');
+  if (marks) marks.innerHTML = '';
+
+  const lbl = $('[data-current-lbl]');
+  if (lbl) lbl.textContent = '✎ نصّ من عندك';
+  $('[data-scratch-clear]')?.removeAttribute('hidden');
+
+  scratchPlayer.start();
+}
+
+/**
+ * أحداث المحرّك الخارجي.
+ *
+ * ⚠️ لا `recordSegmentPractice` ولا `savePosition` هنا. تكرار نصٍّ
+ *    كتبته الآن ليس ممارسةً على جملةٍ في جلستك — تسجيله كذلك يزوّر
+ *    دليل ممارستك (بند 19).
+ */
+function handleScratchEvent(event) {
+  const status = $('[data-status]');
+  const counter = $('[data-counter]');
+  const card = $('[data-card]');
+  const play = $('[data-sh="play"]');
+
+  if (event.type === 'speak-start') {
+    if (status) status.textContent = 'بيقرا';
+    card?.classList.add('speaking');
+    if (counter) counter.textContent = `×${event.repetition}`;
+    if (play) play.textContent = '⏸';
+  }
+  if (event.type === 'speak-end') card?.classList.remove('speaking');
+  if (event.type === 'paused') {
+    if (status) status.textContent = 'واقف';
+    if (play) play.textContent = '▶';
+  }
+  if (event.type === 'finished' || event.type === 'stopped') {
+    if (status) status.textContent = 'جاهز';
+    card?.classList.remove('speaking');
+    if (play) play.textContent = '▶';
+  }
+}
+
+/** يرجع من النصّ الخارجي إلى جملة الجلسة. */
+function clearScratch() {
+  if (!scratchPlayer) return;
+  scratchPlayer.destroy();
+  scratchPlayer = null;
+  ctx.scratch = null;
+
+  const lbl = $('[data-current-lbl]');
+  if (lbl) lbl.textContent = 'الجملة الحالية';
+  $('[data-scratch-clear]')?.setAttribute('hidden', '');
+
+  const input = $('[data-scratch-input]');
+  if (input) input.value = '';
+
+  // إعادة الرسم تُرجع الجملة وترجمتها وعلاماتها كما كانت.
+  syncSegment();
+}
+
+/**
+ * يحفظ الجملة الحالية أو الكلمة المختارة.
+ *
+ * الكلمة تسبق الجملة حين تكون مختارة: أنت واقفٌ عندها الآن، فهي ما
+ * تقصد حفظه.
+ */
+async function openSaveDialog() {
+  const segment = ctx.segments[player.state.index];
+  const selectedWord = document.querySelector('[data-word].selected');
+
+  const kind = selectedWord ? SAVED_KIND.WORD : SAVED_KIND.SENTENCE;
+  const defaultText = selectedWord
+    ? selectedWord.textContent.trim()
+    : segment?.sourceTextSnapshot || '';
+
+  const [tags, already] = await Promise.all([listSavedTags(), isSaved(defaultText, kind)]);
+
+  // القيم تُقرأ داخل `onSubmit`: النافذة تُزال من الـDOM عند الإغلاق.
+  await showModal({
+    title: already ? '🔖 محفوظة — زوّد تصنيف' : '🔖 احفظ في المحفوظات',
+    submitLabel: 'احفظ',
+    body: html`
+      <div class="field">
+        <label for="sv-text">${kind === SAVED_KIND.WORD ? 'الكلمة' : 'الجملة'}</label>
+        <textarea id="sv-text" name="text" dir="ltr" lang="ru"
+          style="min-height:${kind === SAVED_KIND.WORD ? '52' : '96'}px">${defaultText}</textarea>
+      </div>
+
+      <div class="field">
+        <label>ليه بتحفظها؟</label>
+        <div class="sv-tags">
+          ${raw(
+            tags
+              .map(
+                (t) => html`<label class="sv-tag">
+                  <input type="checkbox" name="tag_${t.id}" value="1"
+                    ${already?.tagIds?.includes(t.id) ? 'checked' : ''} />
+                  <span>${t.label}</span>
+                </label>`
+              )
+              .join('')
+          )}
+        </div>
+        <input type="text" name="newTag" placeholder="أو اكتب سبب جديد…" maxlength="30" />
+      </div>
+
+      <div class="field">
+        <label for="sv-note">ملاحظة (اختياري)</label>
+        <input id="sv-note" name="note" type="text" value="${already?.note || ''}"
+          placeholder="مثلًا: بنطقها согласовы- غلط" />
+      </div>
+
+      <p class="field-hint">
+        الحفظ علامة انتباه منك — <strong>مش دليل إتقان</strong>. الإتقان
+        بيجي لمّا تستخدمها في موقف حقيقي.
+      </p>`,
+
+    async onSubmit(data, close) {
+      const text = (data.text || '').trim();
+      if (!text) {
+        toastError('مفيش نصّ نحفظه');
+        throw new Error('فارغ');
+      }
+
+      const tagIds = tags.filter((t) => data[`tag_${t.id}`]).map((t) => t.id);
+      if (data.newTag?.trim()) tagIds.push((await addSavedTag(data.newTag)).id);
+
+      await saveItem({
+        text,
+        kind,
+        tagIds,
+        note: data.note || '',
+        translation: segment?.translationSnapshot || '',
+        sourceType: ctx.session.sourceType,
+        sourceId: ctx.session.sourceId,
+        segmentId: segment?.id || null,
+        sceneId: ctx.session.sceneId,
+        sessionId: ctx.session.id,
+      });
+
+      close();
+      toastOk(tagIds.length ? 'اتحفظت بتصنيفها' : 'اتحفظت');
+    },
+  });
+}
+
 /** لوحات الشريط السفلي — كلها أرقام حقيقية من القاعدة. */
 async function openPanel(name) {
   if (name === 'report') {
@@ -869,20 +1366,57 @@ async function openPanel(name) {
   }
 
   if (name === 'difficult') {
+    // مصدران في لوحة واحدة: ما علّمته «صعبة» أثناء التدريب (خاصّ بهذه
+    // الجلسة)، وما حفظته بتصنيفاته (يتبعك عبر الجلسات كلها).
     const hard = ctx.segments.filter((s) => s.practiceStatus === 'difficult');
-    return showModal({
-      title: '♡ الجمل الصعبة',
-      body: hard.length
-        ? hard
-            .map(
-              (s) =>
-                html`<div class="kv-row"><span class="k" dir="ltr">${s.sourceTextSnapshot}</span>
-                  <span class="v num">×${s.repetitionsCompleted}</span></div>`
-            )
-            .join('')
-        : '<p class="field-hint">مفيش جمل معلّمة صعبة لسه. اضغط «صعبة» على أي جملة.</p>',
+    const [saved, tags] = await Promise.all([listSaved({ limit: 60 }), listSavedTags()]);
+    const label = (id) => tags.find((t) => t.id === id)?.label || id;
+
+    const value = await showModal({
+      title: '♡ المحفوظات والصعب',
+      body: html`
+        <div class="sh-section-lbl" style="text-align:start">🔖 محفوظاتك (${saved.length})</div>
+        ${raw(
+          saved.length
+            ? saved
+                .map(
+                  (s) => html`<div class="sv-row">
+                    <div class="sv-row-main">
+                      <span class="ru" dir="ltr" lang="ru">${s.text}</span>
+                      ${raw(
+                        (s.tagIds || []).length
+                          ? html`<span class="sv-row-tags">${raw(
+                              s.tagIds.map((t) => html`<span class="sv-chip">${label(t)}</span>`).join('')
+                            )}</span>`
+                          : ''
+                      )}
+                      ${raw(s.note ? html`<span class="sv-row-note">${s.note}</span>` : '')}
+                    </div>
+                    <button class="row-del" data-sh="unsave" data-id="${s.id}"
+                      aria-label="شيلها من المحفوظات">${raw(icon('trash', 15))}</button>
+                  </div>`
+                )
+                .join('')
+            : '<p class="field-hint">لسه مفيش محفوظات. اضغط «🔖 احفظها» وانت واقف على جملة أو كلمة.</p>'
+        )}
+
+        <div class="sh-section-lbl" style="text-align:start;margin-top:var(--sp-4)">
+          ⚑ معلّمة صعبة في الجلسة دي (${hard.length})
+        </div>
+        ${raw(
+          hard.length
+            ? hard
+                .map(
+                  (s) =>
+                    html`<div class="kv-row"><span class="k" dir="ltr">${s.sourceTextSnapshot}</span>
+                      <span class="v num">×${s.repetitionsCompleted}</span></div>`
+                )
+                .join('')
+            : '<p class="field-hint">مفيش جمل معلّمة صعبة لسه. اضغط «صعبة» على أي جملة.</p>'
+        )}`,
       actions: [{ label: 'تمام', value: null, variant: 'primary' }],
     });
+    return value;
   }
 
   if (name === 'history') {
@@ -902,47 +1436,46 @@ async function openPanel(name) {
     });
   }
 
-  if (name === 'settings') {
+  // ⚙️ في الشريط السفلي يفتح الدرج نفسه — لا نافذةً تعرض ما في الدرج
+  // للقراءة فقط. مدخلان لمكانٍ واحد.
+  if (name === 'settings') return toggleDrawer(true);
+
+  if (name === 'online-tr') {
     const online = await trEnabled();
-    const value = await showModal({
-      title: '⚙️ إعدادات الظلّ',
-      body: html`
-        <div class="kv-row"><span class="k">الخطّ</span>
-          <span class="v">${FONTS.find((f) => f.id === ctx.font)?.label}</span></div>
-        <div class="kv-row"><span class="k">لغة الترجمة</span>
-          <span class="v">${languageByCode(ctx.lang).label}</span></div>
-        <div class="kv-row"><span class="k">علامات النبر</span>
-          <span class="v">${ctx.stress ? 'مفعّلة' : 'مطفية'}</span></div>
-        <div class="kv-row"><span class="k">قراءة مستمرة</span>
-          <span class="v">${ctx.autoRead ? 'مفعّلة' : 'مطفية'}</span></div>
-        <p class="field-hint" style="margin:var(--sp-3) 0">
-          <strong>الترجمة عبر الإنترنت ${online ? 'مفعّلة' : 'مطفية'}.</strong>
-          الترجمة المحفوظة عندك بتتعرض دايمًا. دي بس بتجيب الناقص من
-          خدمات خارجية — يعني بتخرج بياناتك برّه جهازك.
-        </p>`,
-      actions: [
-        { label: 'إغلاق', value: null, variant: 'ghost' },
-        { label: online ? 'اطفي الترجمة الأونلاين' : 'فعّل الترجمة الأونلاين', value: 'submit', variant: 'primary' },
-      ],
+    const ok = await confirmAction({
+      title: 'الترجمة عبر الإنترنت',
+      message:
+        `دلوقتي <strong>${online ? 'مفعّلة' : 'مطفية'}</strong>.<br><br>` +
+        'الترجمة المحفوظة عندك بتتعرض دايمًا. دي بس بتجيب الناقص من ' +
+        'خدمات خارجية — يعني بتخرج بياناتك برّه جهازك.',
+      confirmLabel: online ? 'اطفيها' : 'فعّلها',
     });
-    if (value === 'submit') {
-      const now = await setTrEnabled(!online);
-      toast(now ? 'الترجمة الأونلاين اتفعّلت' : 'الترجمة الأونلاين اتطفت');
-    }
+    if (!ok) return;
+    const now = await setTrEnabled(!online);
+    toast(now ? 'الترجمة الأونلاين اتفعّلت' : 'الترجمة الأونلاين اتطفت');
   }
 }
 
 function wireInteractions(main) {
+  // السحب يطبّق فورًا بلا كتابة في القاعدة؛ الحفظ عند رفع الإصبع.
   main.addEventListener('input', (event) => {
-    if (event.target.dataset.sh === 'volume') {
-      const volume = Number(event.target.value) / 100;
-      ctx.volume = volume;
-      player.updateSettings({ volume });
-      saveSessionSettings(ctx.session.id, { volume }).catch(() => {});
+    const key = event.target.dataset.tuneRange || event.target.dataset.tuneNum;
+    if (key) return setTuner(key, event.target.value, { silent: true });
+
+    if (event.target.hasAttribute('data-font-size')) {
+      ctx.fontSize = Number(event.target.value) / 100;
+      applyFonts();
     }
   });
 
   main.addEventListener('change', (event) => {
+    const key = event.target.dataset.tuneRange || event.target.dataset.tuneNum;
+    if (key) return setTuner(key, event.target.value);
+
+    if (event.target.hasAttribute('data-font-size')) {
+      return void saveSessionSettings(ctx.session.id, { fontSize: ctx.fontSize }).catch(() => {});
+    }
+
     if (event.target.dataset.sh === 'voice-select') {
       const voiceName = event.target.value;
       player.updateSettings({ voiceName });
@@ -951,7 +1484,16 @@ function wireInteractions(main) {
     }
   });
 
+  main.addEventListener('submit', (event) => {
+    if (!event.target.hasAttribute('data-scratch')) return;
+    event.preventDefault();
+    readScratch(new FormData(event.target).get('scratch'));
+  });
+
   main.addEventListener('click', async (event) => {
+    // النقر خارج الدرج يغلقه — كأيّ ورقة منزلقة.
+    if (event.target.hasAttribute('data-drawer-veil')) return toggleDrawer(false);
+
     const line = event.target.closest('[data-line]');
     if (line) return player.goTo(Number(line.dataset.line));
 
@@ -985,16 +1527,38 @@ function wireInteractions(main) {
       case 'tips':
         return showTips();
 
-      case 'play':
-        if (player.state.running && !player.state.paused) return player.pause();
-        if (player.state.paused) return player.resume();
-        return player.start();
+      case 'play': {
+        const active = activePlayer();
+        if (active.state.running && !active.state.paused) return active.pause();
+        if (active.state.paused) return active.resume();
+        return active.start();
+      }
 
-      case 'prev': return player.previous();
-      case 'next': return player.next();
+      // التنقّل يخصّ جمل الجلسة، فالخروج من النصّ الخارجي جزءٌ منه.
+      case 'prev': clearScratch(); return player.previous();
+      case 'next': clearScratch(); return player.next();
 
-      case 'dial-up':   return adjustDial(btn.dataset.key, 1);
-      case 'dial-down': return adjustDial(btn.dataset.key, -1);
+      case 'scratch-open': {
+        const box = $('[data-scratch]');
+        if (!box) return;
+        box.hidden = !box.hidden;
+        btn.classList.toggle('on', !box.hidden);
+        if (!box.hidden) $('[data-scratch-input]')?.focus();
+        return;
+      }
+
+      case 'scratch-close': {
+        const box = $('[data-scratch]');
+        if (box) box.hidden = true;
+        document.querySelector('[data-sh="scratch-open"]')?.classList.remove('on');
+        return;
+      }
+
+      case 'scratch-clear':
+        return clearScratch();
+
+      case 'drawer':       return toggleDrawer(true);
+      case 'drawer-close': return toggleDrawer(false);
 
       case 'display': {
         ctx.display = btn.dataset.val;
@@ -1058,6 +1622,9 @@ function wireInteractions(main) {
         return;
       }
 
+      case 'save-item':
+        return openSaveDialog();
+
       case 'record':
         return toggleRecording(btn);
 
@@ -1104,11 +1671,18 @@ function wireInteractions(main) {
       }
 
       case 'font': {
-        const next = nextFont(ctx.font);
-        ctx.font = next.id;
-        btn.querySelector('[data-font-label]').textContent = next.label;
-        applyFont($('[data-text]'), ctx.font);
-        return saveSessionSettings(ctx.session.id, { fontId: next.id });
+        const panel = $('[data-fontpanel]');
+        if (!panel) return;
+        panel.hidden = !panel.hidden;
+        btn.classList.toggle('on', !panel.hidden);
+        if (!panel.hidden) panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        return;
+      }
+
+      case 'font-pick': {
+        ctx.font = btn.dataset.font;
+        applyFonts();
+        return saveSessionSettings(ctx.session.id, { fontId: ctx.font });
       }
 
       case 'stress': {
@@ -1116,6 +1690,34 @@ function wireInteractions(main) {
         btn.classList.toggle('on', ctx.stress);
         syncSegment();
         return saveSessionSettings(ctx.session.id, { showStress: ctx.stress });
+      }
+
+      /* ---- لوحة الصورة ---- */
+
+      case 'cover-pin': {
+        ctx.coverPinned = !ctx.coverPinned;
+        const box = $('[data-cover-box]');
+        box?.classList.toggle('pinned', ctx.coverPinned);
+        btn.classList.toggle('on', ctx.coverPinned);
+        btn.setAttribute('aria-pressed', String(ctx.coverPinned));
+        toast(ctx.coverPinned ? 'الصورة ثابتة وانت بتقلّب' : 'الصورة بتتحرّك مع الصفحة');
+        return saveSessionSettings(ctx.session.id, { coverPinned: ctx.coverPinned });
+      }
+
+      case 'cover-zoom': {
+        const step = 20 * Number(btn.dataset.dir);
+        // 100% تملأ عرض الإطار؛ ما فوقها يفيض فيصير قابلًا للتمرير
+        // أفقيًّا ورأسيًّا داخله.
+        ctx.coverZoom = Math.max(100, Math.min(400, ctx.coverZoom + step));
+        applyCover();
+        return saveSessionSettings(ctx.session.id, { coverZoom: ctx.coverZoom });
+      }
+
+      case 'cover-fit': {
+        ctx.coverZoom = 100;
+        applyCover();
+        $('[data-cover-scroll]')?.scrollTo({ top: 0, left: 0, behavior: 'smooth' });
+        return saveSessionSettings(ctx.session.id, { coverZoom: 100 });
       }
 
       case 'panel':
@@ -1128,14 +1730,76 @@ function wireInteractions(main) {
 
   // الحالة الابتدائية للأزرار
   main.querySelector('[data-sh="stress"]')?.classList.toggle('on', ctx.stress);
-  const fontLabel = main.querySelector('[data-font-label]');
-  if (fontLabel) fontLabel.textContent = FONTS.find((f) => f.id === ctx.font)?.label || 'الخطّ';
+  applyFonts();
 
   setSegActive('[data-display-seg]', ctx.display);
   setSegActive(
     '[data-repeat-seg]',
     ctx.session.repeatMode === REPEAT_MODE.CONTINUOUS ? 'continuous' : 'count'
   );
+}
+
+/** يكتب حالة الصورة على المتغيّرات المخصّصة — مصدر واحد للحقيقة. */
+function applyCover() {
+  const box = $('[data-cover-box]');
+  if (!box) return;
+  box.style.setProperty('--cover-h', `${ctx.coverHeight}px`);
+  box.style.setProperty('--cover-zoom', `${ctx.coverZoom}%`);
+  const label = box.querySelector('[data-cover-zoom]');
+  if (label) label.textContent = `${ctx.coverZoom}%`;
+}
+
+/**
+ * مقبض ارتفاع الصورة.
+ *
+ * الحدّ الأدنى 90px حتى لا تختفي اللوحة فيتعذّر إرجاعها، والأعلى 70%
+ * من ارتفاع النافذة حتى تبقى جملةٌ واحدة على الأقل مرئيّة تحتها.
+ */
+function wireCoverResize(main) {
+  const grip = main.querySelector('[data-cover-grip]');
+  const box = main.querySelector('[data-cover-box]');
+  if (!grip || !box) return;
+
+  let dragging = false;
+  let startY = 0;
+  let startH = 0;
+
+  const maxHeight = () => Math.max(140, Math.round(window.innerHeight * 0.7));
+
+  grip.addEventListener('pointerdown', (event) => {
+    dragging = true;
+    startY = event.clientY;
+    startH = box.getBoundingClientRect().height;
+    grip.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  });
+
+  grip.addEventListener('pointermove', (event) => {
+    if (!dragging) return;
+    ctx.coverHeight = Math.max(90, Math.min(maxHeight(), Math.round(startH + (event.clientY - startY))));
+    applyCover();
+  });
+
+  const end = (event) => {
+    if (!dragging) return;
+    dragging = false;
+    grip.releasePointerCapture(event.pointerId);
+    saveSessionSettings(ctx.session.id, { coverHeight: ctx.coverHeight }).catch(() => {});
+  };
+
+  grip.addEventListener('pointerup', end);
+  grip.addEventListener('pointercancel', end);
+
+  // ولمن لا يسحب: الأسهم تغيّر الارتفاع درجةً درجة.
+  grip.tabIndex = 0;
+  grip.addEventListener('keydown', (event) => {
+    const step = event.key === 'ArrowDown' ? 20 : event.key === 'ArrowUp' ? -20 : 0;
+    if (!step) return;
+    event.preventDefault();
+    ctx.coverHeight = Math.max(90, Math.min(maxHeight(), ctx.coverHeight + step));
+    applyCover();
+    saveSessionSettings(ctx.session.id, { coverHeight: ctx.coverHeight }).catch(() => {});
+  });
 }
 
 /**

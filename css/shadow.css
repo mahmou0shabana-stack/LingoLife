@@ -26,7 +26,7 @@
 
   position: fixed;
   inset: 0;
-  z-index: 60;
+  z-index: var(--z-shadow);
   background: radial-gradient(120% 90% at 50% 0%, var(--sh-bg-2), var(--sh-bg) 60%);
   color: var(--sh-ink);
   display: flex;
@@ -216,16 +216,119 @@
 
 /* ─────────────── الصفحة اليسرى ─────────────── */
 
-.sh-cover {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  object-fit: cover;
+/* ─── لوحة الصورة: إطار خاصّ بها، تُثبَّت وتُحجَّم ─── */
+
+.sh-cover-box {
+  position: relative;
+  margin-bottom: 10px;
   border-radius: 14px;
   border: 1px solid var(--sh-line);
-  margin-bottom: 10px;
   background: rgba(255, 255, 255, .03);
-  display: block;
+  overflow: hidden;
 }
+
+/* التثبيت: تلتصق أعلى الصفحة فتبقى مرئيّة وأنت تقلّب في الجمل.
+   `.sh-page` هو من يُمرَّر، فالـ sticky ينسب إليه. */
+.sh-cover-box.pinned {
+  position: sticky;
+  top: -16px;              /* يعوّض padding الصفحة فتلتصق بحافّتها */
+  z-index: 3;
+  box-shadow: 0 14px 30px rgba(0, 0, 0, .5);
+}
+
+.sh-cover-scroll {
+  /* الارتفاع من المقبض، والتمرير **داخل** الإطار — الصورة لا تدفع
+     الجمل لأسفل مهما كبُرت. */
+  height: var(--cover-h, 200px);
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sh-line) transparent;
+  touch-action: pan-x pan-y;
+  /* الصورة تُقرأ من أعلى يسارها مهما كانت لغة الواجهة. في RTL يبدأ
+     التمرير من الحافّة اليمنى، فوثيقةٌ أعرض من الإطار تُفتح على
+     فراغها الأيمن بدل أوّل سطر فيها. */
+  direction: ltr;
+}
+
+.sh-cover-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
+.sh-cover-scroll::-webkit-scrollbar-thumb {
+  background: var(--sh-line);
+  border-radius: 999px;
+}
+
+.sh-cover {
+  display: block;
+  /* 100% = بعرض الإطار تمامًا. ما فوقها يفيض فيصير قابلًا للتمرير
+     في الاتجاهين — كأنك تقرّب عدسةً على وثيقة. */
+  width: var(--cover-zoom, 100%);
+  max-width: none;
+  height: auto;
+  margin-inline: auto;
+}
+
+.sh-cover-tools {
+  position: absolute;
+  inset-block-start: 8px;
+  inset-inline-end: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px;
+  border-radius: 999px;
+  background: rgba(10, 8, 20, .78);
+  border: 1px solid var(--sh-line);
+  backdrop-filter: blur(6px);
+  /* أزرار − و + لا تنقلب في RTL: علامة الناقص يمينًا تربك. */
+  direction: ltr;
+}
+
+.sh-cover-tools button {
+  min-width: 28px;
+  height: 28px;
+  border: 0;
+  background: transparent;
+  color: var(--sh-mute);
+  font-size: 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.sh-cover-tools button:hover { background: rgba(255, 255, 255, .08); color: var(--sh-ink); }
+.sh-cover-tools button.on { background: var(--sh-accent); color: #fff; }
+
+.sh-cover-zoom {
+  font-size: 11px;
+  color: var(--sh-mute);
+  min-width: 34px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+/* المقبض: شريط سفلي يُسحب لتغيير الارتفاع. 14px مساحة لمس مقبولة
+   على تابلت، والخطّ داخله 3px فلا يثقل الشكل. */
+.sh-cover-grip {
+  height: 14px;
+  display: grid;
+  place-items: center;
+  cursor: ns-resize;
+  touch-action: none;
+  background: linear-gradient(180deg, transparent, rgba(139, 92, 246, .14));
+}
+
+.sh-cover-grip::after {
+  content: '';
+  width: 40px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--sh-line);
+}
+
+.sh-cover-grip:active::after,
+.sh-cover-grip:focus-visible::after { background: var(--sh-accent); }
+.sh-cover-grip:focus-visible { outline: none; }
 
 .sh-scene-title {
   font-size: 13px;
@@ -272,6 +375,7 @@
 
 .sh-line .tx {
   flex: 1;
+  font-size: calc(1em * var(--sh-font-size, 1) * var(--font-scale, 1));
   direction: ltr;
   text-align: start;
   min-width: 0;
@@ -366,14 +470,40 @@
   box-shadow: 0 0 0 3px rgba(139, 92, 246, .16);
 }
 
-.sh-current-lbl {
-  font-size: 12px;
-  color: var(--sh-mute);
+.sh-current-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   margin-bottom: 10px;
 }
 
+.sh-current-lbl {
+  font-size: 12px;
+  color: var(--sh-mute);
+}
+
+.sh-current-tools { display: flex; gap: 4px; }
+
+.sh-current-tools button {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--sh-line);
+  background: transparent;
+  color: var(--sh-mute);
+  font-size: 13px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.sh-current-tools button:hover { color: var(--sh-ink); border-color: var(--sh-accent-2); }
+.sh-current-tools button.on { background: var(--sh-accent); color: #fff; border-color: var(--sh-accent); }
+
 .sh-current-text {
-  font-size: clamp(19px, 3.4vw, 27px);
+  /* `--sh-font-size` من لوحة الخطّ، و`--font-scale` من الخطّ نفسه:
+     خطّ «راقص» أعرض من «مطبعي» عند نفس الرقم. */
+  font-size: calc(clamp(19px, 3.4vw, 27px) * var(--sh-font-size, 1) * var(--font-scale, 1));
   line-height: 1.55;
   direction: ltr;
   min-height: 1.6em;
@@ -434,54 +564,226 @@
   margin-bottom: 2px;
 }
 
-.sh-dials {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 10px;
-}
+/* ─── شريط القراءة السريعة: القيم الحيّة في سطر ─── */
 
-.sh-dial {
-  border-radius: 15px;
+.sh-quick {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: 14px;
   border: 1px solid var(--sh-line);
   background: rgba(255, 255, 255, .025);
-  padding: 11px 8px;
-  text-align: center;
-}
-
-.sh-dial-lbl {
-  font-size: 11px;
-  color: var(--sh-mute);
-  margin-bottom: 4px;
-}
-
-.sh-dial-val {
-  font-size: 19px;
-  font-weight: 700;
-  color: var(--sh-ink);
-  line-height: 1.25;
-  font-variant-numeric: tabular-nums;
-}
-
-.sh-dial-btns {
-  display: flex;
-  gap: 6px;
-  margin-top: 8px;
-}
-
-.sh-dial-btns button {
-  flex: 1;
-  height: 30px;
-  border-radius: 9px;
-  border: 1px solid var(--sh-line);
-  background: rgba(255, 255, 255, .04);
   color: var(--sh-ink);
   font: inherit;
-  font-size: 16px;
-  line-height: 1;
   cursor: pointer;
 }
 
-.sh-dial-btns button:active { background: var(--sh-accent); border-color: var(--sh-accent); }
+.sh-quick:hover { border-color: var(--sh-accent); }
+
+.sh-quick > span {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  flex: 1;
+  justify-content: center;
+}
+
+.sh-quick i { font-style: normal; opacity: .7; font-size: 13px; }
+
+.sh-quick b {
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  /* الأرقام والرموز اللاتينية (0.85x، 250ms) تُقرأ من اليسار. */
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+.sh-quick-more {
+  flex: 0 0 auto !important;
+  font-size: 11px;
+  color: var(--sh-mute);
+  border-inline-start: 1px solid var(--sh-line);
+  padding-inline-start: 10px;
+}
+
+/* ─── درج الإعدادات ─── */
+
+.sh-drawer-veil {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(6, 4, 14, .55);
+  backdrop-filter: blur(2px);
+}
+
+.sh-drawer {
+  position: fixed;
+  inset-block: 0;
+  inset-inline-end: 0;
+  z-index: 41;
+  width: min(400px, 92vw);
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, var(--sh-page-2), var(--sh-page));
+  border-inline-start: 1px solid var(--sh-line);
+  box-shadow: -24px 0 60px rgba(0, 0, 0, .55);
+  /* يبدأ خارج الشاشة ثم ينزلق. `translate` بالنسبة المئوية لا يتأثّر
+     باتجاه الصفحة، فنقلبه يدويًّا في RTL. */
+  transform: translateX(100%);
+  transition: transform .26s cubic-bezier(.32, .72, 0, 1);
+}
+
+[dir="rtl"] .sh-drawer { transform: translateX(-100%); }
+
+.sh-drawer.open,
+[dir="rtl"] .sh-drawer.open { transform: translateX(0); }
+
+@media (prefers-reduced-motion: reduce) {
+  .sh-drawer { transition: none; }
+}
+
+.sh-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 18px;
+  border-bottom: 1px solid var(--sh-line);
+  color: var(--sh-ink);
+  font-size: 15px;
+}
+
+.sh-drawer-head button {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--sh-line);
+  background: transparent;
+  color: var(--sh-mute);
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.sh-drawer-head button:hover { color: var(--sh-ink); border-color: var(--sh-accent); }
+
+.sh-drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px 18px calc(20px + env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sh-line) transparent;
+}
+
+.sh-drawer-sec { display: flex; flex-direction: column; gap: 8px; }
+
+.sh-drawer-note {
+  font-size: 12px;
+  line-height: 1.9;
+  color: var(--sh-mute);
+  border-top: 1px solid var(--sh-line);
+  padding-top: 14px;
+  margin: 0;
+}
+
+/* ─── صفّ الضبط: منزلق + خانة رقم على نفس القيمة ─── */
+
+.sh-tuner { display: flex; flex-direction: column; gap: 7px; }
+
+.sh-tuner-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sh-tuner-lbl { font-size: 13px; color: var(--sh-ink); }
+
+.sh-tuner-box {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 9px;
+  border-radius: 10px;
+  border: 1px solid var(--sh-line);
+  background: rgba(255, 255, 255, .04);
+  /* الرقم أوّلًا ثم وحدته — «0.85 ×» لا «× 0.85». */
+  direction: ltr;
+}
+
+.sh-tuner-box input {
+  width: 58px;
+  border: 0;
+  background: transparent;
+  color: var(--sh-ink);
+  font: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+  direction: ltr;
+}
+
+.sh-tuner-box input:focus { outline: none; }
+.sh-tuner-box:focus-within { border-color: var(--sh-accent); }
+.sh-tuner-box small { font-size: 11px; color: var(--sh-mute); }
+
+.sh-tuner-hint {
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--sh-mute);
+}
+
+.sh-tuner-hint:empty { display: none; }
+
+/* المنزلق: مسار رفيع ومقبض كبير — الدقّة من الرقم، والراحة من الإصبع. */
+.sh-range {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 22px;
+  background: transparent;
+  cursor: pointer;
+  /* الأدنى يسارًا والأعلى يمينًا دائمًا: منزلق مقلوب يخدع الإصبع. */
+  direction: ltr;
+}
+
+.sh-range::-webkit-slider-runnable-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--sh-line);
+}
+
+.sh-range::-moz-range-track {
+  height: 4px;
+  border-radius: 999px;
+  background: var(--sh-line);
+}
+
+.sh-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  margin-top: -8px;
+  border-radius: 50%;
+  background: var(--sh-accent);
+  border: 2px solid #fff2;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, .4);
+}
+
+.sh-range::-moz-range-thumb {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--sh-accent);
+  border: 2px solid #fff2;
+}
 
 /* صفّ أزرار الاختيار */
 .sh-seg {
@@ -1040,3 +1342,113 @@ body.shadow-open { overflow: hidden; }
 
 .sh-current-card.your-turn .sh-current-text { color: #A7F3D0; }
 .sh-current-card.your-turn .sh-wave i { background: #34D399; }
+
+
+/* ─── لوحة الخطّ: تُختار بالنظر لا بالتجربة ─── */
+
+.sh-fontpanel {
+  margin: 10px 0 4px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid var(--sh-line);
+  background: rgba(255, 255, 255, .025);
+}
+
+.sh-fontpanel-grid {
+  display: grid;
+  /* خمسة في الصفّ على التابلت، وتنزل تلقائيًّا على الشاشة الضيّقة. */
+  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  gap: 7px;
+}
+
+.sh-fontchip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 4px;
+  border-radius: 11px;
+  border: 1px solid var(--sh-line);
+  background: rgba(255, 255, 255, .03);
+  color: var(--sh-ink);
+  cursor: pointer;
+}
+
+/* كل رقاقة تعرض «Аа» **بخطّها هي** — العيّنة هي الاختيار. */
+.sh-fontchip b {
+  font-size: 21px;
+  font-weight: 400;
+  line-height: 1.15;
+  direction: ltr;
+}
+
+.sh-fontchip small {
+  font-size: 10px;
+  color: var(--sh-mute);
+  /* الاسم بخطّ الواجهة لا بخطّ العيّنة، وإلا صار غير مقروء. */
+  font-family: inherit;
+  font-style: normal;
+}
+
+.sh-fontchip:hover { border-color: var(--sh-accent-2); }
+
+.sh-fontchip.on {
+  border-color: var(--sh-accent);
+  background: rgba(139, 92, 246, .18);
+  box-shadow: 0 0 0 1px var(--sh-accent) inset;
+}
+
+.sh-fontpanel-size {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid var(--sh-line);
+  font-size: 12px;
+  color: var(--sh-mute);
+}
+
+.sh-fontpanel-size .sh-range { flex: 1; }
+
+.sh-fontpanel-size b {
+  color: var(--sh-ink);
+  font-variant-numeric: tabular-nums;
+  min-width: 42px;
+  text-align: end;
+  direction: ltr;
+}
+
+
+/* ─── مربع النصّ الخارجي ─── */
+
+.sh-scratch {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.sh-scratch input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--sh-line);
+  background: rgba(255, 255, 255, .04);
+  color: var(--sh-ink);
+  font: inherit;
+  font-size: 15px;
+  direction: ltr;
+}
+
+.sh-scratch input:focus {
+  outline: none;
+  border-color: var(--sh-accent);
+}
+
+.sh-scratch input::placeholder {
+  color: var(--sh-faint);
+  /* العبارة الإرشادية عربية داخل حقلٍ لاتيني. */
+  direction: rtl;
+  text-align: end;
+}

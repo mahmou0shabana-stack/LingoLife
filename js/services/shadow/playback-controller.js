@@ -43,17 +43,29 @@ export const PRACTICE_MODE = Object.freeze({
   MY_ROLE: 'myRole',
 });
 
+/** حدود الفاصل بالملّي ثانية — للإدخال الحرّ. */
+export const INTERVAL_MIN_MS = 0;
+export const INTERVAL_MAX_MS = 10000;
+
 /**
  * يحوّل إعدادات الفاصل إلى ملّي ثانية.
- * الوحدتان من التطبيق القديم: خطوة الثانية = 500ms، خطوة الملّي = 100ms.
+ *
+ * `intervalMsValue` هو الطريق الحرّ: أيّ رقم بالملّي ثانية تكتبه بنفسك.
+ * وحين يغيب نعود لسلّم التطبيق القديم (خطوة الثانية = 500ms، خطوة
+ * الملّي = 100ms) — فالجلسات المحفوظة قبل الإدخال الحرّ تعمل كما كانت.
  */
-export function intervalMs({ unit = 's', steps = 2 } = {}) {
+export function intervalMs({ unit = 's', steps = 2, intervalMsValue = null } = {}) {
+  if (Number.isFinite(intervalMsValue)) {
+    return Math.max(INTERVAL_MIN_MS, Math.min(INTERVAL_MAX_MS, Math.round(intervalMsValue)));
+  }
   return unit === 's' ? steps * 500 : steps * 100;
 }
 
 /** تسمية بشرية للفاصل. */
-export function intervalLabel({ unit = 's', steps = 2 } = {}) {
-  return unit === 's' ? `${(steps * 0.5).toFixed(1)}s` : `${steps * 100}ms`;
+export function intervalLabel(settings = {}) {
+  const ms = intervalMs(settings);
+  // تحت الثانية تُقرأ بالملّي أوضح؛ فوقها بالثواني.
+  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(2).replace(/0$/, '')}s`;
 }
 
 /**
@@ -90,6 +102,7 @@ export function createPlaybackController({
     repeatMode: settings.repeatMode ?? REPEAT_MODE.COUNT,
     intervalUnit: settings.intervalUnit ?? 's',
     intervalSteps: settings.intervalSteps ?? 2,
+    intervalMsValue: settings.intervalMsValue ?? null,
     practiceMode: settings.practiceMode ?? PRACTICE_MODE.SENTENCE,
     autoAdvance: settings.autoAdvance ?? true,
     volume: settings.volume ?? 1,
@@ -232,7 +245,7 @@ export function createPlaybackController({
     if (!reachedTarget) {
       timer = setTimeout(() => {
         if (myToken === runToken) cycle();
-      }, intervalMs({ unit: config.intervalUnit, steps: config.intervalSteps }));
+      }, intervalMs(config));
       return;
     }
 
