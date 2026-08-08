@@ -856,3 +856,129 @@
 @media (min-width: 560px) {
   .trash-tools { flex-direction: row; align-items: center; }
 }
+
+/* ------------------------------------------------------------
+   البحث
+   ------------------------------------------------------------ */
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface-soft);
+  color: var(--ink-soft);
+  margin-bottom: var(--sp-3);
+}
+
+.search-box:focus-within { border-color: var(--accent); }
+
+.search-box input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--fs-md);
+  padding: var(--sp-3) 0;
+  color: var(--ink);
+}
+
+.search-box input:focus { outline: none; }
+
+/* زرّ المسح الأصلي في حقل search يختلف بين المتصفّحات — نستعمل زرّنا. */
+.search-box input::-webkit-search-cancel-button { display: none; }
+
+.search-box button {
+  border: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: var(--fs-md);
+  cursor: pointer;
+  padding: var(--sp-2);
+}
+
+.search-filters {
+  display: flex;
+  gap: var(--sp-2);
+  overflow-x: auto;
+  padding-bottom: var(--sp-2);
+  margin-bottom: var(--sp-4);
+  scrollbar-width: none;
+}
+
+.search-filters::-webkit-scrollbar { display: none; }
+
+.chip-btn {
+  flex: 0 0 auto;
+  padding: 6px var(--sp-3);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--line);
+  background: var(--surface-soft);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.chip-btn.on {
+  background: var(--accent-wash);
+  border-color: var(--accent);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.search-group { margin-bottom: var(--sp-5); }
+.search-list { padding: 0; }
+
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  text-align: start;
+  padding: var(--sp-3);
+  border: 0;
+  border-bottom: 1px solid var(--line-soft);
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.search-row:last-child { border-bottom: 0; }
+.search-row:hover { background: var(--bg-alt); }
+
+.search-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.search-row-title { font-weight: 600; overflow-wrap: anywhere; }
+
+.search-row-sub {
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+}
+
+.search-row-excerpt {
+  font-size: var(--fs-sm);
+  color: var(--ink-faint);
+  overflow-wrap: anywhere;
+}
+
+/* ------------------------------------------------------------
+   التحميل التدريجي
+   ------------------------------------------------------------ */
+.load-more {
+  min-height: 60px;
+  display: grid;
+  place-items: center;
+  color: var(--ink-soft);
+  font-size: var(--fs-sm);
+}

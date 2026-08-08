@@ -3,7 +3,7 @@
  * السيرة البصرية للرحلة — خط زمني مجمّع بالشهر، لا مدير ملفات (بند 7).
  */
 
-import { listScenesByMonth } from '../services/scene-service.js';
+import { listScenesByMonth, countScenes } from '../services/scene-service.js';
 import { media, sceneMediaLinks } from '../db/repositories.js';
 import { urlFor, releaseUrls } from '../services/media-service.js';
 import { html, raw } from '../utils/dom.js';
@@ -56,9 +56,29 @@ function sceneCard(scene, cover) {
     </button>`;
 }
 
+/** كم ذكرى تُجلب في كل دفعة. */
+const PAGE = 40;
+
+/** قسم شهرٍ كامل — يُبنى عند أول رسم وعند كل دفعة تالية. */
+function monthSection(group, covers) {
+  return html`
+    <section class="timeline-group" data-month="${group.key}">
+      <div class="group-label">
+        ${formatMonth(group.date)}
+        <span class="count">${group.scenes.length} ذكرى</span>
+      </div>
+      <div class="scene-list">
+        ${raw(group.scenes.map((s) => sceneCard(s, covers.get(s.id))).join(''))}
+      </div>
+    </section>`;
+}
+
 export async function renderLife(main) {
   releaseUrls();
-  const groups = await listScenesByMonth({ limit: 200 });
+  const [groups, total] = await Promise.all([
+    listScenesByMonth({ limit: PAGE }),
+    countScenes(),
+  ]);
 
   if (!groups.length) {
     main.innerHTML = html`
@@ -81,33 +101,80 @@ export async function renderLife(main) {
 
   const all = groups.flatMap((g) => g.scenes);
   const covers = await coverMap(all);
-  const total = all.length;
 
   main.innerHTML = html`
     <div class="view-head">
       <div>
         <h1>حياتي</h1>
-        <div class="sub">${total} ذكرى · ${groups.length} شهر</div>
+        <div class="sub">${total} ذكرى في خطّك الزمني</div>
       </div>
       <button class="btn btn-primary btn-sm" data-action="new-scene">
         ${raw(icon('plus', 16))} ذكرى جديدة
       </button>
     </div>
 
-    ${raw(
-      groups
-        .map(
-          (group) => html`
-            <section class="timeline-group">
-              <div class="group-label">
-                ${formatMonth(group.date)}
-                <span class="count">${group.scenes.length} ذكرى</span>
-              </div>
-              <div class="scene-list">
-                ${raw(group.scenes.map((s) => sceneCard(s, covers.get(s.id))).join(''))}
-              </div>
-            </section>`
-        )
-        .join('')
-    )}`;
+    <div data-timeline>
+      ${raw(groups.map((group) => monthSection(group, covers)).join(''))}
+    </div>
+
+    ${raw(all.length < total ? html`<div class="load-more" data-load-more></div>` : '')}`;
+
+  if (all.length < total) wireLoadMore(main, all.length, total);
+}
+
+/**
+ * تحميل تدريجي عند بلوغ آخر الصفحة.
+ *
+ * كان السقف 200 ذكرى **صامتًا**: تفتح «حياتي» فترى مئتين ولا شيء يقول
+ * إن وراءها المزيد. الآن العدّاد يذكر الكلّ، والباقي يأتي وأنت تنزل.
+ */
+function wireLoadMore(main, loaded, total) {
+  const sentinel = main.querySelector('[data-load-more]');
+  if (!sentinel) return;
+
+  let offset = loaded;
+  let busy = false;
+
+  const observer = new IntersectionObserver(async (entries) => {
+    if (!entries[0].isIntersecting || busy || offset >= total) return;
+    busy = true;
+    sentinel.textContent = 'بيجيب المزيد…';
+
+    const next = await listScenesByMonth({ limit: PAGE, offset });
+    const rows = next.flatMap((g) => g.scenes);
+    if (!rows.length) {
+      observer.disconnect();
+      sentinel.remove();
+      return;
+    }
+
+    const covers = await coverMap(rows);
+    const host = main.querySelector('[data-timeline]');
+
+    for (const group of next) {
+      // الشهر الذي بدأ في الدفعة السابقة يكمل فيه بدل أن يتكرّر عنوانه.
+      const section = host.querySelector(`[data-month="${group.key}"]`);
+      const cards = group.scenes.map((s) => sceneCard(s, covers.get(s.id))).join('');
+
+      if (section) {
+        section.querySelector('.scene-list').insertAdjacentHTML('beforeend', cards);
+        // وعدّاده يزيد معه، وإلا قال «3 ذكرى» فوق تسعٍ منها.
+        const badge = section.querySelector('.count');
+        const soFar = section.querySelectorAll('.scene-card').length;
+        if (badge) badge.textContent = `${soFar} ذكرى`;
+      } else {
+        host.insertAdjacentHTML('beforeend', monthSection(group, covers));
+      }
+    }
+
+    offset += rows.length;
+    busy = false;
+    sentinel.textContent = '';
+    if (offset >= total) {
+      observer.disconnect();
+      sentinel.remove();
+    }
+  }, { rootMargin: '300px' });
+
+  observer.observe(sentinel);
 }

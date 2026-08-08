@@ -43,6 +43,7 @@ import { renderScene } from './views/scene-view.js';
 import { renderSettings, handleSettingsAction } from './views/settings-view.js';
 import { renderShadow, disposeShadow } from './views/shadow-view.js';
 import { renderTrash, handleTrashAction } from './views/trash-view.js';
+import { renderSearch } from './views/search-view.js';
 
 /* ---- الحالة العابرة وإعادة العرض ---- */
 import { ui, reloadScene, refreshStorageCard } from './ui-state.js';
@@ -104,6 +105,7 @@ function syncNavState() {
     path === '/' ? 'now'
     : path.startsWith('/life') || path.startsWith('/scene') ? 'life'
     : path.startsWith('/language') ? 'language'
+    : path.startsWith('/search') ? 'search'
     : path.startsWith('/trash') ? 'trash'
     : path.startsWith('/settings') ? 'settings'
     : null;
@@ -452,6 +454,7 @@ async function boot() {
   route('/scene/:id', view(renderScene, { passUi: true }));
   route('/settings', view(renderSettings));
   route('/shadow/:id', view(renderShadow));
+  route('/search', view(renderSearch));
   route('/trash', view(renderTrash));
   notFound(() => navigate('/', { replace: true }));
 

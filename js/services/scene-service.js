@@ -137,6 +137,11 @@ export async function listScenesByMonth(options = {}) {
     .map(([key, items]) => ({ key, date: items[0].date, scenes: items }));
 }
 
+/** عدد الذكريات النشطة — رقمٌ حقيقي لا طول القائمة المعروضة. */
+export async function countScenes() {
+  return (await scenes.byIndex('state', STATE.ACTIVE)).length;
+}
+
 /** أحدث مشهد — بطاقة NOW الكبيرة. */
 export async function latestScene() {
   const list = await listScenes({ limit: 1 });
@@ -163,10 +168,9 @@ export async function restoreScene(id) {
 
 /** المشاهد في السلة. */
 export async function listTrashed() {
-  const all = await scenes.getAll();
-  return all
-    .filter((s) => s.state === STATE.TRASHED)
-    .sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0));
+  // فهرس `state` موجود، فلا داعي لمسح المشاهد كلها.
+  const rows = await scenes.byIndex('state', STATE.TRASHED);
+  return rows.sort((a, b) => (b.deletedAt || 0) - (a.deletedAt || 0));
 }
 
 /**
@@ -176,14 +180,17 @@ export async function listTrashed() {
  */
 export async function searchScenes(query, { limit = 40 } = {}) {
   if (!query?.trim()) return [];
-  const all = await scenes.getAll();
-  return all
-    .filter((s) => s.state === STATE.ACTIVE)
-    .filter((s) =>
-      matches([s.titleAr, s.titleRu, s.context, s.placeName].filter(Boolean).join(' '), query)
-    )
-    .sort((a, b) => (b.date || '').localeCompare(a.date || ''))
-    .slice(0, limit);
+  // مؤشّر على فهرس التاريخ تنازليًّا يقف عند أول `limit` مطابقة، بدل
+  // تحميل كل المشاهد في الذاكرة ثم تصفيتها. البحث الأشمل عبر المجالات
+  // في `search-service.js`.
+  return scenes.page({
+    index: 'date',
+    direction: 'prev',
+    limit,
+    filter: (s) =>
+      s.state === STATE.ACTIVE &&
+      matches([s.titleAr, s.titleRu, s.context, s.placeName].filter(Boolean).join(' '), query),
+  });
 }
 
 /** يربط اسم مكان نصّي بكيان Place — يُنشئه إن لم يوجد. */

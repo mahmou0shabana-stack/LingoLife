@@ -106,6 +106,7 @@
       await import('./delete.test.js');
       await import('./saved.test.js');
       await import('./trash.test.js');
+      await import('./search.test.js');
 
       const result = await run((event) => {
         if (event.type === 'suite') {
