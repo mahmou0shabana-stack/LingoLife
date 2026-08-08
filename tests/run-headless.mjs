@@ -15,6 +15,8 @@
  */
 
 import { chromium } from 'playwright';
+import { readdirSync } from 'node:fs';
+import { join } from 'node:path';
 
 const baseUrl = process.argv[2] || 'http://localhost:8124';
 const url = `${baseUrl.replace(/\/$/, '')}/tests/index.html?run=1`;
@@ -75,7 +77,58 @@ else console.log('  ✓ يُقلع بلا أخطاء');
 if (!hasExport || !hasRestore) console.log('  ✗ أزرار النسخ الاحتياطي غير موجودة');
 else console.log('  ✓ شاشة الإعدادات كاملة');
 
+/* ------------------------------------------------------------------ *
+ * فحص رسم الوحدات
+ *
+ * ⚠️ الاختبارات تستورد الخدمات لا الشاشات، وفحص الإقلاع يلمس شاشة
+ *    واحدة. فحين قُسِّم `app.js` إلى وحدات، انكسر مسارَا استيراد
+ *    ديناميكيّين ونقص استيرادٌ واحد — ولم يسقط شيءٌ من ذلك.
+ *
+ *    هذا الفحص يستورد **كل** وحدة في `js/` فيكشف أي مسار خاطئ أو
+ *    تصدير مفقود أو دورة استيراد، قبل أن يكتشفها المستخدم بضغطة زرّ.
+ * ------------------------------------------------------------------ */
+
+console.log('\nفحص رسم الوحدات');
+
+// القائمة تُمسح من القرص عند كل تشغيل، فلا يوجد ملفٌّ يتقادم: وحدة
+// جديدة تدخل الفحص تلقائيًّا بمجرّد وجودها.
+const modules = [];
+(function walk(dir) {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) walk(full);
+    else if (entry.name.endsWith('.js')) modules.push(full.replace(/\\/g, '/'));
+  }
+})('js');
+
+const modulePage = await browser.newPage();
+// لا بدّ من أصلٍ حقيقي قبل الاستيراد: صفحة `about:blank` لا تحلّ مسارًا.
+await modulePage.goto(`${baseUrl.replace(/\/$/, '')}/index.html`);
+const moduleFailures = await modulePage.evaluate(
+  async ({ base, paths }) => {
+    const failures = [];
+    for (const path of paths) {
+      try {
+        await import(`${base}/${path}`);
+      } catch (err) {
+        failures.push(`${path} → ${err.message}`);
+      }
+    }
+    return failures;
+  },
+  { base: baseUrl.replace(/\/$/, ''), paths: modules }
+);
+
+console.log(`  (${modules.length} وحدة)`);
+
+if (moduleFailures.length) {
+  for (const failure of moduleFailures) console.log(`  ✗ ${failure}`);
+} else {
+  console.log('  ✓ كل الوحدات تُستورَد بلا خطأ');
+}
+
 await browser.close();
 
-const bootOk = bootErrors.length === 0 && hasExport > 0 && hasRestore > 0;
+const bootOk =
+  bootErrors.length === 0 && hasExport > 0 && hasRestore > 0 && moduleFailures.length === 0;
 process.exit(result.failed || !bootOk ? 1 : 0);
