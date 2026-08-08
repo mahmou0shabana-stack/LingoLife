@@ -120,6 +120,33 @@ export function createPlaybackController({
   let words = [];
   let wordIndex = 0;
 
+  /**
+   * المقاطع المحدَّدة للتدريب (بند 21).
+   *
+   * فارغةٌ تعني «كلها». وحين تُملأ يتحرّك التنقّل **داخلها وحدها**:
+   * تختار سبع جملٍ من ثمانيَ عشرة فتدور عليها هي، بلا أن تفقد
+   * فهارسها الأصلية — فالإبراز في صفحة المصدر يبقى على مكانه الصحيح،
+   * ودليل الممارسة يُنسب إلى المقطع الحقيقي لا إلى ترتيبٍ مؤقّت.
+   */
+  let selection = new Set();
+
+  /** هل هذا الفهرس داخل التحديد؟ (وكلّها داخله حين لا تحديد) */
+  function inSelection(index) {
+    return selection.size === 0 || selection.has(index);
+  }
+
+  /** الفهرس التالي داخل التحديد، أو -1 إن لم يبقَ شيء. */
+  function nextSelected(from) {
+    for (let i = from + 1; i < segments.length; i++) if (inSelection(i)) return i;
+    return -1;
+  }
+
+  /** الفهرس السابق داخل التحديد، أو -1. */
+  function previousSelected(from) {
+    for (let i = from - 1; i >= 0; i--) if (inSelection(i)) return i;
+    return -1;
+  }
+
   function emit(type, extra = {}) {
     onEvent({
       type,
@@ -282,12 +309,12 @@ export function createPlaybackController({
     // اكتمل هذا المقطع.
     emit('segment-complete', { repetitions: state.repetition });
 
-    if (config.autoAdvance && state.index < segments.length - 1) {
+    if (config.autoAdvance && nextSelected(state.index) !== -1) {
       next();
       return;
     }
 
-    if (state.index >= segments.length - 1) {
+    if (nextSelected(state.index) === -1) {
       state.running = false;
       state.finished = true;
       emit('session-complete');
@@ -321,6 +348,11 @@ export function createPlaybackController({
     /** يبدأ التشغيل من الموضع الحالي. */
     start() {
       if (!segments.length || state.running) return;
+      // لا يبدأ من مقطعٍ خارج تحديدك: يقفز لأوّل محدَّد.
+      if (!inSelection(state.index)) {
+        const first = nextSelected(-1);
+        if (first !== -1) state.index = first;
+      }
       halt();
       state.running = true;
       state.paused = false;
@@ -389,21 +421,23 @@ export function createPlaybackController({
         // آخر كلمة: ننتقل للمقطع التالي ونبدأ من كلمته الأولى.
       }
 
-      if (state.index >= segments.length - 1) {
+      const target = nextSelected(state.index);
+      if (target === -1) {
         halt();
         state.running = false;
         state.finished = true;
         emit('session-complete');
         return;
       }
-      controller.goTo(state.index + 1);
+      controller.goTo(target);
     },
 
     previous() {
       if (config.practiceMode === PRACTICE_MODE.WORD && words.length && wordIndex > 0) {
         return controller.selectWord(wordIndex - 1);
       }
-      controller.goTo(state.index - 1);
+      const back = previousSelected(state.index);
+      if (back !== -1) controller.goTo(back);
     },
 
     /**
@@ -422,6 +456,25 @@ export function createPlaybackController({
       words = next;
       if (!same) wordIndex = 0;
       else wordIndex = Math.min(wordIndex, Math.max(0, words.length - 1));
+    },
+
+    /**
+     * يحصر التدريب في مقاطع بعينها (بند 21).
+     *
+     * @param {number[]|Set<number>} indices فارغةٌ = كلّها
+     */
+    setSelection(indices) {
+      selection = new Set(indices || []);
+      emit('selection', { selected: [...selection].sort((a, b) => a - b) });
+    },
+
+    get selection() {
+      return [...selection].sort((a, b) => a - b);
+    },
+
+    /** هل هذا المقطع داخل التدريب الحالي؟ */
+    isSelected(index) {
+      return inSelection(index);
     },
 
     /** يختار كلمة للتدريب عليها وحدها. */

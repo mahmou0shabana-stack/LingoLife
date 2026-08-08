@@ -761,6 +761,118 @@ describe('علامات التحليل داخل الظلّ', () => {
  * وضع الكلمة — باج تاريخي
  * ================================================================== */
 
+/* ================================================================== *
+ * تحديد المقاطع داخل الجلسة (بند 21)
+ * ================================================================== */
+
+describe('تحديد المقاطع', () => {
+  const five = [
+    { id: 'a', text: 'Первая фраза здесь' },
+    { id: 'b', text: 'Вторая фраза здесь' },
+    { id: 'c', text: 'Третья фраза здесь' },
+    { id: 'd', text: 'Четвёртая фраза тут' },
+    { id: 'e', text: 'Пятая фраза тут' },
+  ];
+
+  function build(settings = {}) {
+    return createPlaybackController({
+      segments: five,
+      speaker: silentSpeaker,
+      settings: { repeatCount: 1, intervalMsValue: 0, autoAdvance: false, ...settings },
+    });
+  }
+
+  it('بلا تحديد: كل المقاطع داخل التدريب', () => {
+    const player = build();
+    expect(player.selection).toEqual([]);
+    expect(player.isSelected(0)).toBe(true);
+    expect(player.isSelected(4)).toBe(true);
+    player.destroy();
+  });
+
+  it('التالي يتخطّى غير المحدَّد', () => {
+    const player = build();
+    player.setSelection([0, 2, 4]);
+
+    expect(player.state.index).toBe(0);
+    player.next();
+    expect(player.state.index).toBe(2);   // تخطّى 1
+    player.next();
+    expect(player.state.index).toBe(4);   // تخطّى 3
+    player.destroy();
+  });
+
+  it('السابق يتخطّى غير المحدَّد كذلك', () => {
+    const player = build();
+    player.setSelection([0, 2, 4]);
+    player.goTo(4);
+
+    player.previous();
+    expect(player.state.index).toBe(2);
+    player.previous();
+    expect(player.state.index).toBe(0);
+    player.destroy();
+  });
+
+  it('السابق عند أوّل محدَّد لا يخرج منه', () => {
+    const player = build();
+    player.setSelection([2, 3]);
+    player.goTo(2);
+    player.previous();
+    // لا يقفز إلى 1 لأنها خارج تحديدك.
+    expect(player.state.index).toBe(2);
+    player.destroy();
+  });
+
+  it('البدء من مقطعٍ خارج التحديد يقفز لأوّل محدَّد', () => {
+    const player = build();
+    player.goTo(0);
+    player.setSelection([3, 4]);
+    player.start();
+    expect(player.state.index).toBe(3);
+    player.destroy();
+  });
+
+  it('⚠️ التقدّم التلقائي يدور في المحدَّد وحده ثم ينتهي', async () => {
+    const visited = [];
+    const player = createPlaybackController({
+      segments: five,
+      speaker: silentSpeaker,
+      settings: { repeatCount: 1, intervalMsValue: 0, autoAdvance: true },
+      onEvent: (e) => { if (e.type === 'repeat') visited.push(e.index); },
+    });
+    player.setSelection([1, 3]);
+    player.goTo(1);
+    player.start();
+
+    await waitFor(() => !player.state.running, 4000);
+    // مرّ على 1 و3 فقط — ولم يلمس 0 ولا 2 ولا 4.
+    expect([...new Set(visited)]).toEqual([1, 3]);
+    player.destroy();
+  });
+
+  it('الفهارس الأصلية تبقى كما هي — لا ترقيمَ مؤقّت', () => {
+    const player = build();
+    player.setSelection([2, 4]);
+    player.goTo(2);
+    // المقطع الثالث يبقى الثالث، فالإبراز في صفحة المصدر لا يضلّ
+    // ودليل الممارسة يُنسب إلى المقطع الحقيقي.
+    expect(player.currentSegment.id).toBe('c');
+    player.next();
+    expect(player.currentSegment.id).toBe('e');
+    player.destroy();
+  });
+
+  it('مسح التحديد يرجع الكلّ', () => {
+    const player = build();
+    player.setSelection([1]);
+    expect(player.isSelected(0)).toBe(false);
+    player.setSelection([]);
+    expect(player.isSelected(0)).toBe(true);
+    player.destroy();
+  });
+});
+
 describe('اختيار الكلمة', () => {
   const one = [{ id: 'a', text: 'Привет как дела сегодня' }];
 

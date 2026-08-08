@@ -48,6 +48,7 @@ import { resolveLinks, LINK } from '../services/link-service.js';
 import {
   SAVED_KIND, listSavedTags, addSavedTag, saveItem, listSaved, isSaved,
 } from '../services/saved-service.js';
+import { addExpression, addScript } from '../services/content-service.js';
 import { savedItems } from '../db/repositories.js';
 import { deleteWithUndo } from '../services/delete-service.js';
 
@@ -66,6 +67,9 @@ let modalClickHandler = null;
  * النصّ.
  */
 let scratchPlayer = null;
+/** وضع التحديد ومجموعته (بند 21). */
+let selecting = false;
+let picked = new Set();
 
 /** أوضاع عرض النصّ. */
 const DISPLAY = Object.freeze({ RU: 'ru', EGY: 'egy', HIDDEN: 'hidden' });
@@ -76,6 +80,8 @@ export function disposeShadow() {
   player = null;
   scratchPlayer?.destroy();
   scratchPlayer = null;
+  selecting = false;
+  picked = new Set();
   ctx = null;
   recorder?.cancel?.();
   recorder = null;
@@ -290,7 +296,23 @@ function shell() {
                 : ''
             )}
 
-            <div data-lines>
+            <!--
+              شريط التحديد (بند 21): يظهر عند طلبه فقط. التدريب على
+              سبعٍ من ثمانيَ عشرة لا يحتاج مغادرة الجلسة ولا إعادة
+              بنائها — الفهارس تبقى كما هي والمحرّك يدور في المحدَّد.
+            -->
+            <div class="sh-select-bar" data-select-bar hidden>
+              <span class="sh-select-count"><b data-select-count>0</b> / ${segments.length}</span>
+              <div class="sh-select-actions">
+                <button data-sh="sel" data-pick="all">الكل</button>
+                <button data-sh="sel" data-pick="none">مسح</button>
+                <button data-sh="sel" data-pick="difficult">صعبة</button>
+                <button data-sh="sel" data-pick="unpracticed">لسه</button>
+              </div>
+              <button class="sh-select-go" data-sh="sel-apply">تدرّب على المحدَّد</button>
+            </div>
+
+            <div data-lines class="${''}">
               ${raw(segments.map((s, i) => lineHtml(s, i, i === idx)).join(''))}
             </div>
 
@@ -353,6 +375,17 @@ function shell() {
             </form>
 
             <!--
+              وجهات الحفظ (بند 19): النصّ الذي كتبته الآن لا يضيع بمجرّد
+              مسحه. يظهر الصفّ حين يكون هناك نصٌّ يُقرأ فعلًا.
+            -->
+            <div class="sh-scratch-save" data-scratch-save hidden>
+              <span>احفظها في:</span>
+              <button data-sh="scratch-to" data-to="saved">🔖 المحفوظات</button>
+              <button data-sh="scratch-to" data-to="expression">✦ تعبير</button>
+              <button data-sh="scratch-to" data-to="script">📄 سكريبت في الذكرى</button>
+            </div>
+
+            <!--
               شريط القراءة السريعة: القيم الثلاث الحيّة في سطر واحد،
               والنقر على أيّها يفتح الدرج عندها. كانت هذه القيم ثلاث
               بطاقات تأكل نصف الصفحة، وأنت لا تغيّرها كل جملة —
@@ -375,6 +408,7 @@ function shell() {
               <button data-sh="words">✦ الكلمات</button>
               <button data-sh="difficult">صعبة</button>
               <button data-sh="save-item">🔖 احفظها</button>
+              <button data-sh="select-mode">☑︎ حدّد</button>
               ${raw(
                 segments.some((seg) => seg.isMine)
                   ? html`<button data-sh="my-role">🎭 دوري</button>`
@@ -633,6 +667,7 @@ function lineHtml(segment, index, isCurrent) {
     .join(' ');
 
   return html`<button class="${classes}" data-line="${index}">
+    <span class="sh-line-pick" data-pick-box aria-hidden="true"></span>
     <span class="n">${index + 1}</span>
     <span class="tx" data-line-text>${segment.sourceTextSnapshot}${raw(
       segment.translationSnapshot ? html`<span class="tr" hidden>${segment.translationSnapshot}</span>` : ''
@@ -1178,6 +1213,15 @@ function showTips() {
  * النصّ الخارجي
  * ------------------------------------------------------------------ */
 
+/** يعكس مجموعة التحديد على السطور وعلى العدّاد. */
+function renderPicked() {
+  const count = $('[data-select-count]');
+  if (count) count.textContent = picked.size;
+  document.querySelectorAll('[data-line]').forEach((node) => {
+    node.classList.toggle('picked', picked.has(Number(node.dataset.line)));
+  });
+}
+
 /** المحرّك الفاعل الآن: الخارجي إن كان مفتوحًا، وإلا محرّك الجلسة. */
 function activePlayer() {
   return scratchPlayer || player;
@@ -1216,6 +1260,7 @@ function readScratch(text) {
   const lbl = $('[data-current-lbl]');
   if (lbl) lbl.textContent = '✎ نصّ من عندك';
   $('[data-scratch-clear]')?.removeAttribute('hidden');
+  $('[data-scratch-save]')?.removeAttribute('hidden');
 
   scratchPlayer.start();
 }
@@ -1251,6 +1296,43 @@ function handleScratchEvent(event) {
   }
 }
 
+/**
+ * يحفظ النصّ الخارجي حيث تريد (بند 19).
+ *
+ * ⚠️ **لا يمسّ مصدر الجلسة.** الممارسة السريعة نصٌّ عابر؛ حفظه يُنشئ
+ *    شيئًا جديدًا في مكانه الصحيح ولا يعدّل السكريبت الذي تتدرّب عليه.
+ */
+async function saveScratchTo(where) {
+  const text = (ctx.scratch || '').trim();
+  if (!text) return toast('مفيش نصّ نحفظه');
+
+  try {
+    if (where === 'saved') {
+      await saveItem({
+        text,
+        kind: text.split(/\s+/).length > 1 ? SAVED_KIND.SENTENCE : SAVED_KIND.WORD,
+        sceneId: ctx.session.sceneId,
+        sessionId: ctx.session.id,
+      });
+      return toastOk('اتحفظت في المحفوظات');
+    }
+
+    if (where === 'expression') {
+      if (!ctx.session.sceneId) return toastError('الجلسة دي مش مربوطة بذكرى');
+      await addExpression(ctx.session.sceneId, { text });
+      return toastOk('اتضافت كتعبير في الذكرى');
+    }
+
+    if (where === 'script') {
+      if (!ctx.session.sceneId) return toastError('الجلسة دي مش مربوطة بذكرى');
+      await addScript(ctx.session.sceneId, { title: 'من الممارسة السريعة', text });
+      return toastOk('اتضاف سكريبت جديد في الذكرى');
+    }
+  } catch (err) {
+    toastError(err.message || 'مقدرناش نحفظ');
+  }
+}
+
 /** يرجع من النصّ الخارجي إلى جملة الجلسة. */
 function clearScratch() {
   if (!scratchPlayer) return;
@@ -1261,6 +1343,7 @@ function clearScratch() {
   const lbl = $('[data-current-lbl]');
   if (lbl) lbl.textContent = 'الجملة الحالية';
   $('[data-scratch-clear]')?.setAttribute('hidden', '');
+  $('[data-scratch-save]')?.setAttribute('hidden', '');
 
   const input = $('[data-scratch-input]');
   if (input) input.value = '';
@@ -1506,7 +1589,18 @@ function wireInteractions(main) {
     if (event.target.hasAttribute('data-drawer-veil')) return toggleDrawer(false);
 
     const line = event.target.closest('[data-line]');
-    if (line) return player.goTo(Number(line.dataset.line));
+    if (line) {
+      const at = Number(line.dataset.line);
+      // في وضع التحديد النقر يختار لا ينتقل — وإلا تعذّر الاختيار
+      // أصلًا لأن كل نقرة تقفز بالجلسة.
+      if (selecting) {
+        if (picked.has(at)) picked.delete(at);
+        else picked.add(at);
+        renderPicked();
+        return;
+      }
+      return player.goTo(at);
+    }
 
     const mark = event.target.closest('[data-expr]');
     if (mark) return openAnalysisDrawer(mark.dataset.expr);
@@ -1567,6 +1661,9 @@ function wireInteractions(main) {
 
       case 'scratch-clear':
         return clearScratch();
+
+      case 'scratch-to':
+        return saveScratchTo(btn.dataset.to);
 
       case 'drawer':       return toggleDrawer(true);
       case 'drawer-close': return toggleDrawer(false);
@@ -1635,6 +1732,53 @@ function wireInteractions(main) {
 
       case 'save-item':
         return openSaveDialog();
+
+      /* ---- تحديد المقاطع (بند 21) ---- */
+
+      case 'select-mode': {
+        selecting = !selecting;
+        btn.classList.toggle('on', selecting);
+        const bar = $('[data-select-bar]');
+        if (bar) bar.hidden = !selecting;
+        document.querySelector('[data-lines]')?.classList.toggle('picking', selecting);
+        if (!selecting) {
+          // الخروج من وضع التحديد يرفع الحصر — لا يُبقيك محصورًا بلا
+          // شريطٍ يُذكّرك بأنك محصور.
+          picked.clear();
+          player.setSelection([]);
+        }
+        renderPicked();
+        return;
+      }
+
+      case 'sel': {
+        const all = ctx.segments.map((_, i) => i);
+        const pick = btn.dataset.pick;
+        picked.clear();
+        if (pick === 'all') all.forEach((i) => picked.add(i));
+        if (pick === 'difficult') {
+          all.filter((i) => ctx.segments[i].practiceStatus === 'difficult').forEach((i) => picked.add(i));
+        }
+        if (pick === 'unpracticed') {
+          all.filter((i) => !(ctx.segments[i].repetitionsCompleted > 0)).forEach((i) => picked.add(i));
+        }
+        renderPicked();
+        return;
+      }
+
+      case 'sel-apply': {
+        if (!picked.size) return toast('محدّدتش أي جملة');
+        player.setSelection(picked);
+        player.goTo([...picked].sort((a, b) => a - b)[0]);
+        toastOk(`التدريب على ${picked.size} جملة`);
+        // نخرج من وضع الاختيار ونُبقي الحصر: أنت الآن تتدرّب عليها.
+        selecting = false;
+        const bar = $('[data-select-bar]');
+        if (bar) bar.hidden = true;
+        document.querySelector('[data-lines]')?.classList.remove('picking');
+        document.querySelector('[data-sh="select-mode"]')?.classList.remove('on');
+        return;
+      }
 
       case 'record':
         return toggleRecording(btn);

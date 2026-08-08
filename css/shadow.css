@@ -1486,3 +1486,107 @@ body.shadow-open { overflow: hidden; }
   direction: rtl;
   text-align: end;
 }
+
+/* ─── شريط تحديد المقاطع (بند 21) ─── */
+
+.sh-select-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--sh-accent);
+  background: rgba(139, 92, 246, .12);
+}
+
+.sh-select-count {
+  font-size: 13px;
+  color: var(--sh-mute);
+  /* «7 / 18» تُقرأ من اليسار مهما كان اتجاه الصفحة. */
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+.sh-select-count b { color: var(--sh-ink); font-size: 15px; }
+
+.sh-select-actions { display: flex; gap: 4px; flex: 1; }
+
+.sh-select-actions button {
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--sh-line);
+  background: rgba(255, 255, 255, .04);
+  color: var(--sh-mute);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.sh-select-actions button:hover { color: var(--sh-ink); border-color: var(--sh-accent-2); }
+
+.sh-select-go {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 0;
+  background: var(--sh-accent);
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* مربّع الاختيار على السطر — لا يظهر إلا في وضع التحديد. */
+.sh-line-pick { display: none; }
+
+.sh-line-pick {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 1.5px solid var(--sh-line);
+  margin-inline-end: 2px;
+}
+
+[data-lines].picking .sh-line-pick { display: block; }
+
+[data-lines].picking .sh-line.picked .sh-line-pick {
+  background: var(--sh-accent);
+  border-color: var(--sh-accent);
+  /* علامة صحّ مرسومة بالخلفية — بلا أيقونة إضافية. */
+  background-image:
+    linear-gradient(45deg, transparent 44%, #fff 44%, #fff 56%, transparent 56%),
+    linear-gradient(-45deg, transparent 56%, #fff 56%, #fff 68%, transparent 68%);
+  background-size: 100% 100%;
+}
+
+[data-lines].picking .sh-line.picked {
+  border-color: var(--sh-accent);
+  background: rgba(139, 92, 246, .1);
+}
+
+/* ─── وجهات حفظ الممارسة السريعة (بند 19) ─── */
+
+.sh-scratch-save {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--sh-mute);
+}
+
+.sh-scratch-save button {
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--sh-line);
+  background: rgba(255, 255, 255, .04);
+  color: var(--sh-ink);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.sh-scratch-save button:hover { border-color: var(--sh-accent-2); }
