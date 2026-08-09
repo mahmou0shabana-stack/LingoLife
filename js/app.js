@@ -45,6 +45,8 @@ import { renderScene } from './views/scene-view.js';
 import { renderSettings, handleSettingsAction } from './views/settings-view.js';
 import { renderShadow, disposeShadow } from './views/shadow-view.js';
 import { renderTrash, handleTrashAction } from './views/trash-view.js';
+import { renderThreads, renderThread } from './views/threads-view.js';
+import { openThreadLinkModal, openThreadEditModal } from './modals/thread-modals.js';
 import { renderSearch } from './views/search-view.js';
 
 /* ---- الحالة العابرة وإعادة العرض ---- */
@@ -126,6 +128,22 @@ function syncNavState() {
    تفويض الأحداث
    ============================================================ */
 function wireActions() {
+  /*
+   * حالة الخيط تُغيَّر من قائمةٍ منسدلة لا من زرّ، فتحتاج `change` لا
+   * `click`. أضيفت هنا بدل مستمعٍ داخل الشاشة لأن الشاشة تُعاد رسمها
+   * بعد كل تغيير — ومستمعٌ داخلها يموت مع رسمته.
+   */
+  delegate(document.body, 'change', '[data-thread-status]', async (event, target) => {
+    const { updateThread } = await import('./services/thread-service.js');
+    try {
+      await updateThread(target.dataset.id, { status: target.value });
+      toastOk('اتحفظت الحالة.');
+      refresh();
+    } catch (err) {
+      toastError(err.message || 'مقدرناش نحفظ');
+    }
+  });
+
   delegate(document.body, 'click', '[data-action]', async (event, target) => {
     const { action, id, scene: sceneAttr, target: scrollTarget } = target.dataset;
     const sceneId = sceneAttr || id;
@@ -136,6 +154,7 @@ function wireActions() {
       case 'open-scene': return navigate(`/scene/${id}`);
       case 'go-life': return navigate('/life');
       case 'go-settings': return navigate('/settings');
+      case 'go-threads': return navigate('/threads');
       case 'back': return back();
       case 'reload': return refresh();
 
@@ -171,6 +190,23 @@ function wireActions() {
         const changed = await openPeopleManager();
         if (changed && field) await refreshSpeakerSelect(field);
         return;
+      }
+
+      /* ---- الخيوط ---- */
+      case 'thread-link':
+        return openThreadLinkModal(id, () => reloadScene(id));
+
+      case 'thread-edit':
+        return openThreadEditModal(id, () => refresh());
+
+      case 'thread-remove-scene': {
+        // الرابط يحيط بالزرّ: بدون هذا يتنقّل المتصفّح إلى المشهد
+        // بينما نحن نزيله من الخيط.
+        event.preventDefault();
+        const { removeSceneFromThread } = await import('./services/thread-service.js');
+        await removeSceneFromThread(target.dataset.thread, id);
+        toast('اتشال من الخيط.');
+        return refresh();
       }
 
       /* ---- المشهد ---- */
@@ -468,6 +504,8 @@ async function boot() {
   route('/shadow/:id', view(renderShadow));
   route('/search', view(renderSearch));
   route('/trash', view(renderTrash));
+  route('/threads', view(renderThreads));
+  route('/thread/:id', view(renderThread));
   notFound(() => navigate('/', { replace: true }));
 
   wireActions();

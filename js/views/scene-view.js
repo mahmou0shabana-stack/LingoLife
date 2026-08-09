@@ -8,9 +8,10 @@
 import { getSceneFull } from '../services/scene-service.js';
 import { listConversationParts, listSceneExpressions, getBlock, scriptTypeLabel, registerLabel, registerClass } from '../services/content-service.js';
 import { urlFor, releaseUrls, AUDIO_ROLE_LABEL } from '../services/media-service.js';
-import { html, raw, formatDuration } from '../utils/dom.js';
+import { html, raw, esc, formatDuration } from '../utils/dom.js';
 import { formatDate } from '../utils/dates.js';
 import { typeLabel } from '../services/type-service.js';
+import { threadsOfScene } from '../services/thread-service.js';
 import { icon } from '../components/icons.js';
 
 /** أقسام اللوحة — العدد يظهر في الفهرس المصغّر. */
@@ -419,10 +420,11 @@ export async function renderScene(main, sceneId, options = {}) {
   const images = mediaItems.filter((m) => m.kind === 'image');
   const audio = mediaItems.filter((m) => m.kind === 'audio');
 
-  const [parts, expressionList, notesBlock] = await Promise.all([
+  const [parts, expressionList, notesBlock, threads] = await Promise.all([
     listConversationParts(sceneId),
     listSceneExpressions(sceneId),
     getBlock(sceneId, 'notes'),
+    threadsOfScene(sceneId),
   ]);
 
   const counts = {
@@ -453,6 +455,23 @@ export async function renderScene(main, sceneId, options = {}) {
                   ${raw(icon('place'))} أضف المكان
                 </button>`
           )}
+          <!--
+            الخيوط التي تنتمي إليها الذكرى — بأسمائها لا بمعرّفاتها
+            (بند 29)، وكلٌّ منها رابطٌ إلى قصّته.
+          -->
+          ${raw(
+            threads
+              .map(
+                (t) =>
+                  html`<a class="chip chip-thread" href="#/thread/${t.id}">
+                    ${raw(icon('link'))} ${esc(t.title)}
+                  </a>`
+              )
+              .join('')
+          )}
+          <button class="chip editable" data-action="thread-link" data-id="${scene.id}">
+            ${raw(icon('link'))} ${threads.length ? 'اربطها بقصّة تانية' : 'اربطها بقصّة'}
+          </button>
           <button class="chip editable" data-action="edit-scene" data-id="${scene.id}">
             ${raw(icon('edit'))} تعديل
           </button>

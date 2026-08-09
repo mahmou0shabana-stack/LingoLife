@@ -1073,3 +1073,168 @@
 
 .pm-unlinked-row .tm-label { flex: 1; min-width: 8ch; }
 .pm-unlinked-row select { max-width: 18ch; }
+
+/* ------------------------------------------------------------
+   الخيوط — القائمة والصفحة
+   ------------------------------------------------------------ */
+
+.thread-list {
+  display: grid;
+  gap: var(--sp-3);
+}
+
+.thread-card {
+  display: block;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-lg, 14px);
+  border: 1px solid var(--line);
+  background: var(--surface, #fff);
+  color: inherit;
+  text-decoration: none;
+}
+
+.thread-card:hover { border-color: var(--accent, #8B5CF6); }
+
+/* الخيط المنتهي يخفت: قصّةٌ خلصت لا تزاحم قصّةً تنتظرك. */
+.thread-card.is-done { opacity: .7; }
+
+.thread-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.thread-card-head b { flex: 1; min-width: 0; }
+
+.thread-card-desc {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-sm, 14px);
+  color: var(--ink-soft);
+}
+
+.thread-card-meta {
+  display: flex;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  margin-top: var(--sp-2);
+  font-size: var(--fs-xs, 12px);
+  color: var(--ink-soft);
+}
+
+/* ─── رقاقة الحالة: تُقرأ قبل أن تُقرأ ─── */
+
+.thread-status {
+  flex: none;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: var(--fs-xs, 12px);
+  border: 1px solid currentColor;
+}
+
+.thread-status.is-active   { color: #1F9D62; }
+.thread-status.is-waiting  { color: #B4740E; }
+.thread-status.is-paused   { color: #6B7280; }
+.thread-status.is-resolved { color: #4B5563; }
+.thread-status.is-reopened { color: #C2410C; }
+
+.thread-done { margin-top: var(--sp-4); }
+.thread-done summary { cursor: pointer; color: var(--ink-soft); font-size: var(--fs-sm, 14px); }
+.thread-done .thread-list { margin-top: var(--sp-3); }
+
+.thread-desc { color: var(--ink-soft); margin: 0 0 var(--sp-3); }
+
+.thread-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.thread-actions label { color: var(--ink-soft); font-size: var(--fs-sm, 14px); }
+.thread-actions select { flex: 1; min-width: 12ch; }
+
+/* ─── الخطّ الزمني: القصّة كما جرت ─── */
+
+.thread-timeline { margin-top: var(--sp-4); }
+
+.thread-event {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  border-radius: var(--r-lg, 14px);
+  border: 1px solid var(--line);
+  background: var(--surface, #fff);
+  color: inherit;
+  text-decoration: none;
+}
+
+.thread-event:hover { border-color: var(--accent, #8B5CF6); }
+
+.thread-event-date {
+  flex: none;
+  font-size: var(--fs-xs, 12px);
+  color: var(--ink-soft);
+  min-width: 11ch;
+}
+
+.thread-event-main { flex: 1; min-width: 0; }
+.thread-event-main small { display: block; color: var(--ink-soft); font-size: var(--fs-xs, 12px); }
+
+/*
+ * الفجوة بين حدثين: «بعد ١٢ يوم» جزءٌ من القصّة لا حشو — هي المدّة
+ * التي انتظرتَ فيها ردًّا.
+ */
+.thread-gap {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) 0;
+  padding-inline-start: var(--sp-4);
+  color: var(--ink-soft);
+  font-size: var(--fs-xs, 12px);
+}
+
+.thread-gap::before {
+  content: '';
+  width: 2px;
+  height: 18px;
+  background: var(--line);
+  border-radius: 999px;
+}
+
+/* ─── رقاقة الخيط على الذكرى ─── */
+
+.chip-thread {
+  text-decoration: none;
+  color: inherit;
+  border-color: var(--accent, #8B5CF6);
+}
+
+/* ─── اقتراحات الربط ─── */
+
+.thread-suggest {
+  margin-bottom: var(--sp-3);
+  padding: var(--sp-3);
+  border-radius: var(--r-lg, 14px);
+  border: 1px solid var(--line);
+  background: var(--bg-soft, rgba(0, 0, 0, .02));
+}
+
+.thread-suggest h4 { margin: 0 0 var(--sp-2); font-size: var(--fs-sm, 14px); }
+
+.thread-suggest-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: var(--sp-2) 0;
+  cursor: pointer;
+}
+
+/* السبب تحت الاسم: تقرأ لماذا اقترحناه قبل أن توافق. */
+.thread-suggest-row small {
+  display: block;
+  color: var(--ink-soft);
+  font-size: var(--fs-xs, 12px);
+}
