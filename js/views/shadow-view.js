@@ -18,6 +18,8 @@ import { splitWords } from '../services/shadow/segmenter.js';
 import { toEgyptian } from '../services/shadow/dialect.js';
 import {
   createPlaybackController,
+  AUDIO_SOURCE,
+  normalizeAudioSource,
   PRACTICE_MODE,
   REPEAT_MODE,
   intervalLabel,
@@ -62,6 +64,15 @@ import {
 import { addExpression, addScript } from '../services/content-service.js';
 import { savedItems } from '../db/repositories.js';
 import { deleteWithUndo } from '../services/delete-service.js';
+import {
+  findNativeAudio,
+  grantNativeAudio,
+  revokeNativeAudio,
+  nativeAudioConsent,
+  isPronounceableWord,
+  nativeCacheStats,
+  NATIVE_HOSTS,
+} from '../services/shadow/native-audio.js';
 
 /** حالة الشاشة الحيّة. */
 let player = null;
@@ -93,6 +104,7 @@ export function disposeShadow() {
   scratchPlayer = null;
   selecting = false;
   picked = new Set();
+  nativeMissSaid.clear();
   ctx = null;
   recorder?.cancel?.();
   recorder = null;
@@ -118,6 +130,103 @@ async function readCurrentSource(session) {
     return block ? { text: block.text || '', version: block.rev ?? null } : null;
   }
   return null;
+}
+
+/* ------------------------------------------------------------------ *
+ * النطق الأصلي — بند 22
+ * ------------------------------------------------------------------ */
+
+/** التسمية الصادقة: ثلاثة مصادر متمايزة، ولا يُسمَّى المُصنَّع بشريًّا. */
+const AUDIO_LABEL = Object.freeze({
+  [AUDIO_SOURCE.TTS]: '🤖 آلي (TTS)',
+  [AUDIO_SOURCE.MINE]: '🎙 تسجيلي',
+  [AUDIO_SOURCE.NATIVE]: '🌍 ناطق أصلي',
+});
+
+/**
+ * ما الذي يمكن اختياره في **هذه** الجلسة؟
+ *
+ * «تسجيلي» لا يُعرَض بلا تسجيلٍ مربوط — زرٌّ يبدو أنه يعمل وهو لا
+ * يعمل ممنوع (بند 89). والآلي دائمًا موجود لأنه دائمًا يعمل.
+ */
+function audioChoices(hasMine = Boolean(ctx?.humanAudioUrl)) {
+  const list = [AUDIO_SOURCE.TTS];
+  if (hasMine) list.push(AUDIO_SOURCE.MINE);
+  list.push(AUDIO_SOURCE.NATIVE);
+  return list;
+}
+
+/**
+ * المصدر **المتاح فعلًا** في هذه الجلسة.
+ *
+ * ⚠️ الافتراضي المحفوظ `mine` (ورثناه من `human` القديم)، وجلسةٌ بلا
+ *    تسجيل مربوط كانت تعرض «🎙 تسجيلي» وهي تنطق آليًّا — زرٌّ يقول
+ *    غير ما يفعل (بند 89). المحرّك كان يسقط إلى TTS صحيحًا؛ الكذبة
+ *    كانت في التسمية وحدها، وهي أسوأ ما يكون: تصدّقها.
+ */
+export function effectiveAudioSource(saved, hasMine) {
+  const wanted = normalizeAudioSource(saved);
+  return audioChoices(hasMine).includes(wanted) ? wanted : AUDIO_SOURCE.TTS;
+}
+
+/**
+ * يُمرَّر للمحرّك فيحلّ نطقًا أصليًّا — أو `null` فيسقط إلى TTS.
+ *
+ * الشبكة والموافقة هنا لا في المحرّك: يبقى المحرّك حتميًّا وقابلًا
+ * للاختبار بلا خادم.
+ */
+async function resolveNative(text) {
+  const word = (text || '').trim();
+  if (!isPronounceableWord(word)) return { status: 'not-a-word' };
+  const result = await findNativeAudio(word);
+  return result.status === 'ok' ? result : { status: result.status };
+}
+
+/**
+ * نصّ الموافقة. يسمّي الخوادم بأسمائها ويقول بالضبط ما الذي يخرج —
+ * موافقةٌ لا تعرف على ماذا توافق ليست موافقة.
+ */
+/**
+ * يقول سبب السقوط إلى TTS — مرّةً لكل سبب لا مع كل تكرار.
+ *
+ * التكرار خمس مرّات لنفس الكلمة يعني خمسة أحداث `source`؛ توستٌ في كل
+ * مرّة يجعل الرسالة الصادقة إزعاجًا فتُتجاهَل، وهو نقيض الغرض.
+ */
+const nativeMissSaid = new Set();
+function announceNativeMiss(reason) {
+  const key = reason || 'unknown';
+  if (nativeMissSaid.has(key)) return;
+  nativeMissSaid.add(key);
+
+  const said = {
+    'not-a-word': 'الناطق الأصلي للكلمات المفردة بس — الجملة بتتنطق آليًا',
+    'not-found': 'مالقيناش تسجيل لناطق أصلي للكلمة دي — نطقناها آليًا',
+    offline: 'مفيش إنترنت دلوقتي — نطقناها آليًا',
+    // «ما استطعنا السؤال» غير «سألنا فقالوا لا»، والفرق يهمّك: الأولى
+    // تُصلَح بشبكةٍ أفضل، والثانية لا.
+    unreachable: 'مقدرناش نوصل لخوادم النطق — نطقناها آليًا',
+    disabled: 'الناطق الأصلي مقفول — نطقناها آليًا',
+  }[key];
+  if (said) toast(said);
+}
+
+async function askNativeConsent() {
+  const ok = await confirmAction({
+    title: '🌍 النطق الأصلي',
+    message:
+      'دي <strong>الميزة الوحيدة في التطبيق اللي بتخرج من جهازك</strong>.<br><br>' +
+      'لمّا تشغّلها، <strong>الكلمة الروسية اللي بتتدرّب عليها</strong> هتتبعت ' +
+      `لخوادم خارجية (${NATIVE_HOSTS.join(' · ')}) عشان ندوّر على تسجيل ` +
+      'لناطق أصلي.<br><br>' +
+      '• الكلمة بس هي اللي بتخرج — مش جملتك ولا ذكرياتك ولا أي حاجة تخصّك.<br>' +
+      '• اللي بنلاقيه بيتحفظ على جهازك، فالكلمة ما بتخرجش تاني.<br>' +
+      '• للكلمات المفردة بس — مفيش تسجيل لجملتك على الخوادم دي.<br>' +
+      '• تقدر ترجع في أي وقت، والرجوع بيمسح كل اللي اتجاب.',
+    confirmLabel: 'موافق، شغّلها',
+  });
+  if (!ok) return false;
+  ctx.nativeConsent = await grantNativeAudio();
+  return true;
 }
 
 /**
@@ -250,7 +359,10 @@ export async function renderShadow(main, sessionId) {
     stress: session.showStress ?? true,
     autoRead: false,
     humanAudioUrl,
-    audioSource: session.audioSource || 'human',
+    // تقرأ `'human'` القديم فتعيد `'mine'` (بلا ترقية بيانات)، ثم
+    // تحصره فيما هو متاح فعلًا في هذه الجلسة.
+    audioSource: effectiveAudioSource(session.audioSource, Boolean(humanAudioUrl)),
+    nativeConsent: await nativeAudioConsent(),
     coverHeight: session.coverHeight || 200,
     coverZoom: session.coverZoom || 100,
     coverPinned: session.coverPinned ?? false,
@@ -281,6 +393,7 @@ export async function renderShadow(main, sessionId) {
     })),
     settings: { ...session, volume: ctx.volume, audioSource: ctx.audioSource },
     onEvent: handleEvent,
+    nativeResolver: resolveNative,
   });
 
   player.goTo(session.currentSegmentIndex || 0);
@@ -479,8 +592,10 @@ function shell() {
               ${raw(
                 segments.some((seg) => seg.isMine)
                   ? html`<button data-sh="my-role">🎭 دوري</button>`
-                  : html`<button data-sh="audio-source" class="${ctx.audioSource === 'human' ? 'on' : ''}">
-                      ${ctx.humanAudioUrl ? '👤 بشري' : '🤖 آلي'}
+                  : html`<button data-sh="audio-source"
+                      class="${ctx.audioSource === AUDIO_SOURCE.TTS ? '' : 'on'}"
+                      title="اضغط لتبديل مصدر الصوت">
+                      ${AUDIO_LABEL[ctx.audioSource]}
                     </button>`
               )}
             </div>
@@ -850,9 +965,22 @@ function handleEvent(event) {
       break;
     }
 
+    /*
+     * الحالة تقول **مِن أين** يأتي الصوت الآن، لا «بيشتغل» وحدها.
+     * وحين نطلب ناطقًا أصليًّا فلا نجده، نقول ذلك بدل أن نُسمِعك آليًّا
+     * وأنت تحسبه بشريًّا (بند 89).
+     */
     case 'source': {
       const status = $('[data-status]');
-      if (status) status.textContent = event.source === 'human' ? 'بصوتك' : 'بيشتغل';
+      if (status) {
+        status.textContent =
+          event.source === AUDIO_SOURCE.MINE ? 'بصوتك'
+          : event.source === AUDIO_SOURCE.NATIVE
+            ? `ناطق أصلي${event.speaker ? ` · ${event.speaker}` : ''}`
+          : event.fallbackFrom === AUDIO_SOURCE.NATIVE ? 'آلي — مالقيناش تسجيل'
+          : 'بيشتغل';
+      }
+      if (event.fallbackFrom === AUDIO_SOURCE.NATIVE) announceNativeMiss(event.reason);
       break;
     }
 
@@ -1928,16 +2056,33 @@ function wireInteractions(main) {
       case 'tell':
         return tellItNow(btn);
 
+      /*
+       * دورةٌ من ثلاثة (بند 22): آلي → تسجيلي (إن وُجد) → ناطق أصلي.
+       * والاختيار الثالث يمرّ بموافقةٍ صريحة أوّل مرّة، فإن رُفضت لا
+       * يتغيّر شيء — لا نُفعّل ما لم يُوافَق عليه ثم «نتذكّر» لاحقًا.
+       */
       case 'audio-source': {
-        if (!ctx.humanAudioUrl) {
-          return toast('مفيش تسجيل بشري مربوط بالنصّ ده — اربط تسجيل من المشغّل');
+        const choices = audioChoices();
+        const next = choices[(choices.indexOf(ctx.audioSource) + 1) % choices.length];
+
+        if (next === AUDIO_SOURCE.NATIVE && !ctx.nativeConsent.enabled) {
+          const granted = await askNativeConsent();
+          if (!granted) return;
         }
-        ctx.audioSource = ctx.audioSource === 'human' ? 'tts' : 'human';
-        player.updateSettings({ audioSource: ctx.audioSource });
-        btn.classList.toggle('on', ctx.audioSource === 'human');
-        btn.textContent = ctx.audioSource === 'human' ? '👤 بشري' : '🤖 آلي';
-        toast(ctx.audioSource === 'human' ? 'هيشغّل تسجيلك البشري' : 'هينطق آليًا');
-        return saveSessionSettings(ctx.session.id, { audioSource: ctx.audioSource });
+
+        ctx.audioSource = next;
+        player.updateSettings({ audioSource: next });
+        btn.classList.toggle('on', next !== AUDIO_SOURCE.TTS);
+        btn.textContent = AUDIO_LABEL[next];
+
+        if (next === AUDIO_SOURCE.NATIVE) {
+          // نقولها قبل أن يضغط تشغيل، لا بعد أن يسمع صوتًا آليًّا
+          // ويظنّه ناطقًا أصليًّا.
+          toast('للكلمات المفردة بس — الجملة هتفضل آلية');
+        } else {
+          toast(next === AUDIO_SOURCE.MINE ? 'هيشغّل تسجيلك' : 'هينطق آليًا');
+        }
+        return saveSessionSettings(ctx.session.id, { audioSource: next });
       }
 
       case 'my-role': {

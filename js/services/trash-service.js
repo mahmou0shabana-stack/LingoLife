@@ -281,6 +281,7 @@ export const NOT_TRASHABLE = Object.freeze({
   analysisProposals: 'تتبع تشغيلها',
   media: 'الملفّ يبقى؛ ما يُشال هو ربطه بالذكرى',
   syncQueue: 'طابور تشغيل داخلي',
+  nativeAudio: 'ذاكرة تسجيلات خارجية — تُمسح كلها من الإعدادات لا واحدًا واحدًا',
   projectContext: 'إعدادات لا محتوى',
   promptVersions: 'إعدادات لا محتوى',
   backupHistory: 'سجلّ النسخ — لا يُحذف',

@@ -29,7 +29,7 @@ import {
   media,
   sceneMediaLinks,
 } from '../js/db/repositories.js';
-import { STATE } from '../js/db/schema.js';
+import { STATE, STORES } from '../js/db/schema.js';
 import {
   TRASHABLE,
   NOT_TRASHABLE,
@@ -398,6 +398,18 @@ describe('السلة — الحارس', () => {
     // الواجهة، فلو فُتح له حذفٌ غدًا انكشف غيابه هنا لا عند المستخدم.
     const planted = [];
     for (const [store, repo] of Object.entries(ALL_REPOS)) {
+      /*
+       * مستودعٌ مفتاحه ليس `id` لا يدخل دورة الحالة أصلًا:
+       * `create` تولّد معرّفًا لا مكان له فيه. وهذا ليس عذرًا للتخطّي
+       * الصامت — نطالب بأن يكون مُقَرًّا باستثنائه، فمستودعٌ جديد
+       * بمفتاحٍ غريب لا يمرّ من هنا بلا قرار.
+       */
+      if ((STORES[store]?.keyPath || 'id') !== 'id') {
+        if (!(store in NOT_TRASHABLE)) {
+          throw new Error(`${store} بمفتاح غير id ولا سببٌ مكتوب لاستثنائه من السلة`);
+        }
+        continue;
+      }
       const record = await repo.create({});
       await repo.trash(record.id);
       planted.push({ store, id: record.id });

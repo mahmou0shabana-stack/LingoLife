@@ -16,6 +16,13 @@ import { html, raw, formatBytes } from '../utils/dom.js';
 import { relativeTime } from '../utils/dates.js';
 import { toast, toastOk, toastError } from '../components/toast.js';
 import { confirmAction, showModal } from '../components/modal.js';
+import {
+  nativeAudioConsent,
+  nativeCacheStats,
+  clearNativeCache,
+  revokeNativeAudio,
+  NATIVE_HOSTS,
+} from '../services/shadow/native-audio.js';
 import { icon } from '../components/icons.js';
 import { APP_VERSION, BUILD_ID } from '../config.js';
 
@@ -34,6 +41,11 @@ export async function renderSettings(main) {
   const topStores = Object.entries(counts)
     .filter(([, n]) => n > 0)
     .sort((a, b) => b[1] - a[1]);
+
+  const native = {
+    consent: await nativeAudioConsent(),
+    stats: await nativeCacheStats(),
+  };
 
   main.innerHTML = html`
     <div class="view-head">
@@ -139,6 +151,8 @@ export async function renderSettings(main) {
         : ''
     )}
 
+    ${raw(privacyPanel(native))}
+
     <div class="panel">
       <h3>${raw(icon('refresh', 18))} التطبيق</h3>
       <div class="kv-row"><span class="k">الإصدار</span><span class="v">${APP_VERSION}</span></div>
@@ -160,6 +174,80 @@ export async function renderSettings(main) {
         <strong>المرحلة 3:</strong> ربط Google Drive، المزامنة التلقائية،
         واسترجاع العالم من السحابة.
       </div>
+    </div>`;
+}
+
+/**
+ * ما الذي يغادر جهازك — في مكانٍ واحد ظاهر (بند 22).
+ *
+ * الموافقة تُعطى داخل شاشة الظلّ في سياقها، لكنها لا يجوز أن تُدفَن
+ * هناك: أن تعرف **بعد شهر** ماذا وافقتَ عليه ومتى وكم كلمة خرجت، وأن
+ * تسحبه من مكانٍ تعرفه — هذا ما يجعل الموافقة موافقة.
+ */
+function privacyPanel({ consent, stats }) {
+  return html`
+    <div class="panel">
+      <h3>${raw(icon('info', 18))} ما يغادر جهازك</h3>
+
+      <p class="field-hint" style="margin-bottom:var(--sp-3)">
+        LingoLife بيشتغل كله على جهازك. الاستثناء الوحيد هو
+        <strong>النطق الأصلي</strong>: بيبعت <strong>الكلمة الروسية بس</strong>
+        لخوادم خارجية (${NATIVE_HOSTS.join(' · ')}) عشان يجيب تسجيل لناطق أصلي.
+      </p>
+
+      <div class="kv-row">
+        <span class="k">النطق الأصلي</span>
+        <span class="v">${consent.enabled ? 'مفعّل' : 'مطفي (الافتراضي)'}</span>
+      </div>
+      ${raw(
+        consent.consentedAt
+          ? html`<div class="kv-row">
+              <span class="k">وافقت عليه</span>
+              <span class="v">${relativeTime(consent.consentedAt)}</span>
+            </div>`
+          : ''
+      )}
+      <div class="kv-row">
+        <span class="k">تسجيلات محفوظة على جهازك</span>
+        <span class="v num">${stats.words}</span>
+      </div>
+      ${raw(
+        stats.words
+          ? html`<div class="kv-row">
+              <span class="k">حجمها</span>
+              <span class="v"><bdi>${formatBytes(stats.bytes)}</bdi></span>
+            </div>`
+          : ''
+      )}
+      ${raw(
+        stats.misses
+          ? html`<div class="kv-row">
+              <span class="k">كلمات دوّرنا عليها وملقيناش</span>
+              <span class="v num">${stats.misses}</span>
+            </div>`
+          : ''
+      )}
+
+      ${raw(
+        consent.enabled
+          ? html`<p class="field-hint" style="margin:var(--sp-3) 0">
+                الرجوع بيقفل الميزة <strong>ويمسح كل اللي اتجاب</strong> —
+                مش بنقفل الباب ونحتفظ باللي دخل.
+              </p>
+              <button class="btn btn-ghost btn-block" data-action="native-revoke">
+                اقفل النطق الأصلي وامسح اللي اتجاب
+              </button>`
+          : html`<p class="field-hint" style="margin-top:var(--sp-3)">
+              مفيش حاجة بتخرج من جهازك دلوقتي. التفعيل من داخل شاشة الظلّ،
+              بزرّ مصدر الصوت.
+            </p>`
+      )}
+      ${raw(
+        !consent.enabled && stats.words + stats.misses
+          ? html`<button class="btn btn-ghost btn-block" style="margin-top:var(--sp-2)"
+              data-action="native-clear">امسح الـ${stats.words + stats.misses} تسجيل المخزّن</button>`
+          : ''
+      )}
     </div>`;
 }
 
@@ -187,6 +275,16 @@ function pickFile(accept) {
 }
 
 /** إجراءات شاشة الإعدادات — يُستدعى من app.js. */
+/**
+ * يعيد رسم الشاشة بعد فعلٍ يغيّر أرقامها.
+ * بلا هذا يبقى «مفعّل» معروضًا بعد أن أُقفل — والرقم الكاذب أسوأ من
+ * غيابه (بند 89).
+ */
+async function refresh() {
+  const main = document.getElementById('app-main');
+  if (main) await renderSettings(main);
+}
+
 export async function handleSettingsAction(action) {
   if (action === 'request-persist') {
     const result = await requestPersistence();
@@ -350,6 +448,37 @@ export async function handleSettingsAction(action) {
     const registrations = (await navigator.serviceWorker?.getRegistrations()) || [];
     await Promise.all(registrations.map((r) => r.unregister()));
     window.location.reload();
+    return true;
+  }
+
+  if (action === 'native-revoke') {
+    const ok = await confirmAction({
+      title: 'اقفل النطق الأصلي',
+      message:
+        'مش هيخرج من جهازك أي حاجة تاني، و<strong>كل التسجيلات اللي اتجابت هتتمسح</strong>. ' +
+        'تقدر تفعّلها تاني في أي وقت من شاشة الظلّ.',
+      confirmLabel: 'اقفل وامسح',
+    });
+    if (!ok) return true;
+    await revokeNativeAudio();
+    toastOk('اتقفل، والمخزّن اتمسح');
+    await refresh();
+    return true;
+  }
+
+  if (action === 'native-clear') {
+    const { words, misses } = await nativeCacheStats();
+    const ok = await confirmAction({
+      title: 'امسح التسجيلات المخزّنة',
+      message:
+        `هيتمسح ${words} تسجيل${misses ? ` و${misses} كلمة دوّرنا عليها وملقيناش` : ''}. ` +
+        'مش بيأثر على أي حاجة من بياناتك — دي حاجات مجلوبة من برّه.',
+      confirmLabel: 'امسح',
+    });
+    if (!ok) return true;
+    const removed = await clearNativeCache();
+    toastOk(`اتمسح ${removed}`);
+    await refresh();
     return true;
   }
 

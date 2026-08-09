@@ -40,6 +40,9 @@ export const shadowSessions = createRepository('shadowSessions', PREFIX.SHADOW_S
 export const shadowSegments = createRepository('shadowSegments', PREFIX.SHADOW_SEGMENT);
 export const practiceEvidence = createRepository('practiceEvidence', PREFIX.EVIDENCE);
 export const savedItems = createRepository('savedItems', PREFIX.SAVED);
+// مفتاحه الكلمة نفسها (`keyPath: 'word'`) لا معرّف مولَّد: الكلمة هي
+// الهويّة هنا، فجلبها مرّتين يجب أن يصيب نفس السجل.
+export const nativeAudio = createRepository('nativeAudio', PREFIX.NATIVE_AUDIO);
 
 /* ---- المراجعة ---- */
 export const reviewItems = createRepository('reviewItems', PREFIX.REVIEW);
@@ -112,6 +115,7 @@ export const ALL_REPOS = {
   shadowSegments,
   practiceEvidence,
   savedItems,
+  nativeAudio,
   reviewItems,
   reviewHistory,
   analysisRuns,

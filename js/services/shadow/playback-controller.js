@@ -43,6 +43,31 @@ export const PRACTICE_MODE = Object.freeze({
   MY_ROLE: 'myRole',
 });
 
+/**
+ * مصادر الصوت الثلاثة — متمايزة في التسمية عمدًا (بند 22).
+ *
+ * ⚠️ الاسم القديم كان `'human'`، وهو يعني **تسجيلك أنت**. الاسم كذبةٌ
+ *    صغيرة تكبر: حين يدخل الناطق الأصلي يصير في التطبيق «بشريّان»
+ *    أحدهما ليس بشرًا أصليًّا والآخر ليس أنت. فصار `'mine'`.
+ *
+ *    و`normalizeAudioSource` تقرأ القديم فتعيد الجديد — الجلسات
+ *    المحفوظة تعمل كما كانت بلا ترقية بيانات ولا لمس سجل.
+ */
+export const AUDIO_SOURCE = Object.freeze({
+  /** النطق الآلي — دائمًا متاح، ولا يُسمَّى بشريًّا أبدًا. */
+  TTS: 'tts',
+  /** تسجيلك أنت المربوط بهذا المصدر. كان اسمه `human`. */
+  MINE: 'mine',
+  /** تسجيل ناطقٍ أصلي جُلب من الخارج — للكلمات المفردة فقط. */
+  NATIVE: 'native',
+});
+
+/** يقبل الاسم القديم `'human'` ويعيد `'mine'`. */
+export function normalizeAudioSource(value) {
+  if (value === 'human') return AUDIO_SOURCE.MINE;
+  return Object.values(AUDIO_SOURCE).includes(value) ? value : AUDIO_SOURCE.MINE;
+}
+
 /** حدود الفاصل بالملّي ثانية — للإدخال الحرّ. */
 export const INTERVAL_MIN_MS = 0;
 export const INTERVAL_MAX_MS = 10000;
@@ -86,6 +111,12 @@ export function createPlaybackController({
    * اختبار آلة الحالة كاملةً بلا أصوات ولا انتظار المتصفّح.
    */
   speaker = speak,
+  /**
+   * يحلّ نطقًا أصليًّا لنصٍّ ما، أو `null`. مَحقون كذلك: المحرّك لا
+   * يعرف شبكةً ولا موافقةً — الشاشة تمرّر دالّةً تعرفهما.
+   * @type {null | ((text: string) => Promise<{url?: string, speaker?: string|null, status?: string}|null>)}
+   */
+  nativeResolver = null,
 }) {
   const state = {
     index: 0,
@@ -107,10 +138,11 @@ export function createPlaybackController({
     autoAdvance: settings.autoAdvance ?? true,
     volume: settings.volume ?? 1,
     /**
-     * مصدر الصوت: `human` يعني «تسجيل بشري إن وُجد، وإلا TTS» —
-     * نفس سلوك التطبيق القديم. `tts` يفرض النطق الآلي دائمًا.
+     * مصدر الصوت. `mine` يعني «تسجيلي إن وُجد، وإلا TTS» — نفس سلوك
+     * التطبيق القديم تحت اسمٍ صادق. `tts` يفرض الآلي دائمًا.
+     * و`native` يُدار خارج المحرّك: الشاشة تحقن الرابط في المقطع.
      */
-    audioSource: settings.audioSource ?? 'human',
+    audioSource: normalizeAudioSource(settings.audioSource),
   };
 
   /** يُلغي أي دورة قديمة. راجع الشرح أعلى الملف. */
@@ -247,16 +279,38 @@ export function createPlaybackController({
       });
     } else {
       // تسجيلك بصوتك أصدق من أي TTS — يُقدَّم عليه متى وُجد.
-      const human =
-        config.audioSource === 'human' && config.practiceMode !== PRACTICE_MODE.WORD
+      // (وهو للجملة لا للكلمة: تسجيلك للجملة كاملة لا يُقصّ.)
+      const mine =
+        config.audioSource === AUDIO_SOURCE.MINE && config.practiceMode !== PRACTICE_MODE.WORD
           ? segments[state.index]?.humanAudioUrl
           : null;
 
-      if (human) {
-        emit('source', { source: 'human' });
-        await playHuman(human, config.rate, config.volume);
+      /*
+       * الناطق الأصلي للكلمة المفردة وحدها: لا يوجد على تلك الخوادم
+       * تسجيلٌ لجملتك. والحلّ **مَحقون** (`nativeResolver`) لا مبنيّ
+       * هنا — المحرّك لا يعرف شبكةً، فيبقى اختباره حتميًّا.
+       */
+      let native = null;
+      if (!mine && config.audioSource === AUDIO_SOURCE.NATIVE && nativeResolver) {
+        native = await nativeResolver(currentText()).catch(() => null);
+        if (myToken !== runToken || !state.running || state.paused) return;
+      }
+
+      if (mine) {
+        emit('source', { source: AUDIO_SOURCE.MINE });
+        await playHuman(mine, config.rate, config.volume);
+      } else if (native?.url) {
+        emit('source', { source: AUDIO_SOURCE.NATIVE, speaker: native.speaker || null });
+        await playHuman(native.url, config.rate, config.volume);
       } else {
-        emit('source', { source: 'tts' });
+        // ⚠️ السقوط مُعلَن لا صامت: `fallbackFrom` تخبر الشاشة أن
+        //    تقول «مالقيناش تسجيل — نطقناها آليًا». صوتٌ آليّ تظنّه
+        //    بشريًّا أسوأ من لا شيء (بند 89).
+        emit('source', {
+          source: AUDIO_SOURCE.TTS,
+          fallbackFrom: config.audioSource === AUDIO_SOURCE.NATIVE ? AUDIO_SOURCE.NATIVE : null,
+          reason: native?.status || null,
+        });
         await speaker(currentText(), {
           rate: config.rate,
           voiceName: config.voiceName,

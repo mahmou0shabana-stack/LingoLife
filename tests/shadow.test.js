@@ -10,6 +10,8 @@ import { describe, it, expect } from './test-runner.js';
 import { splitSentences, splitWords, contentHash, hasCyrillic } from '../js/services/shadow/segmenter.js';
 import {
   createPlaybackController,
+  AUDIO_SOURCE,
+  normalizeAudioSource,
   REPEAT_MODE,
   PRACTICE_MODE,
   intervalMs,
@@ -41,11 +43,28 @@ import {
   SOURCE_TYPE,
   SEGMENT_STATUS,
 } from '../js/services/shadow/shadow-session-service.js';
-import { practiceEvidence, shadowSessions, shadowSegments, ALL_REPOS } from '../js/db/repositories.js';
+import {
+  practiceEvidence, shadowSessions, shadowSegments, nativeAudio,
+  settings as settingsRepo, ALL_REPOS,
+} from '../js/db/repositories.js';
+import {
+  NATIVE_SOURCES,
+  NATIVE_HOSTS,
+  audioKey,
+  clearNativeCache,
+  findNativeAudio,
+  grantNativeAudio,
+  isPronounceableWord,
+  nativeAudioConsent,
+  nativeAudioEnabled,
+  nativeCacheStats,
+  revokeNativeAudio,
+} from '../js/services/shadow/native-audio.js';
 import {
   loadExpressionIndex, clearExpressionIndex, expressionsIn,
 } from '../js/services/shadow/analysis-link.js';
 import { withTx } from '../js/db/database.js';
+import { effectiveAudioSource } from '../js/views/shadow-view.js';
 
 /** نطق وهمي فوري — يجعل اختبار آلة الحالة حتميًا. */
 const silentSpeaker = () => Promise.resolve({ ok: true });
@@ -1063,7 +1082,7 @@ describe('اختيار الكلمة', () => {
  * ================================================================== */
 
 describe('مصدر الصوت', () => {
-  it('يفضّل التسجيل البشري على TTS حين يوجد', async () => {
+  it('يفضّل تسجيلك على TTS حين يوجد', async () => {
     const spoken = [];
     const sources = [];
     // ملف صامت صالح — لا نطق آليًا يُسجَّل حين يعمل البشري.
@@ -1079,7 +1098,8 @@ describe('مصدر الصوت', () => {
 
     player.start();
     await waitFor(() => sources.length > 0, 4000);
-    expect(sources[0]).toBe('human');
+    // ⚠️ الحدث صار يسمّي المصدر باسمه الصادق: `mine` لا `human`.
+    expect(sources[0]).toBe(AUDIO_SOURCE.MINE);
     expect(spoken).toHaveLength(0);
     player.destroy();
     URL.revokeObjectURL(url);
@@ -1101,7 +1121,7 @@ describe('مصدر الصوت', () => {
     player.destroy();
   });
 
-  it('وضع tts يتجاهل التسجيل البشري', async () => {
+  it('وضع tts يتجاهل تسجيلك', async () => {
     const sources = [];
     const url = URL.createObjectURL(new Blob([new Uint8Array(44)], { type: 'audio/wav' }));
     const player = createPlaybackController({
@@ -1288,5 +1308,299 @@ describe('وصف المصدر', () => {
       const d = describeSource({ sourceType: type }, []);
       if (d.kind === 'مصدر') throw new Error(`${type} بلا وصف في SOURCE_LABEL`);
     }
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * النطق الأصلي — بند 22
+ * ------------------------------------------------------------------ */
+
+describe('مصادر الصوت — التسمية الصادقة', () => {
+  it('ثلاثة مصادر متمايزة، ولا واحد منها اسمه «بشري»', () => {
+    expect(AUDIO_SOURCE.TTS).toBe('tts');
+    expect(AUDIO_SOURCE.MINE).toBe('mine');
+    expect(AUDIO_SOURCE.NATIVE).toBe('native');
+    expect(Object.values(AUDIO_SOURCE).includes('human')).toBe(false);
+  });
+
+  it('الاسم القديم `human` يعني «تسجيلي» لا «ناطق أصلي»', () => {
+    // ⚠️ جلسات محفوظة قبل إعادة التسمية. قراءتها كـ`native` كارثة:
+    //    تسجيلك أنت يصير «ناطق أصلي» في الواجهة.
+    expect(normalizeAudioSource('human')).toBe(AUDIO_SOURCE.MINE);
+  });
+
+  it('القيمة المجهولة تعود للافتراضي لا لـundefined', () => {
+    expect(normalizeAudioSource('حاجة غريبة')).toBe(AUDIO_SOURCE.MINE);
+    expect(normalizeAudioSource(undefined)).toBe(AUDIO_SOURCE.MINE);
+  });
+
+  it('القيم الصالحة تمرّ كما هي', () => {
+    for (const value of Object.values(AUDIO_SOURCE)) {
+      expect(normalizeAudioSource(value)).toBe(value);
+    }
+  });
+});
+
+describe('النطق الأصلي — ما يُسأل عنه', () => {
+  it('الكلمة السيريلية المفردة فقط', () => {
+    expect(isPronounceableWord('документ')).toBe(true);
+    expect(isPronounceableWord('ДОКУМЕНТ')).toBe(true);
+    expect(isPronounceableWord('дока́мент')).toBe(true);
+  });
+
+  it('الجملة لا تُسأل — مفيش تسجيل ليها على الخوادم دي', () => {
+    expect(isPronounceableWord('Документ подписан')).toBe(false);
+  });
+
+  it('اللاتينية والفارغ والترقيم لا يُسألون', () => {
+    expect(isPronounceableWord('document')).toBe(false);
+    expect(isPronounceableWord('')).toBe(false);
+    expect(isPronounceableWord(null)).toBe(false);
+    expect(isPronounceableWord('документ.')).toBe(false);
+  });
+
+  it('المفتاح يوحّد الحالة و ё والنبر — نبرك لا يغيّر التسجيل', () => {
+    expect(audioKey('Документ')).toBe('документ');
+    expect(audioKey('ещё')).toBe(audioKey('еще'));
+    expect(audioKey('докуме́нт')).toBe('документ');
+  });
+
+  it('الخوادم مُعلَنة بأسمائها لنصّ الموافقة', () => {
+    expect(NATIVE_HOSTS.length > 0).toBe(true);
+    for (const source of NATIVE_SOURCES) {
+      if (!NATIVE_HOSTS.includes(source.host)) throw new Error(`${source.id} بمضيف غير معلَن`);
+    }
+  });
+});
+
+describe('النطق الأصلي — لا شيء يخرج بلا موافقة', () => {
+  it('مطفأ افتراضيًّا', async () => {
+    await settingsRepo.remove('shadow.nativeAudio');
+    expect((await nativeAudioConsent()).enabled).toBe(false);
+    expect(await nativeAudioEnabled()).toBe(false);
+  });
+
+  it('البحث يرفض قبل الموافقة — ولا يلمس الشبكة', async () => {
+    await settingsRepo.remove('shadow.nativeAudio');
+    let fetched = false;
+    const realFetch = window.fetch;
+    window.fetch = () => { fetched = true; return Promise.reject(new Error('ماكانش المفروض')); };
+    try {
+      const result = await findNativeAudio('документ');
+      expect(result.status).toBe('disabled');
+      expect(fetched).toBe(false);
+    } finally {
+      window.fetch = realFetch;
+    }
+  });
+
+  it('الجملة ترفض قبل الموافقة حتى — أرخص فحص أولًا', async () => {
+    expect((await findNativeAudio('Документ подписан')).status).toBe('not-a-word');
+  });
+
+  it('الموافقة تُسجَّل بوقتها فتُعرَض لاحقًا', async () => {
+    const granted = await grantNativeAudio();
+    expect(granted.enabled).toBe(true);
+    expect(typeof granted.consentedAt).toBe('number');
+    expect(await nativeAudioEnabled()).toBe(true);
+  });
+
+  it('السحب يمسح ما جُلب — مش بنقفل الباب ونحتفظ باللي دخل', async () => {
+    await grantNativeAudio();
+    await nativeAudio.putRaw({ word: 'тест', blob: new Blob(['x']), fetchedAt: Date.now() });
+    expect((await nativeCacheStats()).words).toBe(1);
+
+    await revokeNativeAudio();
+    expect((await nativeAudioConsent()).enabled).toBe(false);
+    expect((await nativeCacheStats()).words).toBe(0);
+  });
+});
+
+describe('النطق الأصلي — الذاكرة', () => {
+  it('المخزَّن يُستعمل بلا مغادرة ثانية', async () => {
+    await grantNativeAudio();
+    await nativeAudio.putRaw({
+      word: 'документ', blob: new Blob(['ogg']), source: 'commons',
+      speaker: 'Ирина', fetchedAt: Date.now(),
+    });
+
+    let fetched = false;
+    const realFetch = window.fetch;
+    window.fetch = () => { fetched = true; return Promise.reject(new Error('ماكانش المفروض')); };
+    try {
+      const result = await findNativeAudio('Докуме́нт');   // نفس الكلمة بنبر وحرف كبير
+      expect(result.status).toBe('ok');
+      expect(result.cached).toBe(true);
+      expect(result.speaker).toBe('Ирина');
+      expect(fetched).toBe(false);
+    } finally {
+      window.fetch = realFetch;
+      await clearNativeCache();
+    }
+  });
+
+  it('الغياب يُخزَّن أيضًا فلا نسأل عن نفس الكلمة كل مرّة', async () => {
+    await grantNativeAudio();
+    await nativeAudio.putRaw({ word: 'مفقودة', notFound: true, fetchedAt: Date.now() });
+    // نسجّله بمفتاحٍ صريح لأن الفحص هنا على القراءة لا على التطبيع.
+    const cached = await nativeAudio.get('مفقودة');
+    expect(cached.notFound).toBe(true);
+    // ولا يُحسب تسجيلًا في الإحصاء — هو غياب لا صوت.
+    expect((await nativeCacheStats()).misses >= 1).toBe(true);
+    await clearNativeCache();
+  });
+
+  it('الإحصاء يفصل الموجود عن المفقود', async () => {
+    await clearNativeCache();
+    await nativeAudio.putRaw({ word: 'a', blob: new Blob(['12345']), fetchedAt: 1 });
+    await nativeAudio.putRaw({ word: 'b', notFound: true, fetchedAt: 1 });
+    const stats = await nativeCacheStats();
+    expect(stats.words).toBe(1);
+    expect(stats.misses).toBe(1);
+    expect(stats.bytes).toBe(5);
+    await clearNativeCache();
+  });
+});
+
+describe('المحرّك — من أين يأتي الصوت', () => {
+  // رابطٌ حقيقي: `blob:` مخترع يرفضه المتصفّح ويلوّث سجلّ الأخطاء.
+  const nativeUrl = URL.createObjectURL(new Blob([new Uint8Array(44)], { type: 'audio/wav' }));
+
+  function build(settings, { nativeResolver = null, segments } = {}) {
+    const events = [];
+    const player = createPlaybackController({
+      segments: segments || [{ id: 'a', text: 'документ' }],
+      settings: { repeatCount: 1, intervalUnit: 'ms', intervalSteps: 1,
+                  autoAdvance: false, ...settings },
+      speaker: silentSpeaker,
+      nativeResolver,
+      onEvent: (e) => { if (e.type === 'source') events.push(e); },
+    });
+    return { player, events };
+  }
+
+  it('يشغّل الناطق الأصلي حين يجده', async () => {
+    const { player, events } = build(
+      { audioSource: AUDIO_SOURCE.NATIVE },
+      { nativeResolver: async () => ({ status: 'ok', url: nativeUrl, speaker: 'Олег' }) }
+    );
+    player.start();
+    await waitFor(() => events.length > 0);
+    expect(events[0].source).toBe(AUDIO_SOURCE.NATIVE);
+    expect(events[0].speaker).toBe('Олег');
+    player.destroy();
+  });
+
+  // ⚠️ صوتٌ آليّ تظنّه بشريًّا أسوأ من لا شيء (بند 89).
+  it('السقوط إلى TTS مُعلَن لا صامت', async () => {
+    const { player, events } = build(
+      { audioSource: AUDIO_SOURCE.NATIVE },
+      { nativeResolver: async () => ({ status: 'not-found' }) }
+    );
+    player.start();
+    await waitFor(() => events.length > 0);
+    expect(events[0].source).toBe(AUDIO_SOURCE.TTS);
+    expect(events[0].fallbackFrom).toBe(AUDIO_SOURCE.NATIVE);
+    expect(events[0].reason).toBe('not-found');
+    player.destroy();
+  });
+
+  it('حلّالٌ يرمي لا يُسقط التشغيل', async () => {
+    const { player, events } = build(
+      { audioSource: AUDIO_SOURCE.NATIVE },
+      { nativeResolver: async () => { throw new Error('الشبكة'); } }
+    );
+    player.start();
+    await waitFor(() => events.length > 0);
+    expect(events[0].source).toBe(AUDIO_SOURCE.TTS);
+    player.destroy();
+  });
+
+  it('تسجيلك مُقدَّم على الناطق الأصلي، ولا يُسأل الخارج أصلًا', async () => {
+    let asked = false;
+    const url = URL.createObjectURL(new Blob([new Uint8Array(44)], { type: 'audio/wav' }));
+    const { player, events } = build(
+      { audioSource: AUDIO_SOURCE.MINE },
+      {
+        segments: [{ id: 'a', text: 'документ', humanAudioUrl: url }],
+        nativeResolver: async () => { asked = true; return null; },
+      }
+    );
+    player.start();
+    await waitFor(() => events.length > 0);
+    expect(events[0].source).toBe(AUDIO_SOURCE.MINE);
+    expect(asked).toBe(false);
+    player.destroy();
+    URL.revokeObjectURL(url);
+  });
+
+  it('وضع tts لا يسأل عن ناطق أصلي', async () => {
+    let asked = false;
+    const { player, events } = build(
+      { audioSource: AUDIO_SOURCE.TTS },
+      { nativeResolver: async () => { asked = true; return null; } }
+    );
+    player.start();
+    await waitFor(() => events.length > 0);
+    expect(events[0].source).toBe(AUDIO_SOURCE.TTS);
+    expect(events[0].fallbackFrom).toBe(null);
+    expect(asked).toBe(false);
+    player.destroy();
+  });
+});
+
+describe('النطق الأصلي — «ما استطعنا السؤال» غير «قالوا لا»', () => {
+  const realFetch = window.fetch;
+
+  it('كل المصادر ساقطة ⇒ unreachable، ولا يُخزَّن سلبيّ', async () => {
+    /*
+     * ⚠️ `navigator.onLine` تكذب: وسيطٌ يحجب، أو بوّابة فندق، أو جدار
+     *    ناريّ — كلها «متّصل» وكل الطلبات تفشل. تخزين «غير موجودة»
+     *    حينها يُبقي الكلمة بلا نطقٍ للأبد بعد عودة الشبكة.
+     */
+    await grantNativeAudio();
+    await clearNativeCache();
+    window.fetch = () => Promise.reject(new TypeError('Failed to fetch'));
+    try {
+      const result = await findNativeAudio('согласование');
+      expect(result.status).toBe('unreachable');
+      expect(await nativeAudio.get(audioKey('согласование'))).toBe(undefined);
+    } finally {
+      window.fetch = realFetch;
+    }
+  });
+
+  it('خادمٌ ردّ ولا يملكها ⇒ not-found، ويُخزَّن فلا نسأل ثانيةً', async () => {
+    await grantNativeAudio();
+    await clearNativeCache();
+    // ردٌّ صالح فارغ: هذا «سألنا فقالوا لا».
+    window.fetch = () =>
+      Promise.resolve(new Response(JSON.stringify({ query: { pages: {} } }), { status: 200 }));
+    try {
+      const result = await findNativeAudio('несуществующее');
+      expect(result.status).toBe('not-found');
+      expect((await nativeAudio.get(audioKey('несуществующее'))).notFound).toBe(true);
+    } finally {
+      window.fetch = realFetch;
+      await clearNativeCache();
+      await revokeNativeAudio();
+    }
+  });
+});
+
+describe('مصدر الصوت — الزرّ لا يعد بما لا يملكه', () => {
+  it('«تسجيلي» المحفوظ بلا تسجيل مربوط يعود آليًّا', () => {
+    // ⚠️ الافتراضي الموروث `human`/`mine`، وجلسةٌ بلا تسجيل كانت
+    //    تعرض «🎙 تسجيلي» وهي تنطق آليًّا (بند 89).
+    expect(effectiveAudioSource('human', false)).toBe(AUDIO_SOURCE.TTS);
+    expect(effectiveAudioSource('mine', false)).toBe(AUDIO_SOURCE.TTS);
+  });
+
+  it('ومع تسجيلٍ مربوط يبقى كما اخترته', () => {
+    expect(effectiveAudioSource('human', true)).toBe(AUDIO_SOURCE.MINE);
+  });
+
+  it('الناطق الأصلي متاح دائمًا — بوّابته الموافقة لا التسجيل', () => {
+    expect(effectiveAudioSource('native', false)).toBe(AUDIO_SOURCE.NATIVE);
   });
 });

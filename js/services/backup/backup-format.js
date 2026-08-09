@@ -48,6 +48,7 @@ export const PATHS = {
 export const EXCLUDED_STORES = Object.freeze({
   searchIndex: 'فهرس بحث مشتقّ — يُعاد بناؤه من المحتوى بعد الاسترجاع',
   syncQueue: 'طابور رفع مؤقّت خاصّ بجهاز واحد — لا معنى له بعد النقل',
+  nativeAudio: 'تسجيلات نطق مجلوبة من الخارج — تُجلَب ثانيةً عند الحاجة، وليست بياناتك',
 });
 
 /**
