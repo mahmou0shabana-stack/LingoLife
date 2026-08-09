@@ -129,6 +129,45 @@ export function field(object, name, fallback = undefined) {
   return fallback;
 }
 
+/**
+ * اسمٌ عربيٌّ لكل نوعٍ تعدّه المواصفة.
+ *
+ * ⚠️ ليس زينة. المعاينة تعرض ما لا يُستورَد بأسمائه، وشاشةٌ عربيّةٌ
+ *    كلها تقول لك «reviewSuggestions» تطلب منك أن تترجم بنفسك ما
+ *    كان علينا أن نقوله. والاختبار يمنع أن يدخل نوعٌ بلا اسم.
+ */
+export const KIND_NAMES = Object.freeze({
+  scene: 'الذكرى',
+  speakers: 'المتحدّثون',
+  scripts: 'السكريبتات',
+  translations: 'الترجمات',
+  conversations: 'المحادثة',
+  conversationParts: 'أجزاء المحادثة',
+  mistakes: 'التصحيحات',
+  expressions: 'التعبيرات',
+  sentencePatterns: 'أنماط الجُمل',
+  words: 'الكلمات',
+  colloquialLanguage: 'اللغة المنطوقة',
+  formalLanguage: 'اللغة الرسميّة',
+  professionalLanguage: 'لغة المهنة',
+  media: 'الصور والأصوات',
+  mediaRoles: 'أدوار الوسائط',
+  relationships: 'العلاقات بين المشاهد',
+  topics: 'المواضيع',
+  places: 'الأماكن',
+  journeys: 'الرحلات',
+  eventType: 'نوع الحدث',
+  eventThread: 'الخيط',
+  projects: 'المشاريع',
+  reviewSuggestions: 'اقتراحات المراجعة',
+  analysisMetadata: 'بيانات التحليل',
+});
+
+/** اسم النوع بالعربية، أو المعرّف كما هو إن كان غريبًا عن المواصفة. */
+export function kindName(kind) {
+  return KIND_NAMES[kind] || kind;
+}
+
 /** كل ما تعدّه المواصفة في الحزمة — مرجعُ الاختبار الذي يمنع النسيان. */
 export const SPEC_KINDS = Object.freeze([
   'scene', 'speakers', 'scripts', 'translations', 'conversations',

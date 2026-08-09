@@ -93,6 +93,18 @@ export async function renderSettings(main) {
     </div>
 
     <div class="panel">
+      <h3>${raw(icon('upload', 18))} استيراد مشهد مُجهَّز</h3>
+      <p class="text-soft text-sm" style="margin-bottom:var(--sp-3)">
+        لو حوّلت موقفًا لحزمة تحليل بره التطبيق، تقدر تدخّلها من هنا.
+        <strong>المعاينة قبل الكتابة دايمًا</strong> — تشوف إيه اللي
+        هيتكتب وإيه اللي مش هيدخل وليه، وبعدين تقرّر.
+      </p>
+      <button class="btn btn-ghost btn-block" data-action="go-import">
+        ${raw(icon('upload', 18))} افتح شاشة الاستيراد
+      </button>
+    </div>
+
+    <div class="panel">
       <h3>${raw(icon('download', 18))} النسخ الاحتياطي</h3>
       <p class="text-soft text-sm" style="margin-bottom:var(--sp-3)">
         حزمة <code>.llife</code> فيها كل حاجة: بياناتك وصورك الأصلية

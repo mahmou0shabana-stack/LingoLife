@@ -48,6 +48,10 @@ import { renderTrash, handleTrashAction } from './views/trash-view.js';
 import { renderThreads, renderThread } from './views/threads-view.js';
 import { openThreadLinkModal, openThreadEditModal } from './modals/thread-modals.js';
 import { renderSearch } from './views/search-view.js';
+import {
+  renderImport, resetImport, handleImportAction,
+  handleImportChange, handleImportLink,
+} from './views/import-view.js';
 
 /* ---- الحالة العابرة وإعادة العرض ---- */
 import { ui, reloadScene, refreshStorageCard } from './ui-state.js';
@@ -73,6 +77,9 @@ function view(renderFn, opts = {}) {
     // مغادرة شاشة الظلّ لا بد أن توقف المحرّك، وإلا ظلّ الصوت شغّالًا
     // في الخلفية بعد الانتقال لشاشة أخرى.
     if (renderFn !== renderShadow) disposeShadow();
+    // ومغادرة المعاينة تُسقط الحزمة نصف المراجَعة: العودة إليها بعد
+    // ساعة يجب أن تبدأ من الصفر لا من قراراتٍ نسيتَ لماذا اتّخذتَها.
+    if (renderFn !== renderImport) resetImport();
     // ⚠️ لا نوقف الصوت عند التنقّل. المشغّل يعيش خارج الشاشات عمدًا،
     //    فتسمع تسجيلك وأنت تقرأ سكريبت ذكرى أخرى — والشريط المصغّر
     //    يبقى ظاهرًا في كل الشاشات.
@@ -144,6 +151,20 @@ function wireActions() {
     }
   });
 
+  /*
+   * خانات المعاينة وبدائلها.
+   *
+   * ⚠️ هنا لا داخل الشاشة: المعاينة تُعاد رسمها بعد كل تبديل — لأن
+   *    الأرقام تُحسَب من القرارات لا تُخزَّن — فمستمعٌ داخلها يموت مع
+   *    أوّل ضغطة، وهي أوّل ما يجرّبه المستخدم.
+   */
+  delegate(document.body, 'change', '[data-imp-toggle]', (event, target) =>
+    handleImportChange(target)
+  );
+  delegate(document.body, 'click', '[data-imp-link], [data-imp-unlink]', (event, target) =>
+    handleImportLink(target)
+  );
+
   delegate(document.body, 'click', '[data-action]', async (event, target) => {
     const { action, id, scene: sceneAttr, target: scrollTarget } = target.dataset;
     const sceneId = sceneAttr || id;
@@ -155,6 +176,7 @@ function wireActions() {
       case 'go-life': return navigate('/life');
       case 'go-settings': return navigate('/settings');
       case 'go-threads': return navigate('/threads');
+      case 'go-import': return navigate('/import');
       case 'back': return back();
       case 'reload': return refresh();
 
@@ -401,6 +423,7 @@ function wireActions() {
         // `target` لازم للسلة: مفتاح الصفّ فيه اسم الـ store مع المعرّف،
         // فالمعرّف وحده لا يكفي لمعرفة أي مستودع نستعيد منه.
         if (await handleTrashAction(action, id, target)) return;
+        if (await handleImportAction(action, target)) return;
       }
     }
   });
@@ -506,6 +529,7 @@ async function boot() {
   route('/trash', view(renderTrash));
   route('/threads', view(renderThreads));
   route('/thread/:id', view(renderThread));
+  route('/import', view(renderImport));
   notFound(() => navigate('/', { replace: true }));
 
   wireActions();

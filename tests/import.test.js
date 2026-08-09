@@ -16,6 +16,8 @@ import {
   NOT_SUPPORTED,
   PARTIAL,
   SPEC_KINDS,
+  KIND_NAMES,
+  kindName,
   field,
   collection,
 } from '../js/services/import/package-format.js';
@@ -218,6 +220,21 @@ describe('الاستيراد — ما لا يُستورَد يُعلَن', () =>
     for (const [kind, reason] of Object.entries(NOT_SUPPORTED)) {
       if (!reason || reason.length < 12) throw new Error(`${kind} مستبعَد بسببٍ غامض`);
     }
+  });
+
+  /*
+   * ⚠️ المعاينة تعرض ما لا يُستورَد **بأسمائه**. ونوعٌ بلا اسمٍ عربيّ
+   *    يظهر في شاشةٍ عربيّةٍ كلها بمعرّفه: «reviewSuggestions». وهو
+   *    يطلب من القارئ أن يترجم بنفسه ما كان علينا أن نقوله.
+   */
+  it('لكل نوع في المواصفة اسمٌ عربيّ', () => {
+    const nameless = SPEC_KINDS.filter((kind) => !KIND_NAMES[kind]);
+    expect(nameless).toEqual([]);
+  });
+
+  it('الاسم الغريب عن المواصفة يعود كما هو لا فارغًا', () => {
+    expect(kindName('somethingNew')).toBe('somethingNew');
+    expect(kindName('projects')).toBe('المشاريع');
   });
 
   it('المشروع مستبعَد بوصفه قرارًا مؤجَّلًا لا نقصًا', () => {

@@ -1238,3 +1238,198 @@
   color: var(--ink-soft);
   font-size: var(--fs-xs, 12px);
 }
+
+/* ==================================================================
+   استيراد مشهد مُجهَّز — المعاينة قبل الالتزام (بند 36)
+
+   المبدأ البصري: **القرار وسببه في سطرٍ واحد.** الخانة على اليمين،
+   وحالتها ثم سببها بجوارها، والبدائل تحتها مباشرةً. فصلُ السبب عن
+   القرار يجعل الاختيار تخمينًا.
+   ================================================================== */
+
+.imp-intro p { margin: 0; color: var(--ink-soft); }
+
+.imp-fatal {
+  border: 1px solid var(--red-line);
+  background: var(--red-bg);
+  color: var(--ink);
+}
+.imp-fatal b { color: var(--red); display: block; margin-bottom: var(--sp-2); }
+.imp-fatal p { margin: var(--sp-1) 0 0; font-size: var(--fs-sm); }
+
+/*
+  مربّع اللصق لاتينيّ الاتجاه دائمًا: محتواه JSON، وعرضه من اليمين
+  يكسر أقواسه فيبدو الملفّ تالفًا وهو سليم.
+*/
+.imp-paste {
+  direction: ltr;
+  text-align: left;
+  width: 100%;
+  min-height: 220px;
+  margin-top: var(--sp-3);
+  padding: var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  resize: vertical;
+}
+.imp-paste:focus { outline: 2px solid var(--accent-line); border-color: var(--accent-soft); }
+
+.imp-actions {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: var(--sp-4);
+}
+.imp-actions .btn { flex: 1; }
+
+/*
+  شريط الالتزام يبقى في المتناول مهما طالت المعاينة.
+
+  ⚠️ خلفيّةٌ مصمتة لا متدرّجة: الشفافيّة كانت تُظهر نصّ الصفّ الذي
+     تحته من خلفه، فيبدو الزرّان مكتوبين فوق كلام.
+*/
+.imp-actions.is-sticky {
+  position: sticky;
+  bottom: 0;
+  z-index: var(--z-sticky);
+  margin-top: var(--sp-5);
+  padding: var(--sp-3) 0;
+  background: var(--bg);
+  box-shadow: 0 -10px 16px -8px var(--bg);
+  border-top: 1px solid var(--line-soft);
+}
+
+/* ---- الحصيلة ---- */
+
+.imp-summary {
+  display: flex;
+  gap: var(--sp-3);
+  text-align: center;
+}
+.imp-figure { flex: 1; }
+.imp-figure b {
+  display: block;
+  font-family: var(--font-display);
+  font-size: var(--fs-2xl);
+  line-height: 1.1;
+  /* ⚠️ الأرقام لاتينيّة الاتجاه: «12 من 3» تنقلب بلا هذا. */
+  direction: ltr;
+}
+.imp-figure span { font-size: var(--fs-xs); color: var(--ink-soft); }
+.imp-figure.is-off b { color: var(--ink-faint); }
+
+/* ---- الأقسام والصفوف ---- */
+
+.imp-section { margin-top: var(--sp-5); }
+.imp-section h3 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-md);
+}
+.imp-count {
+  direction: ltr;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--ink-soft);
+  background: var(--bg-alt);
+  border-radius: var(--radius-pill);
+  padding: 2px 10px;
+}
+.imp-section.is-muted h3, .imp-section.is-warn h3 { color: var(--ink-soft); }
+
+.imp-note {
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+  line-height: 1.7;
+}
+
+.imp-row {
+  padding: var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  margin-bottom: var(--sp-2);
+}
+.imp-row.is-off { background: var(--surface-soft); opacity: 0.62; }
+.imp-row.is-muted { background: var(--bg-alt); border-style: dashed; }
+
+.imp-pick {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  cursor: pointer;
+}
+.imp-pick input { margin-top: 4px; flex: none; }
+.imp-pick input:disabled { opacity: 0.45; cursor: default; }
+
+.imp-label { font-weight: 600; line-height: 1.6; word-break: break-word; }
+
+.imp-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+.imp-why { font-size: var(--fs-xs); color: var(--ink-soft); }
+
+.imp-chip {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  border-radius: var(--radius-pill);
+  padding: 2px 9px;
+  background: var(--bg-alt);
+  color: var(--ink-soft);
+}
+.imp-chip.is-new { background: var(--accent-wash); color: var(--accent); }
+.imp-chip.is-reuse { background: var(--green-bg); color: var(--green); }
+
+/* ---- البدائل ---- */
+
+.imp-alts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px dashed var(--line);
+}
+.imp-alts-head {
+  width: 100%;
+  font-size: var(--fs-xs);
+  color: var(--ink-soft);
+}
+.imp-alt {
+  font: inherit;
+  cursor: pointer;
+  text-align: start;
+  border: 1px solid var(--accent-line);
+  background: var(--accent-wash);
+  color: var(--ink);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-sm);
+}
+.imp-alt em {
+  display: block;
+  font-style: normal;
+  font-size: var(--fs-2xs);
+  color: var(--ink-soft);
+}
+.imp-alt.is-plain { background: var(--surface); border-color: var(--line); }
+.imp-alt:hover { border-color: var(--accent-soft); }
+
+/* ---- التقرير ---- */
+
+.imp-report { margin: 0; padding-inline-start: var(--sp-4); }
+.imp-report li { margin-bottom: var(--sp-1); }
+.imp-report b { direction: ltr; display: inline-block; }
