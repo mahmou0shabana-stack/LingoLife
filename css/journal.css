@@ -813,10 +813,27 @@
   border-bottom: none;
 }
 
+/*
+ * ⚠️ صار `.txt` زرًّا يفتح صفحة التعبير — فيُجرَّد من هيئة الزرّ ولا
+ *    يُلفّ الصفُّ كلّه في زرّ: بداخله زرُّ حذف، وزرٌّ داخل زرٍّ باطل.
+ */
 .lang-row .txt {
   flex: 1;
+  font: inherit;
   font-size: var(--fs-sm);
   min-width: 0;
+  border: 0;
+  padding: 0;
+  background: none;
+  color: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+.lang-row .txt:hover .ru { text-decoration: underline; }
+
+.tag.is-stage {
+  background: var(--surface-soft);
+  color: var(--ink-soft);
 }
 
 .lang-row .meaning {
@@ -837,79 +854,6 @@
 .tag.tech { background: var(--violet-bg); color: var(--violet); }
 .tag.pro { background: var(--blue-bg); color: var(--blue); }
 .tag.daily { background: var(--green-bg); color: var(--green); }
-
-/* ------------------------------------------------------------
-   Expression Life — الخط الزمني
-   ------------------------------------------------------------ */
-.life-track {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: var(--sp-1);
-  position: relative;
-  padding: var(--sp-4) var(--sp-1) var(--sp-2);
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.life-track::-webkit-scrollbar {
-  display: none;
-}
-
-.life-step {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  min-width: 62px;
-  flex: 1;
-  text-align: center;
-  position: relative;
-}
-
-/* الخط الواصل بين النقاط */
-.life-step:not(:last-child)::after {
-  content: '';
-  position: absolute;
-  top: 6px;
-  inset-inline-start: 50%;
-  width: 100%;
-  height: 2px;
-  background: var(--line);
-  z-index: 0;
-}
-
-.life-step .dot {
-  width: 13px;
-  height: 13px;
-  border-radius: 50%;
-  background: var(--line-strong);
-  border: 2px solid var(--surface);
-  box-shadow: 0 0 0 2px var(--line);
-  position: relative;
-  z-index: 1;
-}
-
-.life-step.done .dot { background: var(--green); box-shadow: 0 0 0 2px var(--green-line); }
-.life-step.now .dot { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-line); }
-.life-step.warn .dot { background: var(--amber); box-shadow: 0 0 0 2px var(--amber-line); }
-.life-step.err .dot { background: var(--red); box-shadow: 0 0 0 2px var(--red-line); }
-
-.life-step .t {
-  font-size: var(--fs-2xs);
-  color: var(--ink-soft);
-  line-height: 1.4;
-}
-
-.life-step .d {
-  font-size: 9.5px;
-  color: var(--ink-faint);
-}
-
-.life-step.pending .t,
-.life-step.pending .d {
-  opacity: 0.5;
-}
 
 /* ------------------------------------------------------------
    احكيها دلوقتي

@@ -12,6 +12,8 @@ import { html, raw, formatDuration } from '../utils/dom.js';
 import { formatDate } from '../utils/dates.js';
 import { typeLabel } from '../services/type-service.js';
 import { AXIS, pivotsFor, facetTree } from '../services/atlas-service.js';
+import { STAGE_LABEL, expressionLife } from '../services/language-service.js';
+import { counted } from '../utils/plural.js';
 import { threadsOfScene } from '../services/thread-service.js';
 import { icon } from '../components/icons.js';
 
@@ -341,10 +343,20 @@ function sectionLanguage(scene, expressionList) {
         .map(
           (e) => html`
             <div class="lang-row">
-              <div class="txt">
+              <button class="txt" data-action="open-expression" data-id="${e.id}">
                 <span class="ru" dir="ltr" lang="ru">${e.text}</span>
                 ${raw(e.meaningAr ? html`<span class="meaning">${e.meaningAr}</span>` : '')}
-              </div>
+              </button>
+              ${raw(
+                /*
+                 * ⚠️ المرحلة تظهر **حين تكون خبرًا**. «سمعته» هي حال كل
+                 *    تعبيرٍ لم تحكم عليه بعد، فطبعُها على كل سطر يزحم
+                 *    النصّ الروسيّ حتى يلتفّ — ولا يقول شيئًا.
+                 */
+                e.masteryState && e.masteryState !== 'heard'
+                  ? html`<span class="tag is-stage">${STAGE_LABEL[e.masteryState]}</span>`
+                  : ''
+              )}
               ${raw(
                 e.register
                   ? html`<span class="tag ${registerClass(e.register)}">${registerLabel(e.register)}</span>`
@@ -367,49 +379,44 @@ function sectionLanguage(scene, expressionList) {
 }
 
 /**
- * Expression Life — الخط الزمني.
- * المراحل معروضة دائمًا كهيكل؛ المرحلة المحقّقة فقط هي المضيئة.
- * لا تواريخ مخترعة — الباهت يعني "لسه محصلش".
+ * رحلة التعبير — **أين قابلتَه غير هنا**.
+ *
+ * ⚠️ كان هنا شريطٌ من ستّ مراحل ومؤشّرٌ يقول «دلوقتي» تحت واحدة.
+ *    وكان يقول «سمعته» **دائمًا ولكل تعبير إلى الأبد**: الحقل الذي
+ *    يقرؤه يُكتب مرّةً عند الإنشاء ولا يرفعه شيءٌ في التطبيق كلّه.
+ *    شريطُ تقدّمٍ لا يتقدّم أسوأ من غيابه — يَعِد بقياسٍ لا يقع.
+ *    والمرحلة انتقلت لصفحة التعبير، حيث تختارها **بيدك**.
+ *
+ * ⚠️ ثم أوّل بديلٍ كتبتُه سرد التعبيرات كلها — فصار القسم نسخةً ثانية
+ *    من «اللغة جوّه الذكرى» فوقه مباشرةً: نفس التعبير مرّتين في شاشة
+ *    واحدة. رأيتُ ذلك في لقطةٍ من متصفّح لا في مراجعةِ كود.
+ *
+ *    فالقسم لا يعرض إلا ما له حياةٌ **خارج هذه الذكرى** — وإلّا اختفى.
+ *    تعبيرٌ قابلتَه هنا وحدَه لا رحلةَ له بعد، وسطرٌ يقول «أول مرّة»
+ *    يملأ الشاشة بلا خبر.
  */
-function sectionLife(scene, expressionList) {
-  const STEPS = [
-    { k: 'heard', t: 'سمعته' },
-    { k: 'understood', t: 'فهمته' },
-    { k: 'practiced', t: 'تمرّنت' },
-    { k: 'used', t: 'استخدمته' },
-    { k: 'natural', t: 'بقى طبيعي' },
-    { k: 'automatic', t: 'تلقائي' },
-  ];
-
-  const first = expressionList[0];
-  const currentIndex = first ? Math.max(0, STEPS.findIndex((s) => s.k === first.masteryState)) : -1;
+function sectionLife(journeys) {
+  if (!journeys.length) return '';
 
   return html`
     <section class="sec" id="sec-life">
-      ${raw(head('clock', 'رحلة التعبير', '', null))}
-      ${raw(
-        first
-          ? html`<div class="ru" dir="ltr" lang="ru" style="font-weight:600;margin-bottom:2px">${first.text}</div>`
-          : html`<div class="text-sm text-faint" style="margin-bottom:2px">
-              أول ما تضيف تعبير، هتشوف رحلته من "سمعته" لحد "تلقائي"
-            </div>`
-      )}
-
-      <div class="life-track">
-        ${raw(
-          STEPS.map((s, i) => {
-            let cls = 'pending';
-            if (currentIndex >= 0 && i < currentIndex) cls = 'done';
-            else if (currentIndex >= 0 && i === currentIndex) cls = 'now';
-            return html`
-              <div class="life-step ${cls}">
-                <span class="dot"></span>
-                <span class="t">${s.t}</span>
-                <span class="d">${raw(cls === 'pending' ? '—' : cls === 'now' ? 'دلوقتي' : '✓')}</span>
-              </div>`;
-          }).join('')
-        )}
+      ${raw(head('clock', 'رحلة التعبير', journeys.length, null))}
+      <div class="text-sm text-faint mb-2">
+        التعبيرات دي قابلتها في ذكريات تانية كمان.
       </div>
+      ${raw(journeys.map(({ expression, elsewhere }) => html`
+        <button class="lg-row" data-action="open-expression" data-id="${expression.id}">
+          <span class="lg-ru" dir="ltr" lang="ru">${expression.text}</span>
+          ${raw(expression.meaningAr ? html`<span class="lg-ar">${expression.meaningAr}</span>` : '')}
+          <span class="lg-meta">
+            ${raw(expression.masteryState && expression.masteryState !== 'heard'
+              ? html`<span class="rv-tag is-plain">${STAGE_LABEL[expression.masteryState]}</span>`
+              : '')}
+            <span class="fc-count">كمان في
+              ${counted(elsewhere.length, 'ذكرى', 'ذكريتين', 'ذكريات')}</span>
+          </span>
+          <span class="lg-where">${elsewhere.slice(0, 3).map((o) => o.title).join(' · ')}</span>
+        </button>`).join(''))}
     </section>`;
 }
 
@@ -502,6 +509,21 @@ export async function renderScene(main, sceneId, options = {}) {
     pivotsFor(sceneId),
     facetTree(),
   ]);
+
+  /*
+   * أين ظهر كل تعبير **غير هنا** — وهو وحده ما يجعل «رحلة التعبير»
+   * رحلةً. يُقرأ من `expressionLife` نفسها التي تقرؤها صفحة التعبير،
+   * فلا يقول الرقمُ هنا شيئًا ويقول هناك غيره.
+   */
+  const journeys = [];
+  for (const expression of expressionList) {
+    const life = await expressionLife(expression.id);
+    const seen = new Map();
+    for (const occurrence of life?.occurrences || []) {
+      if (occurrence.sceneId !== sceneId) seen.set(occurrence.sceneId, occurrence);
+    }
+    if (seen.size) journeys.push({ expression, elsewhere: [...seen.values()] });
+  }
 
   /*
    * مَن كان هنا — من أجزاء المحادثة نفسها لا من حقلٍ على الذكرى.
@@ -630,7 +652,7 @@ export async function renderScene(main, sceneId, options = {}) {
       ${raw(sectionConversation(scene, parts))}
       ${raw(sectionPeople(scene, scenePeople, looseSpeakers))}
       ${raw(sectionMistakes(scene, mistakes))}
-      ${raw(sectionLife(scene, expressionList))}
+      ${raw(sectionLife(journeys))}
       ${raw(sectionRecall(scene, images.length > 0))}
       ${raw(sectionNotes(scene, notesBlock.text))}
     </div>`;

@@ -2114,3 +2114,136 @@
 .mp-btn:disabled { opacity: 0.35; cursor: default; }
 /* «التالي» معكوسٌ عن «السابق» — الاتجاه معنًى في RTL كما في LTR. */
 .mp-next svg { transform: scaleX(-1); }
+
+/* ==================================================================
+   لغتي وحياة التعبير
+
+   المبدأ: **الوقائع في جهة والتقدير في جهة.** الخطّ الزمني يُقرأ
+   كسلسلة ذكريات، واختيار المرحلة شبكةُ أزرارٍ منفصلةٌ تحته بنصٍّ
+   يقول إنها قولك.
+   ================================================================== */
+
+.lg-section { margin-top: var(--sp-5); }
+.lg-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-md);
+}
+.lg-section h3 .fc-count { margin-inline-start: auto; }
+
+.lg-title {
+  direction: ltr;
+  text-align: start;
+  font-family: var(--font-ru);
+}
+
+.lg-row {
+  display: block;
+  width: 100%;
+  font: inherit;
+  cursor: pointer;
+  text-align: start;
+  padding: var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--ink);
+  margin-bottom: var(--sp-2);
+}
+.lg-row:hover { border-color: var(--accent-soft); }
+
+.lg-ru {
+  display: block;
+  direction: ltr;
+  text-align: start;
+  font-family: var(--font-ru);
+  font-weight: 600;
+}
+.lg-ar { display: block; font-size: var(--fs-sm); color: var(--ink-soft); }
+.lg-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+
+/* أين قابلتَه غير هنا — عناوين الذكريات الأخرى. */
+.lg-where {
+  display: block;
+  margin-top: var(--sp-1);
+  font-size: var(--fs-2xs);
+  color: var(--ink-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- المراحل ---- */
+
+.lg-stages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+  margin-bottom: var(--sp-2);
+}
+.lg-stage { flex: 1; min-width: 64px; text-align: center; }
+.lg-stage b {
+  display: block;
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  direction: ltr;
+}
+.lg-stage span { font-size: var(--fs-2xs); color: var(--ink-soft); }
+
+.lg-stage-pick {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--sp-2);
+}
+.lg-stage-btn {
+  font: inherit;
+  cursor: pointer;
+  text-align: start;
+  padding: var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--ink);
+}
+.lg-stage-btn:hover { border-color: var(--accent-soft); }
+.lg-stage-btn b { display: block; font-size: var(--fs-sm); }
+.lg-stage-btn span { font-size: var(--fs-2xs); color: var(--ink-faint); }
+/* المختارة: تقديرك الحالي — لا «مرحلة وصلت إليها» في شريط تقدّم. */
+.lg-stage-btn.is-on {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+}
+.lg-stage-btn.is-on b { color: var(--accent); }
+
+.lg-words { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.lg-word {
+  direction: ltr;
+  font-family: var(--font-ru);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-tint);
+  color: var(--ink);
+}
+.lg-word:hover { border-color: var(--accent-soft); }
+
+.lg-note {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-xs);
+  color: var(--ink-faint);
+  line-height: 1.8;
+}

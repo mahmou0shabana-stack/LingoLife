@@ -40,7 +40,9 @@ import { mountMiniPlayer } from './components/mini-player.js';
 /* ---- الشاشات ---- */
 import { renderNow } from './views/now-view.js';
 import { renderLife } from './views/life-view.js';
-import { renderLanguage } from './views/language-view.js';
+import {
+  renderLanguage, renderExpression, renderWord, handleLanguageAction,
+} from './views/language-view.js';
 import { renderScene } from './views/scene-view.js';
 import { renderSettings, handleSettingsAction } from './views/settings-view.js';
 import { renderShadow, disposeShadow } from './views/shadow-view.js';
@@ -124,7 +126,8 @@ function syncNavState() {
     : path.startsWith('/river') || path.startsWith('/day')
       || path.startsWith('/facets') || path.startsWith('/constellation') ? 'river'
     : path.startsWith('/life') || path.startsWith('/scene') ? 'life'
-    : path.startsWith('/language') ? 'language'
+    : path.startsWith('/language') || path.startsWith('/expression')
+      || path.startsWith('/word') ? 'language'
     : path.startsWith('/search') ? 'search'
     : path.startsWith('/trash') ? 'trash'
     : path.startsWith('/settings') ? 'settings'
@@ -455,6 +458,7 @@ function wireActions() {
         if (await handleImportAction(action, target)) return;
         if (await handleRiverAction(action, target)) return;
         if (await handleConstellationAction(action, target)) return;
+        if (await handleLanguageAction(action, target)) return;
       }
     }
   });
@@ -565,6 +569,8 @@ async function boot() {
   route('/day/:date', view(renderDay, { param: 'date' }));
   route('/facets', view(renderFacets));
   route('/constellation', view(renderConstellation));
+  route('/expression/:id', view(renderExpression));
+  route('/word/:text', view(renderWord, { param: 'text' }));
   notFound(() => navigate('/', { replace: true }));
 
   wireActions();
