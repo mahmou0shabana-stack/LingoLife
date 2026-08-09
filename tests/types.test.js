@@ -7,8 +7,9 @@
 
 import { describe, it, expect } from './test-runner.js';
 import { openDB } from '../js/db/database.js';
-import { STORES } from '../js/db/schema.js';
-import { runMigrations } from '../js/db/migrations.js';
+import {
+  wipeProbe as probeWipe, openAt as probeOpenAt, txDone, getAll,
+} from './db-probe.js';
 import { settings, scenes, eventTypes } from '../js/db/repositories.js';
 import {
   BUILT_IN,
@@ -213,50 +214,9 @@ describe('أنواع الذكريات — الأرشفة والدمج', () => {
 
 const PROBE_DB = 'v7-types-migration-probe';
 
-function wipeProbe() {
-  return new Promise((done) => {
-    const req = indexedDB.deleteDatabase(PROBE_DB);
-    req.onsuccess = req.onerror = req.onblocked = done;
-  });
-}
-
-/** يفتح القاعدة على إصدارٍ بعينه مطبِّقًا ترقيات التطبيق نفسها. */
-function openAt(version, { skipStores = [] } = {}) {
-  return new Promise((resolve, reject) => {
-    const open = indexedDB.open(PROBE_DB, version);
-    open.onupgradeneeded = (event) => {
-      const db = open.result;
-      const tx = open.transaction;
-      if (event.oldVersion === 0 && skipStores.length) {
-        // نُعيد إنتاج جهازك: قاعدةٌ بُنيت **قبل** وجود المستودع الجديد.
-        for (const [name, def] of Object.entries(STORES)) {
-          if (skipStores.includes(name)) continue;
-          const store = db.createObjectStore(name, { keyPath: def.keyPath || 'id' });
-          for (const [i, kp, o] of def.indexes || []) store.createIndex(i, kp, o || {});
-        }
-        return;
-      }
-      runMigrations(db, tx, event.oldVersion, version);
-    };
-    open.onsuccess = () => resolve(open.result);
-    open.onerror = () => reject(open.error);
-  });
-}
-
-function txDone(tx) {
-  return new Promise((res, rej) => {
-    tx.oncomplete = res;
-    tx.onerror = () => rej(tx.error);
-  });
-}
-
-function getAll(db, store) {
-  return new Promise((res, rej) => {
-    const req = db.transaction(store, 'readonly').objectStore(store).getAll();
-    req.onsuccess = () => res(req.result);
-    req.onerror = () => rej(req.error);
-  });
-}
+// آلةُ القاعدة نفسها في `tests/db-probe.js` — يستعملها اختبار v10 كمان.
+const wipeProbe = () => probeWipe(PROBE_DB);
+const openAt = (version, options) => probeOpenAt(PROBE_DB, version, options);
 
 describe('ترقية v7 — الأنواع تصير كيانات', () => {
   it('تنقل تخصيصاتك ولا تلمس ذكرياتك', async () => {

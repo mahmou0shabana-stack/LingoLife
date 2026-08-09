@@ -31,7 +31,9 @@ import { saveItem, SAVED_KIND } from '../js/services/saved-service.js';
 import {
   STAGES, STAGE_LABEL, stageIndex, UNBUILT,
   expressionLife, setStage, wordLife, languageOverview,
+  unknownOriginCount, claimUnknownOrigins,
 } from '../js/services/language-service.js';
+import { wipeProbe, openAt, txDone, getAll } from './db-probe.js';
 
 async function fresh() {
   await openDB();
@@ -462,6 +464,182 @@ describe('منشأ الظهور — من فين جه', () => {
 
     expect((await expressionLife(expression.id)).occurrences[0].source)
       .toBe(EXPRESSION_SOURCE.MANUAL);
+  });
+});
+
+/* ================================================================== */
+
+/* ==================================================================
+ * ترقية v10 — ادّعاءٌ ثابتٌ يصير إقرارًا بالجهل
+ *
+ * ⚠️ تُبنى قاعدةٌ على v9 بيدٍ، فيها ظهوراتٌ بالشكل الذي كان
+ *    (`sourceType: 'manual'` للمسارات الثلاثة كلها)، ثم تُرقّى ويُسأل:
+ *    هل صار الادّعاء إقرارًا، وهل بقي كل شيءٍ آخر؟
+ * ================================================================== */
+
+const PROBE_DB = 'v10-origin-migration-probe';
+
+describe('ترقية v10 — منشأ الظهورات القديمة', () => {
+  it('«يدوي» الثابت يصير «مش معروف»', async () => {
+    await wipeProbe(PROBE_DB);
+
+    let db = await openAt(PROBE_DB, 9);
+    let tx = db.transaction('expressionOccurrences', 'readwrite');
+    // ثلاثة ظهورات كما كانت تُكتب: النوع واحدٌ والمنشأ ثلاثة.
+    for (const id of ['OC_a', 'OC_b', 'OC_c']) {
+      tx.objectStore('expressionOccurrences').put({
+        id, expressionId: 'EXP_1', sceneId: 'SC_1', state: 'active',
+        occurredAt: 1, kind: 'appeared', sourceQuote: '', sourceType: 'manual',
+      });
+    }
+    await txDone(tx);
+    db.close();
+
+    db = await openAt(PROBE_DB, 10);
+    const rows = await getAll(db, 'expressionOccurrences');
+    expect(rows.length).toBe(3);
+    expect(rows.every((r) => r.sourceType === 'unknown')).toBe(true);
+    db.close();
+  });
+
+  it('⚠️ لا تلمس إلا `sourceType` — باقي الصفّ كما هو', async () => {
+    await wipeProbe(PROBE_DB);
+
+    let db = await openAt(PROBE_DB, 9);
+    let tx = db.transaction('expressionOccurrences', 'readwrite');
+    tx.objectStore('expressionOccurrences').put({
+      id: 'OC_keep', expressionId: 'EXP_7', sceneId: 'SC_9', state: 'active',
+      occurredAt: 12345, kind: 'appeared', sourceQuote: 'اقتباس محفوظ',
+      sourceType: 'manual',
+    });
+    await txDone(tx);
+    db.close();
+
+    db = await openAt(PROBE_DB, 10);
+    const [row] = await getAll(db, 'expressionOccurrences');
+    expect(row.expressionId).toBe('EXP_7');
+    expect(row.sceneId).toBe('SC_9');
+    expect(row.occurredAt).toBe(12345);
+    expect(row.sourceQuote).toBe('اقتباس محفوظ');
+    expect(row.sourceType).toBe('unknown');
+    db.close();
+  });
+
+  it('منشأٌ معروف لا يُمسّ — وليست ترقيةً عمياء', async () => {
+    await wipeProbe(PROBE_DB);
+
+    let db = await openAt(PROBE_DB, 9);
+    let tx = db.transaction('expressionOccurrences', 'readwrite');
+    tx.objectStore('expressionOccurrences').put({
+      id: 'OC_i', expressionId: 'EXP_1', sceneId: 'SC_1', state: 'active',
+      occurredAt: 1, kind: 'appeared', sourceQuote: '', sourceType: 'import',
+    });
+    tx.objectStore('expressionOccurrences').put({
+      id: 'OC_s', expressionId: 'EXP_1', sceneId: 'SC_2', state: 'active',
+      occurredAt: 2, kind: 'appeared', sourceQuote: '', sourceType: 'shadow',
+    });
+    await txDone(tx);
+    db.close();
+
+    db = await openAt(PROBE_DB, 10);
+    const byId = new Map((await getAll(db, 'expressionOccurrences')).map((r) => [r.id, r]));
+    expect(byId.get('OC_i').sourceType).toBe('import');
+    expect(byId.get('OC_s').sourceType).toBe('shadow');
+    db.close();
+  });
+
+  it('قاعدةٌ بلا ظهورات ترقّى بلا سقوط', async () => {
+    await wipeProbe(PROBE_DB);
+    let db = await openAt(PROBE_DB, 9);
+    db.close();
+    db = await openAt(PROBE_DB, 10);
+    expect((await getAll(db, 'expressionOccurrences')).length).toBe(0);
+    db.close();
+  });
+
+  it('إعادة تشغيلها محايدة — لا تُفسد ما أصلحته', async () => {
+    await wipeProbe(PROBE_DB);
+
+    let db = await openAt(PROBE_DB, 9);
+    let tx = db.transaction('expressionOccurrences', 'readwrite');
+    tx.objectStore('expressionOccurrences').put({
+      id: 'OC_x', expressionId: 'EXP_1', sceneId: 'SC_1', state: 'active',
+      occurredAt: 1, kind: 'appeared', sourceQuote: '', sourceType: 'manual',
+    });
+    await txDone(tx);
+    db.close();
+
+    db = await openAt(PROBE_DB, 10);
+    db.close();
+
+    /*
+     * بعد الترقية تقرّ بأنها لك، ثم تُرقّى القاعدة مرّةً أخرى (إصدارٌ
+     * أعلى) — إقرارُك يجب أن يبقى، لا أن تُعيد الترقية طمسه.
+     */
+    db = await openAt(PROBE_DB, 10);
+    let tx2 = db.transaction('expressionOccurrences', 'readwrite');
+    tx2.objectStore('expressionOccurrences').put({
+      id: 'OC_x', expressionId: 'EXP_1', sceneId: 'SC_1', state: 'active',
+      occurredAt: 1, kind: 'appeared', sourceQuote: '', sourceType: 'manual',
+    });
+    await txDone(tx2);
+    db.close();
+
+    db = await openAt(PROBE_DB, 11);
+    const [row] = await getAll(db, 'expressionOccurrences');
+    expect(row.sourceType).toBe('manual');
+    db.close();
+    await wipeProbe(PROBE_DB);
+  });
+});
+
+/* ================================================================== */
+
+describe('إقرارك بما تعرفه — لا التطبيق', () => {
+  it('العدّ يقول كم ظهورًا مجهولًا', async () => {
+    await fresh();
+    const s = await scene('ذكرى', '2026-04-01');
+    await addExpression(s.id, { text: 'зато' });                       // مجهول
+    await addExpression(s.id, {
+      text: 'кстати', source: { type: EXPRESSION_SOURCE.MANUAL },
+    });
+
+    expect(await unknownOriginCount()).toBe(1);
+  });
+
+  it('الإقرار يحوّل المجهول إلى «كتبته بإيدك» ولا يمسّ غيره', async () => {
+    await fresh();
+    const s = await scene('ذكرى', '2026-04-01');
+    const { expression } = await addExpression(s.id, { text: 'зато' });
+    const b = await scene('ب', '2026-04-02');
+    await addExpression(b.id, {
+      text: 'зато', source: { type: EXPRESSION_SOURCE.IMPORT },
+    });
+
+    expect(await claimUnknownOrigins()).toBe(1);
+    const life = await expressionLife(expression.id);
+    expect(life.occurrences.map((o) => o.source))
+      .toEqual([EXPRESSION_SOURCE.MANUAL, EXPRESSION_SOURCE.IMPORT]);
+    expect(await unknownOriginCount()).toBe(0);
+  });
+
+  it('إقرارٌ على عالمٍ بلا مجهول لا يفعل شيئًا ولا يرمي', async () => {
+    await fresh();
+    expect(await claimUnknownOrigins()).toBe(0);
+  });
+
+  it('⚠️ الظهور المحذوف لا يُعَدّ ولا يُقَرّ به', async () => {
+    await fresh();
+    const s = await scene('ذكرى', '2026-04-01');
+    const { expression } = await addExpression(s.id, { text: 'зато' });
+    const [row] = await expressionOccurrences.byIndex('expressionId', expression.id);
+    await expressionOccurrences.trash(row.id);
+
+    expect(await unknownOriginCount()).toBe(0);
+    expect(await claimUnknownOrigins()).toBe(0);
+    // وما زال في السلة كما هو — الإقرار لا يستعيد محذوفًا.
+    expect((await expressionOccurrences.get(row.id)).sourceType)
+      .toBe(EXPRESSION_SOURCE.UNKNOWN);
   });
 });
 

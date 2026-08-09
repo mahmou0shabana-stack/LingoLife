@@ -163,6 +163,45 @@ export async function setStage(expressionId, stage) {
 }
 
 /* ------------------------------------------------------------------ *
+ * الظهورات مجهولة المنشأ — التطبيق لا يدّعي، وإنت تقرّ
+ * ------------------------------------------------------------------ */
+
+/**
+ * كم ظهورًا لا نعرف من أين جاء.
+ *
+ * ⚠️ بعد ترقية v10 هذه هي الظهورات المكتوبة قبل بند 38: كان
+ *    `sourceType` يُكتب `'manual'` ثابتًا للمسارات الثلاثة، فحُوّلت
+ *    إلى `'unknown'` لأن الادّعاء كان بلا سند.
+ */
+export async function unknownOriginCount() {
+  const rows = await expressionOccurrences.getAll();
+  return rows.filter(
+    (row) => row.state === STATE.ACTIVE && row.sourceType === EXPRESSION_SOURCE.UNKNOWN
+  ).length;
+}
+
+/**
+ * تقرّ بأن الظهورات مجهولة المنشأ كتبتَها بيدك.
+ *
+ * ⚠️ **بطلبك وحدك** — كما `setStage`. التطبيق لا يعرف، وأنت تعرف؛
+ *    وهذا الفرق هو كل الفرق. ويعمل على المجهول القائم لحظة الضغط
+ *    لا على ما يُكتب بعده: المسارات الثلاثة كلها تمرّر منشأها اليوم،
+ *    فظهورٌ مجهولٌ جديد عطبٌ لا حالةٌ عاديّة، ولا نطمسه سلفًا.
+ *
+ * @returns {Promise<number>} كم ظهورًا تغيّر
+ */
+export async function claimUnknownOrigins() {
+  const rows = await expressionOccurrences.getAll();
+  const mine = rows.filter(
+    (row) => row.state === STATE.ACTIVE && row.sourceType === EXPRESSION_SOURCE.UNKNOWN
+  );
+  for (const row of mine) {
+    await expressionOccurrences.update(row.id, { sourceType: EXPRESSION_SOURCE.MANUAL });
+  }
+  return mine.length;
+}
+
+/* ------------------------------------------------------------------ *
  * حياة الكلمة — مُشتقّة
  * ------------------------------------------------------------------ */
 

@@ -24,6 +24,8 @@ import {
   NATIVE_HOSTS,
 } from '../services/shadow/native-audio.js';
 import { icon } from '../components/icons.js';
+import { counted } from '../utils/plural.js';
+import { unknownOriginCount, claimUnknownOrigins } from '../services/language-service.js';
 import { APP_VERSION, BUILD_ID } from '../config.js';
 
 export async function renderSettings(main) {
@@ -46,6 +48,9 @@ export async function renderSettings(main) {
     consent: await nativeAudioConsent(),
     stats: await nativeCacheStats(),
   };
+
+  // ظهورات كُتبت قبل بند 38 — راجع ترقية v10.
+  const unknownOrigins = await unknownOriginCount();
 
   main.innerHTML = html`
     <div class="view-head">
@@ -164,6 +169,7 @@ export async function renderSettings(main) {
     )}
 
     ${raw(privacyPanel(native))}
+    ${raw(originsPanel(unknownOrigins))}
 
     <div class="panel">
       <h3>${raw(icon('refresh', 18))} التطبيق</h3>
@@ -264,6 +270,42 @@ function privacyPanel({ consent, stats }) {
 }
 
 /**
+ * ظهورات لا نعرف من أين جاءت — راجع ترقية v10.
+ *
+ * ⚠️ **تظهر فقط حين يكون فيه ما يُقَرّ به.** لوحةٌ تقول «صفر ظهور
+ *    مجهول» تشغل مكانًا بلا خبر، وتسأل عن شيءٍ لا وجود له.
+ */
+function originsPanel(unknownOrigins) {
+  if (!unknownOrigins) return '';
+
+  return html`
+      <div class="panel">
+        <h3>${raw(icon('clock', 18))} ظهورات مش عارفين جت منين</h3>
+
+        <p class="field-hint" style="margin-bottom:var(--sp-3)">
+          التطبيق كان بيكتب «كتبته بإيدك» على <strong>كل</strong> ظهور تعبير،
+          سواء كتبته فعلًا أو جه مع مشهد مُجهَّز أو التقطته وإنت بتتمرّن —
+          الحقل كان ثابت مش بيتغيّر. دلوقتي كل ظهور جديد بيسجّل منشأه صح،
+          والقديم اترجّع لـ<strong>«مش معروف منين»</strong> لأن الادّعاء
+          القديم كان بلا سند.
+        </p>
+
+        <div class="kv-row">
+          <span class="k">ظهورات مجهولة المنشأ</span>
+          <span class="v num">${unknownOrigins}</span>
+        </div>
+
+        <p class="field-hint" style="margin:var(--sp-3) 0">
+          لو إنت عارف إنك كتبتهم كلهم بإيدك، قول كده — <strong>إنت اللي
+          عارف، مش التطبيق</strong>.
+        </p>
+        <button class="btn btn-ghost btn-block" data-action="claim-origins">
+          دول كلهم كتبتهم بإيدي
+        </button>
+      </div>`;
+}
+
+/**
  * مدّة "لا تختفِ" للـ toast أثناء عملية طويلة.
  * `duration: 0` كان يُخفيه فورًا لأن setTimeout بصفر ينفّذ حالًا.
  */
@@ -298,6 +340,15 @@ async function refresh() {
 }
 
 export async function handleSettingsAction(action) {
+  if (action === 'claim-origins') {
+    const n = await claimUnknownOrigins();
+    toastOk(n
+      ? `تمام — ${counted(n, 'ظهور', 'ظهورين', 'ظهورات')} بقت مكتوبة بإيدك`
+      : 'مفيش ظهورات مجهولة');
+    await refresh();
+    return true;
+  }
+
   if (action === 'request-persist') {
     const result = await requestPersistence();
     if (result.persisted) toastOk('التخزين الدائم اتفعّل — بياناتك محميّة من المسح التلقائي');
