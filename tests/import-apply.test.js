@@ -22,7 +22,7 @@ import { STATE } from '../js/db/schema.js';
 import { createScene, getScene } from '../js/services/scene-service.js';
 import { addPerson } from '../js/services/person-service.js';
 import { resetTypes } from '../js/services/type-service.js';
-import { createThread, threadsOfScene, threadScenes } from '../js/services/thread-service.js';
+import { createThread, threadsOfScene, threadScenes, THREAD_STATUS } from '../js/services/thread-service.js';
 import { addExpression, listConversationParts } from '../js/services/content-service.js';
 import { parsePackage } from '../js/services/import/parse.js';
 import { planImport, decide, ACTION } from '../js/services/import/plan.js';
@@ -425,5 +425,40 @@ describe('التنفيذ — التقرير', () => {
     expect(plan.scripts.length).toBe(1);
     expect(report.written.script).toBe(undefined);
     expect((await scripts.getAll()).length).toBe(0);
+  });
+});
+
+describe('التنفيذ — حالة الخيط الموجود', () => {
+  it('⚠️ لا تُغيَّر بحزمة — لكن الاختلاف يُقال', async () => {
+    await fresh();
+    const thread = await createThread({ title: 'شحنة أبريل' });
+
+    const report = await applyImport(await planOf({
+      eventThread: { title: 'شحنة أبريل', status: 'resolved' },
+    }));
+
+    // الحالة كما هي: إقفال قضيّةٍ لأن ملفًّا قال ذلك خارج ما وافقتَ عليه.
+    const after = await eventThreads.get(thread.id);
+    expect(after.status).toBe(THREAD_STATUS.ACTIVE);
+    // ولا صمت: الصمت يجعلك تحسبها مقفولة وهي مفتوحة.
+    expect(report.notes.some((n) => n.includes('شحنة أبريل'))).toBe(true);
+  });
+
+  it('حالةٌ مطابقة لا تُنتج تنبيهًا', async () => {
+    await fresh();
+    await createThread({ title: 'شحنة أبريل' });
+    const report = await applyImport(await planOf({
+      eventThread: { title: 'شحنة أبريل', status: 'active' },
+    }));
+    expect(report.notes.length).toBe(0);
+  });
+
+  it('خيطٌ جديد يأخذ حالة الحزمة كما هي', async () => {
+    await fresh();
+    await applyImport(await planOf({
+      eventThread: { title: 'خيط جديد', status: 'resolved' },
+    }));
+    const [thread] = await eventThreads.getAll();
+    expect(thread.status).toBe(THREAD_STATUS.RESOLVED);
   });
 });

@@ -30,7 +30,7 @@ import { typeLabel } from '../services/type-service.js';
 import { getPerson } from '../services/person-service.js';
 import { getThread, THREAD_STATUS_LABEL } from '../services/thread-service.js';
 import {
-  AXIS, ABSENT_AXES, riverPage, dayDetail, adjacentDays,
+  AXIS, ABSENT_AXES, riverPage, dayDetail, adjacentDays, continuingStories,
 } from '../services/atlas-service.js';
 
 /**
@@ -64,6 +64,11 @@ function sceneRow(scene) {
           : '')}
         ${raw(facets.personIds?.length
           ? html`<span class="rv-tag is-plain">${raw(icon('person', 13))} ${facets.personIds.length}</span>`
+          : '')}
+        ${raw(facets.threadIds?.length
+          ? html`<span class="rv-tag is-thread">${raw(icon('link', 13))} ${
+              facets.threadIds.length === 1 ? 'في خيط' : `في ${facets.threadIds.length} خيوط`
+            }</span>`
           : '')}
       </span>
     </button>`;
@@ -159,10 +164,48 @@ async function filterBar(filters) {
  * النهر
  * ------------------------------------------------------------------ */
 
+/**
+ * القصص المكمّلة — «إيه اللي لسه مفتوح؟» في أعلى النهر.
+ *
+ * ⚠️ **مرتّبةٌ بطول السكوت لا بالتاريخ.** قضيّةٌ لم يقع فيها شيءٌ منذ
+ *    شهرين أحقّ بانتباهك من واحدةٍ تحرّكت أمس — وهي بالضبط التي
+ *    تنساها. والترتيب هو الفكرة كلّها، لا الزينة.
+ *
+ * ⚠️ ولا تظهر مع مرشّحٍ مفعَّل: أنت وقتها تتصفّح شيئًا بعينه، وقائمةُ
+ *    ما هو مفتوحٌ عمومًا مقاطعةٌ لا مساعدة.
+ */
+async function storiesStrip() {
+  const stories = await continuingStories();
+  if (!stories.length) return '';
+
+  return html`
+    <section class="rv-stories">
+      <h3>${raw(icon('link', 16))} لسه مكمّلة</h3>
+      ${raw(stories.map((story) => html`
+        <button class="rv-story" data-action="river-by-thread" data-id="${story.id}">
+          <span class="rv-story-title"><bdi>${story.title}</bdi></span>
+          <span class="rv-story-meta">
+            ${story.daysSince === null
+              ? 'لسه مفيش أحداث'
+              : story.daysSince === 0
+                ? 'اتحرّكت النهارده'
+                : `ساكتة من ${dayCount(story.daysSince)}`}
+            · ${story.count} ${
+              story.count === 1 ? 'حدث'
+              : story.count === 2 ? 'حدثان'
+              : story.count <= 10 ? 'أحداث'
+              : 'حدثًا'
+            }
+          </span>
+        </button>`).join(''))}
+    </section>`;
+}
+
 export async function renderRiver(main) {
   if (!state.days.length && !state.loading) await loadMore({ reset: true });
 
   const bar = await filterBar(state.filters);
+  const stories = bar ? '' : await storiesStrip();
   const empty = !state.days.length;
 
   let lastMonth = null;
@@ -174,12 +217,18 @@ export async function renderRiver(main) {
   });
 
   main.innerHTML = html`
-    <div class="view-head">
-      <h1>نهر الزمن</h1>
-      <div class="sub">حياتك بترتيبها — وبالمسافات اللي بينها</div>
+    <div class="view-head rv-head">
+      <div>
+        <h1>نهر الزمن</h1>
+        <div class="sub">حياتك بترتيبها — وبالمسافات اللي بينها</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" data-action="go-facets">
+        ${raw(icon('life', 15))} المحاور
+      </button>
     </div>
 
     ${raw(bar)}
+    ${raw(stories)}
 
     ${raw(empty ? emptyState(Boolean(bar)) : html`
       <div class="rv-river">${raw(blocks.join(''))}</div>
@@ -429,6 +478,24 @@ export async function handleRiverAction(action, target) {
 
   if (action === 'river-by-type') {
     riverFilteredBy(AXIS.TYPE, target?.dataset.id);
+    return true;
+  }
+
+  /*
+   * المدخل من شاشة المحاور — محورٌ واحدٌ لكل الأشجار.
+   *
+   * ⚠️ الرقم في الشجرة وعدٌ بأنك ستجد ذلك العدد، والضغط هو الوفاء به
+   *    (بند 66). ولذلك يمرّ من هنا لا من شاشة المحاور: المرشّح شكلٌ
+   *    واحد يفهمه النهر، فلا تنشأ صيغتان لنفس المعنى.
+   */
+  if (action === 'facet-open') {
+    const { axis, id, label } = target?.dataset || {};
+    if (axis && id) riverFilteredBy(axis, id, label);
+    return true;
+  }
+
+  if (action === 'go-facets') {
+    navigate('/facets');
     return true;
   }
 

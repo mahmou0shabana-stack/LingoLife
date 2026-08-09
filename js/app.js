@@ -53,6 +53,7 @@ import {
   handleImportChange, handleImportLink,
 } from './views/import-view.js';
 import { renderRiver, renderDay, handleRiverAction } from './views/river-view.js';
+import { renderFacets } from './views/facets-view.js';
 
 /* ---- الحالة العابرة وإعادة العرض ---- */
 import { ui, reloadScene, refreshStorageCard } from './ui-state.js';
@@ -116,7 +117,7 @@ function syncNavState() {
   const path = getCurrentRoute()?.path || '/';
   const active =
     path === '/' ? 'now'
-    : path.startsWith('/river') || path.startsWith('/day') ? 'river'
+    : path.startsWith('/river') || path.startsWith('/day') || path.startsWith('/facets') ? 'river'
     : path.startsWith('/life') || path.startsWith('/scene') ? 'life'
     : path.startsWith('/language') ? 'language'
     : path.startsWith('/search') ? 'search'
@@ -536,6 +537,7 @@ async function boot() {
   route('/import', view(renderImport));
   route('/river', view(renderRiver));
   route('/day/:date', view(renderDay, { param: 'date' }));
+  route('/facets', view(renderFacets));
   notFound(() => navigate('/', { replace: true }));
 
   wireActions();

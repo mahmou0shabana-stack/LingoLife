@@ -48,12 +48,13 @@
  *    شيئًا أسوأ من مرشّحٍ غير موجود (بند 89).
  */
 
-import { scenes, relationships, conversationParts, people, expressionOccurrences,
-  expressions, mistakeComparisons, scripts, shadowSessions } from '../db/repositories.js';
+import { scenes, relationships, conversationParts, people, eventThreads,
+  expressionOccurrences, expressions, mistakeComparisons, scripts,
+  shadowSessions } from '../db/repositories.js';
 import { STATE } from '../db/schema.js';
 import { normalize } from '../utils/normalization.js';
 import { toISODate, daysBetween } from '../utils/dates.js';
-import { THREAD_SCENE } from './thread-service.js';
+import { THREAD_SCENE, THREAD_STATUS, OPEN_STATUSES } from './thread-service.js';
 
 /* ------------------------------------------------------------------ *
  * المحاور: ما له بيانات وما لا
@@ -330,6 +331,144 @@ export async function dayDetail(date) {
     scripts: alive(scriptGroups.flat()).length,
     practice: practice.length,
   };
+}
+
+/* ------------------------------------------------------------------ *
+ * أشجار المحاور
+ * ------------------------------------------------------------------ */
+
+/**
+ * كل قيمة في كل محور، بعددها.
+ *
+ * ⚠️ **مسحةٌ واحدة على المستودعات، لا استعلامٌ لكل قيمة.** السؤال هنا
+ *    «ما كل ما عندي؟» لا «ما يخصّ هذه الذكرى؟»، والفهرس لا يجيب
+ *    الأوّل. فمرّةٌ واحدة على كل مستودع ثم تجميعٌ في الذاكرة.
+ *
+ * ⚠️ **والصفر لا يُعرَض.** نوعٌ عرّفتَه ولم تستعمله ليس محورَ تصفّح —
+ *    الضغط عليه يُفرّغ النهر. الأشجار تُبنى **ممّا في ذكرياتك** لا
+ *    ممّا في جداول التعريف.
+ *
+ * @returns {Promise<{types, places, people, threads, total}>}
+ */
+export async function facetTree() {
+  const [sceneRows, partRows, linkRows, personRows, threadRows] = await Promise.all([
+    scenes.getActive(),
+    conversationParts.getAll(),
+    relationships.getAll(),
+    people.getAll(),
+    eventThreads.getAll(),
+  ]);
+
+  const live = new Set(sceneRows.map((s) => s.id));
+
+  /* ---- النوع والمكان: من الذكرى مباشرةً ---- */
+
+  const types = new Map();
+  const places = new Map();
+  for (const scene of sceneRows) {
+    const typeId = scene.type || 'other';
+    types.set(typeId, (types.get(typeId) || 0) + 1);
+
+    const key = placeKey(scene.placeName);
+    if (!key) continue;
+    const entry = places.get(key) || { key, label: scene.placeName, count: 0 };
+    entry.count++;
+    places.set(key, entry);
+  }
+
+  /* ---- الشخص: مُشتقٌّ من المحادثة ---- */
+
+  const personScenes = new Map();
+  for (const part of partRows) {
+    if (part.state !== STATE.ACTIVE || !part.personId || !live.has(part.sceneId)) continue;
+    if (!personScenes.has(part.personId)) personScenes.set(part.personId, new Set());
+    personScenes.get(part.personId).add(part.sceneId);
+  }
+
+  /* ---- الخيط: من العلاقة ---- */
+
+  const threadScenes = new Map();
+  for (const row of linkRows) {
+    if (row.state !== STATE.ACTIVE || row.kind !== THREAD_SCENE || !live.has(row.toId)) continue;
+    if (!threadScenes.has(row.fromId)) threadScenes.set(row.fromId, new Set());
+    threadScenes.get(row.fromId).add(row.toId);
+  }
+
+  const byCount = (a, b) => b.count - a.count || String(a.label).localeCompare(String(b.label), 'ar');
+
+  return {
+    types: [...types].map(([id, count]) => ({ id, count })),
+    places: [...places.values()].sort(byCount),
+    people: personRows
+      .filter((p) => p.state !== STATE.TRASHED && personScenes.has(p.id))
+      .map((p) => ({ id: p.id, label: p.name, count: personScenes.get(p.id).size }))
+      .sort(byCount),
+    threads: threadRows
+      .filter((t) => t.state !== STATE.TRASHED && threadScenes.has(t.id))
+      .map((t) => ({
+        id: t.id, label: t.title, status: t.status,
+        count: threadScenes.get(t.id).size,
+      }))
+      .sort(byCount),
+    total: sceneRows.length,
+  };
+}
+
+/* ------------------------------------------------------------------ *
+ * القصص المكمّلة
+ * ------------------------------------------------------------------ */
+
+/**
+ * الخيوط المفتوحة، **بترتيب طول سكوتها**.
+ *
+ * ⚠️ الترتيب هو الفكرة كلّها. «إيه اللي لسه مفتوح؟» سؤالٌ يجيبه
+ *    `openThreads`، لكن قضيّةً لم يقع فيها شيءٌ منذ شهرين أحقّ بانتباهك
+ *    من واحدةٍ تحرّكت أمس. فالأطول سكوتًا أوّلًا.
+ *
+ * ⚠️ و`daysSince` تُقاس من **آخر حدثٍ فيه** لا من إنشائه: خيطٌ أُنشئ
+ *    من سنة وفيه حدثٌ أمس ليس ساكنًا.
+ *
+ * @param {{limit?: number}} options
+ */
+export async function continuingStories({ limit = 5 } = {}) {
+  const [threadRows, linkRows, sceneRows] = await Promise.all([
+    eventThreads.getAll(),
+    relationships.getAll(),
+    scenes.getActive(),
+  ]);
+
+  const dateOf = new Map(sceneRows.map((s) => [s.id, toISODate(s.date) || s.date || '']));
+
+  const lastEvent = new Map();
+  const counts = new Map();
+  for (const row of linkRows) {
+    if (row.state !== STATE.ACTIVE || row.kind !== THREAD_SCENE) continue;
+    const date = dateOf.get(row.toId);
+    if (!date) continue;
+    counts.set(row.fromId, (counts.get(row.fromId) || 0) + 1);
+    if (!lastEvent.has(row.fromId) || date > lastEvent.get(row.fromId)) {
+      lastEvent.set(row.fromId, date);
+    }
+  }
+
+  const today = toISODate(Date.now());
+
+  return threadRows
+    .filter((t) => t.state === STATE.ACTIVE && OPEN_STATUSES.includes(t.status || THREAD_STATUS.ACTIVE))
+    .map((thread) => {
+      const last = lastEvent.get(thread.id) || null;
+      return {
+        id: thread.id,
+        title: thread.title,
+        status: thread.status || THREAD_STATUS.ACTIVE,
+        count: counts.get(thread.id) || 0,
+        lastEvent: last,
+        // خيطٌ بلا حدثٍ بعد لا سكوتَ له يُقاس — و`null` تقولها.
+        daysSince: last ? daysBetween(last, today) : null,
+      };
+    })
+    .sort((a, b) => (b.daysSince ?? -1) - (a.daysSince ?? -1))
+    .slice(0, limit);
 }
 
 /**

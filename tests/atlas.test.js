@@ -16,17 +16,17 @@
 import { describe, it, expect } from './test-runner.js';
 import { openDB } from '../js/db/database.js';
 import {
-  scenes, people, eventThreads, relationships, conversationParts,
+  scenes, people, eventThreads, eventTypes, relationships, conversationParts,
   expressions, expressionOccurrences, mistakeComparisons, scripts,
 } from '../js/db/repositories.js';
 import { createScene } from '../js/services/scene-service.js';
 import { addPerson } from '../js/services/person-service.js';
 import { resetTypes } from '../js/services/type-service.js';
-import { createThread, addSceneToThread } from '../js/services/thread-service.js';
+import { createThread, addSceneToThread, THREAD_STATUS } from '../js/services/thread-service.js';
 import { addConversationPart, addExpression } from '../js/services/content-service.js';
 import {
   AXIS, ABSENT_AXES, placeKey, facetsFor, allowedSceneIds,
-  riverPage, dayDetail, adjacentDays,
+  riverPage, dayDetail, adjacentDays, facetTree, continuingStories,
 } from '../js/services/atlas-service.js';
 
 async function fresh() {
@@ -350,5 +350,132 @@ describe('الأطلس — ما لا محورَ له', () => {
       const key = axis === AXIS.PERSON ? 'personIds' : axis === AXIS.THREAD ? 'threadIds' : axis;
       if (!(key in facets)) throw new Error(`المحور ${axis} بلا اشتقاق`);
     }
+  });
+});
+
+describe('الأطلس — أشجار المحاور', () => {
+  it('تُبنى ممّا في الذكريات لا ممّا في جداول التعريف', async () => {
+    await fresh();
+    // ١٤ نوعًا مُعرَّفًا، واحدٌ مستعمَل.
+    await scene('واحدة', '2026-04-01', { type: 'phone' });
+    const tree = await facetTree();
+
+    expect(tree.types.length).toBe(1);
+    expect(tree.types[0].id).toBe('phone');
+    // ⚠️ نوعٌ عرّفتَه ولم تستعمله ليس محورَ تصفّح: الضغط عليه يُفرّغ
+    //    النهر، والرقم صفرٌ لا يَعِد بشيء.
+    expect((await eventTypes.getAll()).length > 1).toBe(true);
+  });
+
+  it('تعدّ الذكريات لا الجُمل', async () => {
+    await fresh();
+    const igor = await addPerson({ name: 'إيجور' });
+    const s = await scene('واحدة', '2026-04-01');
+    for (const text of ['А', 'Б', 'В']) {
+      await addConversationPart(s.id, { speaker: 'إيجور', text, personId: igor.id });
+    }
+    const tree = await facetTree();
+    expect(tree.people[0].count).toBe(1);
+  });
+
+  it('المكان يتجمّع بالمطبَّع ويُعرَض بأوّل إملاء', async () => {
+    await fresh();
+    await scene('أ', '2026-04-01', { placeName: 'مكتب الشركة' });
+    await scene('ب', '2026-04-02', { placeName: 'مكتب الشركه' });
+    const tree = await facetTree();
+    expect(tree.places.length).toBe(1);
+    expect(tree.places[0].count).toBe(2);
+  });
+
+  it('شخصٌ بلا ذكريات لا يظهر', async () => {
+    await fresh();
+    await addPerson({ name: 'حدّ ما اتكلّمش' });
+    await scene('واحدة', '2026-04-01');
+    const tree = await facetTree();
+    expect(tree.people).toEqual([]);
+  });
+
+  it('خيطٌ فاضي لا يظهر', async () => {
+    await fresh();
+    await createThread({ title: 'خيط فاضي' });
+    await scene('واحدة', '2026-04-01');
+    const tree = await facetTree();
+    expect(tree.threads).toEqual([]);
+  });
+
+  it('الذكرى المحذوفة تخرج من كل المحاور', async () => {
+    await fresh();
+    const igor = await addPerson({ name: 'إيجور' });
+    const thread = await createThread({ title: 'خيط' });
+    const s = await scene('محذوفة', '2026-04-01', { placeName: 'المكتب' });
+    await addSceneToThread(thread.id, s.id);
+    await addConversationPart(s.id, { speaker: 'إيجور', text: 'А', personId: igor.id });
+    await scenes.trash(s.id);
+
+    const tree = await facetTree();
+    expect(tree.total).toBe(0);
+    expect(tree.people).toEqual([]);
+    expect(tree.threads).toEqual([]);
+    expect(tree.places).toEqual([]);
+  });
+
+  it('الترتيب بالعدد تنازليًّا', async () => {
+    await fresh();
+    await scene('أ', '2026-04-01', { placeName: 'البيت' });
+    await scene('ب', '2026-04-02', { placeName: 'البيت' });
+    await scene('ج', '2026-04-03', { placeName: 'المكتب' });
+    const tree = await facetTree();
+    expect(tree.places[0].label).toBe('البيت');
+    expect(tree.places[0].count).toBe(2);
+  });
+});
+
+describe('الأطلس — القصص المكمّلة', () => {
+  it('المفتوح وحده — والمُقفَل يخرج', async () => {
+    await fresh();
+    const open = await createThread({ title: 'مفتوح' });
+    const done = await createThread({ title: 'مقفول', status: THREAD_STATUS.RESOLVED });
+    const a = await scene('أ', '2026-04-01');
+    const b = await scene('ب', '2026-04-02');
+    await addSceneToThread(open.id, a.id);
+    await addSceneToThread(done.id, b.id);
+
+    const stories = await continuingStories();
+    expect(stories.length).toBe(1);
+    expect(stories[0].id).toBe(open.id);
+  });
+
+  it('⚠️ الترتيب بطول السكوت لا بالتاريخ — وهو الفكرة كلّها', async () => {
+    await fresh();
+    const quiet = await createThread({ title: 'ساكتة من زمان' });
+    const fresh_ = await createThread({ title: 'اتحرّكت قريّب' });
+    const old = await scene('قديم', '2025-01-01');
+    const recent = await scene('قريّب', '2026-06-01');
+    await addSceneToThread(quiet.id, old.id);
+    await addSceneToThread(fresh_.id, recent.id);
+
+    const stories = await continuingStories();
+    expect(stories[0].id).toBe(quiet.id);
+    expect(stories[0].daysSince > stories[1].daysSince).toBe(true);
+  });
+
+  it('السكوت يُقاس من آخر حدثٍ لا من إنشاء الخيط', async () => {
+    await fresh();
+    const thread = await createThread({ title: 'خيط' });
+    await addSceneToThread(thread.id, (await scene('قديم', '2020-01-01')).id);
+    await addSceneToThread(thread.id, (await scene('أحدث', '2026-06-01')).id);
+
+    const stories = await continuingStories();
+    expect(stories[0].lastEvent).toBe('2026-06-01');
+    expect(stories[0].count).toBe(2);
+  });
+
+  it('خيطٌ بلا أحداث: `null` لا صفر', async () => {
+    await fresh();
+    await createThread({ title: 'لسه فاضي' });
+    const stories = await continuingStories();
+    // ⚠️ صفرٌ يقول «اتحرّك النهارده» وهو لم يتحرّك قطّ.
+    expect(stories[0].daysSince).toBe(null);
+    expect(stories[0].count).toBe(0);
   });
 });

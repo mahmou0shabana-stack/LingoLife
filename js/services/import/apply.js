@@ -35,7 +35,8 @@ import { createScene } from '../scene-service.js';
 import { addPerson } from '../person-service.js';
 import { addType } from '../type-service.js';
 import {
-  createThread, addSceneToThread, threadsOfScene, THREAD_STATUS,
+  createThread, addSceneToThread, threadsOfScene, getThread,
+  THREAD_STATUS, THREAD_STATUS_LABEL,
 } from '../thread-service.js';
 import {
   addScript,
@@ -212,6 +213,29 @@ export async function applyImport(plan, pkg = null) {
 
     if (plan.eventThread?.include) {
       let threadId = plan.eventThread.targetId;
+
+      /*
+       * ⚠️ حزمةٌ تُلحَق بخيطٍ عندك وتحمل حالةً مخالفة لحالته.
+       *
+       * لا نغيّرها: إقفال قضيّةٍ لأن ملفًّا قال ذلك تغييرٌ في **معنى**
+       *    حياتك لا إضافةٌ إليها، وهو خارج ما وافقتَ عليه في المعاينة
+       *    («نقترح ولا ندمج»).
+       *
+       *    ولا نسكت عنها أيضًا: الصمت يجعلك تظنّ أن الخيط أُقفل وهو
+       *    مفتوح، فيظلّ يظهر في «لسه مكمّلة» وأنت تحسبه منتهيًا. فتُقال
+       *    في التقرير وتُقفلها بنفسك إن كان ذلك صحيحًا.
+       */
+      if (plan.eventThread.action === ACTION.USE_EXISTING && threadId) {
+        const incoming = THREAD_STATUS[String(plan.eventThread.data.status || '').toUpperCase()];
+        const current = await getThread(threadId);
+        if (incoming && current && incoming !== current.status) {
+          notes.push(
+            `الخيط «${current.title}» عندك حالته «${THREAD_STATUS_LABEL[current.status]}» ` +
+            `والحزمة بتقول «${THREAD_STATUS_LABEL[incoming]}» — ما غيّرناهاش، غيّرها بنفسك لو ده صح`
+          );
+        }
+      }
+
       if (plan.eventThread.action === ACTION.CREATE) {
         const thread = await createThread({
           title: plan.eventThread.data.title,
