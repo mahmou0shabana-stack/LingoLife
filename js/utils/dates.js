@@ -15,12 +15,45 @@ export function today() {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-/** يحوّل 'YYYY-MM-DD' إلى كائن Date محلي (بلا انزياح المنطقة الزمنية). */
+/**
+ * يحوّل تاريخًا مخزَّنًا إلى كائن Date محلي (بلا انزياح المنطقة الزمنية).
+ *
+ * ⚠️ الترويسة أعلاه تقول إن التخزين «ISO **أو** طابع زمني رقمي»، وكانت
+ *    الدالّة تنادي `.split` على المدخل مباشرةً — فرقمٌ واحد في حقل
+ *    `scene.date` يُسقط الشاشة كلها بـ`iso.split is not a function`.
+ *    وهو مدخلٌ يصل فعلًا: من استيراد، أو من نسخةٍ مسترجَعة، أو من كودٍ
+ *    يمرّر `Date.now()` وهو يقرأ الترويسة نفسها.
+ *
+ * فصارت تقبل ما تقوله الترويسة: نصّ ISO (بجزء وقتٍ أو بدونه)، وطابعًا
+ * رقميًّا، وكائن `Date`.
+ */
 export function parseISODate(iso) {
   if (!iso) return null;
-  const [y, m, d] = iso.split('-').map(Number);
+
+  if (iso instanceof Date) return Number.isNaN(iso.getTime()) ? null : iso;
+
+  if (typeof iso === 'number') {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return null;
+    // نُسقط الوقت: هذه دالّة **يوم** لا لحظة، ومَن يريد اللحظة عنده
+    // `formatTime`. وبناؤها من المكوّنات المحلية يمنع انزياح المنطقة.
+    return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+
+  if (typeof iso !== 'string') return null;
+
+  // 'YYYY-MM-DDTHH:mm:ssZ' يُقصّ إلى يومه.
+  const [y, m, d] = iso.slice(0, 10).split('-').map(Number);
   if (!y || !m || !d) return null;
   return new Date(y, m - 1, d);
+}
+
+/** صيغة التخزين المعيارية 'YYYY-MM-DD' لأي مدخل تاريخ مقبول. */
+export function toISODate(value) {
+  const d = parseISODate(value);
+  if (!d) return '';
+  const pad = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 /** "29 مايو 2026" */
@@ -37,9 +70,13 @@ export function formatMonth(iso) {
   return `${AR_MONTHS[d.getMonth()]} ${d.getFullYear()}`;
 }
 
-/** مفتاح تجميع بالشهر: "2026-05" */
+/**
+ * مفتاح تجميع بالشهر: "2026-05".
+ * يمرّ بالتطبيع لأن `slice` على رقمٍ تعطي مفتاحًا لا يقابل أي شهر —
+ * فتنشأ في «حياتي» مجموعةٌ بعنوانٍ فارغ لا يفسّر نفسه.
+ */
 export function monthKey(iso) {
-  return (iso || '').slice(0, 7);
+  return toISODate(iso).slice(0, 7);
 }
 
 /** "اليوم" / "أمس" / "منذ 3 أيام" / التاريخ الكامل. */

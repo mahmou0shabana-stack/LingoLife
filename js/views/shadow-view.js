@@ -34,12 +34,23 @@ import {
   recordSegmentPractice,
   savePosition,
   saveSessionSettings,
+  describeSource,
+  SOURCE_TYPE,
 } from '../services/shadow/shadow-session-service.js';
 import { markSentence, loadUserDictionary } from '../services/shadow/stress.js';
 import {
   loadExpressionIndex, clearExpressionIndex, expressionsIn, expressionDetail,
 } from '../services/shadow/analysis-link.js';
-import { FONTS, applyFont, ensureFontsLoaded, fontById } from '../services/shadow/fonts.js';
+import {
+  FONTS,
+  COVERAGE_NOTE,
+  applyFont,
+  ensureFontsLoaded,
+  fontById,
+  fontFullLabel,
+  fontsByForm,
+  measureCoverage,
+} from '../services/shadow/fonts.js';
 import { LANGUAGES, languageByCode, translate, isEnabled as trEnabled, setEnabled as setTrEnabled } from '../services/shadow/translate.js';
 import { practiceStreak, recentPractice } from '../services/shadow/shadow-session-service.js';
 import { scripts, contentBlocks, scenes, sceneMediaLinks, media, shadowSegments } from '../db/repositories.js';
@@ -109,6 +120,59 @@ async function readCurrentSource(session) {
   return null;
 }
 
+/**
+ * من أين جاءت هذه الجلسة؟ (بند 13)
+ *
+ * كانت الصفحة اليسرى تقول «المشهد والنصّ الأصلي» — وهي جملةٌ صادقة
+ * ولا تفيد: لا تعرف أهذا سكريبتٌ كامل أم دور متحدّثٍ في محادثة أم
+ * جملٌ اخترتها بنفسك أم نصٌّ استُخرج من صورة. وثلاثتها الأولى تختلف
+ * اختلافًا يغيّر ما تتوقّعه من الجلسة.
+ *
+ * فصار المصدر مُسمًّى باسمه، **وقابلًا للفتح**: التدريب طبقةٌ فوق
+ * المحتوى لا بديلٌ عنه، فطريق العودة إلى الأصل يجب أن يبقى ظاهرًا.
+ *
+ * @returns {Promise<{icon: string, kind: string, name: string,
+ *                    note: string, href: string|null}>}
+ */
+async function resolveSource(session, segments) {
+  // القراءة هنا، والتصنيف في الخدمة — فيبقى منطق الوصف مُختبَرًا
+  // بلا تهيئة مستودعات (`describeSource`).
+  let resolved = {};
+  try {
+    if (session.sourceType === SOURCE_TYPE.SCRIPT || session.sourceType === SOURCE_TYPE.SELECTION) {
+      const script = await scripts.get(session.sourceId);
+      resolved = script ? { title: script.title } : { missing: true };
+    } else if (session.sourceType === SOURCE_TYPE.CONTENT_BLOCK) {
+      const block = await contentBlocks.get(session.sourceId);
+      resolved = block ? { title: block.title } : { missing: true };
+    } else if (session.sourceType === SOURCE_TYPE.MEDIA_TEXT) {
+      resolved = { title: session.title };
+    }
+  } catch {
+    resolved = { missing: true };
+  }
+  return describeSource(session, segments, resolved);
+}
+
+/** بطاقة المصدر أعلى الصفحة اليسرى. */
+function sourceBadge(source) {
+  return html`
+    <div class="sh-source">
+      <span class="sh-source-icon" aria-hidden="true">${source.icon}</span>
+      <span class="sh-source-body">
+        <b>${source.kind}</b>
+        <span class="sh-source-name">${source.name}</span>
+        ${raw(source.note ? html`<small>${source.note}</small>` : '')}
+      </span>
+      ${raw(
+        source.href
+          ? html`<button class="sh-source-open" data-sh="open-source"
+              data-to="${source.href}">افتح الأصل</button>`
+          : ''
+      )}
+    </div>`;
+}
+
 /** صورة غلاف المشهد — الصفحة اليسرى تعرض الذكرى لا النصّ وحده. */
 async function coverImage(sceneId) {
   if (!sceneId) return null;
@@ -145,11 +209,12 @@ export async function renderShadow(main, sessionId) {
   const { session, segments } = loaded;
   await loadVoices();
 
-  const [current, scene, cover, voices] = await Promise.all([
+  const [current, scene, cover, voices, source] = await Promise.all([
     readCurrentSource(session),
     session.sceneId ? scenes.get(session.sceneId) : null,
     coverImage(session.sceneId),
     listVoices(),
+    resolveSource(session, segments),
   ]);
 
   const change = current ? detectSourceChange(session, current) : { changed: false };
@@ -177,6 +242,7 @@ export async function renderShadow(main, sessionId) {
     scene,
     cover,
     voices,
+    source,
     display: session.displayMode || DISPLAY.RU,
     volume: session.volume ?? 1,
     lang: session.translationLang || 'ams',
@@ -255,7 +321,7 @@ function wireModalActions() {
 }
 
 function shell() {
-  const { session, segments, scene, cover, change, voices } = ctx;
+  const { session, segments, scene, cover, change, voices, source } = ctx;
   const idx = session.currentSegmentIndex || 0;
 
   return html`
@@ -286,6 +352,7 @@ function shell() {
               <span class="t">المشهد والنصّ الأصلي</span>
             </div>
 
+            ${raw(sourceBadge(source))}
             ${raw(change.changed ? staleBanner(change) : '')}
             ${raw(cover ? coverPanel(cover) : '')}
             ${raw(
@@ -604,28 +671,45 @@ function coverPanel(url) {
 /**
  * لوحة الخطّ — مطويّة حتى تُطلَب.
  *
- * كان زرّ الخطّ يدوّر على العشرة واحدًا واحدًا: للوصول إلى «مذكّرة»
+ * كان زرّ الخطّ يدوّر على العشرة واحدًا واحدًا: للوصول إلى خطٍّ بعينه
  * تضغط خمس مرّات وتقرأ خمسة أشكال لا تريدها. صارت اللوحة تعرضها كلها
  * **بخطّها نفسه** — تختار بالنظر لا بالتجربة.
  *
- * ومقياس الحجم معها، لأن الخطّ والحجم قرارٌ واحد: خطّ «راقص» صغير
+ * ومقياس الحجم معها، لأن الخطّ والحجم قرارٌ واحد: الخطّ المتّصل صغيرًا
  * غير مقروء، والمطبعي الكبير يبتلع الشاشة.
+ *
+ * والعيّنة **سيريلية** (`Аа Бб`) لا لاتينية: أنت تختار خطًّا لنصٍّ
+ * روسي، فالعيّنة يجب أن تكون بالحروف التي ستقرأها فعلًا — وإن نقصت
+ * في الخطّ ظهر ذلك في العيّنة نفسها قبل أن تختاره.
  */
 function fontPanel() {
   return html`
     <div class="sh-fontpanel" data-fontpanel hidden>
-      <div class="sh-fontpanel-grid">
-        ${raw(
-          FONTS.map(
-            (f) => html`
-              <button class="sh-fontchip ${f.id === ctx.font ? 'on' : ''}" data-sh="font-pick"
-                data-font="${f.id}" style="font-family:${f.stack};font-style:${f.style}"
-                lang="ru">
-                <b>Аа</b><small>${f.label}</small>
-              </button>`
-          ).join('')
-        )}
-      </div>
+      <p class="sh-fontpanel-warn" data-font-warn hidden></p>
+      ${raw(
+        fontsByForm()
+          .map(
+            (group) => html`
+              <div class="sh-fontgroup">
+                <h4>${group.label}<small>${group.hint}</small></h4>
+                <div class="sh-fontpanel-grid">
+                  ${raw(
+                    group.fonts
+                      .map(
+                        (f) => html`
+                          <button class="sh-fontchip ${f.id === ctx.font ? 'on' : ''}"
+                            data-sh="font-pick" data-font="${f.id}"
+                            style="font-family:${f.stack};font-style:${f.style}" lang="ru">
+                            <b>Аа</b><small>${f.label}</small>
+                          </button>`
+                      )
+                      .join('')
+                  )}
+                </div>
+              </div>`
+          )
+          .join('')
+      )}
       <div class="sh-fontpanel-size">
         <span>حجم النصّ</span>
         <input type="range" class="sh-range" data-font-size
@@ -669,6 +753,13 @@ function lineHtml(segment, index, isCurrent) {
   return html`<button class="${classes}" data-line="${index}">
     <span class="sh-line-pick" data-pick-box aria-hidden="true"></span>
     <span class="n">${index + 1}</span>
+    ${raw(
+      // في جلسة المحادثة السطر بلا اسمٍ يفقد نصف معناه: أن تعرف مَن
+      // يقول ماذا هو الفرق بين نصٍّ ومحادثة (بند 13).
+      segment.speaker
+        ? html`<span class="sh-line-spk ${segment.isMine ? 'mine' : ''}">${segment.speaker}</span>`
+        : ''
+    )}
     <span class="tx" data-line-text>${segment.sourceTextSnapshot}${raw(
       segment.translationSnapshot ? html`<span class="tr" hidden>${segment.translationSnapshot}</span>` : ''
     )}</span>
@@ -1131,13 +1222,59 @@ function applyFonts() {
   const app = document.querySelector('.shadow-app');
   if (app) app.style.setProperty('--sh-font-size', ctx.fontSize);
 
-  document.querySelectorAll('[data-font-label]').forEach((n) => { n.textContent = font.label; });
+  document.querySelectorAll('[data-font-label]').forEach((n) => {
+    n.textContent = fontFullLabel(font);
+  });
   document.querySelectorAll('[data-sh="font-pick"]').forEach((n) => {
     n.classList.toggle('on', n.dataset.font === ctx.font);
   });
 
   const sizeLabel = $('[data-font-size-label]');
   if (sizeLabel) sizeLabel.textContent = `${Math.round(ctx.fontSize * 100)}%`;
+}
+
+/**
+ * يقيس تغطية السيريلية على هذا الجهاز ويوسم ما ينقصه (بند 17).
+ *
+ * القياس عند **فتح اللوحة** لا عند الإقلاع: الخطوط تُحمَّل بـ
+ * `display=swap` فلا تصل حتى تُطلَب، وقياسٌ مبكّر يتّهمها ظلمًا.
+ *
+ * وحين لا يصل أيُّ خطٍّ (بلا شبكة، أو شبكةٌ تحجب Google Fonts) نقول
+ * ذلك **مرّة واحدة أعلى اللوحة** بدل تسعة تحذيرات متطابقة — المشكلة
+ * حينها في الشبكة لا في الخطوط.
+ */
+let coverageMarked = false;
+async function markFontCoverage() {
+  if (coverageMarked) return;
+  coverageMarked = true;
+
+  let report;
+  try {
+    report = await measureCoverage();
+  } catch {
+    coverageMarked = false;
+    return;
+  }
+
+  const measured = FONTS.filter((f) => f.family);
+  const offline = measured.every((f) => report[f.id]?.status === 'not-loaded');
+
+  const warn = $('[data-font-warn]');
+  if (warn) {
+    warn.hidden = !offline;
+    if (offline) warn.textContent = COVERAGE_NOTE['not-loaded'];
+  }
+
+  for (const font of FONTS) {
+    const chip = document.querySelector(`[data-sh="font-pick"][data-font="${font.id}"]`);
+    if (!chip) continue;
+    const status = report[font.id]?.status || 'unknown';
+    // في حالة انقطاع الشبكة لا نوسم خطًّا بعينه: التحذير أعلاه يكفي.
+    const flag = status === 'no-cyrillic' || (status === 'not-loaded' && !offline);
+    chip.classList.toggle('lacks', flag);
+    if (flag) chip.title = COVERAGE_NOTE[status];
+    else chip.removeAttribute('title');
+  }
 }
 
 /** يفتح الدرج أو يغلقه. */
@@ -1629,6 +1766,11 @@ function wireInteractions(main) {
       case 'exit':
         return navigate(ctx.session.sceneId ? `/scene/${ctx.session.sceneId}` : '/life');
 
+      // التدريب طبقةٌ فوق المحتوى لا بديلٌ عنه: طريق العودة للأصل
+      // يبقى ظاهرًا داخل الجلسة نفسها (بند 13).
+      case 'open-source':
+        return navigate(btn.dataset.to);
+
       case 'tips':
         return showTips();
 
@@ -1830,7 +1972,10 @@ function wireInteractions(main) {
         if (!panel) return;
         panel.hidden = !panel.hidden;
         btn.classList.toggle('on', !panel.hidden);
-        if (!panel.hidden) panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        if (!panel.hidden) {
+          panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          markFontCoverage();
+        }
         return;
       }
 

@@ -19,6 +19,15 @@ import {
 } from '../js/services/shadow/playback-controller.js';
 import { stepRate, RATE_STEPS } from '../js/services/shadow/tts-controller.js';
 import {
+  FONTS,
+  FONT_FORMS,
+  FONTS_HREF,
+  fontById,
+  fontFullLabel,
+  fontsByForm,
+  measureFont,
+} from '../js/services/shadow/fonts.js';
+import {
   createSession,
   loadSession,
   detectSourceChange,
@@ -28,6 +37,7 @@ import {
   resumableSessions,
   globalDefaults,
   saveGlobalDefaults,
+  describeSource,
   SOURCE_TYPE,
   SEGMENT_STATUS,
 } from '../js/services/shadow/shadow-session-service.js';
@@ -1107,5 +1117,176 @@ describe('مصدر الصوت', () => {
     expect(sources[0]).toBe('tts');
     player.destroy();
     URL.revokeObjectURL(url);
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * الخطوط — بند 17
+ * ------------------------------------------------------------------ */
+
+describe('الخطوط — التسمية بصيغة الكتابة', () => {
+  it('كل خطّ ينتمي لعائلة معلَنة', () => {
+    const forms = new Set(FONT_FORMS.map((f) => f.id));
+    for (const font of FONTS) {
+      if (!forms.has(font.form)) throw new Error(`${font.id} في عائلة مجهولة: ${font.form}`);
+    }
+  });
+
+  it('كل خطّ يظهر في مجموعةٍ واحدة بالضبط', () => {
+    const grouped = fontsByForm().flatMap((g) => g.fonts.map((f) => f.id));
+    expect(grouped.length).toBe(FONTS.length);
+    expect(new Set(grouped).size).toBe(FONTS.length);
+  });
+
+  it('الاسم الكامل يحمل العائلة فلا يلتبس خارج اللوحة', () => {
+    const noto = fontById('noto');
+    expect(fontFullLabel(noto).includes('طباعة')).toBe(true);
+    // خطّ الجهاز يقول نفسه، فلا يُسبَق بعائلة.
+    expect(fontFullLabel(fontById('system'))).toBe('خطّ جهازك');
+  });
+
+  it('لا اسم ذوقيّ باقٍ من التسمية القديمة', () => {
+    const tasteful = ['راقص', 'حرّ', 'أنيق', 'كلاسيكي', 'مذكّرة', 'كورالي'];
+    for (const font of FONTS) {
+      if (tasteful.includes(font.label)) throw new Error(`${font.id} ما زال يحمل اسمًا ذوقيًّا`);
+    }
+  });
+
+  it('الأسماء لا تتكرّر داخل العائلة الواحدة', () => {
+    for (const group of fontsByForm()) {
+      const labels = group.fonts.map((f) => f.label);
+      expect(new Set(labels).size).toBe(labels.length);
+    }
+  });
+});
+
+describe('الخطوط — تغطية السيريلية', () => {
+  it('كل خطّ مُعلَن بسيريليّة يُطلَب فعلًا من Google Fonts', () => {
+    for (const font of FONTS) {
+      if (!font.family) continue;
+      const asked = font.family.replace(/ /g, '+');
+      if (!FONTS_HREF.includes(`family=${asked}`)) {
+        throw new Error(`${font.id} مُعرَّف ولا يُطلَب في الرابط`);
+      }
+    }
+  });
+
+  it('الرابط يطلب المجموعة السيريلية صراحةً', () => {
+    expect(FONTS_HREF.includes('subset=cyrillic')).toBe(true);
+  });
+
+  // ⚠️ الخطّ اللاتينيّ وحده يبدو صالحًا في اللوحة لأن العيّنة تُرسَم
+  //    من الاحتياطي — وهو زرٌّ يبدو أنه يعمل وهو لا يعمل. Dancing
+  //    Script كان كذلك، فحلّ Bad Script محلّه.
+  it('لا خطّ لاتينيٌّ فقط في القائمة', () => {
+    for (const font of FONTS) {
+      if (font.cyrillic !== true) throw new Error(`${font.id} غير مُعلَن بتغطية سيريلية`);
+    }
+    expect(FONTS.some((f) => f.id === 'dancing')).toBe(false);
+  });
+
+  it('القياس يفرّق بين «لم يصل» و«بلا سيريلية»', () => {
+    // خطٌّ باسمٍ لا وجود له: يسقط على الاحتياطي في المسبارين معًا،
+    // فالحكم «لم يصل» لا «بلا سيريلية» — لا نتّهم خطًّا حين تُقطع الشبكة.
+    const ghost = measureFont({ id: 'ghost', family: 'LingoLifeNoSuchFamily' });
+    expect(ghost.status).toBe('not-loaded');
+    expect(ghost.cyrillic).toBe(false);
+  });
+
+  it('خطّ الجهاز لا يُقاس ولا يُوسَم', () => {
+    expect(measureFont(fontById('system')).status).toBe('ok');
+  });
+
+  it('لكل حالةٍ نصٌّ صريح عدا السليمة', async () => {
+    const { COVERAGE_NOTE } = await import('../js/services/shadow/fonts.js');
+    expect(COVERAGE_NOTE.ok).toBe('');
+    expect(COVERAGE_NOTE['no-cyrillic'].length > 0).toBe(true);
+    expect(COVERAGE_NOTE['not-loaded'].length > 0).toBe(true);
+  });
+
+  it('الخطّ المحفوظ باسمٍ اختفى يعود لخطٍّ صالح لا لـundefined', () => {
+    // جلسات قديمة تحمل `fontId: 'dancing'` — لا يجوز أن تنكسر.
+    const font = fontById('dancing');
+    expect(!!font && !!font.stack).toBe(true);
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * وصف المصدر — بند 13
+ * ------------------------------------------------------------------ */
+
+describe('وصف المصدر', () => {
+  const seg = (speaker) => ({ speaker: speaker || null });
+
+  it('السكريبت يُسمّى بعنوانه', () => {
+    const d = describeSource(
+      { sourceType: SOURCE_TYPE.SCRIPT, sceneId: 's1' },
+      [seg(), seg()],
+      { title: 'مكالمة القسم' }
+    );
+    expect(d.kind).toBe('سكريبت');
+    expect(d.name).toBe('مكالمة القسم');
+    expect(d.note).toBe('2 جملة');
+    expect(d.href).toBe('/scene/s1');
+  });
+
+  it('محادثةٌ لدور واحد تحمل اسم المتحدّث', () => {
+    const d = describeSource(
+      { sourceType: SOURCE_TYPE.CONVERSATION },
+      [seg('Ирина'), seg('Ирина')]
+    );
+    expect(d.name).toBe('Ирина');
+    // «جزء» لا «جملة»: المحادثة أدوارٌ لا جمل.
+    expect(d.note).toBe('2 جزء');
+  });
+
+  it('محادثةٌ بأكثر من متحدّث تقول عددهم', () => {
+    const d = describeSource(
+      { sourceType: SOURCE_TYPE.CONVERSATION },
+      [seg('Ирина'), seg('Олег'), seg('Ирина')]
+    );
+    expect(d.name).toBe('2 متحدّثين');
+  });
+
+  it('المختارات تقول إنك أنت مَن اخترتها', () => {
+    const d = describeSource(
+      { sourceType: SOURCE_TYPE.SELECTION },
+      [seg(), seg(), seg()],
+      { title: 'النصّ الأساسي' }
+    );
+    expect(d.kind).toBe('جمل مختارة');
+    expect(d.note).toBe('3 جملة اخترتها');
+  });
+
+  it('نصّ الصورة لا يُخفي أنه استُخرج آليًّا', () => {
+    const d = describeSource({ sourceType: SOURCE_TYPE.MEDIA_TEXT }, [seg()]);
+    expect(d.note.includes('مراجَعة يدويًّا')).toBe(true);
+  });
+
+  it('مصدرٌ حُذف يُقال صراحةً ولا يُسقط الوصف', () => {
+    const d = describeSource(
+      { sourceType: SOURCE_TYPE.SCRIPT },
+      [seg()],
+      { missing: true }
+    );
+    expect(d.name).toBe('سكريبت بلا عنوان');
+    expect(d.note.includes('المصدر مش موجود دلوقتي')).toBe(true);
+  });
+
+  it('نوعٌ مجهول لا يكسر الوصف', () => {
+    const d = describeSource({ sourceType: 'somethingNew' }, [seg()]);
+    expect(d.kind).toBe('مصدر');
+    expect(d.note).toBe('1 مقطع');
+  });
+
+  it('جلسةٌ بلا ذكرى لا تدّعي رابطًا', () => {
+    expect(describeSource({ sourceType: SOURCE_TYPE.SCRIPT }, []).href).toBe(null);
+  });
+
+  it('كل نوع مصدر معلَن له وصف', () => {
+    for (const type of Object.values(SOURCE_TYPE)) {
+      const d = describeSource({ sourceType: type }, []);
+      if (d.kind === 'مصدر') throw new Error(`${type} بلا وصف في SOURCE_LABEL`);
+    }
   });
 });
