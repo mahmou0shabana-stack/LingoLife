@@ -114,6 +114,7 @@
       await import('./import.test.js');
       await import('./import-plan.test.js');
       await import('./import-apply.test.js');
+      await import('./atlas.test.js');
 
       const result = await run((event) => {
         if (event.type === 'suite') {

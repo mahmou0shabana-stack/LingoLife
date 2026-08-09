@@ -52,6 +52,7 @@ import {
   renderImport, resetImport, handleImportAction,
   handleImportChange, handleImportLink,
 } from './views/import-view.js';
+import { renderRiver, renderDay, handleRiverAction } from './views/river-view.js';
 
 /* ---- الحالة العابرة وإعادة العرض ---- */
 import { ui, reloadScene, refreshStorageCard } from './ui-state.js';
@@ -86,7 +87,8 @@ function view(renderFn, opts = {}) {
 
     main.innerHTML = '<div class="loading"><span class="spinner"></span> لحظة…</div>';
     try {
-      await renderFn(main, params?.id, opts.passUi ? ui : undefined);
+      // `opts.param` لأن ليس كل مسارٍ مفتاحه `id`: «اليوم» مفتاحه تاريخ.
+      await renderFn(main, params?.[opts.param || 'id'], opts.passUi ? ui : undefined);
       // شاشة جديدة تبدأ من أعلاها لا من موضع تمرير سابقتها.
       window.scrollTo({ top: 0, behavior: 'instant' });
       syncNavState();
@@ -114,6 +116,7 @@ function syncNavState() {
   const path = getCurrentRoute()?.path || '/';
   const active =
     path === '/' ? 'now'
+    : path.startsWith('/river') || path.startsWith('/day') ? 'river'
     : path.startsWith('/life') || path.startsWith('/scene') ? 'life'
     : path.startsWith('/language') ? 'language'
     : path.startsWith('/search') ? 'search'
@@ -424,6 +427,7 @@ function wireActions() {
         // فالمعرّف وحده لا يكفي لمعرفة أي مستودع نستعيد منه.
         if (await handleTrashAction(action, id, target)) return;
         if (await handleImportAction(action, target)) return;
+        if (await handleRiverAction(action, target)) return;
       }
     }
   });
@@ -530,6 +534,8 @@ async function boot() {
   route('/threads', view(renderThreads));
   route('/thread/:id', view(renderThread));
   route('/import', view(renderImport));
+  route('/river', view(renderRiver));
+  route('/day/:date', view(renderDay, { param: 'date' }));
   notFound(() => navigate('/', { replace: true }));
 
   wireActions();

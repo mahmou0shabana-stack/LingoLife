@@ -79,6 +79,33 @@ export function monthKey(iso) {
   return toISODate(iso).slice(0, 7);
 }
 
+/**
+ * عدد الأيام بين تاريخين.
+ *
+ * ⚠️ كانت مكرّرةً في `thread-service` و`threads-view`، وكاد الأطلس أن
+ *    يكتبها ثالثةً. والفجوة الزمنيّة معنًى مشتركٌ بين الخيط والنهر
+ *    واليوم، فمكانها هنا.
+ */
+export function daysBetween(a, b) {
+  const from = parseISODate(a);
+  const to = parseISODate(b);
+  if (!from || !to) return 0;
+  return Math.round(Math.abs(to - from) / 86_400_000);
+}
+
+/**
+ * «يوم» بالعدد الموافق له في العربيّة.
+ *
+ * ⚠️ ليست تجميلًا: «بعد 3 يوم» و«بعد 12 أيام» يقرؤهما عربيٌّ فيتعثّر.
+ *    مثنّى، ثم جمع قلّة (٣–١٠)، ثم تمييزٌ مفرد منصوب (١١+).
+ */
+export function dayCount(days) {
+  if (days === 1) return 'يوم';
+  if (days === 2) return 'يومين';
+  if (days <= 10) return `${days} أيام`;
+  return `${days} يومًا`;
+}
+
 /** "اليوم" / "أمس" / "منذ 3 أيام" / التاريخ الكامل. */
 export function relativeDate(iso) {
   const d = parseISODate(iso);

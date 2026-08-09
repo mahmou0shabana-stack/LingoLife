@@ -1433,3 +1433,280 @@
 .imp-report { margin: 0; padding-inline-start: var(--sp-4); }
 .imp-report li { margin-bottom: var(--sp-1); }
 .imp-report b { direction: ltr; display: inline-block; }
+
+/* ==================================================================
+   نهر الزمن وشاشة اليوم (WS4)
+
+   المبدأ البصري: **الفجوة معلومة لا فراغ.** المسافة بين يومين تُرسَم
+   ويُكتب طولها، فترى بعينك الشهر الذي لم تسجّل فيه شيئًا.
+
+   وعمدًا بلا زخرفة في هذه النسخة: أوّلًا يصحّ التنقّل والربط، ثم
+   يأتي الخيال البصري فوق أساسٍ ثابت.
+   ================================================================== */
+
+.rv-river { position: relative; }
+
+.rv-month {
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  color: var(--ink-soft);
+  margin: var(--sp-5) 0 var(--sp-3);
+  padding-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--line);
+}
+.rv-month:first-child { margin-top: 0; }
+
+/* ---- اليوم ---- */
+
+.rv-day {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.rv-day-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  font: inherit;
+  cursor: pointer;
+  text-align: start;
+  padding: var(--sp-3);
+  border: 0;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--surface-soft);
+  color: var(--ink);
+}
+.rv-day-head:hover { background: var(--accent-wash); }
+.rv-day-date { font-weight: 700; }
+.rv-day-rel { font-size: var(--fs-xs); color: var(--ink-faint); }
+.rv-day-count {
+  margin-inline-start: auto;
+  direction: ltr;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--ink-soft);
+  background: var(--bg-alt);
+  border-radius: var(--radius-pill);
+  padding: 1px 9px;
+}
+
+/* ---- الذكرى داخل اليوم ---- */
+
+.rv-scene {
+  display: block;
+  width: 100%;
+  font: inherit;
+  cursor: pointer;
+  text-align: start;
+  padding: var(--sp-3);
+  border: 0;
+  border-top: 1px solid var(--line-soft);
+  background: transparent;
+  color: var(--ink);
+}
+.rv-scene:first-of-type { border-top: 0; }
+.rv-scene:hover { background: var(--surface-soft); }
+.rv-scene-title { display: block; font-weight: 600; line-height: 1.6; }
+
+.rv-scene-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+
+.rv-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  border-radius: var(--radius-pill);
+  padding: 2px 9px;
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+.rv-tag.is-plain { background: var(--bg-alt); color: var(--ink-soft); font-weight: 500; }
+.rv-tag svg { width: 13px; height: 13px; }
+
+/* ---- الفجوة ---- */
+
+.rv-gap {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) 0;
+  margin-inline-start: var(--sp-5);
+}
+/* الخيط الرأسي هو النهر نفسه — متّصلٌ عبر الفراغ. */
+.rv-gap::before {
+  content: '';
+  width: 2px;
+  min-height: 22px;
+  align-self: stretch;
+  background: repeating-linear-gradient(
+    to bottom, var(--line-strong) 0 4px, transparent 4px 9px
+  );
+  border-radius: 2px;
+}
+.rv-gap span {
+  font-size: var(--fs-xs);
+  color: var(--ink-faint);
+}
+/* شهرٌ فأكثر بلا تسجيل يستحقّ أن يُرى، لا أن يُقرأ بحثًا. */
+.rv-gap.is-long::before { background: var(--amber-line); }
+.rv-gap.is-long span { color: var(--amber); font-weight: 600; }
+
+.rv-end {
+  text-align: center;
+  font-size: var(--fs-xs);
+  color: var(--ink-faint);
+  padding: var(--sp-5) 0;
+}
+
+/* ---- المرشّحات ---- */
+
+.rv-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  margin-bottom: var(--sp-4);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-md);
+  background: var(--accent-wash);
+}
+.rv-filters-head { font-size: var(--fs-xs); color: var(--ink-soft); }
+.rv-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  padding: var(--sp-1) var(--sp-3);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--ink);
+}
+.rv-chip:hover { border-color: var(--accent-soft); }
+.rv-chip-x { display: inline-flex; color: var(--ink-faint); }
+.rv-chip.is-clear { border-style: dashed; color: var(--ink-soft); }
+
+.rv-absent {
+  margin-top: var(--sp-6);
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+}
+.rv-absent summary { cursor: pointer; color: var(--ink-faint); }
+.rv-absent p { margin: var(--sp-2) 0 0; }
+
+/* ---- شاشة اليوم ---- */
+
+.rv-daynav {
+  display: flex;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+}
+.rv-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  flex: 1;
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  padding: var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+}
+.rv-nav-btn:disabled { opacity: 0.4; cursor: default; }
+.rv-nav-btn.is-mid { background: var(--bg-alt); }
+/*
+  الاتجاه معنًى لا زخرفة — وفي RTL «للوراء» يمينًا.
+  أيقونة `back` سهمٌ لليسار، فتُقلَب في زرّ «الأقدم» (وهو الأيمن في
+  ترتيب القراءة) وتبقى كما هي في «الأحدث».
+*/
+.rv-nav-btn:first-child svg { transform: scaleX(-1); }
+
+.rv-day-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-4);
+  text-align: center;
+}
+.rv-stat { flex: 1; min-width: 60px; }
+.rv-stat b {
+  display: block;
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
+  direction: ltr;
+}
+.rv-stat span { font-size: var(--fs-xs); color: var(--ink-soft); }
+
+.rv-section { margin-top: var(--sp-5); }
+.rv-section h3 { margin: 0 0 var(--sp-2); font-size: var(--fs-md); }
+
+.rv-section .rv-scene {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  margin-bottom: var(--sp-2);
+}
+
+.rv-line {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--ink);
+  text-decoration: none;
+  margin-bottom: var(--sp-2);
+}
+.rv-line .rv-tag { margin-inline-start: auto; }
+.rv-line.is-plain { background: var(--surface-soft); }
+
+.rv-people, .rv-exprs { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.rv-person {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--ink);
+}
+.rv-person:hover { border-color: var(--accent-soft); background: var(--accent-wash); }
+
+.rv-expr {
+  direction: ltr;
+  font-family: var(--font-ru);
+  font-size: var(--fs-sm);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-tint);
+  color: var(--ink);
+}
+
+.rv-hint {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-xs);
+  color: var(--ink-faint);
+  line-height: 1.7;
+}
