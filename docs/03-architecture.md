@@ -139,8 +139,10 @@ lingolife/
 
 | Store | المفتاح | فهارس | الغرض |
 |---|---|---|---|
+| `eventTypes` | id | `parentId`, `normalizedName`, `state`, `order` | أنواع الأحداث ككيان (v7) |
+| `eventThreads` | id | `status`, `state`, `startDate`, `normalizedName` | القضيّة الممتدّة فوق المشاهد (v9) |
 | `people` / `places` / `journeys` / `topics` / `tags` | id | `name`, `normalizedName` | كيانات مستقلة |
-| `relationships` | id | `fromId`, `toId`, `type`, `[fromId+type]` | **محرك العلاقات** — يجعل «ظهر في 7 مشاهد» استعلامًا واحدًا |
+| `relationships` | id | `fromId`, `toId`, `kind`, `[fromId+kind]` | **محرك العلاقات** — يجعل «ظهر في 7 مشاهد» استعلامًا واحدًا. و`type` أثرٌ مهجور منذ v8 (راجع §3.6.1) |
 
 **المراجعة والنظام**
 
@@ -223,6 +225,32 @@ export const MIGRATIONS = [
 
 ولها ثلاثة اختبارات تبني قاعدةً على v6 **بلا المستودع الجديد** — أي
 جهازك حرفيًّا — ثم ترقّيها وتسأل: هل بقي كل شيء؟
+
+---
+
+## 3.6.1 العضويّة علاقةٌ لا حقل
+
+المشهد لا يحمل `threadId`، والخيط لا يحمل `projectIds[]`. العضويّة
+**صفٌّ في `relationships`** بنوعٍ يتبع الاصطلاح `"<حاوٍ>:<عضو>"` —
+`thread:scene` اليوم، و`project:thread` يوم يوجد المشروع.
+
+```js
+membershipKind('thread', 'scene')   // 'thread:scene'
+containersOf(sceneId)               // كل حاوٍ، من أي نوع
+containersOf(sceneId, 'project')    // نوعٌ بعينه — ولو لم يُبنَ بعد
+```
+
+**ثلاثة أسباب:**
+
+1. **لا حقل فارغ ينتظر ميزةً لم تُبنَ.** `thread.projectIds[]` على كل
+   خيط حقلٌ ستُجبَر على ملئه أو تراه فارغًا للأبد.
+2. **الكيان المحذوف لا يترك أثرًا في العضو.** خيطٌ يُحذف لا يترك
+   `threadId` معلّقًا في مشاهدك — وهو بند 27 حرفيًّا.
+3. **لا جدول جديد لكل زوج.** `relationships` يستوعب أي زوجٍ قادم.
+
+⚠️ **ولا كيان يفترض أنه القمّة.** `containersOfThread` موجودة وتعود
+فارغةً اليوم — دليلٌ مُختبَر لا وعدٌ في تعليق. راجع
+`docs/06-roadmap.md` لقائمة القرارات المؤجَّلة عمدًا.
 
 ---
 

@@ -32,7 +32,7 @@ import { eventThreads, relationships, scenes, conversationParts } from '../db/re
 import { STATE } from '../db/schema.js';
 import { normalize } from '../utils/normalization.js';
 import { newId, PREFIX } from '../utils/ids.js';
-import { link, unlink, linksOf } from './link-service.js';
+import { link, unlink, linksOf, membershipKind, containersOf } from './link-service.js';
 import { toISODate } from '../utils/dates.js';
 
 /**
@@ -65,8 +65,15 @@ export const OPEN_STATUSES = Object.freeze([
   THREAD_STATUS.REOPENED,
 ]);
 
-/** نوع الرابط بين الخيط ومشاهده. */
-export const THREAD_SCENE = 'thread:scene';
+/**
+ * نوع الرابط بين الخيط ومشاهده — بالاصطلاح العامّ `<حاوٍ>:<عضو>`.
+ *
+ * ⚠️ **الخيط حاوٍ، وليس أعلى مستوًى نهائيًّا.** لا شيء في هذا الملفّ
+ *    يفترض أن فوقه لا شيء: العضويّة علاقةٌ بالاصطلاح نفسه، فيوم يصير
+ *    المشروع كيانًا يكفيه `project:thread` و`project:scene` بلا لمس
+ *    سطرٍ هنا ولا حقلٍ في القاعدة. راجع `link-service.membershipKind`.
+ */
+export const THREAD_SCENE = membershipKind('thread', 'scene');
 
 /**
  * العلاقات المُصنَّفة بين مشهدين (بند 28).
@@ -94,11 +101,6 @@ function toView(record) {
     status: record.status || THREAD_STATUS.ACTIVE,
     startDate: record.startDate || null,
     endDate: record.endDate || null,
-    primaryTopicId: record.primaryTopicId || null,
-    personIds: record.personIds || [],
-    placeIds: record.placeIds || [],
-    projectIds: record.projectIds || [],
-    journeyIds: record.journeyIds || [],
     color: record.color || null,
     archived: record.state === STATE.ARCHIVED,
     isOpen: OPEN_STATUSES.includes(record.status || THREAD_STATUS.ACTIVE),
@@ -134,7 +136,7 @@ export async function openThreads() {
  * ------------------------------------------------------------------ */
 
 export async function createThread({ title, description = '', status = THREAD_STATUS.ACTIVE,
-  startDate = null, primaryTopicId = null, color = null } = {}) {
+  startDate = null, color = null } = {}) {
   const clean = (title || '').trim();
   if (!clean) throw new Error('عنوان الخيط مطلوب');
 
@@ -146,11 +148,15 @@ export async function createThread({ title, description = '', status = THREAD_ST
     status,
     startDate,
     endDate: null,
-    primaryTopicId,
-    personIds: [],
-    placeIds: [],
-    projectIds: [],
-    journeyIds: [],
+    /*
+     * ⚠️ **لا حقول عضويّة هنا.** كانت الخطّة الأولى تحمل `projectIds`
+     *    و`journeyIds` و`personIds` — مصفوفاتٌ فارغة على كل خيط تنتظر
+     *    ميزاتٍ لم تُبنَ. وهي تناقض القاعدة المكتوبة أعلى هذا الملفّ:
+     *    العضويّة علاقةٌ لا حقل. أُزيلت.
+     *
+     *    والأشخاص والأماكن تُشتقّ من مشاهد الخيط (`threadSummary`) لا
+     *    تُملأ يدويًّا — رقمٌ محسوب أصدق من حقلٍ تنسى تحديثه.
+     */
     color,
   });
   return toView(created);
@@ -211,6 +217,18 @@ export async function threadScenes(threadId) {
   return found
     .filter((s) => s && s.state === STATE.ACTIVE)
     .sort((a, b) => String(a.date).localeCompare(String(b.date)));
+}
+
+/**
+ * ما يحوي **الخيط نفسه**، إن وُجد.
+ *
+ * ⚠️ اليوم تعود فارغةً دائمًا: لا كيان فوق الخيط بعد. وهي موجودة
+ *    لتُثبت أن البنية لا تفترض أنه القمّة — يوم يصير المشروع كيانًا
+ *    تعود مملوءةً بلا تعديل سطرٍ هنا. وحضورها الآن دليلٌ يُختبَر لا
+ *    وعدٌ في تعليق.
+ */
+export async function containersOfThread(threadId) {
+  return containersOf(threadId);
 }
 
 /** الخيوط التي ينتمي إليها مشهد. */

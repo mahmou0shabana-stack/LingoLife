@@ -17,8 +17,11 @@ import { STATE } from '../js/db/schema.js';
 import { createScene } from '../js/services/scene-service.js';
 import { addConversationPart } from '../js/services/content-service.js';
 import { addPerson, assignSpeaker } from '../js/services/person-service.js';
+import { link, containersOf, membershipKind } from '../js/services/link-service.js';
 import {
   THREAD_STATUS,
+  THREAD_SCENE,
+  containersOfThread,
   SCENE_RELATIONS,
   createThread,
   updateThread,
@@ -339,5 +342,93 @@ describe('الخيوط — الملخّص', () => {
   it('خيطٌ غير موجود يعيد null', async () => {
     await fresh();
     expect(await threadSummary('THR_مش_موجود')).toBe(null);
+  });
+});
+
+/* ================================================================== *
+ * البنية تتّسع لِما لم يُبنَ بعد
+ *
+ * ⚠️ المشروع **قرارٌ مؤجَّل عمدًا** لا نسيان (راجع `docs/09 §9.5`).
+ *    وهذه الاختبارات تحرس أن تأجيله لا يكلّف هدمًا: تُنشئ روابط
+ *    `project:*` بالاصطلاح العامّ وحده — بلا مستودع ولا خدمة ولا حقل —
+ *    وتطالب بأن يقرأها العامّ وألّا تتسرّب إلى الخاصّ.
+ * ================================================================== */
+
+describe('الخيوط — البنية تتّسع للمشروع بلا هدم', () => {
+  it('الخيط لا يحمل حقول عضويّة فارغة تنتظر ميزةً لم تُبنَ', async () => {
+    await fresh();
+    const thread = await createThread({ title: 'شحنة أبريل' });
+    const stored = await eventThreads.get(thread.id);
+
+    // ⚠️ `projectIds: []` على كل خيط حقلٌ ستُجبَر على ملئه أو تراه
+    //    فارغًا للأبد — وهو نقيض «العضويّة علاقةٌ لا حقل».
+    for (const field of ['projectIds', 'journeyIds', 'personIds', 'placeIds']) {
+      if (stored[field] !== undefined) throw new Error(`${field} حقلٌ تخمينيّ باقٍ`);
+    }
+  });
+
+  it('اصطلاح العضويّة يُنتج أنواعًا لكيانات لم تُبنَ بعد', () => {
+    expect(membershipKind('thread', 'scene')).toBe(THREAD_SCENE);
+    // نفس الاصطلاح، بلا سطرٍ جديد في أي خدمة.
+    expect(membershipKind('project', 'thread')).toBe('project:thread');
+    expect(membershipKind('project', 'scene')).toBe('project:scene');
+  });
+
+  /*
+   * ⚠️ **جوهر التأجيل الآمن.** نُنشئ حاويًا افتراضيًّا فوق الخيط بلا
+   *    أي كيانٍ أو خدمةٍ أو ترقية — ونطالب بأن تقرأه البنية.
+   */
+  it('الخيط ليس أعلى مستوًى: يُقرأ ما يحويه', async () => {
+    await fresh();
+    const thread = await createThread({ title: 'شحنة أبريل' });
+    expect((await containersOfThread(thread.id)).length).toBe(0);
+
+    // حاوٍ مستقبليّ — مجرّد معرّف، لا سجلّ له في أي مستودع.
+    await link('PRJ_future', thread.id, membershipKind('project', 'thread'));
+
+    const containers = await containersOfThread(thread.id);
+    expect(containers.length).toBe(1);
+    expect(containers[0].containerId).toBe('PRJ_future');
+    expect(containers[0].containerKind).toBe('project');
+    expect(containers[0].memberKind).toBe('thread');
+  });
+
+  it('وحاوٍ من نوعٍ آخر لا يتسرّب إلى خيوط المشهد', async () => {
+    await fresh();
+    const thread = await createThread({ title: 'شحنة أبريل' });
+    const s = await scene('الاجتماع', '2026-04-01');
+    await addSceneToThread(thread.id, s.id);
+    // مشروعٌ مستقبليّ يحوي نفس المشهد مباشرةً.
+    await link('PRJ_future', s.id, membershipKind('project', 'scene'));
+
+    // ⚠️ لو قرأ `threadsOfScene` كل رابطٍ وارد لظهر المشروع كخيط.
+    const threads = await threadsOfScene(s.id);
+    expect(threads.length).toBe(1);
+    expect(threads[0].id).toBe(thread.id);
+
+    // والعامّ يرى الاثنين — وهذا هو المطلوب.
+    const containers = await containersOf(s.id);
+    expect(containers.map((c) => c.containerKind).sort()).toEqual(['project', 'thread']);
+  });
+
+  it('التصفية بنوع الحاوي تعمل بلا معرفةٍ مسبقة به', async () => {
+    await fresh();
+    const s = await scene('الاجتماع', '2026-04-01');
+    await link('PRJ_a', s.id, membershipKind('project', 'scene'));
+    await link('PRJ_b', s.id, membershipKind('project', 'scene'));
+
+    expect((await containersOf(s.id, 'project')).length).toBe(2);
+    expect((await containersOf(s.id, 'thread')).length).toBe(0);
+  });
+
+  it('العلاقات المُصنَّفة بين المشاهد لا تُحسَب عضويّة', async () => {
+    await fresh();
+    const a = await scene('أ', '2026-04-01');
+    const b = await scene('ب', '2026-04-02');
+    await relateScenes(a.id, b.id, 'result_of');
+    // `scene:result_of` يطابق الصيغة شكلًا — والفرق أن الحاوي المزعوم
+    // `scene` ليس حاويًا. التصفية بالنوع هي ما يحسم.
+    expect((await containersOf(b.id, 'thread')).length).toBe(0);
+    expect((await containersOf(b.id, 'project')).length).toBe(0);
   });
 });

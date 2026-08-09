@@ -27,6 +27,52 @@ export const LINK = Object.freeze({
   MEDIA_BLOCK: 'media:block',
 });
 
+/* ------------------------------------------------------------------ *
+ * العضويّة — الاصطلاح العامّ
+ * ------------------------------------------------------------------ */
+
+/**
+ * **العضويّة علاقةٌ لا حقل، وهذا هو الاصطلاح الذي يجعلها تتوسّع.**
+ *
+ * الصيغة `"<حاوٍ>:<عضو>"` — `thread:scene` اليوم، و`project:thread` أو
+ * `project:scene` غدًا حين يصير المشروع كيانًا. لا شيء هنا يفترض أن
+ * **الخيط أعلى مستوى**؛ هو حاوٍ من الحاويات، ويمكن أن يُحتوى.
+ *
+ * وثلاثة أشياء يشتريها هذا الاصطلاح مجّانًا:
+ *
+ *  1. **لا حقل يُضاف لأحد.** لو كانت العضويّة `thread.projectIds[]`
+ *     لوجب أن يحمل كل خيطٍ حقلًا فارغًا ينتظر ميزةً لم تُبنَ — وهو
+ *     حقلٌ ستُجبَر على ملئه، أو تراه فارغًا إلى الأبد.
+ *  2. **لا جدول جديد.** `relationships` يستوعب أي زوجٍ جديد.
+ *  3. **الاتجاه محفوظ.** الحاوي `fromId` والعضو `toId` دائمًا، فسؤال
+ *     «مَن يحويني؟» و«مَن أحوي؟» كلاهما استعلامُ فهرس.
+ *
+ * ⚠️ راجع `docs/09 §9.5` — المشروع **قرارٌ مؤجَّل عمدًا** لا نسيان.
+ */
+export function membershipKind(containerKind, memberKind) {
+  return `${containerKind}:${memberKind}`;
+}
+
+/**
+ * كل ما يحوي هذا العنصر من نوعٍ ما — أو من كل الأنواع.
+ *
+ * الحاوي هو `fromId` دائمًا، فسؤال «مَن يحويني؟» يقرأ الروابط الواردة.
+ *
+ * @param {string} memberId
+ * @param {string} [containerKind] مثل `'thread'`. اتركه فارغًا لكل حاوٍ.
+ * @returns {Promise<{containerId: string, containerKind: string, memberKind: string}[]>}
+ */
+export async function containersOf(memberId, containerKind = null) {
+  const rows = await relationships.byIndex('toId', memberId);
+  return rows
+    .filter((row) => row.state === STATE.ACTIVE && String(row.kind || '').includes(':'))
+    .map((row) => {
+      const [container, member] = String(row.kind).split(':');
+      return { containerId: row.fromId, containerKind: container, memberKind: member };
+    })
+    .filter((row) => !containerKind || row.containerKind === containerKind);
+}
+
 export const LINK_LABEL = Object.freeze({
   'audio:script': 'ينطق السكريبت',
   'audio:image': 'صوت الصورة دي',
