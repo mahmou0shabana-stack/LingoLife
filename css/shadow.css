@@ -1713,3 +1713,191 @@ body.shadow-open { overflow: hidden; }
 }
 
 .sh-scratch-save button:hover { border-color: var(--sh-accent-2); }
+
+/* ══════════════════════════════════════════════════════════════
+   عالمان لا لونان — بندان 80 و109
+
+   كان وجها الكتاب بنفسجيَّين داكنَين معًا: كتابٌ بلون واحد لا
+   كتابٌ بصفحتين. والمواصفة تريد فرقًا يُحسّ لا يُلاحَظ:
+
+     • **اليسرى: العالم الذي عشته.** ورقٌ دافئ فاتح وحبرٌ داكن —
+       صورةٌ التُقطت، وسطورٌ قيلت، وذكرى وقعت في نهارٍ ما.
+     • **اليمنى: أن تجعله لك.** سطح الصفحة نفسه نيليٌّ عميق بنجومٍ
+       خافتة — لا بطاقة داكنة داخل صفحة، بل **الصفحة هي الفضاء**.
+
+   ⚠️ **عرضٌ محض (بند 84).** لا يمسّ نصًّا ولا تقسيمًا ولا جلسة ولا
+      دليل ممارسة. حذفُ هذا القسم كلّه يُرجع الشكل القديم ولا يغيّر
+      سلوكًا واحدًا.
+
+   والتنفيذ **بإعادة تعريف التوكِنات على `.sh-left` وحدها**، لا
+   بإعادة كتابة مكوّناتها. كل ما في الصفحة يقرأ `--sh-ink` و
+   `--sh-line` و`--sh-mute` أصلًا، فقلبُ القيم يقلب الصفحة كلها —
+   وأي مكوّن يُضاف غدًا يرث العالم الصحيح بلا سطرٍ إضافي.
+   ══════════════════════════════════════════════════════════════ */
+
+.sh-left {
+  /* ورقٌ لا أبيض: الأبيض النقيّ على شاشةٍ في غرفةٍ مظلمة يُتعب
+     العين، والورق الحقيقي مائلٌ للدفء دائمًا. */
+  --sh-page: #F6EEE0;
+  --sh-page-2: #FBF6EC;
+  --sh-ink: #2C2318;
+  --sh-mute: #7B6A52;
+  --sh-faint: #A39074;
+  --sh-line: rgba(122, 94, 58, .20);
+  --sh-line-soft: rgba(122, 94, 58, .10);
+  /* بديل البنفسجي في هذا العالم: مِحبرةٌ بنّية دافئة. */
+  --sh-accent: #A5622B;
+  --sh-accent-2: #8B6534;
+  --sh-glow: rgba(165, 98, 43, .30);
+
+  color: var(--sh-ink);
+  background:
+    /* حبيبات ورق خفيفة — تُحسّ ولا تُرى. */
+    radial-gradient(1px 1px at 20% 30%, rgba(120, 92, 58, .05), transparent),
+    radial-gradient(1px 1px at 70% 60%, rgba(120, 92, 58, .04), transparent),
+    linear-gradient(170deg, var(--sh-page-2), var(--sh-page));
+}
+
+/*
+ * الخلفيات المكتوبة بـ`rgba(255,255,255,…)` صُمِّمت لسطحٍ داكن:
+ * أبيضُ شفّاف فوق ورقٍ فاتح يختفي. هنا نقلبها إلى أسودَ شفّاف
+ * بنفس الخفّة، فيبقى التمييز محسوسًا.
+ */
+.sh-left .sh-source,
+.sh-left .sh-cover-box,
+.sh-left .sh-line,
+.sh-left .sh-fontpanel,
+.sh-left .sh-fontchip,
+.sh-left .sh-pill,
+.sh-left .sh-scratch-save button,
+.sh-left .sh-line-spk {
+  background: rgba(74, 55, 30, .045);
+}
+
+.sh-left .sh-line:hover,
+.sh-left .sh-fontchip:hover { background: rgba(74, 55, 30, .075); }
+
+.sh-left .sh-line.current {
+  /* إبرازٌ دافئ لا كاريوكي: تعرف أين أنت بلا أن يُصرَخ في وجهك. */
+  background: rgba(165, 98, 43, .13);
+  border-color: rgba(165, 98, 43, .38);
+}
+
+.sh-left .sh-line.practiced { background: rgba(74, 55, 30, .07); }
+
+.sh-left .sh-fontchip.on {
+  background: rgba(165, 98, 43, .17);
+  box-shadow: 0 0 0 1px var(--sh-accent) inset;
+}
+
+.sh-left .sh-cover-tools {
+  background: rgba(251, 246, 236, .88);
+}
+
+.sh-left .sh-cover-tools button:hover { background: rgba(74, 55, 30, .09); }
+.sh-left .sh-cover-tools button.on { background: var(--sh-accent); color: #FFF9F0; }
+
+.sh-left .sh-cover-grip {
+  background: linear-gradient(180deg, transparent, rgba(165, 98, 43, .16));
+}
+
+.sh-left .sh-select-go { color: #FFF9F0; }
+
+/* شريط تمرير الورقة بلون الحبر لا بلون النجوم. */
+.sh-left { scrollbar-color: rgba(122, 94, 58, .35) transparent; }
+.sh-left::-webkit-scrollbar-thumb { background: rgba(122, 94, 58, .35); }
+
+/* ─── اليمنى: الصفحة **هي** الفضاء ─── */
+
+.sh-right {
+  position: relative;
+  /* أعمق من خلفية الكتاب لا مجرّد أغمق: تدرّج عمقٍ من الكعب إلى
+     الحافّة، فيبدو الفضاء ذاهبًا إلى بعيد. */
+  background:
+    radial-gradient(130% 100% at 0% 0%, #1A1338 0%, #0D0A1E 55%, #070512 100%);
+}
+
+/* نجوم الصفحة اليمنى وحدها — أكثف من نجوم الخلفية العامّة، فهي
+   هنا سطحٌ لا خلفيّة بعيدة. */
+.sh-right::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: .75;
+  background-image:
+    radial-gradient(1.5px 1.5px at 24% 12%, rgba(226, 218, 255, .85), transparent),
+    radial-gradient(1.1px 1.1px at 62% 8%, rgba(167, 139, 250, .7), transparent),
+    radial-gradient(1px 1px at 84% 26%, rgba(226, 218, 255, .55), transparent),
+    radial-gradient(1.3px 1.3px at 14% 44%, rgba(167, 139, 250, .6), transparent),
+    radial-gradient(1px 1px at 48% 58%, rgba(226, 218, 255, .45), transparent),
+    radial-gradient(1.4px 1.4px at 78% 72%, rgba(190, 170, 255, .55), transparent),
+    radial-gradient(1px 1px at 32% 88%, rgba(226, 218, 255, .4), transparent);
+}
+
+/* المحتوى فوق النجوم لا تحتها. */
+.sh-right > * { position: relative; z-index: 1; }
+
+/* ─── الكعب: حدٌّ بين عالمين ─── */
+
+/*
+ * الطيّة تُصنَع بظلٍّ داخليّ على حافّتَي الصفحتين لا بصورة: ورقةٌ
+ * تنحني تُظلم عند الكعب وتفتح عند الحافّة الخارجية. والانحناء
+ * **مقيَّد** — كتابٌ مفتوح على منضدة لا صفحةٌ تُقلَب.
+ */
+.sh-spine {
+  background:
+    linear-gradient(90deg,
+      rgba(0, 0, 0, .28) 0%,
+      rgba(0, 0, 0, .10) 35%,
+      rgba(139, 92, 246, .16) 50%,
+      rgba(0, 0, 0, .10) 65%,
+      rgba(0, 0, 0, .28) 100%);
+}
+
+.sh-left { box-shadow: inset -14px 0 22px -18px rgba(56, 38, 12, .85); }
+.sh-right { box-shadow: inset 14px 0 24px -18px rgba(0, 0, 0, .9); }
+
+/* على الموبايل الصفحتان فوق بعضهما، فالطيّة أفقيّة لا رأسيّة. */
+@media (max-width: 699px) {
+  .sh-spine {
+    background:
+      linear-gradient(180deg,
+        rgba(0, 0, 0, .28) 0%,
+        rgba(139, 92, 246, .16) 50%,
+        rgba(0, 0, 0, .28) 100%);
+  }
+  .sh-left  { box-shadow: inset 0 -14px 22px -18px rgba(56, 38, 12, .85); }
+  .sh-right { box-shadow: inset 0 14px 24px -18px rgba(0, 0, 0, .9); }
+}
+
+/*
+ * الكتاب نفسه صار مجرّد إطار: الصفحتان تملآنه بعالميهما، فخلفيّته
+ * لا تُرى إلا عند الحوافّ. نُبقيها داكنة فتصير حافّة الغلاف.
+ */
+.sh-book { background: var(--sh-bg-2); }
+
+@media (prefers-reduced-motion: reduce) {
+  /* لا حركة هنا أصلًا — النجوم ثابتة والتدرّجات ساكنة. مكتوبٌ
+     صراحةً حتى لا يُضاف وميضٌ لاحقًا بلا حارس. */
+  .sh-right::before { animation: none; }
+}
+
+/*
+ * الجملة الجارية: **في** الفضاء لا على بطاقةٍ فوقه.
+ *
+ * البند 80 يقول «الصفحة هي الفضاء» — وبطاقةٌ ذات حدٍّ صريح تنقضه:
+ * تصير الجملة ملصقةً على سماء بدل أن تكون فيها. فالحدّ يخفت،
+ * والخلفية تصير هالةً تنبع من المركز وتتلاشى، فتُقرأ الجملة كأنها
+ * مضيئة بذاتها.
+ */
+.sh-right .sh-current-card {
+  border-color: transparent;
+  background: radial-gradient(90% 120% at 50% 45%, rgba(139, 92, 246, .16), transparent 72%);
+}
+
+/* عند النطق يظهر الحدّ فتعرف أنها حيّة — إشارةٌ لا زينة. */
+.sh-right .sh-current-card.speaking {
+  border-color: rgba(167, 139, 250, .5);
+  box-shadow: 0 0 34px -6px var(--sh-glow);
+}
