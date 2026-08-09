@@ -30,7 +30,7 @@
 import { eventTypes, scenes, settings } from '../db/repositories.js';
 import { STATE } from '../db/schema.js';
 import { BUILT_IN_EVENT_TYPES } from '../db/seeds.js';
-import { normalize } from '../utils/normalization.js';
+import { normalize, editDistance } from '../utils/normalization.js';
 import { newId, PREFIX } from '../utils/ids.js';
 
 /**
@@ -368,27 +368,6 @@ export async function renameImpact(id, nextLabel) {
 /* ------------------------------------------------------------------ *
  * التشابه — اقتراح لا دمج (بند 11)
  * ------------------------------------------------------------------ */
-
-/** مسافة تحرير بحدٍّ أعلى: نتوقّف حالما نتجاوزه بدل إكمال المصفوفة. */
-function editDistance(a, b, limit = 3) {
-  if (Math.abs(a.length - b.length) > limit) return limit + 1;
-  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
-  for (let i = 1; i <= a.length; i++) {
-    const row = [i];
-    let best = i;
-    for (let j = 1; j <= b.length; j++) {
-      row[j] = Math.min(
-        prev[j] + 1,
-        row[j - 1] + 1,
-        prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
-      );
-      best = Math.min(best, row[j]);
-    }
-    if (best > limit) return limit + 1;
-    prev = row;
-  }
-  return prev[b.length];
-}
 
 /**
  * أنواعٌ تبدو واحدًا مكرّرًا.
