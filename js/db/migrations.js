@@ -12,7 +12,21 @@
  * هذا الملف هو الضمانة الفعلية بأن تحديث الكود لا يمسّ بياناتك.
  */
 
-import { STORES } from './schema.js';
+import { STORES, STATE } from './schema.js';
+import { BUILT_IN_EVENT_TYPES } from './seeds.js';
+
+/**
+ * تطبيعٌ مبسَّط للترقيات وحدها.
+ *
+ * ⚠️ **لا تستورد `utils/normalization.js` هنا.** الترقية المنشورة لا
+ *    يتغيّر سلوكها أبدًا (§3.6)، وذلك الملفّ يتحسّن مع الوقت — فلو
+ *    استوردناه لتبدّل ما كتبته ترقيةُ الأمس كلما حسّنّا التطبيع اليوم.
+ *    والقيمة المكتوبة هنا **مؤقّتة على أي حال**: الخدمة تعيد حسابها
+ *    بالتطبيع الكامل عند أوّل كتابة على السجل.
+ */
+function simpleNormalize(text) {
+  return (text || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
 
 /**
  * ينشئ store مع فهارسه من تعريف schema.
@@ -141,6 +155,80 @@ export const MIGRATIONS = [
       // store جديد بالكامل: إضافة محضة لا تمسّ سجلًا قائمًا، ولا
       // يحتاج ردمًا — فارغٌ يعني «ما جُلب شيء بعد»، وهو الصحيح.
       createStore(db, 'nativeAudio');
+    },
+  },
+
+  {
+    v: 7,
+    note: 'الأنواع تصير كيانات في القاعدة — بلا لمس مشهدٍ واحد',
+    /*
+     * ⚠️ أخطر ترقية في المشروع: كل الترقيات قبلها **تضيف بجانب**
+     *    بياناتك، وهذه أوّل واحدة تنقل معنًى قائمًا من مكان إلى مكان.
+     *
+     * والحيلة التي تجعلها آمنة: **البذر بالمعرّفات الحالية نفسها**
+     *    (`meeting`, `inspection`, …). `scene.type` يحمل هذه
+     *    المعرّفات أصلًا، فبمجرّد وجودها في `eventTypes` يصير كل
+     *    مشهدٍ موصولًا بنوعه — بلا كتابة بايتٍ واحد في `scenes`.
+     *
+     * وأربع شبكات أمان:
+     *  1. `settings['scene.types']` **لا يُحذف** (بند 107). لو انكشف
+     *     عطبٌ بعد أسبوع، تخصيصاتك ما زالت حيث كانت.
+     *  2. `scene.type` **لا يُحذف** ولا يُغيَّر — يُوسَم مهجورًا فقط.
+     *  3. `scene.eventTypeId` يُملأ منه، والحقلان يُكتبان معًا دورةً
+     *     كاملة (§3.6).
+     *  4. البذر بـ`put` لا `add`: ترقيةٌ أُعيد تشغيلها لا تنفجر.
+     */
+    up(db, tx) {
+      createStore(db, 'eventTypes');
+      const types = tx.objectStore('eventTypes');
+      const now = Date.now();
+
+      const record = (type) => ({
+        ...type,
+        // التطبيع هنا نسخةٌ **مبسَّطة عمدًا** من `utils/normalization.js`:
+        // الترقية لا تستورد من طبقةٍ تتغيّر (راجع ترويسة `seeds.js`).
+        // والخدمة تعيد حسابه بالتطبيع الكامل عند أوّل كتابة.
+        normalizedName: simpleNormalize(type.label),
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      for (const seed of BUILT_IN_EVENT_TYPES) types.put(record(seed));
+
+      // تخصيصاتك تُكتب فوق المبذور بنفس المعرّف، والجديد يُضاف.
+      const stored = tx.objectStore('settings').get('scene.types');
+      stored.onsuccess = () => {
+        const custom = stored.result?.value;
+        if (!Array.isArray(custom)) return;
+
+        for (const type of custom) {
+          if (!type?.id) continue;
+          const existing = types.get(type.id);
+          existing.onsuccess = () => {
+            const base = existing.result || {
+              parentId: null, aliases: [], icon: null, color: null,
+              builtIn: false, order: 999, createdAt: now,
+            };
+            const label = type.label ?? base.label;
+            types.put({
+              ...base,
+              ...type,
+              label,
+              normalizedName: simpleNormalize(label),
+              state: type.archived ? STATE.ARCHIVED : base.state || STATE.ACTIVE,
+              updatedAt: now,
+            });
+          };
+        }
+      };
+
+      // الحقل الجديد على المشاهد. `type` يبقى كما هو — هذه إضافة لا نقل.
+      return backfill(tx, 'scenes', (scene) => {
+        if (scene.eventTypeId === undefined) {
+          scene.eventTypeId = scene.type ?? null;
+          return scene;
+        }
+      });
     },
   },
 

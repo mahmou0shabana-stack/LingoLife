@@ -183,6 +183,24 @@ export const STORES = {
   /* ---------------------------------------------------------
      التنظيم
      --------------------------------------------------------- */
+  /**
+   * أنواع الأحداث — كيانٌ في القاعدة لا كتلة JSON في `settings`.
+   *
+   * البند 5 يريد معرّفًا ثابتًا وفهارس، والبنود 9–11 تريد إعادة تسمية
+   * عامّة وكشف تشابه — وكلاهما استعلامٌ لا قراءةَ كتلة.
+   *
+   * `normalizedName` مفهرس لأن كشف التعارض (بند 10) يسأل «هل هذا الاسم
+   * موجود؟» عند كل ضغطة مفتاح، و`parentId` لأن الشجرة تُبنى بالأب.
+   */
+  eventTypes: {
+    indexes: [
+      ['parentId', 'parentId'],
+      ['normalizedName', 'normalizedName'],
+      ['state', 'state'],
+      ['order', 'order'],
+    ],
+  },
+
   people: { indexes: [['normalizedName', 'normalizedName'], ['state', 'state']] },
   places: { indexes: [['normalizedName', 'normalizedName'], ['state', 'state']] },
   journeys: { indexes: [['normalizedName', 'normalizedName'], ['state', 'state']] },

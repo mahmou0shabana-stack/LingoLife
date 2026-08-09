@@ -1,57 +1,80 @@
 /**
- * LingoLife — أنواع المشاهد
+ * LingoLife — أنواع الأحداث
  *
- * كانت قائمة ثابتة في `config.js`. والحياة لا تُستوعَب في قائمة ثابتة:
- * يظهر لك موقف لا يشبه شيئًا مما توقّعناه، فتضطرّ لحشره في «أخرى»
- * وتفقد معناه.
+ * كانت قائمة ثابتة في `config.js`، ثم كتلة JSON في `settings`، والآن
+ * **كيانٌ في القاعدة**. والحياة لا تُستوعَب في قائمة ثابتة: يظهر لك
+ * موقف لا يشبه شيئًا مما توقّعناه، فتضطرّ لحشره في «أخرى» وتفقد معناه.
  *
- * الآن الأنواع **بياناتك** — تضيف وتعدّل وتفرّع. «فحص» يتفرّع إلى
- * «فحص داخلي» و«فحص في الموقع»، وكلاهما يظلّ فحصًا.
+ * ───────────────────────────────────────────────────────────────
+ * لماذا انتقلت من `settings` إلى مستودعٍ خاصّ؟
+ *
+ * الكتلة تُقرأ كاملةً أو لا تُقرأ. وما يلزم الآن استعلامٌ لا قراءة:
+ * «مَن يحمل هذا الاسم المطبَّع؟» عند كل ضغطة مفتاح، و«كم ذكرى تستعمل
+ * هذا النوع؟» قبل أي تغيير عام، و«ما فروع هذا النوع؟» في كل رسم.
+ * وكلّها فوق كتلةٍ تعني مسحًا كاملًا في الذاكرة.
+ *
+ * والأهمّ: **الخيوط والمشاريع والأشخاص كلها ستحتاج نفس النمط.** بناء
+ * الأنواع ككيان أوّلًا يعني أن ما بعدها يُبنى مرّةً لا مرّتين.
+ * ───────────────────────────────────────────────────────────────
  *
  * قواعد حاكمة:
  *  · **لا يُحذف نوع مستعمَل.** حذفه يترك مشاهد بلا نوع. يُؤرشَف بدلًا
  *    من ذلك: يختفي من قوائم الاختيار وتبقى مشاهده سليمة.
- *  · **لا اسمان متطابقان.** التعارض يُكشف قبل الحفظ لا بعده.
- *  · **الأنواع المدمجة تُعدَّل ولا تُحذف** — تعديلها يكتب فوقها نسخةً
- *    خاصّةً بك، والأصل يبقى مرجعًا.
+ *  · **لا اسمان متطابقان** في نفس المستوى. التعارض يُكشف قبل الحفظ.
+ *  · **الأنواع المدمجة تُعدَّل ولا تُحذف.**
+ *  · **إعادة التسمية عامّة بطبيعتها** لأن المعرّف هو الهويّة — والذكرى
+ *    تحمل المعرّف لا الاسم. لكن العموم لا يكون صامتًا: تُعرَض التبعة
+ *    قبل الفعل (بند 10).
  */
 
-import { settings } from '../db/repositories.js';
-import { scenes } from '../db/repositories.js';
+import { eventTypes, scenes, settings } from '../db/repositories.js';
+import { STATE } from '../db/schema.js';
+import { BUILT_IN_EVENT_TYPES } from '../db/seeds.js';
 import { normalize } from '../utils/normalization.js';
 import { newId, PREFIX } from '../utils/ids.js';
 
-const KEY = 'scene.types';
+/**
+ * ⚠️ الكتلة القديمة. تُقرأ عند الحاجة ولا تُكتب ولا تُحذف — شبكة
+ *    أمان للرجوع (بند 107). راجع ترقية v7.
+ */
+const LEGACY_KEY = 'scene.types';
+
+/** المدمجة كما كانت تُصدَّر — لا يزال الاختبار والواجهة يقرآنها. */
+export const BUILT_IN = Object.freeze(
+  BUILT_IN_EVENT_TYPES.map((t) => Object.freeze({
+    id: t.id,
+    label: t.label,
+    parentId: t.parentId,
+    builtIn: true,
+    archived: t.state === STATE.ARCHIVED,
+  }))
+);
 
 /**
- * الأنواع المدمجة.
+ * شكل الصفّ كما تراه الشاشات.
  *
- * أسماء من واقع الحياة لا تصنيفات مجرّدة: «اجتماع شغل» أوضح من
- * «عمل»، لأن الذكرى حدث لا فئة.
+ * الشاشات تقرأ `archived` منذ أوّل يوم، والمستودع يخزّن `state`.
+ * الترجمة هنا في مكانٍ واحد بدل أن تتكرّر في كل شاشة.
  */
-export const BUILT_IN = Object.freeze([
-  { id: 'meeting', label: 'اجتماع شغل', parentId: null, builtIn: true },
-  { id: 'inspection', label: 'فحص', parentId: null, builtIn: true },
-  { id: 'phone', label: 'مكالمة', parentId: null, builtIn: true },
-  { id: 'daily', label: 'موقف يومي', parentId: null, builtIn: true },
-  { id: 'shopping', label: 'شراء وطلب', parentId: null, builtIn: true },
-  { id: 'official', label: 'مصلحة حكومية', parentId: null, builtIn: true },
-  { id: 'doctor', label: 'دكتور وصحّة', parentId: null, builtIn: true },
-  { id: 'friends', label: 'قعدة أصحاب', parentId: null, builtIn: true },
-  { id: 'travel', label: 'سفر ومواصلات', parentId: null, builtIn: true },
-  { id: 'study', label: 'دراسة', parentId: null, builtIn: true },
+function toView(record) {
+  return {
+    id: record.id,
+    label: record.label,
+    parentId: record.parentId ?? null,
+    aliases: record.aliases || [],
+    order: record.order ?? 0,
+    icon: record.icon ?? null,
+    color: record.color ?? null,
+    builtIn: Boolean(record.builtIn),
+    archived: record.state === STATE.ARCHIVED,
+  };
+}
 
-  // أنواع النسخة القديمة. مؤرشفة: لا تظهر في قوائم الاختيار، لكن
-  // المشاهد القديمة المحفوظة بها تبقى تعرض اسمًا مفهومًا بدل معرّف خام.
-  { id: 'work', label: 'شغل', parentId: null, builtIn: true, archived: true },
-  { id: 'call', label: 'مكالمة (قديم)', parentId: null, builtIn: true, archived: true },
-  { id: 'personal', label: 'شخصي', parentId: null, builtIn: true, archived: true },
-  { id: 'other', label: 'أخرى', parentId: null, builtIn: true, archived: true },
-]);
-
-/** يقرأ ما أضافه المستخدم أو عدّله. */
-async function stored() {
-  return (await settings.get(KEY, null)) || null;
+/** ترتيبٌ مستقرّ: `order` ثم الاسم — فلا تقفز القائمة بين رسمتين. */
+function inOrder(rows) {
+  return rows.sort(
+    (a, b) => (a.order ?? 0) - (b.order ?? 0) || String(a.label).localeCompare(String(b.label), 'ar')
+  );
 }
 
 /**
@@ -59,14 +82,10 @@ async function stored() {
  * المؤرشفة تُستبعَد إلا بطلب صريح.
  */
 export async function listTypes({ includeArchived = false } = {}) {
-  // تعديلاتك تكتب فوق المدمج بنفس المعرّف؛ الباقي يُضاف.
-  const byId = new Map(BUILT_IN.map((t) => [t.id, { ...t }]));
-  for (const type of (await stored()) || []) {
-    byId.set(type.id, { ...byId.get(type.id), ...type });
-  }
-
-  const all = [...byId.values()];
-  return includeArchived ? all : all.filter((t) => !t.archived);
+  const rows = await eventTypes.getAll();
+  const visible = includeArchived ? rows : rows.filter((r) => r.state !== STATE.ARCHIVED);
+  // المحذوف لا يظهر أبدًا — لا بطلبٍ صريح ولا بدونه. له السلة.
+  return inOrder(visible.filter((r) => r.state !== STATE.TRASHED)).map(toView);
 }
 
 /** يبني شجرة: الجذور ومعها فروعها. */
@@ -79,9 +98,11 @@ export async function typeTree(options = {}) {
   }));
 }
 
+/* ------------------------------------------------------------------ *
+ * الكاش المتزامن
+ * ------------------------------------------------------------------ */
+
 /**
- * كاش متزامن للتسميات.
- *
  * شاشات العرض تُبنى بقوالب متزامنة؛ جعلها كلها `async` لأجل قراءة
  * اسم نوع تكلفة غير مبرَّرة. نُحمِّل القائمة مرة عند الإقلاع وبعد كل
  * تعديل، وتقرأ الشاشات من الكاش فورًا.
@@ -105,18 +126,25 @@ export function typeLabel(id) {
   return parent ? `${parent.label} › ${type.label}` : type.label;
 }
 
-/** يحفظ القائمة كاملةً. */
-async function persist(list) {
-  await settings.set(KEY, list);
+/* ------------------------------------------------------------------ *
+ * الكتابة
+ * ------------------------------------------------------------------ */
+
+/** كتابةٌ واحدة: تُحدّث السجل، تُعيد حساب التطبيع، وتُنعش الكاش. */
+async function write(id, fields) {
+  const patch = { ...fields, updatedAt: Date.now() };
+  if (fields.label !== undefined) patch.normalizedName = normalize(fields.label);
+  const saved = await eventTypes.update(id, patch);
   await primeTypes();
-  return list;
+  return toView(saved);
 }
 
 /**
  * يكشف تعارض الاسم قبل الحفظ.
  *
  * المقارنة على النصّ المُطبَّع، فـ«فحص داخلى» و«فحص داخلي» يُعتبران
- * واحدًا — وهما كذلك فعلًا.
+ * واحدًا — وهما كذلك فعلًا. والأسماء البديلة تُحسب: لو سمّيت نوعًا
+ * باسمٍ هو `alias` لنوعٍ آخر فأنت تعني ذلك النوع.
  *
  * @returns {{ conflict: boolean, existing?: object }}
  */
@@ -133,7 +161,7 @@ export async function checkName(label, { parentId = null, excludeId = null } = {
       // التعارض يهمّ داخل نفس المستوى: «داخلي» تحت «فحص» لا تعارض
       // «داخلي» تحت «مكالمة» — هما شيئان مختلفان فعلًا.
       (t.parentId || null) === (parentId || null) &&
-      normalize(t.label) === target
+      (normalize(t.label) === target || t.aliases.some((a) => normalize(a) === target))
   );
 
   return { conflict: Boolean(existing), existing: existing || null };
@@ -156,16 +184,30 @@ export async function addType({ label, parentId = null }) {
     );
   }
 
-  const list = (await stored()) || [];
-  const type = { id: newId(PREFIX.TAG), label: clean, parentId, builtIn: false, archived: false };
-  await persist([...list, type]);
-  return type;
+  const siblings = (await listTypes({ includeArchived: true })).filter(
+    (t) => (t.parentId || null) === (parentId || null)
+  );
+
+  const created = await eventTypes.create({
+    id: newId(PREFIX.EVENT_TYPE),
+    label: clean,
+    normalizedName: normalize(clean),
+    parentId,
+    aliases: [],
+    // في آخر إخوته: الجديد يُضاف حيث تتوقّعه، لا في وسط القائمة.
+    order: siblings.reduce((max, t) => Math.max(max, t.order ?? 0), -1) + 1,
+    icon: null,
+    color: null,
+    builtIn: false,
+  });
+
+  await primeTypes();
+  return toView(created);
 }
 
-/** يعدّل نوعًا — المدمج يُكتب فوقه بنسخة خاصّة بك. */
+/** يعدّل نوعًا — المدمج يُعدَّل كغيره، ولا يُحذف. */
 export async function updateType(id, changes) {
-  const all = await listTypes({ includeArchived: true });
-  const current = all.find((t) => t.id === id);
+  const current = await eventTypes.get(id);
   if (!current) throw new Error('النوع ده مش موجود');
 
   if (changes.label !== undefined) {
@@ -176,13 +218,91 @@ export async function updateType(id, changes) {
     if (conflict) throw new Error(`«${existing.label}» موجود بالفعل.`);
   }
 
-  const list = (await stored()) || [];
-  const index = list.findIndex((t) => t.id === id);
-  const merged = { ...current, ...changes, id };
+  const patch = { ...changes };
+  // `archived` لغة الشاشات و`state` لغة القاعدة — الترجمة هنا لا هناك.
+  if (changes.archived !== undefined) {
+    patch.state = changes.archived ? STATE.ARCHIVED : STATE.ACTIVE;
+    delete patch.archived;
+  }
+  if (changes.parentId !== undefined && !isSafeParent(id, changes.parentId)) {
+    throw new Error('مينفعش نوع يبقى تحت نفسه');
+  }
 
-  await persist(index >= 0 ? list.map((t, i) => (i === index ? merged : t)) : [...list, merged]);
-  return merged;
+  return write(id, patch);
 }
+
+/** يمنع أن يصير النوع أبًا لنفسه — حلقةٌ تُجمِّد بناء الشجرة. */
+function isSafeParent(id, parentId) {
+  return !parentId || parentId !== id;
+}
+
+/**
+ * ينقل نوعًا تحت أبٍ آخر، أو يجعله جذرًا (`parentId = null`).
+ *
+ * ⚠️ لا ننقل نوعًا تحت أحد فروعه: الشجرة تصير حلقةً و`typeTree`
+ *    تدور بلا نهاية. الفحص هنا لا في الواجهة.
+ */
+export async function moveType(id, parentId = null) {
+  if (parentId) {
+    const chain = await ancestorsOf(parentId);
+    if (parentId === id || chain.includes(id)) {
+      throw new Error('مينفعش تحطّ النوع تحت واحد من فروعه');
+    }
+  }
+  return updateType(id, { parentId: parentId || null });
+}
+
+/** سلسلة الآباء صعودًا — للكشف عن الحلقات. */
+async function ancestorsOf(id) {
+  const all = await listTypes({ includeArchived: true });
+  const byId = new Map(all.map((t) => [t.id, t]));
+  const chain = [];
+  let cursor = byId.get(id);
+  // حدٌّ أعلى يمنع الدوران الأبدي لو وُجدت حلقةٌ في بياناتٍ قديمة.
+  while (cursor?.parentId && chain.length < all.length) {
+    chain.push(cursor.parentId);
+    cursor = byId.get(cursor.parentId);
+  }
+  return chain;
+}
+
+/** يعيد ترتيب إخوةٍ بالمعرّفات، بالترتيب المُعطى. */
+export async function reorderTypes(ids) {
+  await Promise.all(ids.map((id, index) => eventTypes.update(id, { order: index })));
+  await primeTypes();
+  return ids.length;
+}
+
+/** يضيف اسمًا بديلًا — «الكشف الطبّي» و«دكتور وصحّة» شيءٌ واحد عندك. */
+export async function addAlias(id, alias) {
+  const clean = (alias || '').trim();
+  if (!clean) throw new Error('الاسم البديل مطلوب');
+
+  const current = await eventTypes.get(id);
+  if (!current) throw new Error('النوع ده مش موجود');
+
+  const { conflict, existing } = await checkName(clean, {
+    parentId: current.parentId,
+    excludeId: id,
+  });
+  if (conflict) throw new Error(`«${existing.label}» موجود بالفعل — مينفعش يبقى اسمًا بديلًا.`);
+
+  const aliases = current.aliases || [];
+  if (aliases.some((a) => normalize(a) === normalize(clean))) return toView(current);
+  return write(id, { aliases: [...aliases, clean] });
+}
+
+export async function removeAlias(id, alias) {
+  const current = await eventTypes.get(id);
+  if (!current) throw new Error('النوع ده مش موجود');
+  return write(id, {
+    aliases: (current.aliases || []).filter((a) => normalize(a) !== normalize(alias)),
+  });
+}
+
+/* ------------------------------------------------------------------ *
+ * الاستعمال والتبعة
+ * ------------------------------------------------------------------ */
 
 /** كم مشهدًا يستعمل هذا النوع (وفروعه)؟ */
 export async function usageCount(id) {
@@ -203,7 +323,10 @@ export async function usageCounts() {
 
   const direct = new Map();
   for (const scene of rows) {
-    if (scene.type) direct.set(scene.type, (direct.get(scene.type) || 0) + 1);
+    // ⚠️ `type` هو المصدر ما دام `eventTypeId` يُكتب معه (دورة §3.6).
+    //    القراءة منه تُبقي المشاهد التي لم تُلمس منذ الترقية محسوبة.
+    const key = scene.type ?? scene.eventTypeId;
+    if (key) direct.set(key, (direct.get(key) || 0) + 1);
   }
 
   const counts = new Map();
@@ -217,6 +340,109 @@ export async function usageCounts() {
   }
   return counts;
 }
+
+/**
+ * ماذا يترتّب على تغيير هذا النوع؟ (بند 10)
+ *
+ * إعادة التسمية عامّة بطبيعتها هنا — الذكرى تحمل المعرّف لا الاسم —
+ * لكن العموم لا يكون صامتًا. الواجهة تسأل هذا قبل الفعل فتقول:
+ * «مستعمَل في 27 ذكرى» ← [حدّث في الكل] · [أنشئ نوعًا جديدًا] · [إلغاء].
+ */
+export async function renameImpact(id, nextLabel) {
+  const type = (await listTypes({ includeArchived: true })).find((t) => t.id === id);
+  if (!type) throw new Error('النوع ده مش موجود');
+
+  const counts = await usageCounts();
+  const children = (await listTypes({ includeArchived: true })).filter((t) => t.parentId === id);
+
+  return {
+    id,
+    from: type.label,
+    to: (nextLabel || '').trim(),
+    scenes: counts.get(id) || 0,
+    children: children.length,
+    builtIn: type.builtIn,
+  };
+}
+
+/* ------------------------------------------------------------------ *
+ * التشابه — اقتراح لا دمج (بند 11)
+ * ------------------------------------------------------------------ */
+
+/** مسافة تحرير بحدٍّ أعلى: نتوقّف حالما نتجاوزه بدل إكمال المصفوفة. */
+function editDistance(a, b, limit = 3) {
+  if (Math.abs(a.length - b.length) > limit) return limit + 1;
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i];
+    let best = i;
+    for (let j = 1; j <= b.length; j++) {
+      row[j] = Math.min(
+        prev[j] + 1,
+        row[j - 1] + 1,
+        prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+      );
+      best = Math.min(best, row[j]);
+    }
+    if (best > limit) return limit + 1;
+    prev = row;
+  }
+  return prev[b.length];
+}
+
+/**
+ * أنواعٌ تبدو واحدًا مكرّرًا.
+ *
+ * ⚠️ **اقتراحٌ لا دمج تلقائي.** «فحص داخلي» و«فحص خارجي» متشابهان
+ *    نصًّا ومختلفان تمامًا معنًى — والآلة لا تعرف الفرق، وأنت تعرفه.
+ *    فنعرض ولا نفعل.
+ *
+ * @returns {Promise<{a: object, b: object, distance: number, reason: string}[]>}
+ */
+export async function similarTypes({ maxDistance = 2 } = {}) {
+  const all = await listTypes({ includeArchived: true });
+  const pairs = [];
+
+  for (let i = 0; i < all.length; i++) {
+    for (let j = i + 1; j < all.length; j++) {
+      const a = all[i];
+      const b = all[j];
+      // مستويان مختلفان ليسا تكرارًا: «داخلي» تحت «فحص» غير «داخلي»
+      // تحت «مكالمة» — وهو نفس منطق كشف التعارض.
+      if ((a.parentId || null) !== (b.parentId || null)) continue;
+
+      const na = normalize(a.label);
+      const nb = normalize(b.label);
+      if (na === nb) {
+        /*
+         * ⚠️ هذه الحالة **لا تنشأ من الواجهة**: `checkName` تمنع
+         *    المتطابق بعد التطبيع قبل الحفظ. فوجودها هنا يعني بياناتٍ
+         *    دخلت من طريقٍ آخر — الكتلة القديمة قبل ترقية v7، أو
+         *    استرجاع نسخة، أو استيراد. وهي أحقّ ما يُعرَض.
+         *
+         *    وهذا تقسيم العمل بين الاثنين: التعارض يمنع المتطابق،
+         *    والتشابه يقترح على المتقارب.
+         */
+        pairs.push({ a, b, distance: 0, reason: 'نفس الاسم بالضبط' });
+        continue;
+      }
+      // كلمةٌ داخل أخرى («فحص» و«فحص سريع») ليست تكرارًا بل تفريعًا،
+      // فنستثنيها: الاقتراح الصحيح لها «انقله تحته» لا «ادمجهما».
+      if (na.includes(nb) || nb.includes(na)) continue;
+
+      const distance = editDistance(na, nb, maxDistance);
+      if (distance <= maxDistance) {
+        pairs.push({ a, b, distance, reason: `الفرق ${distance} حرف` });
+      }
+    }
+  }
+
+  return pairs.sort((x, y) => x.distance - y.distance);
+}
+
+/* ------------------------------------------------------------------ *
+ * الأرشفة والدمج
+ * ------------------------------------------------------------------ */
 
 /**
  * يؤرشف نوعًا — لا يحذفه.
@@ -235,15 +461,46 @@ export async function archiveType(id, archived = true) {
 export async function mergeInto(fromId, toId) {
   if (fromId === toId) return 0;
   const rows = await scenes.getAll();
-  const affected = rows.filter((s) => s.type === fromId);
-  await Promise.all(affected.map((s) => scenes.update(s.id, { type: toId })));
+  const affected = rows.filter((s) => (s.type ?? s.eventTypeId) === fromId);
+  // الحقلان معًا دورةً كاملة (§3.6): `type` للقارئ القديم،
+  // و`eventTypeId` للقارئ الجديد، حتى يُحذف الأوّل في دورةٍ لاحقة.
+  await Promise.all(
+    affected.map((s) => scenes.update(s.id, { type: toId, eventTypeId: toId }))
+  );
   await archiveType(fromId, true);
   return affected.length;
 }
 
-/** يعيد الأنواع إلى المدمجة — يمسح تعديلاتك لا مشاهدك. */
+/**
+ * يعيد الأنواع إلى المدمجة — يمسح تعديلاتك لا مشاهدك.
+ *
+ * ⚠️ لا يمسّ `settings['scene.types']`: تلك شبكة الأمان للرجوع من
+ *    ترقية v7 (بند 107)، ومسحها هنا يُفرّغها من غرضها.
+ */
 export async function resetTypes() {
-  await settings.remove(KEY);
+  const rows = await eventTypes.getAll();
+  await Promise.all(rows.map((r) => eventTypes.destroy(r.id)));
+
+  const now = Date.now();
+  await Promise.all(
+    BUILT_IN_EVENT_TYPES.map((seed) =>
+      eventTypes.putRaw({
+        ...seed,
+        normalizedName: normalize(seed.label),
+        createdAt: now,
+        updatedAt: now,
+      })
+    )
+  );
+
   await primeTypes();
   return BUILT_IN;
+}
+
+/**
+ * الكتلة القديمة كما هي على القرص — للتشخيص والرجوع لا للقراءة
+ * اليومية. راجع ترقية v7.
+ */
+export async function legacyTypesSnapshot() {
+  return settings.get(LEGACY_KEY, null);
 }

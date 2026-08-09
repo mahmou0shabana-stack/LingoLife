@@ -46,6 +46,7 @@ export const PREFIX = Object.freeze({
   EVIDENCE: 'EVD',
   SAVED: 'SAV',
   NATIVE_AUDIO: 'NAU',
+  EVENT_TYPE: 'ETY',
 });
 
 function encodeTime(ms, len = 10) {

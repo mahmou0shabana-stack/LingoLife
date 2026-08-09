@@ -28,7 +28,16 @@ export async function createScene({ titleAr, titleRu = '', date, type = 'other',
     titleAr: (titleAr || '').trim(),
     titleRu: (titleRu || '').trim(),
     date: date || today(),
+    /*
+     * ⚠️ الحقلان معًا دورةً كاملة (docs/03-architecture.md §3.6).
+     *
+     * `type` هو ما تقرأه كل شاشةٍ كُتبت قبل ترقية v7، و`eventTypeId`
+     * هو الاسم الذي تحمله الخيوط والمشاريع بعدها. كتابتهما معًا تعني
+     * أن أي قارئٍ من الجيلين يجد قيمةً صحيحة، فيُحذف الأوّل في دورةٍ
+     * لاحقة بلا أن يسقط شيء في الطريق.
+     */
     type,
+    eventTypeId: type,
     context: (context || '').trim(),
     placeId: null,
     placeName: (placeName || '').trim(),
@@ -55,9 +64,17 @@ export async function createScene({ titleAr, titleRu = '', date, type = 'other',
   return scene;
 }
 
-/** يحدّث بيانات المشهد الوصفية. */
+/**
+ * يحدّث بيانات المشهد الوصفية.
+ *
+ * تغيير النوع يكتب الحقلين معًا (§3.6) — وإلا انفصلا: `type` يتبدّل
+ * و`eventTypeId` يبقى على القديم، فيرى قارئان مختلفان نوعين مختلفين
+ * لنفس الذكرى.
+ */
 export async function updateScene(id, changes) {
-  return scenes.update(id, changes);
+  const patch =
+    changes.type !== undefined ? { ...changes, eventTypeId: changes.type } : changes;
+  return scenes.update(id, patch);
 }
 
 /** يقرأ مشهدًا واحدًا. */

@@ -28,6 +28,9 @@ export const words = createRepository('words', PREFIX.WORD);
 export const mistakeComparisons = createRepository('mistakeComparisons', PREFIX.MISTAKE);
 
 /* ---- التنظيم ---- */
+// أنواع الأحداث: المدمجة بمعرّفاتٍ ثابتة مقروءة (`meeting`), والمضافة
+// بمعرّفٍ مولَّد. الاثنان في نفس المستودع لأنهما نفس الكيان.
+export const eventTypes = createRepository('eventTypes', PREFIX.EVENT_TYPE);
 export const people = createRepository('people', PREFIX.PERSON);
 export const places = createRepository('places', PREFIX.PLACE);
 export const journeys = createRepository('journeys', PREFIX.JOURNEY);
@@ -105,6 +108,7 @@ export const ALL_REPOS = {
   sentencePatterns,
   words,
   mistakeComparisons,
+  eventTypes,
   people,
   places,
   journeys,
