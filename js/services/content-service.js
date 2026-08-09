@@ -113,7 +113,7 @@ export async function ensureConversation(sceneId) {
 }
 
 /** يضيف جزءًا للمحادثة. */
-export async function addConversationPart(sceneId, { speaker, text, translation, isMine }) {
+export async function addConversationPart(sceneId, { speaker, text, translation, isMine, personId = null }) {
   const conversation = await ensureConversation(sceneId);
   const parts = await conversationParts.byIndex('conversationId', conversation.id);
   const order = parts.reduce((max, p) => Math.max(max, p.order ?? 0), 0) + 1;
@@ -126,7 +126,10 @@ export async function addConversationPart(sceneId, { speaker, text, translation,
     isMine: isMine ? 1 : 0,
     text: (text || '').trim(),
     translation: (translation || '').trim(),
-    personId: null,
+    // ⚠️ `speaker` و`personId` **ليسا بديلين**: الأوّل ما كتبتَه أنت
+    //    وقتها، والثاني مَن نظنّه. يبقى الاثنان، فلو أخطأنا في النسبة
+    //    ظلّ الأصل مكتوبًا (بند 107).
+    personId: personId || null,
     audioMediaId: null,
     timestampMs: null,
     notes: '',

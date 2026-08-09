@@ -18,6 +18,8 @@ import {
 import { showModal } from '../components/modal.js';
 import { toastOk, toastError } from '../components/toast.js';
 import { typeSelect, selectOptions } from '../components/type-select.js';
+import { speakerSelect, wireSpeakerSelect, readSpeaker } from '../components/speaker-select.js';
+import { listPeople } from '../services/person-service.js';
 import { ui, reloadScene } from '../ui-state.js';
 
 export async function openScriptModal(sceneId, scriptId = null) {
@@ -67,22 +69,17 @@ export async function openScriptModal(sceneId, scriptId = null) {
 }
 
 export async function openPartModal(sceneId) {
+  // نقرأ المعروفين مرّة: يُبنى بهم المنتقي، ويُقرأ منهم الاسم عند الحفظ.
+  const known = await listPeople();
+
   await showModal({
     title: 'جزء من المحادثة',
     submitLabel: 'أضف',
+    onMount: wireSpeakerSelect,
     body: html`
-      <div class="field-row">
-        <div class="field">
-          <label for="p-speaker">المتحدث</label>
-          <input id="p-speaker" name="speaker" type="text" placeholder="Алексей" />
-        </div>
-        <div class="field">
-          <label for="p-mine">مين بيتكلم</label>
-          <select id="p-mine" name="isMine">
-            <option value="">شخص تاني</option>
-            <option value="1">أنا</option>
-          </select>
-        </div>
+      <div class="field">
+        <label>مين بيتكلم</label>
+        ${raw(await speakerSelect())}
       </div>
       <div class="field">
         <label for="p-text">الكلام بالروسي</label>
@@ -99,7 +96,8 @@ export async function openPartModal(sceneId) {
         toastError('الكلام مطلوب');
         throw new Error('فارغ');
       }
-      await addConversationPart(sceneId, data);
+      const speaker = readSpeaker(data, known);
+      await addConversationPart(sceneId, { ...data, ...speaker });
       close();
       toastOk('الجزء اتضاف');
       reloadScene(sceneId);

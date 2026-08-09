@@ -982,3 +982,94 @@
   color: var(--ink-soft);
   font-size: var(--fs-sm);
 }
+
+/* ------------------------------------------------------------
+   منتقي المتحدّث ومكتبة الأشخاص
+
+   نفس هيكل منتقي النوع ولوحته — تكرار مقصود: مَن يعرف أحدهما
+   يعرف الآخر، ومَن يعدّل واحدًا يعرف أين يعدّل الثاني.
+   ------------------------------------------------------------ */
+
+.speaker-field {
+  display: grid;
+  /* المنتقي وزرّ المكتبة في صفّ، وخانة الاسم والتلميح تحتهما بعرض
+     كامل — الاسم قد يطول والتلميح جملةٌ لا كلمة. */
+  grid-template-columns: 1fr auto;
+  gap: var(--sp-2);
+  align-items: stretch;
+}
+
+.speaker-field select { min-width: 0; }
+.speaker-field .btn { white-space: nowrap; }
+
+.speaker-field [data-speaker-text],
+.speaker-field [data-speaker-hint] {
+  grid-column: 1 / -1;
+}
+
+.speaker-field [data-speaker-hint] {
+  margin: 0;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md, 10px);
+  background: var(--accent-soft, rgba(139, 92, 246, .1));
+}
+
+.speaker-field [data-speaker-hint] .btn { margin-inline-start: var(--sp-2); }
+
+/* ─── صفّ الشخص ─── */
+
+.person-row { gap: var(--sp-3); }
+
+/* نقطة اللون: تمييز الأصوات بالنظر قبل القراءة. */
+.person-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.person-sub {
+  display: block;
+  font-size: var(--fs-xs, 12px);
+  color: var(--ink-soft);
+  font-weight: 400;
+}
+
+.person-edit {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-2);
+}
+
+.person-edit input:first-child { grid-column: 1 / -1; }
+.person-edit .btn { grid-column: auto; }
+
+/* ─── المتحدّثون بلا شخص ─── */
+
+.pm-unlinked {
+  margin-top: var(--sp-4);
+  padding: var(--sp-3);
+  border-radius: var(--r-lg, 14px);
+  border: 1px solid var(--line);
+  background: var(--bg-soft, rgba(0, 0, 0, .02));
+}
+
+.pm-unlinked h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-sm, 14px);
+}
+
+.pm-unlinked-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  padding: var(--sp-2) 0;
+  border-top: 1px solid var(--line);
+}
+
+.pm-unlinked-row .tm-label { flex: 1; min-width: 8ch; }
+.pm-unlinked-row select { max-width: 18ch; }

@@ -109,6 +109,7 @@
       await import('./search.test.js');
       await import('./dates.test.js');
       await import('./links.test.js');
+      await import('./people.test.js');
 
       const result = await run((event) => {
         if (event.type === 'suite') {

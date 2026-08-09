@@ -29,6 +29,8 @@ import { icon } from './components/icons.js';
 import { primeTypes } from './services/type-service.js';
 import { toast, toastOk, toastError } from './components/toast.js';
 import { openTypeManager } from './components/type-manager.js';
+import { openPeopleManager } from './components/people-manager.js';
+import { refreshSpeakerSelect } from './components/speaker-select.js';
 import { refreshTypeSelect } from './components/type-select.js';
 import { deleteWithUndo, actWithUndo } from './services/delete-service.js';
 import { api as audio } from './services/audio-service.js';
@@ -158,6 +160,16 @@ function wireActions() {
         const select = target.closest('.type-field')?.querySelector('select');
         const changed = await openTypeManager();
         if (changed && select) await refreshTypeSelect(select);
+        return;
+      }
+
+      /* ---- الأشخاص ---- */
+      case 'manage-people': {
+        // كالأنواع: تُفتح فوق النموذج ولا تغلقه، ثم يُحدَّث المنتقي في
+        // مكانه فيظهر مَن أضفتَه فورًا.
+        const field = target.closest('[data-speaker-field]');
+        const changed = await openPeopleManager();
+        if (changed && field) await refreshSpeakerSelect(field);
         return;
       }
 
