@@ -61,7 +61,9 @@ import { resolveLinks, LINK } from '../services/link-service.js';
 import {
   SAVED_KIND, listSavedTags, addSavedTag, saveItem, listSaved, isSaved,
 } from '../services/saved-service.js';
-import { addExpression, addScript, listConversationParts } from '../services/content-service.js';
+import {
+  addExpression, addScript, listConversationParts, EXPRESSION_SOURCE,
+} from '../services/content-service.js';
 import { savedItems } from '../db/repositories.js';
 import { deleteWithUndo } from '../services/delete-service.js';
 import {
@@ -1695,7 +1697,15 @@ async function saveScratchTo(where) {
 
     if (where === 'expression') {
       if (!ctx.session.sceneId) return toastError('الجلسة دي مش مربوطة بذكرى');
-      await addExpression(ctx.session.sceneId, { text });
+      /*
+       * لا اقتباس هنا: النصّ الخارجي **هو** التعبير نفسه، وتكراره
+       * كاقتباسٍ يوهم بسياقٍ لا وجود له. لكن الجلسة تُسجَّل، فتعرف
+       * بعد شهرٍ أنك التقطته وأنت تتمرّن لا وأنت تكتب.
+       */
+      await addExpression(ctx.session.sceneId, {
+        text,
+        source: { type: EXPRESSION_SOURCE.SHADOW, id: ctx.session.id },
+      });
       return toastOk('اتضافت كتعبير في الذكرى');
     }
 

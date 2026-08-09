@@ -246,7 +246,8 @@ export const PACKAGE_FORMAT_VERSION = 1;   // js/services/import/package-format.
   ],
   "expressions": [
     { "text": "по итогам переговоров", "meaningAr": "بناءً على نتائج المفاوضات",
-      "register": "formal" }
+      "register": "formal",
+      "example": "По итогам переговоров подписали приложение." }
   ],
   "analysisMetadata": { "by": "تحليل خارجي", "at": "2026-04-02" }
 }
@@ -254,7 +255,13 @@ export const PACKAGE_FORMAT_VERSION = 1;   // js/services/import/package-format.
 
 الحقول الملوّنة بالمرادفات كلها مقبولة: `speakers` أو `people`،
 `conversations` أو `conversationParts`، `type` أو `eventType`، `place`
-أو `placeName`، `kind` أو `mistakeType`، `note` أو `explanation`.
+أو `placeName`، `kind` أو `mistakeType`، `note` أو `explanation`،
+و`example` أو `sourceQuote` أو `context` أو `sentence` أو `usage`.
+
+**و`example` اختياريّ ويضيف معنًى** *(بند 38)*: الجملة التي ورد فيها
+التعبير تصير **اقتباس ظهوره**، فتقرأ في صفحته أين قابلتَه وفي أي سياق
+لا اسم الذكرى وحده. وحزمةٌ قديمة بلا الحقل تمرّ كما هي ويُسجَّل ظهورها
+بلا اقتباس — لا كسرَ في التوافق، واختبارٌ يحرس ذلك.
 
 **والحقول المطلوبة قليلة عمدًا:** المشهد يحتاج عنوانًا، والشخص اسمًا،
 والسكريبت وجزء المحادثة والتعبير نصًّا، والتصحيح نصفيه معًا — «قلت كذا»

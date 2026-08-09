@@ -48,6 +48,7 @@ import { STATE } from '../db/schema.js';
 import { normalize } from '../utils/normalization.js';
 import { toISODate } from '../utils/dates.js';
 import { SAVED_KIND, savedTagLabel } from './saved-service.js';
+import { EXPRESSION_SOURCE } from './content-service.js';
 
 /* ------------------------------------------------------------------ *
  * المراحل — تقديرك أنت
@@ -120,6 +121,16 @@ export async function expressionLife(expressionId) {
         date: toISODate(scene.date) || scene.date || '',
         kind: row.kind || 'appeared',
         quote: row.sourceQuote || '',
+        /*
+         * ⚠️ **حدٌّ معروف.** الظهورات المكتوبة قبل بند 38 تحمل
+         *    `'manual'` حرفيًّا — كان الحقل يُكتب ثابتًا للمسارات
+         *    الثلاثة كلها. فظهورٌ قديمٌ جاء من استيرادٍ أو من الظلّ
+         *    سيقول «كتبته بإيدك» وهو لا يعرف.
+         *
+         *    ولا سبيل للتمييز بلا ترقيةٍ تكتب في بياناتك، وتلك قرارك
+         *    لا قراري. راجع `docs/09 §9.9`.
+         */
+        source: row.sourceType || EXPRESSION_SOURCE.UNKNOWN,
       };
     })
     .sort((a, b) => String(a.date).localeCompare(String(b.date)));

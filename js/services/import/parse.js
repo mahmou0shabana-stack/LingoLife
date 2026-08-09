@@ -173,6 +173,11 @@ export function parsePackage(input) {
       meaningAr: text(field(row, 'meaningAr')),
       register: text(row.register) || 'professional',
       note: text(field(row, 'note')),
+      /*
+       * الجملة التي ورد فيها التعبير *(بند 38)* — اختياريّة، فحزمةٌ
+       * قديمة بلا `example` تمرّ كما هي ويُسجَّل ظهورها بلا اقتباس.
+       */
+      example: text(field(row, 'example')),
     });
   });
 

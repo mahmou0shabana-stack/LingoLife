@@ -42,7 +42,7 @@ import {
   addScript,
   addConversationPart,
   addMistake,
-  addExpression,
+  addExpression, EXPRESSION_SOURCE,
   ensureConversation,
   REGISTERS,
   MISTAKE_TYPES,
@@ -341,6 +341,8 @@ export async function applyImport(plan, pkg = null) {
           decision.data.register, REGISTERS, 'professional', notes, 'تصنيف التعبير'
         ),
         note: decision.data.note || '',
+        // الحزمة تحمل الجملة التي وردت فيها — سياقٌ حقيقيّ لا نصنعه.
+        source: { type: EXPRESSION_SOURCE.IMPORT, quote: decision.data.example || '' },
       });
       if (isNew) book.add('expression', expression.id);
 

@@ -13,7 +13,7 @@ import { scenes, scripts } from '../db/repositories.js';
 import {
   addScript, updateScript, SCRIPT_TYPES,
   addConversationPart, addMistake, MISTAKE_TYPES,
-  addExpression, REGISTERS,
+  addExpression, REGISTERS, EXPRESSION_SOURCE,
 } from '../services/content-service.js';
 import { showModal } from '../components/modal.js';
 import { toastOk, toastError } from '../components/toast.js';
@@ -171,7 +171,10 @@ export async function openExpressionModal(sceneId) {
         toastError('نص التعبير مطلوب');
         throw new Error('فارغ');
       }
-      const { isNew } = await addExpression(sceneId, data);
+      const { isNew } = await addExpression(sceneId, {
+        ...data,
+        source: { type: EXPRESSION_SOURCE.MANUAL },
+      });
       close();
       toastOk(isNew ? 'التعبير اتضاف' : 'التعبير موجود — سجّلنا ظهوره في الذكرى دي');
       reloadScene(sceneId);

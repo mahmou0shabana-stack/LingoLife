@@ -23,7 +23,10 @@ import {
 import { STATE } from '../js/db/schema.js';
 import { createScene } from '../js/services/scene-service.js';
 import { resetTypes } from '../js/services/type-service.js';
-import { addConversationPart, addExpression, addScript } from '../js/services/content-service.js';
+import {
+  addConversationPart, addExpression, addScript,
+  EXPRESSION_SOURCE, expressionSourceLabel,
+} from '../js/services/content-service.js';
 import { saveItem, SAVED_KIND } from '../js/services/saved-service.js';
 import {
   STAGES, STAGE_LABEL, stageIndex, UNBUILT,
@@ -356,6 +359,109 @@ describe('لغتي — كل رقمٍ معه ما يفسّره', () => {
     expect(view.expressions.top).toEqual([]);
     expect(view.words.total).toBe(0);
     expect(view.expressions.byStage.length).toBe(6);
+  });
+});
+
+/* ================================================================== */
+
+describe('منشأ الظهور — من فين جه', () => {
+  it('كل مصدرٍ معه وسمٌ عربيّ، والمجهول له وسمٌ كمان', async () => {
+    for (const id of Object.values(EXPRESSION_SOURCE)) {
+      expect(expressionSourceLabel(id).length > 0).toBe(true);
+    }
+    // ولا يُترَك المجهول بلا كلمة: قيمةٌ لا نعرفها تقع على «مش معروف».
+    expect(expressionSourceLabel('حاجة-مخترعة'))
+      .toBe(expressionSourceLabel(EXPRESSION_SOURCE.UNKNOWN));
+  });
+
+  it('⚠️ نداءٌ بلا منشأ لا يُنسَب إلى «يدوي» كذبًا', async () => {
+    await fresh();
+    const s = await scene('ذكرى', '2026-04-01');
+    const { expression } = await addExpression(s.id, { text: 'по итогам' });
+
+    const life = await expressionLife(expression.id);
+    expect(life.occurrences[0].source).toBe(EXPRESSION_SOURCE.UNKNOWN);
+  });
+
+  it('المنشأ يُكتب كما مُرِّر — والمسارات الثلاثة تختلف فعلًا', async () => {
+    await fresh();
+    const a = await scene('أ', '2026-04-01');
+    const b = await scene('ب', '2026-04-02');
+    const c = await scene('ج', '2026-04-03');
+
+    const { expression } = await addExpression(a.id, {
+      text: 'по итогам', source: { type: EXPRESSION_SOURCE.MANUAL },
+    });
+    await addExpression(b.id, {
+      text: 'по итогам',
+      source: { type: EXPRESSION_SOURCE.IMPORT, quote: 'По итогам встречи решили.' },
+    });
+    await addExpression(c.id, {
+      text: 'по итогام', source: { type: EXPRESSION_SOURCE.SHADOW, id: 'SES_1' },
+    });
+
+    const life = await expressionLife(expression.id);
+    expect(life.occurrences.map((o) => o.source))
+      .toEqual([EXPRESSION_SOURCE.MANUAL, EXPRESSION_SOURCE.IMPORT]);
+    expect(life.occurrences[1].quote).toBe('По итогам встречи решили.');
+  });
+
+  it('منشأٌ غير معروف يقع على «مش معروف» ولا يُكتب كما جاء', async () => {
+    await fresh();
+    const s = await scene('ذكرى', '2026-04-01');
+    const { expression } = await addExpression(s.id, {
+      text: 'зато', source: { type: 'حاجة-مخترعة' },
+    });
+
+    expect((await expressionLife(expression.id)).occurrences[0].source)
+      .toBe(EXPRESSION_SOURCE.UNKNOWN);
+  });
+
+  it('معرّف المصدر يُحفَظ — تعرف أي جلسةٍ التقطته فيها', async () => {
+    await fresh();
+    const s = await scene('ذكرى', '2026-04-01');
+    const { expression } = await addExpression(s.id, {
+      text: 'кстати', source: { type: EXPRESSION_SOURCE.SHADOW, id: 'SES_7' },
+    });
+
+    const rows = await expressionOccurrences.byIndex('expressionId', expression.id);
+    expect(rows[0].sourceId).toBe('SES_7');
+  });
+
+  it('الاقتباس يُشذَّب، والفارغ يبقى فارغًا لا مسافة', async () => {
+    await fresh();
+    const s = await scene('ذكرى', '2026-04-01');
+    const { expression } = await addExpression(s.id, {
+      text: 'зато', source: { type: EXPRESSION_SOURCE.IMPORT, quote: '  Зато честно.  ' },
+    });
+    const b = await scene('ب', '2026-04-02');
+    await addExpression(b.id, {
+      text: 'зато', source: { type: EXPRESSION_SOURCE.IMPORT, quote: '   ' },
+    });
+
+    const life = await expressionLife(expression.id);
+    expect(life.occurrences[0].quote).toBe('Зато честно.');
+    expect(life.occurrences[1].quote).toBe('');
+  });
+
+  /*
+   * ⚠️ حدٌّ معروف يُوثَّق باختبارٍ لا بجملةٍ في ملفّ: الظهورات المكتوبة
+   *    قبل بند 38 تحمل `'manual'` حرفيًّا للمسارات الثلاثة كلها، فلا
+   *    سبيل لتمييزها بلا ترقيةٍ تكتب في بيانات المستخدم.
+   */
+  it('⚠️ ظهورٌ قديم يقول «يدوي» ولو جاء من غيره — حدٌّ موثَّق', async () => {
+    await fresh();
+    const s = await scene('ذكرى', '2026-04-01');
+    const { expression } = await addExpression(s.id, {
+      text: 'вроде', source: { type: EXPRESSION_SOURCE.IMPORT },
+    });
+
+    // نحاكي صفًّا كُتب قبل التغيير: `sourceType` ثابتٌ بلا معنى.
+    const [row] = await expressionOccurrences.byIndex('expressionId', expression.id);
+    await expressionOccurrences.update(row.id, { sourceType: 'manual', sourceId: null });
+
+    expect((await expressionLife(expression.id)).occurrences[0].source)
+      .toBe(EXPRESSION_SOURCE.MANUAL);
   });
 });
 

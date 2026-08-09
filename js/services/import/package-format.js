@@ -110,6 +110,8 @@ export const FIELD_ALIASES = Object.freeze({
   natural: ['natural', 'after', 'correct', 'corrected'],
   meaningAr: ['meaningAr', 'meaning', 'translation', 'ar'],
   note: ['note', 'notes', 'explanation', 'comment'],
+  // الجملة التي ورد فيها التعبير — سياقُ ظهوره الحقيقيّ *(بند 38)*.
+  example: ['example', 'sourceQuote', 'context', 'sentence', 'usage'],
   placeName: ['placeName', 'place', 'location'],
   eventType: ['eventType', 'type', 'sceneType', 'category'],
 });

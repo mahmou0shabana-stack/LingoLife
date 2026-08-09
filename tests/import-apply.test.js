@@ -198,6 +198,36 @@ describe('التنفيذ — لا إنشاء لما هو موجود', () => {
     const all = await expressionOccurrences.byIndex('expressionId', expression.id);
     expect(all.length).toBe(2);
   });
+
+  /*
+   * ⚠️ منشأ الظهور *(بند 38)*: كان `sourceType` يُكتب `'manual'`
+   *    للمسارات الثلاثة كلها، فتعبيرٌ جاء في حزمةٍ يقول «كتبته بإيدك».
+   */
+  it('الظهور المستورَد يُنسَب إلى الاستيراد لا إليك', async () => {
+    await fresh();
+    await applyImport(await planOf(FULL));
+
+    const [row] = await expressionOccurrences.getAll();
+    expect(row.sourceType).toBe('import');
+  });
+
+  it('جملة المثال في الحزمة تصير اقتباس الظهور', async () => {
+    await fresh();
+    const pack = structuredClone(FULL);
+    pack.expressions[0].example = 'По итогам переговоров подписали.';
+
+    await applyImport(await planOf(pack));
+    const [row] = await expressionOccurrences.getAll();
+    expect(row.sourceQuote).toBe('По итогам переговоров подписали.');
+  });
+
+  it('حزمةٌ قديمة بلا مثال تمرّ بلا اقتباس ولا تسقط', async () => {
+    await fresh();
+    await applyImport(await planOf(FULL));
+    const [row] = await expressionOccurrences.getAll();
+    expect(row.sourceQuote).toBe('');
+    expect(row.sourceType).toBe('import');
+  });
 });
 
 describe('التنفيذ — الاستبعاد', () => {

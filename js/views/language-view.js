@@ -28,6 +28,7 @@ import {
   STAGES, STAGE_LABEL, UNBUILT,
   languageOverview, expressionLife, setStage,
 } from '../services/language-service.js';
+import { expressionSourceLabel } from '../services/content-service.js';
 
 /* ------------------------------------------------------------------ *
  * لغتي
@@ -197,6 +198,7 @@ export async function renderExpression(main, expressionId) {
             <span class="rv-scene-title"><bdi>${row.title}</bdi></span>
             <span class="rv-scene-meta">
               <span class="rv-tag is-plain">${formatDate(row.date)}</span>
+              <span class="rv-tag is-plain">${expressionSourceLabel(row.source)}</span>
               ${raw(row.quote ? html`<span class="rv-tag is-plain" dir="ltr" lang="ru">${row.quote}</span>` : '')}
             </span>
           </button>`;
