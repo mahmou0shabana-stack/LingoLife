@@ -201,6 +201,25 @@ export const STORES = {
     ],
   },
 
+  /**
+   * خيوط الأحداث — القضيّة الممتدّة (بنود 24–31).
+   *
+   * «موضوع الشحنة اللي اتأخّرت» ليس مشهدًا: هو اجتماعٌ ومكالمةٌ وفحصٌ
+   * ورسالة على مدى شهرين. الخيط يجمعها **ويعلوها**، والمشهد يبقى
+   * مستقلًّا تمامًا (بند 27) — عضويّته علاقةٌ لا حقلٌ فيه.
+   *
+   * وله **حالة** لأنه قضيّة تُفتَح وتُغلَق، لا موضوعٌ دائم. الموضوع
+   * الدائم مكانه `topics`.
+   */
+  eventThreads: {
+    indexes: [
+      ['status', 'status'],
+      ['state', 'state'],
+      ['startDate', 'startDate'],
+      ['normalizedName', 'normalizedName'],
+    ],
+  },
+
   people: { indexes: [['normalizedName', 'normalizedName'], ['state', 'state']] },
   places: { indexes: [['normalizedName', 'normalizedName'], ['state', 'state']] },
   journeys: { indexes: [['normalizedName', 'normalizedName'], ['state', 'state']] },
