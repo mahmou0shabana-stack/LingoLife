@@ -2247,3 +2247,81 @@
   color: var(--ink-faint);
   line-height: 1.8;
 }
+
+/* ------------------------------------------------------------
+   التحليل المُشتقّ — «إيه اللي بيانك بيقوله»
+   ------------------------------------------------------------ */
+
+/* صفٌّ يعرض ولا يُضغَط: تصنيفُ التقاطٍ لا محورَ للنهر عليه. */
+.fc-row.is-plain {
+  cursor: default;
+  background: var(--surface-soft);
+}
+.fc-row.is-plain:hover { border-color: var(--line); background: var(--surface-soft); }
+
+.an-sub {
+  font-size: var(--fs-xs);
+  color: var(--ink-faint);
+  margin: var(--sp-4) 0 var(--sp-2);
+  font-weight: 600;
+}
+.an-sub:first-child { margin-top: 0; }
+
+/* نمطُ خطأ: مطويٌّ على أمثلته — الرقم يُفتَح فيريك دليله. */
+.an-group {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  margin-bottom: var(--sp-2);
+  overflow: hidden;
+}
+.an-group > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  cursor: pointer;
+  list-style: none;
+}
+.an-group > summary::-webkit-details-marker { display: none; }
+.an-group > summary:hover { background: var(--accent-wash); }
+.an-group .an-name { flex: 1; font-size: var(--fs-sm); font-weight: 600; }
+
+/* الحالة نفسها: قلتَ كذا، والصحيح كذا، وأين حدث. */
+.an-case {
+  display: block;
+  width: 100%;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  padding: var(--sp-3);
+  border: 0;
+  border-top: 1px solid var(--line-soft);
+  background: var(--surface-soft);
+  color: var(--ink);
+}
+.an-case:hover { background: var(--accent-wash); }
+
+.an-wrong, .an-natural {
+  display: block;
+  direction: ltr;
+  text-align: start;
+  font-family: var(--font-ru);
+  font-size: var(--fs-sm);
+}
+/* الخطأ مشطوبٌ باهت، والصحيح واضحٌ أخضر — الفرق يُقرأ بلا قراءة. */
+.an-wrong { color: var(--ink-faint); text-decoration: line-through; }
+.an-natural { color: var(--green); font-weight: 600; }
+
+.an-why {
+  display: block;
+  font-size: var(--fs-xs);
+  color: var(--ink-soft);
+  margin-top: var(--sp-1);
+}
+.an-where {
+  display: block;
+  font-size: var(--fs-2xs);
+  color: var(--ink-faint);
+  margin-top: var(--sp-1);
+}

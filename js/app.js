@@ -56,6 +56,7 @@ import {
 } from './views/import-view.js';
 import { renderRiver, renderDay, handleRiverAction } from './views/river-view.js';
 import { renderFacets } from './views/facets-view.js';
+import { renderAnalysis } from './views/analysis-view.js';
 import {
   renderConstellation, resetConstellation, handleConstellationAction,
 } from './views/constellation-view.js';
@@ -125,6 +126,7 @@ function syncNavState() {
     path === '/' ? 'now'
     : path.startsWith('/river') || path.startsWith('/day')
       || path.startsWith('/facets') || path.startsWith('/constellation') ? 'river'
+    : path.startsWith('/analysis') ? 'analysis'
     : path.startsWith('/life') || path.startsWith('/scene') ? 'life'
     : path.startsWith('/language') || path.startsWith('/expression')
       || path.startsWith('/word') ? 'language'
@@ -568,6 +570,7 @@ async function boot() {
   route('/river', view(renderRiver));
   route('/day/:date', view(renderDay, { param: 'date' }));
   route('/facets', view(renderFacets));
+  route('/analysis', view(renderAnalysis));
   route('/constellation', view(renderConstellation));
   route('/expression/:id', view(renderExpression));
   route('/word/:text', view(renderWord, { param: 'text' }));
