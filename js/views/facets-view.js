@@ -87,9 +87,14 @@ export async function renderFacets(main) {
   );
 
   main.innerHTML = html`
-    <div class="view-head">
-      <h1>محاور حياتك</h1>
-      <div class="sub">${tree.total} ذكرى — مقسومة بأكتر من طريقة</div>
+    <div class="view-head rv-head">
+      <div>
+        <h1>محاور حياتك</h1>
+        <div class="sub">${tree.total} ذكرى — مقسومة بأكتر من طريقة</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" data-action="go-constellation">
+        ${raw(icon('person', 15))} الكوكبة
+      </button>
     </div>
 
     ${raw(tree.total ? '' : html`

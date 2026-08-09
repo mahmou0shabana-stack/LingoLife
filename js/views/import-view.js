@@ -33,6 +33,7 @@ import { navigate } from '../router.js';
 import { parsePackage } from '../services/import/parse.js';
 import { planImport, decide, ACTION } from '../services/import/plan.js';
 import { kindName } from '../services/import/package-format.js';
+import { plural } from '../utils/plural.js';
 import { applyImport } from '../services/import/apply.js';
 
 /**
@@ -62,20 +63,6 @@ const KIND_LABEL = {
   mistake: 'تصحيح',
   expression: 'تعبير',
 };
-
-/**
- * الاسم الموافق للعدد بقواعد الجمع العربيّة.
- *
- * ⚠️ **الاسم وحده بلا الرقم**: الرقم مطبوعٌ كبيرًا فوقه، وإعادته في
- *    النصّ تُنتج «11 11 حاجات». والأحد عشر فما فوق يعود للمفرد:
- *    «11 حاجة» لا «11 حاجات».
- */
-function countLabel(n, one, two, few) {
-  if (n === 1) return one;
-  if (n === 2) return two;
-  if (n >= 3 && n <= 10) return few;
-  return one;
-}
 
 function actionChip(decision) {
   if (decision.action === ACTION.USE_EXISTING) {
@@ -231,7 +218,7 @@ function previewStage() {
     <div class="card imp-summary">
       <div class="imp-figure">
         <b>${newCount}</b>
-        <span>${countLabel(newCount, 'حاجة جديدة', 'حاجتين جداد', 'حاجات جديدة')}</span>
+        <span>${plural(newCount, 'حاجة جديدة', 'حاجتين جداد', 'حاجات جديدة')}</span>
       </div>
       <div class="imp-figure">
         <b>${reuseCount}</b>

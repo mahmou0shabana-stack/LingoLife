@@ -54,6 +54,9 @@ import {
 } from './views/import-view.js';
 import { renderRiver, renderDay, handleRiverAction } from './views/river-view.js';
 import { renderFacets } from './views/facets-view.js';
+import {
+  renderConstellation, resetConstellation, handleConstellationAction,
+} from './views/constellation-view.js';
 
 /* ---- الحالة العابرة وإعادة العرض ---- */
 import { ui, reloadScene, refreshStorageCard } from './ui-state.js';
@@ -82,6 +85,7 @@ function view(renderFn, opts = {}) {
     // ومغادرة المعاينة تُسقط الحزمة نصف المراجَعة: العودة إليها بعد
     // ساعة يجب أن تبدأ من الصفر لا من قراراتٍ نسيتَ لماذا اتّخذتَها.
     if (renderFn !== renderImport) resetImport();
+    if (renderFn !== renderConstellation) resetConstellation();
     // ⚠️ لا نوقف الصوت عند التنقّل. المشغّل يعيش خارج الشاشات عمدًا،
     //    فتسمع تسجيلك وأنت تقرأ سكريبت ذكرى أخرى — والشريط المصغّر
     //    يبقى ظاهرًا في كل الشاشات.
@@ -117,7 +121,8 @@ function syncNavState() {
   const path = getCurrentRoute()?.path || '/';
   const active =
     path === '/' ? 'now'
-    : path.startsWith('/river') || path.startsWith('/day') || path.startsWith('/facets') ? 'river'
+    : path.startsWith('/river') || path.startsWith('/day')
+      || path.startsWith('/facets') || path.startsWith('/constellation') ? 'river'
     : path.startsWith('/life') || path.startsWith('/scene') ? 'life'
     : path.startsWith('/language') ? 'language'
     : path.startsWith('/search') ? 'search'
@@ -429,6 +434,7 @@ function wireActions() {
         if (await handleTrashAction(action, id, target)) return;
         if (await handleImportAction(action, target)) return;
         if (await handleRiverAction(action, target)) return;
+        if (await handleConstellationAction(action, target)) return;
       }
     }
   });
@@ -538,6 +544,7 @@ async function boot() {
   route('/river', view(renderRiver));
   route('/day/:date', view(renderDay, { param: 'date' }));
   route('/facets', view(renderFacets));
+  route('/constellation', view(renderConstellation));
   notFound(() => navigate('/', { replace: true }));
 
   wireActions();

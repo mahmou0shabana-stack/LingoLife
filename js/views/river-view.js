@@ -27,6 +27,7 @@ import { icon } from '../components/icons.js';
 import { navigate } from '../router.js';
 import { formatDate, formatMonth, monthKey, dayCount, relativeDate, toISODate } from '../utils/dates.js';
 import { typeLabel } from '../services/type-service.js';
+import { plural, counted } from '../utils/plural.js';
 import { getPerson } from '../services/person-service.js';
 import { getThread, THREAD_STATUS_LABEL } from '../services/thread-service.js';
 import {
@@ -199,12 +200,7 @@ async function storiesStrip() {
               : story.daysSince === 0
                 ? 'اتحرّكت النهارده'
                 : `ساكتة من ${dayCount(story.daysSince)}`}
-            · ${story.count} ${
-              story.count === 1 ? 'حدث'
-              : story.count === 2 ? 'حدثان'
-              : story.count <= 10 ? 'أحداث'
-              : 'حدثًا'
-            }
+            · ${counted(story.count, 'حدث', 'حدثان', 'أحداث')}
           </span>
         </button>`).join(''))}
     </section>`;
@@ -410,21 +406,13 @@ export async function renderDay(main, date) {
       </section>` : '')}`;
 }
 
-/**
- * رقمٌ واسمه بالصيغة الموافقة — والصفر لا يُعرَض أصلًا.
- *
- * ⚠️ الصيغ الثلاث تُمرَّر كاملةً ولا تُشتقّ. جرّبتُ اشتقاق المثنّى
- *    بإلحاق «ين» فخرج «٢ ذكرىين»: العربيّة لا تُجمَع بلصق حرفين،
- *    و«ذكرى» مقصورةٌ تصير «ذكريتين». ولا قاعدةَ عامّة تُغني عن
- *    الكتابة الصريحة.
- */
+/** رقمٌ واسمه بالصيغة الموافقة — والصفر لا يُعرَض أصلًا. */
 function stat(n, one, two, few) {
   if (!n) return '';
-  const label = n === 1 ? one : n === 2 ? two : n <= 10 ? few : one;
   return html`
     <div class="rv-stat">
       <b>${n}</b>
-      <span>${label}</span>
+      <span>${plural(n, one, two, few)}</span>
     </div>`;
 }
 

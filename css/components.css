@@ -1907,3 +1907,115 @@
   color: var(--ink-faint);
 }
 .rv-lens-del:hover { background: var(--red-bg); color: var(--red); }
+
+/* ==================================================================
+   الكوكبة
+
+   رسمٌ دائريٌّ محسوب لا محاكاةٌ فيزيائيّة: الشكل ثابتٌ بين الفتحات،
+   فموضع الاسم يصير شيئًا تتذكّره. ورسمٌ يقفز في كل مرّة جميلٌ مرّةً
+   ومُربكٌ دائمًا.
+   ================================================================== */
+
+.cn-wrap {
+  display: flex;
+  justify-content: center;
+  padding: var(--sp-3) 0;
+}
+
+.cn-svg {
+  width: 100%;
+  max-width: 460px;
+  height: auto;
+  /* الرسم لاتينيّ الاتجاه: الإحداثيات محسوبة ولا تنقلب مع الصفحة. */
+  direction: ltr;
+  overflow: visible;
+}
+
+.cn-wire {
+  stroke: var(--accent-line);
+  stroke-linecap: round;
+  cursor: pointer;
+  transition: stroke 0.15s;
+}
+.cn-wire:hover { stroke: var(--accent-soft); }
+.cn-wire.is-open { stroke: var(--accent); }
+
+.cn-node { cursor: pointer; }
+.cn-node circle {
+  fill: var(--surface);
+  stroke: var(--accent);
+  stroke-width: 2;
+  transition: fill 0.15s;
+}
+.cn-node:hover circle { fill: var(--accent-wash); }
+.cn-node text {
+  font-family: var(--font-ar);
+  font-size: 11px;
+  fill: var(--ink);
+  /* النصّ العربي داخل SVG يحتاج اتجاهه صراحةً. */
+  direction: rtl;
+}
+
+.cn-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-4);
+  font-size: var(--fs-xs);
+  color: var(--ink-soft);
+  padding-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.cn-hint {
+  margin: var(--sp-4) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--ink-faint);
+  text-align: center;
+  line-height: 1.7;
+}
+
+.cn-pair-panel { margin-top: var(--sp-4); }
+.cn-pair-panel h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-md);
+}
+.cn-pair-count {
+  direction: ltr;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-wash);
+  border-radius: var(--radius-pill);
+  padding: 2px 10px;
+}
+
+.cn-scene {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  width: 100%;
+  font: inherit;
+  cursor: pointer;
+  text-align: start;
+  padding: var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  margin-bottom: var(--sp-2);
+}
+.cn-scene:hover { border-color: var(--accent-soft); }
+.cn-scene span { font-size: var(--fs-xs); color: var(--ink-faint); flex: none; }
+
+.cn-absent {
+  margin-top: var(--sp-6);
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+}
+.cn-absent summary { cursor: pointer; color: var(--ink-faint); }
+.cn-absent p { margin: var(--sp-2) 0 0; line-height: 1.8; }

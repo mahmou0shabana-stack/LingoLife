@@ -472,6 +472,85 @@ export async function continuingStories({ limit = 5 } = {}) {
 }
 
 /* ------------------------------------------------------------------ *
+ * الكوكبة
+ * ------------------------------------------------------------------ */
+
+/**
+ * مَن قابلتَ مَن — شبكةُ الأشخاص كما تُشتقّ من محادثاتك.
+ *
+ * ⚠️ **العقدة شخصٌ لا ذكرى.** رسمُ كل ذكرى نقطةً يُنتج سحابةً جميلةً
+ *    لا تقول شيئًا: عندك سبعُ ذكرياتٍ في المكتب، فماذا؟ أمّا «مين
+ *    اتقابل مع مين» فسؤالٌ لا تجيبه شاشةٌ أخرى — والخيط بين اثنين
+ *    يعني موقفًا جمعهما، وسُمكه عددُ تلك المواقف.
+ *
+ * ⚠️ **والوصلة من المحادثة لا من الحضور.** شخصان في ذكرى واحدة ولم
+ *    يتكلّم أحدهما لا وصلةَ بينهما هنا — نفس حدّ محور الشخص، ومُعلَنٌ
+ *    في الشاشة.
+ *
+ * @returns {Promise<{nodes: object[], links: object[], scenesWithTwo: number}>}
+ */
+export async function constellation() {
+  const [sceneRows, partRows, personRows] = await Promise.all([
+    scenes.getActive(),
+    conversationParts.getAll(),
+    people.getAll(),
+  ]);
+
+  const titleOf = new Map(sceneRows.map((s) => [s.id, s.titleAr || s.titleRu || 'بلا عنوان']));
+  const dateOf = new Map(sceneRows.map((s) => [s.id, toISODate(s.date) || s.date || '']));
+
+  /** الذكرى ← مَن تكلّم فيها. */
+  const inScene = new Map();
+  for (const part of partRows) {
+    if (part.state !== STATE.ACTIVE || !part.personId || !titleOf.has(part.sceneId)) continue;
+    if (!inScene.has(part.sceneId)) inScene.set(part.sceneId, new Set());
+    inScene.get(part.sceneId).add(part.personId);
+  }
+
+  const counts = new Map();
+  const pairs = new Map();
+  let scenesWithTwo = 0;
+
+  for (const [sceneId, ids] of inScene) {
+    const list = [...ids];
+    for (const id of list) counts.set(id, (counts.get(id) || 0) + 1);
+    if (list.length < 2) continue;
+    scenesWithTwo++;
+
+    for (let i = 0; i < list.length; i++) {
+      for (let j = i + 1; j < list.length; j++) {
+        // المفتاح مرتَّبٌ فلا يصير الزوج زوجين باختلاف الترتيب.
+        const key = [list[i], list[j]].sort().join('|');
+        if (!pairs.has(key)) pairs.set(key, { a: list[i], b: list[j], sceneIds: [] });
+        pairs.get(key).sceneIds.push(sceneId);
+      }
+    }
+  }
+
+  const nameOf = new Map(
+    personRows.filter((p) => p.state !== STATE.TRASHED).map((p) => [p.id, p.name])
+  );
+
+  const nodes = [...counts]
+    .filter(([id]) => nameOf.has(id))
+    .map(([id, count]) => ({ id, label: nameOf.get(id), count }))
+    .sort((a, b) => b.count - a.count || String(a.label).localeCompare(String(b.label), 'ar'));
+
+  const links = [...pairs.values()]
+    .filter((pair) => nameOf.has(pair.a) && nameOf.has(pair.b))
+    .map((pair) => ({
+      ...pair,
+      count: pair.sceneIds.length,
+      scenes: pair.sceneIds
+        .map((id) => ({ id, title: titleOf.get(id), date: dateOf.get(id) }))
+        .sort((x, y) => String(y.date).localeCompare(String(x.date))),
+    }))
+    .sort((a, b) => b.count - a.count);
+
+  return { nodes, links, scenesWithTwo };
+}
+
+/* ------------------------------------------------------------------ *
  * العدسات
  * ------------------------------------------------------------------ */
 

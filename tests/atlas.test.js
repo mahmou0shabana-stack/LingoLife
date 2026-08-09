@@ -27,7 +27,7 @@ import { addConversationPart, addExpression } from '../js/services/content-servi
 import {
   AXIS, ABSENT_AXES, placeKey, facetsFor, allowedSceneIds,
   riverPage, dayDetail, adjacentDays, facetTree, continuingStories,
-  pivotsFor, listLenses, saveLens, removeLens,
+  pivotsFor, listLenses, saveLens, removeLens, constellation,
 } from '../js/services/atlas-service.js';
 
 async function fresh() {
@@ -590,5 +590,103 @@ describe('الأطلس — العدسات', () => {
      * الأنواع «شغل»؟ وتصنيفٌ نخترعه يبدو معلومةً عنك وهو تخمينٌ منّا.
      */
     expect(await listLenses()).toEqual([]);
+  });
+});
+
+describe('الأطلس — الكوكبة', () => {
+  it('الوصلة من المحادثة لا من الحضور', async () => {
+    await fresh();
+    const igor = await addPerson({ name: 'إيجور' });
+    const marina = await addPerson({ name: 'مارينا' });
+    const s = await scene('اجتماع', '2026-04-01');
+    await addConversationPart(s.id, { speaker: 'إيجور', text: 'А', personId: igor.id });
+    // مارينا حضرت ولم تتكلّم — لا خيط.
+    const one = await constellation();
+    expect(one.links).toEqual([]);
+
+    await addConversationPart(s.id, { speaker: 'مارينا', text: 'Б', personId: marina.id });
+    const two = await constellation();
+    expect(two.links.length).toBe(1);
+    expect(two.links[0].count).toBe(1);
+  });
+
+  it('سُمك الخيط = عدد المواقف اللي جمعت الاتنين', async () => {
+    await fresh();
+    const a = await addPerson({ name: 'أ' });
+    const b = await addPerson({ name: 'ب' });
+    for (const date of ['2026-04-01', '2026-04-02', '2026-04-03']) {
+      const s = await scene(`ذكرى ${date}`, date);
+      await addConversationPart(s.id, { speaker: 'أ', text: 'X', personId: a.id });
+      await addConversationPart(s.id, { speaker: 'ب', text: 'Y', personId: b.id });
+    }
+    const net = await constellation();
+    expect(net.links.length).toBe(1);
+    expect(net.links[0].count).toBe(3);
+    expect(net.scenesWithTwo).toBe(3);
+  });
+
+  it('الزوج واحدٌ مهما اختلف ترتيبه', async () => {
+    await fresh();
+    const a = await addPerson({ name: 'أ' });
+    const b = await addPerson({ name: 'ب' });
+    const one = await scene('الأولى', '2026-04-01');
+    const two = await scene('التانية', '2026-04-02');
+    await addConversationPart(one.id, { speaker: 'أ', text: 'X', personId: a.id });
+    await addConversationPart(one.id, { speaker: 'ب', text: 'Y', personId: b.id });
+    // الترتيب معكوس في الذكرى التانية.
+    await addConversationPart(two.id, { speaker: 'ب', text: 'Y', personId: b.id });
+    await addConversationPart(two.id, { speaker: 'أ', text: 'X', personId: a.id });
+
+    const net = await constellation();
+    expect(net.links.length).toBe(1);
+    expect(net.links[0].count).toBe(2);
+  });
+
+  it('ثلاثة في موقف = ثلاث وصلات', async () => {
+    await fresh();
+    const ids = [];
+    for (const name of ['أ', 'ب', 'ج']) ids.push((await addPerson({ name })).id);
+    const s = await scene('قعدة', '2026-04-01');
+    for (const id of ids) await addConversationPart(s.id, { speaker: 'x', text: 'X', personId: id });
+
+    const net = await constellation();
+    expect(net.links.length).toBe(3);
+    expect(net.nodes.length).toBe(3);
+  });
+
+  it('مواقف الوصلة تُعاد بأسمائها من الأحدث', async () => {
+    await fresh();
+    const a = await addPerson({ name: 'أ' });
+    const b = await addPerson({ name: 'ب' });
+    for (const [title, date] of [['قديمة', '2026-01-01'], ['جديدة', '2026-06-01']]) {
+      const s = await scene(title, date);
+      await addConversationPart(s.id, { speaker: 'أ', text: 'X', personId: a.id });
+      await addConversationPart(s.id, { speaker: 'ب', text: 'Y', personId: b.id });
+    }
+    const net = await constellation();
+    expect(net.links[0].scenes[0].title).toBe('جديدة');
+    expect(net.links[0].scenes[1].title).toBe('قديمة');
+  });
+
+  it('الذكرى المحذوفة تخرج من الشبكة', async () => {
+    await fresh();
+    const a = await addPerson({ name: 'أ' });
+    const b = await addPerson({ name: 'ب' });
+    const s = await scene('محذوفة', '2026-04-01');
+    await addConversationPart(s.id, { speaker: 'أ', text: 'X', personId: a.id });
+    await addConversationPart(s.id, { speaker: 'ب', text: 'Y', personId: b.id });
+    await scenes.trash(s.id);
+
+    const net = await constellation();
+    expect(net.links).toEqual([]);
+    expect(net.nodes).toEqual([]);
+  });
+
+  it('قاعدةٌ فارغة تعطي شبكةً فارغة لا خطأ', async () => {
+    await fresh();
+    const net = await constellation();
+    expect(net.nodes).toEqual([]);
+    expect(net.links).toEqual([]);
+    expect(net.scenesWithTwo).toBe(0);
   });
 });
