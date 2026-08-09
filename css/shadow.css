@@ -1901,3 +1901,136 @@ body.shadow-open { overflow: hidden; }
   border-color: rgba(167, 139, 250, .5);
   box-shadow: 0 0 34px -6px var(--sh-glow);
 }
+
+/* ══════════════════════════════════════════════════════════════
+   لوحة الأصل — نظيرة لوحة الصورة، للنصّ (بند 13)
+
+   الصورة لها إطارها منذ البداية. والسكريبت والمحادثة لم يكن لهما
+   شيء: تراهما مُقسَّمَين إلى مقاطع ممارسة، والأصل غائب. فصار لهما
+   إطارٌ بنفس المنطق — يُمرَّر داخله فلا يدفع المقاطع لأسفل،
+   ويُحجَّم بمقبض، ويُطوى حين لا تحتاجه.
+   ══════════════════════════════════════════════════════════════ */
+
+.sh-origin {
+  margin-bottom: 10px;
+  border-radius: 13px;
+  border: 1px solid var(--sh-line);
+  background: rgba(255, 255, 255, .03);
+  overflow: hidden;
+}
+
+.sh-origin > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--sh-mute);
+  list-style: none;
+}
+
+/* السهم الافتراضي يختلف بين المتصفّحات؛ نرسمه بأنفسنا فيتّسق. */
+.sh-origin > summary::-webkit-details-marker { display: none; }
+
+.sh-origin > summary::before {
+  content: '▸';
+  flex: none;
+  font-size: 10px;
+  transition: transform .15s ease;
+}
+
+.sh-origin[open] > summary::before { transform: rotate(90deg); }
+
+@media (prefers-reduced-motion: reduce) {
+  .sh-origin > summary::before { transition: none; }
+}
+
+/* «٣ مش في الجلسة دي» — يُقال بالعدد لا يُترك للتخمين. */
+.sh-origin-note {
+  margin-inline-start: auto;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--sh-line);
+  font-size: 10.5px;
+}
+
+.sh-origin-scroll {
+  /* الارتفاع من المقبض، والتمرير **داخل** الإطار — الأصل لا يدفع
+     المقاطع لأسفل مهما طال. */
+  height: var(--origin-h, 160px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 4px 12px 10px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sh-line) transparent;
+  font-size: 13.5px;
+  line-height: 1.9;
+}
+
+.sh-origin-scroll::-webkit-scrollbar { width: 5px; }
+.sh-origin-scroll::-webkit-scrollbar-thumb {
+  background: var(--sh-line);
+  border-radius: 999px;
+}
+
+.sh-origin-raw { margin: 0; white-space: pre-wrap; }
+
+/* الجملة داخل الأصل: تُقرأ في سياقها، والمتروكة تخفت ولا تختفي. */
+.sh-origin-sent { color: var(--sh-ink); }
+.sh-origin-sent.skipped { opacity: .45; }
+
+/* المحادثة تُعرَض **كمحادثة**: أدوارٌ بأصحابها. قائمةٌ مسطّحة من
+   الجمل تُضيّع مَن قال ماذا — وهو نصف معناها. */
+.sh-origin-turn {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.sh-origin-turn.skipped { opacity: .45; }
+
+.sh-origin-who {
+  flex: none;
+  min-width: 7ch;
+  font-size: 11px;
+  color: var(--sh-mute);
+  font-family: inherit;
+  font-style: normal;
+}
+
+/* دورك أنت مميَّز — تعرف أين كنت تتكلّم بنظرة. */
+.sh-origin-turn.mine .sh-origin-who { color: var(--sh-accent-2); }
+
+.sh-origin-said { flex: 1; min-width: 0; color: var(--sh-ink); }
+
+.sh-origin-grip {
+  height: 14px;
+  display: grid;
+  place-items: center;
+  cursor: ns-resize;
+  touch-action: none;
+  background: linear-gradient(180deg, transparent, rgba(139, 92, 246, .14));
+}
+
+.sh-origin-grip::after {
+  content: '';
+  width: 40px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--sh-line);
+}
+
+.sh-origin-grip:active::after,
+.sh-origin-grip:focus-visible::after { background: var(--sh-accent); }
+.sh-origin-grip:focus-visible { outline: none; }
+
+/* على الورق الدافئ: الأبيض الشفّاف يختفي، فيُقلب إلى حبرٍ خفيف. */
+.sh-left .sh-origin,
+.sh-left .sh-origin-note { background: rgba(74, 55, 30, .045); }
+
+.sh-left .sh-origin-grip {
+  background: linear-gradient(180deg, transparent, rgba(165, 98, 43, .16));
+}

@@ -14,7 +14,7 @@ import { icon } from '../components/icons.js';
 import { toast, toastOk, toastError } from '../components/toast.js';
 import { showModal, confirmAction } from '../components/modal.js';
 import { navigate } from '../router.js';
-import { splitWords } from '../services/shadow/segmenter.js';
+import { splitWords, splitSentences } from '../services/shadow/segmenter.js';
 import { toEgyptian } from '../services/shadow/dialect.js';
 import {
   createPlaybackController,
@@ -61,7 +61,7 @@ import { resolveLinks, LINK } from '../services/link-service.js';
 import {
   SAVED_KIND, listSavedTags, addSavedTag, saveItem, listSaved, isSaved,
 } from '../services/saved-service.js';
-import { addExpression, addScript } from '../services/content-service.js';
+import { addExpression, addScript, listConversationParts } from '../services/content-service.js';
 import { savedItems } from '../db/repositories.js';
 import { deleteWithUndo } from '../services/delete-service.js';
 import {
@@ -247,20 +247,61 @@ async function resolveSource(session, segments) {
   // القراءة هنا، والتصنيف في الخدمة — فيبقى منطق الوصف مُختبَرًا
   // بلا تهيئة مستودعات (`describeSource`).
   let resolved = {};
+  /**
+   * **الأصل كما هو** — لا كما قسّمناه (بند 13).
+   *
+   * ⚠️ المقاطع مشتقّة، والأصل هو النصّ. حين يقسّم المُقسِّم في موضعٍ
+   *    غريب، أو تسأل «هو كان بيقول إيه بالظبط قبل الجملة دي؟»، فليس
+   *    في الصفحة ما يجيب. الصورة لها لوحتها منذ البداية، والسكريبت
+   *    والمحادثة لم يكن لهما شيء.
+   */
+  let origin = null;
+
   try {
     if (session.sourceType === SOURCE_TYPE.SCRIPT || session.sourceType === SOURCE_TYPE.SELECTION) {
       const script = await scripts.get(session.sourceId);
       resolved = script ? { title: script.title } : { missing: true };
+      if (script?.text) {
+        const all = splitSentences(script.text);
+        const inSession = new Set(segments.map((s) => (s.sourceTextSnapshot || '').trim()));
+        origin = {
+          kind: 'text',
+          text: script.text,
+          // في المختارات: نُعلِّم ما تتدرّب عليه وما تركته، فترى الاختيار
+          // في سياقه بدل أن ترى قائمةً بلا أصل.
+          sentences: all.map((text) => ({ text, picked: inSession.has(text.trim()) })),
+          total: all.length,
+        };
+      }
+    } else if (session.sourceType === SOURCE_TYPE.CONVERSATION) {
+      const parts = session.sceneId ? await listConversationParts(session.sceneId) : [];
+      // ⚠️ المحادثة تُعرَض **كمحادثة**: أدوارٌ بأصحابها بترتيبها. قائمةٌ
+      //    مسطّحة من الجمل تُضيّع مَن قال ماذا — وهو نصف معناها.
+      if (parts.length) {
+        const inSession = new Set(segments.map((s) => (s.sourceTextSnapshot || '').trim()));
+        origin = {
+          kind: 'turns',
+          turns: parts.map((p) => ({
+            speaker: p.speaker || 'المتحدث',
+            isMine: Boolean(p.isMine),
+            text: p.text || '',
+            picked: inSession.has((p.text || '').trim()),
+          })),
+          total: parts.length,
+        };
+      }
     } else if (session.sourceType === SOURCE_TYPE.CONTENT_BLOCK) {
       const block = await contentBlocks.get(session.sourceId);
       resolved = block ? { title: block.title } : { missing: true };
+      if (block?.text) origin = { kind: 'text', text: block.text };
     } else if (session.sourceType === SOURCE_TYPE.MEDIA_TEXT) {
       resolved = { title: session.title };
     }
   } catch {
     resolved = { missing: true };
   }
-  return describeSource(session, segments, resolved);
+
+  return { ...describeSource(session, segments, resolved), origin };
 }
 
 /** بطاقة المصدر أعلى الصفحة اليسرى. */
@@ -280,6 +321,70 @@ function sourceBadge(source) {
           : ''
       )}
     </div>`;
+}
+
+/**
+ * لوحة الأصل — نظيرة لوحة الصورة، للنصّ (بند 13).
+ *
+ * الصورة لها إطارها منذ البداية: تُمرَّر داخله وتُثبَّت وتُحجَّم.
+ * والسكريبت والمحادثة لم يكن لهما شيء — تراهما مُقسَّمَين إلى مقاطع
+ * ممارسة، والأصل غائب. وهو غيابٌ يُحسّ في لحظتين:
+ *
+ *  · حين يقسّم المُقسِّم في موضعٍ غريب فتريد أن ترى الجملة كما كُتبت.
+ *  · وحين تسأل «هو قال إيه قبل دي؟» — والمقاطع لا تحفظ الجوار.
+ *
+ * فصار لهما إطارٌ بنفس منطق إطار الصورة: **يُمرَّر داخله** فلا يدفع
+ * المقاطع لأسفل، **ويُحجَّم** بمقبض، **ويُطوى** حين لا تحتاجه.
+ *
+ * ⚠️ **عرضٌ محض.** لا يعدّل نصًّا ولا يعيد تقسيمًا ولا يمسّ الجلسة.
+ */
+function originPanel(source) {
+  const origin = source?.origin;
+  if (!origin) return '';
+
+  const body =
+    origin.kind === 'turns'
+      ? origin.turns
+          .map(
+            (t) => html`
+              <div class="sh-origin-turn${t.isMine ? ' mine' : ''}${t.picked ? '' : ' skipped'}">
+                <span class="sh-origin-who">${esc(t.speaker)}</span>
+                <span class="sh-origin-said" dir="ltr" lang="ru">${esc(t.text)}</span>
+              </div>`
+          )
+          .join('')
+      : origin.sentences
+        ? origin.sentences
+            .map(
+              (s) =>
+                html`<span class="sh-origin-sent${s.picked ? '' : ' skipped'}"
+                  dir="ltr" lang="ru">${esc(s.text)}</span>`
+            )
+            .join(' ')
+        : html`<p class="sh-origin-raw" dir="ltr" lang="ru">${esc(origin.text || '')}</p>`;
+
+  // كم تركتَ خارج الجلسة؟ يُقال بالعدد لا يُترك للتخمين.
+  const skipped =
+    origin.kind === 'turns'
+      ? origin.turns.filter((t) => !t.picked).length
+      : (origin.sentences || []).filter((s) => !s.picked).length;
+
+  return html`
+    <details class="sh-origin" data-origin ${ctx.originOpen ? 'open' : ''}>
+      <summary>
+        ${origin.kind === 'turns' ? 'المحادثة الأصلية' : 'النصّ الأصلي'}
+        ${raw(
+          skipped
+            ? html`<span class="sh-origin-note">${skipped} مش في الجلسة دي</span>`
+            : ''
+        )}
+      </summary>
+      <div class="sh-origin-scroll" style="--origin-h:${ctx.originHeight}px">
+        ${raw(body)}
+      </div>
+      <div class="sh-origin-grip" data-origin-grip role="separator"
+        aria-label="اسحب لتغيير ارتفاع النصّ الأصلي"></div>
+    </details>`;
 }
 
 /** صورة غلاف المشهد — الصفحة اليسرى تعرض الذكرى لا النصّ وحده. */
@@ -367,6 +472,10 @@ export async function renderShadow(main, sessionId) {
     coverZoom: session.coverZoom || 100,
     coverPinned: session.coverPinned ?? false,
     fontSize: session.fontSize ?? 1,
+    // مطويّة افتراضيًّا: الأصل مرجعٌ تفتحه عند الحاجة لا شيءٌ يزاحم
+    // ما تتدرّب عليه.
+    originOpen: session.originOpen ?? false,
+    originHeight: session.originHeight || 160,
   };
 
   main.innerHTML = shell();
@@ -400,6 +509,7 @@ export async function renderShadow(main, sessionId) {
   syncSegment();
   wireSpine(main);
   wireCoverResize(main);
+  wireOriginPanel(main);
   wireInteractions(main);
   wireModalActions();
 }
@@ -466,6 +576,7 @@ function shell() {
             </div>
 
             ${raw(sourceBadge(source))}
+            ${raw(originPanel(source))}
             ${raw(change.changed ? staleBanner(change) : '')}
             ${raw(cover ? coverPanel(cover) : '')}
             ${raw(
@@ -2192,6 +2303,70 @@ function applyCover() {
   box.style.setProperty('--cover-zoom', `${ctx.coverZoom}%`);
   const label = box.querySelector('[data-cover-zoom]');
   if (label) label.textContent = `${ctx.coverZoom}%`;
+}
+
+/**
+ * مقبض ارتفاع لوحة الأصل، وحفظ حالة طيّها.
+ *
+ * نفس منطق مقبض الصورة: الحدّ الأدنى يمنع اختفاء اللوحة فيتعذّر
+ * إرجاعها، والأعلى يُبقي مقطعًا واحدًا على الأقل مرئيًّا تحتها.
+ */
+function wireOriginPanel(main) {
+  const box = main.querySelector('[data-origin]');
+  if (!box) return;
+
+  // الطيّ يُحفظ: مَن يفتح الأصل يفتحه لأنه يحتاجه، ولا يصحّ أن يُغلَق
+  // في وجهه عند كل عودة للجلسة.
+  box.addEventListener('toggle', () => {
+    ctx.originOpen = box.open;
+    saveSessionSettings(ctx.session.id, { originOpen: box.open }).catch(() => {});
+  });
+
+  const grip = box.querySelector('[data-origin-grip]');
+  const scroll = box.querySelector('.sh-origin-scroll');
+  if (!grip || !scroll) return;
+
+  let dragging = false;
+  let startY = 0;
+  let startH = 0;
+  const maxHeight = () => Math.max(120, Math.round(window.innerHeight * 0.55));
+
+  const apply = () => scroll.style.setProperty('--origin-h', `${ctx.originHeight}px`);
+
+  grip.addEventListener('pointerdown', (event) => {
+    dragging = true;
+    startY = event.clientY;
+    startH = scroll.getBoundingClientRect().height;
+    grip.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  });
+
+  grip.addEventListener('pointermove', (event) => {
+    if (!dragging) return;
+    ctx.originHeight = Math.max(80, Math.min(maxHeight(), Math.round(startH + (event.clientY - startY))));
+    apply();
+  });
+
+  const end = (event) => {
+    if (!dragging) return;
+    dragging = false;
+    grip.releasePointerCapture(event.pointerId);
+    saveSessionSettings(ctx.session.id, { originHeight: ctx.originHeight }).catch(() => {});
+  };
+
+  grip.addEventListener('pointerup', end);
+  grip.addEventListener('pointercancel', end);
+
+  // ولمن لا يسحب — على تابلت بلوحة مفاتيح، أو بلا لمسٍ دقيق.
+  grip.tabIndex = 0;
+  grip.addEventListener('keydown', (event) => {
+    const step = event.key === 'ArrowUp' ? -20 : event.key === 'ArrowDown' ? 20 : 0;
+    if (!step) return;
+    event.preventDefault();
+    ctx.originHeight = Math.max(80, Math.min(maxHeight(), ctx.originHeight + step));
+    apply();
+    saveSessionSettings(ctx.session.id, { originHeight: ctx.originHeight }).catch(() => {});
+  });
 }
 
 /**
