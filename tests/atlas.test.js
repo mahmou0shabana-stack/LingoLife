@@ -17,7 +17,7 @@ import { describe, it, expect } from './test-runner.js';
 import { openDB } from '../js/db/database.js';
 import {
   scenes, people, eventThreads, eventTypes, relationships, conversationParts,
-  expressions, expressionOccurrences, mistakeComparisons, scripts,
+  expressions, expressionOccurrences, mistakeComparisons, scripts, settings,
 } from '../js/db/repositories.js';
 import { createScene } from '../js/services/scene-service.js';
 import { addPerson } from '../js/services/person-service.js';
@@ -27,6 +27,7 @@ import { addConversationPart, addExpression } from '../js/services/content-servi
 import {
   AXIS, ABSENT_AXES, placeKey, facetsFor, allowedSceneIds,
   riverPage, dayDetail, adjacentDays, facetTree, continuingStories,
+  pivotsFor, listLenses, saveLens, removeLens,
 } from '../js/services/atlas-service.js';
 
 async function fresh() {
@@ -477,5 +478,117 @@ describe('الأطلس — القصص المكمّلة', () => {
     // ⚠️ صفرٌ يقول «اتحرّك النهارده» وهو لم يتحرّك قطّ.
     expect(stories[0].daysSince).toBe(null);
     expect(stories[0].count).toBe(0);
+  });
+});
+
+describe('الأطلس — محور الذكرى', () => {
+  it('لا يُعرَض محورٌ ما وراءه غير هذه الذكرى', async () => {
+    await fresh();
+    // ⚠️ «شوف باقي ذكرياتك في المكان ده» على ذكرى وحيدةٍ هناك وعدٌ
+    //    كاذب: تضغطه فتجدها هي.
+    await scene('وحيدة', '2026-04-01', { type: 'phone', placeName: 'مكان لوحده' });
+    expect(await pivotsFor((await scenes.getAll())[0].id)).toEqual([]);
+  });
+
+  it('يُعرَض حين يكون وراءه غيرها — بعددٍ صادق', async () => {
+    await fresh();
+    const a = await scene('أ', '2026-04-01', { type: 'phone', placeName: 'المكتب' });
+    await scene('ب', '2026-04-02', { type: 'phone', placeName: 'المكتب' });
+
+    const pivots = await pivotsFor(a.id);
+    const byAxis = Object.fromEntries(pivots.map((p) => [p.axis, p]));
+    expect(byAxis[AXIS.TYPE].count).toBe(2);
+    expect(byAxis[AXIS.PLACE].count).toBe(2);
+    expect(byAxis[AXIS.PLACE].label).toBe('المكتب');
+  });
+
+  it('الشخص يظهر محورًا لو قابلته أكتر من مرّة', async () => {
+    await fresh();
+    const igor = await addPerson({ name: 'إيجور' });
+    const a = await scene('أ', '2026-04-01');
+    const b = await scene('ب', '2026-04-02');
+    await addConversationPart(a.id, { speaker: 'إيجور', text: 'А', personId: igor.id });
+    await addConversationPart(b.id, { speaker: 'إيجور', text: 'Б', personId: igor.id });
+
+    const pivots = await pivotsFor(a.id);
+    expect(pivots.some((p) => p.axis === AXIS.PERSON && p.count === 2)).toBe(true);
+  });
+
+  it('ذكرى محذوفة بلا محاور', async () => {
+    await fresh();
+    const s = await scene('محذوفة', '2026-04-01');
+    await scenes.trash(s.id);
+    expect(await pivotsFor(s.id)).toEqual([]);
+  });
+
+  it('العدد في المحور = اللي هيرجّعه النهر بالفعل', async () => {
+    await fresh();
+    const igor = await addPerson({ name: 'إيجور' });
+    const a = await scene('أ', '2026-04-01');
+    for (const date of ['2026-04-02', '2026-04-03']) {
+      const other = await scene(`ذكرى ${date}`, date);
+      await addConversationPart(other.id, { speaker: 'إيجور', text: 'X', personId: igor.id });
+    }
+    await addConversationPart(a.id, { speaker: 'إيجور', text: 'А', personId: igor.id });
+
+    const pivot = (await pivotsFor(a.id)).find((p) => p.axis === AXIS.PERSON);
+    const page = await riverPage({ filters: { [AXIS.PERSON]: pivot.value } });
+    const shown = page.days.reduce((n, day) => n + day.scenes.length, 0);
+    // ⚠️ الوعد الذي يقطعه الرقم: تضغطه فتجد ما قال (بند 66).
+    expect(shown).toBe(pivot.count);
+  });
+});
+
+describe('الأطلس — العدسات', () => {
+  it('تُحفَظ وتُقرَأ وتُمسَح', async () => {
+    await fresh();
+    await settings.set('atlas.lenses', []);
+
+    const lens = await saveLens('شغلي مع إيجور', { [AXIS.PERSON]: 'PE_1', placeLabel: '' });
+    expect((await listLenses()).length).toBe(1);
+    expect((await listLenses())[0].name).toBe('شغلي مع إيجور');
+
+    await removeLens(lens.id);
+    expect(await listLenses()).toEqual([]);
+  });
+
+  it('بلا اسم أو بلا مرشّحات تُرفَض', async () => {
+    await fresh();
+    await settings.set('atlas.lenses', []);
+    let errors = 0;
+    for (const attempt of [
+      () => saveLens('   ', { [AXIS.TYPE]: 'phone' }),
+      () => saveLens('عدسة فاضية', {}),
+    ]) {
+      try { await attempt(); } catch { errors++; }
+    }
+    expect(errors).toBe(2);
+  });
+
+  it('الاسم المكرّر يُرفَض بعد التطبيع', async () => {
+    await fresh();
+    await settings.set('atlas.lenses', []);
+    await saveLens('المصلحة', { [AXIS.TYPE]: 'official' });
+    let error = null;
+    try { await saveLens('المصلحه', { [AXIS.TYPE]: 'phone' }); } catch (e) { error = e; }
+    expect(Boolean(error)).toBe(true);
+  });
+
+  it('لا تحفظ `placeLabel` بين المرشّحات — هو للعرض لا للتصفية', async () => {
+    await fresh();
+    await settings.set('atlas.lenses', []);
+    const lens = await saveLens('المكتب', { [AXIS.PLACE]: 'المكتب', placeLabel: 'المكتب' });
+    expect(Object.keys(lens.filters)).toEqual([AXIS.PLACE]);
+    expect(lens.placeLabel).toBe('المكتب');
+  });
+
+  it('⚠️ مفيش عدسات مدمجة — كلها من كتابتك', async () => {
+    await fresh();
+    await settings.set('atlas.lenses', []);
+    /*
+     * «الشغل» و«اليوميّات» جاهزتين تحتاجان قرارًا لسنا أصحابه: أيّ
+     * الأنواع «شغل»؟ وتصنيفٌ نخترعه يبدو معلومةً عنك وهو تخمينٌ منّا.
+     */
+    expect(await listLenses()).toEqual([]);
   });
 });

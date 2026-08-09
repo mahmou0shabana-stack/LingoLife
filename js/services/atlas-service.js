@@ -50,7 +50,7 @@
 
 import { scenes, relationships, conversationParts, people, eventThreads,
   expressionOccurrences, expressions, mistakeComparisons, scripts,
-  shadowSessions } from '../db/repositories.js';
+  shadowSessions, settings } from '../db/repositories.js';
 import { STATE } from '../db/schema.js';
 import { normalize } from '../utils/normalization.js';
 import { toISODate, daysBetween } from '../utils/dates.js';
@@ -469,6 +469,114 @@ export async function continuingStories({ limit = 5 } = {}) {
     })
     .sort((a, b) => (b.daysSince ?? -1) - (a.daysSince ?? -1))
     .slice(0, limit);
+}
+
+/* ------------------------------------------------------------------ *
+ * العدسات
+ * ------------------------------------------------------------------ */
+
+const LENS_KEY = 'atlas.lenses';
+
+/**
+ * العدسة سؤالٌ تكرّر عليك فحفظتَه.
+ *
+ * ⚠️ **كلّها من كتابتك، ولا عدسةَ مدمجة.** جرّبتُ أن أضيف «الشغل»
+ *    و«اليوميّات» جاهزتين، فوجدتُهما تحتاجان قرارًا لستُ صاحبه: أيّ
+ *    الأنواع «شغل»؟ «فحص» شغلٌ عندك وقد لا يكون عند غيرك. وتصنيفٌ
+ *    اخترعتُه لك يبدو معلومةً عنك وهو تخمينٌ منّي (بند 89).
+ *
+ * ⚠️ وتُحفَظ في `settings` لا في مستودعٍ خاصّ: قائمةٌ من بضعة عناصر
+ *    تُقرأ كاملةً دائمًا ولا يُستعلَم فيها. مستودعٌ لها ترقيةٌ بلا
+ *    سبب.
+ */
+export async function listLenses() {
+  const rows = await settings.get(LENS_KEY, []);
+  return Array.isArray(rows) ? rows : [];
+}
+
+/** يحفظ تركيبةً بالاسم الذي تعرفها به. */
+export async function saveLens(name, filters) {
+  const clean = (name || '').trim();
+  if (!clean) throw new Error('العدسة لازم يبقى ليها اسم');
+
+  const active = Object.fromEntries(
+    Object.entries(filters || {}).filter(([key, value]) => value && key !== 'placeLabel')
+  );
+  if (!Object.keys(active).length) throw new Error('مفيش مرشّحات نحفظها');
+
+  const rows = await listLenses();
+  if (rows.some((lens) => normalize(lens.name) === normalize(clean))) {
+    throw new Error(`«${clean}» موجودة بالفعل`);
+  }
+
+  const lens = {
+    id: `LENS_${Date.now().toString(36)}`,
+    name: clean,
+    filters: active,
+    // الاسم المعروض للمكان يُحفَظ معه: المفتاح مطبَّعٌ لا يُقرأ.
+    placeLabel: filters?.placeLabel || '',
+    createdAt: Date.now(),
+  };
+  await settings.set(LENS_KEY, [...rows, lens]);
+  return lens;
+}
+
+export async function removeLens(id) {
+  const rows = await listLenses();
+  await settings.set(LENS_KEY, rows.filter((lens) => lens.id !== id));
+}
+
+/* ------------------------------------------------------------------ *
+ * محور الذكرى
+ * ------------------------------------------------------------------ */
+
+/**
+ * من ذكرى إلى ما يشبهها — **مداخل الأطلس من داخل الذكرى**.
+ *
+ * ⚠️ الأطلس يُدخَل من أعلى (المحاور) ومن داخل ذكرى. والثاني هو
+ *    الاستعمال الحقيقي: تقرأ ذكرى فتسأل «إمتى تاني قابلت الراجل ده؟»
+ *    — لا تفتح شجرةً وتبحث عن اسمه فيها.
+ *
+ * ⚠️ ولا يُعرَض محورٌ **إلا إن كان وراءه غيرها**. «شوف باقي ذكرياتك في
+ *    المكان ده» على ذكرى وحيدةٍ في ذلك المكان وعدٌ كاذب: تضغطه
+ *    فتجدها هي.
+ *
+ * @returns {Promise<{axis, value, label, count}[]>}
+ */
+export async function pivotsFor(sceneId) {
+  const scene = await scenes.get(sceneId);
+  if (!scene || scene.state !== STATE.ACTIVE) return [];
+
+  const facets = (await facetsFor([scene])).get(sceneId);
+  const tree = await facetTree();
+
+  const out = [];
+
+  const type = tree.types.find((t) => t.id === facets.typeId);
+  if (type && type.count > 1) {
+    out.push({ axis: AXIS.TYPE, value: type.id, label: '', count: type.count });
+  }
+
+  const place = tree.places.find((p) => p.key === facets.placeKey);
+  if (place && place.count > 1) {
+    out.push({ axis: AXIS.PLACE, value: place.key, label: place.label, count: place.count });
+  }
+
+  for (const personId of facets.personIds) {
+    const person = tree.people.find((p) => p.id === personId);
+    if (person && person.count > 1) {
+      out.push({ axis: AXIS.PERSON, value: person.id, label: person.label, count: person.count });
+    }
+  }
+
+  for (const threadId of facets.threadIds) {
+    const thread = tree.threads.find((t) => t.id === threadId);
+    if (thread && thread.count > 1) {
+      out.push({ axis: AXIS.THREAD, value: thread.id, label: thread.label, count: thread.count });
+    }
+  }
+
+  return out;
 }
 
 /**

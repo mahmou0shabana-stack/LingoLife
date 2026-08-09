@@ -11,6 +11,7 @@ import { urlFor, releaseUrls, AUDIO_ROLE_LABEL } from '../services/media-service
 import { html, raw, formatDuration } from '../utils/dom.js';
 import { formatDate } from '../utils/dates.js';
 import { typeLabel } from '../services/type-service.js';
+import { AXIS, pivotsFor } from '../services/atlas-service.js';
 import { threadsOfScene } from '../services/thread-service.js';
 import { icon } from '../components/icons.js';
 
@@ -400,6 +401,36 @@ function sectionNotes(scene, notesText) {
    العرض الكامل
    ============================================================ */
 
+/**
+ * من هذه الذكرى إلى ما يشبهها — مداخل الأطلس من داخل الذكرى.
+ *
+ * ⚠️ هذا هو الاستعمال الحقيقي للأطلس: تقرأ ذكرى فتسأل «إمتى تاني
+ *    قابلت الراجل ده؟» — لا تفتح شجرةً وتبحث عن اسمه فيها.
+ *
+ * ⚠️ ولا يُعرَض محورٌ إلا إن كان وراءه غيرها (تُصفّيه `pivotsFor`):
+ *    «شوف باقي ذكرياتك في المكان ده» على ذكرى وحيدةٍ هناك وعدٌ كاذب —
+ *    تضغطه فتجدها هي.
+ */
+function pivotRow(pivots) {
+  if (!pivots.length) return '';
+  const word = {
+    [AXIS.TYPE]: 'زيّها',
+    [AXIS.PLACE]: 'في',
+    [AXIS.PERSON]: 'مع',
+    [AXIS.THREAD]: 'في قصّة',
+  };
+  return html`
+    <div class="pivot-row">
+      <span class="pivot-head">شوف كمان:</span>
+      ${raw(pivots.map((pivot) => html`
+        <button class="pivot" data-action="facet-open"
+                data-axis="${pivot.axis}" data-id="${pivot.value}" data-label="${pivot.label}">
+          ${word[pivot.axis]}${raw(pivot.label ? html` <bdi>${pivot.label}</bdi>` : '')}
+          <span class="pivot-count">${pivot.count}</span>
+        </button>`).join(''))}
+    </div>`;
+}
+
 export async function renderScene(main, sceneId, options = {}) {
   releaseUrls();
 
@@ -420,11 +451,12 @@ export async function renderScene(main, sceneId, options = {}) {
   const images = mediaItems.filter((m) => m.kind === 'image');
   const audio = mediaItems.filter((m) => m.kind === 'audio');
 
-  const [parts, expressionList, notesBlock, threads] = await Promise.all([
+  const [parts, expressionList, notesBlock, threads, pivots] = await Promise.all([
     listConversationParts(sceneId),
     listSceneExpressions(sceneId),
     getBlock(sceneId, 'notes'),
     threadsOfScene(sceneId),
+    pivotsFor(sceneId),
   ]);
 
   const counts = {
@@ -476,6 +508,7 @@ export async function renderScene(main, sceneId, options = {}) {
             ${raw(icon('edit'))} تعديل
           </button>
         </div>
+        ${raw(pivotRow(pivots))}
       </div>
 
       <div class="top-actions">

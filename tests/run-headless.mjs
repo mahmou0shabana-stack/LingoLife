@@ -190,8 +190,11 @@ function doubleEscapes(source) {
     if (c === '$' && source[i + 1] === '{' && stack.at(-1)?.kind === 'tpl') {
       // أي قالبٍ موسوم في السلسلة يهرّب النتيجة، ولو كان المباشر عاديًّا.
       const escaped = stack.some((f) => f.kind === 'tpl' && f.tagged);
-      if (escaped && source.slice(i + 2, i + 6) === 'esc(') hits.push(lineAt(i));
-      stack.push({ kind: 'expr' });
+      if (escaped && source.slice(i + 2).replace(/^[\s(]+/, '').startsWith('esc(')) {
+        hits.push({ line: lineAt(i), kind: 'esc' });
+      }
+      // نحفظ بدايته لنفحص **الإدراج كلّه** عند إغلاقه، لا أوّل حروفه.
+      stack.push({ kind: 'expr', outer: true, escaped, start: i + 2, line: lineAt(i) });
       i += 2;
       continue;
     }
@@ -201,7 +204,25 @@ function doubleEscapes(source) {
       continue;
     }
     if (c === '}' && stack.at(-1)?.kind === 'expr') {
-      stack.pop();
+      const frame = stack.pop();
+      /*
+       * ⚠️ الفحص على الإدراج كامِلًا لا على أوّله.
+       *
+       *    `${html`…`}` شكلٌ نادر، والشائع `${cond ? html`…` : ''}` و
+       *    `${list.map((x) => html`…`).join('')}`. وكلّها تُنتج نصًّا
+       *    يهرّبه القالب الخارجي فتُطبَع الوسوم حرفيًّا: «في
+       *    &lt;bdi&gt;المكتب&lt;/bdi&gt;».
+       *
+       *    وفحصُ أوّل الحروف وحده مرّ على البُنية الشائعة — أُعيد
+       *    العطب تجريبًا فلم يسقط الفحص. فصار على المدى كلّه: أي
+       *    `html`` بداخله بلا `raw(` في أوّله.
+       */
+      if (frame.outer && frame.escaped) {
+        const body = source.slice(frame.start, i);
+        if (body.includes('html`') && !body.trimStart().startsWith('raw(')) {
+          hits.push({ line: frame.line, kind: 'html' });
+        }
+      }
       i += 1;
       continue;
     }
@@ -211,15 +232,20 @@ function doubleEscapes(source) {
   return hits;
 }
 
+const WHY = {
+  esc: 'esc() جوّه html بتهرّب مرتين',
+  html: 'قالب html جوّه html بلا raw() — الوسوم هتتطبع حرفيًّا',
+};
+
 const escapeIssues = [];
 for (const path of modules) {
-  for (const line of doubleEscapes(readFileSync(path, 'utf8'))) {
-    escapeIssues.push(`${path}:${line}`);
+  for (const hit of doubleEscapes(readFileSync(path, 'utf8'))) {
+    escapeIssues.push(`${path}:${hit.line} — ${WHY[hit.kind]}`);
   }
 }
 
 if (escapeIssues.length) {
-  for (const issue of escapeIssues) console.log(`  ✗ ${issue} — esc() جوّه html بتهرّب مرتين`);
+  for (const issue of escapeIssues) console.log(`  ✗ ${issue}`);
 } else {
   console.log('  ✓ مفيش تهريب مزدوج');
 }

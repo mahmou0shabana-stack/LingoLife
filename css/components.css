@@ -1833,3 +1833,77 @@
 }
 .fc-absent summary { cursor: pointer; color: var(--ink-faint); }
 .fc-absent p { margin: var(--sp-2) 0 0; }
+
+/* ---- المحور من داخل الذكرى ---- */
+
+.pivot-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px dashed var(--line);
+}
+.pivot-head { font-size: var(--fs-xs); color: var(--ink-faint); }
+.pivot {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  padding: var(--sp-1) var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--ink);
+}
+.pivot:hover { border-color: var(--accent-soft); background: var(--accent-wash); }
+.pivot-count {
+  direction: ltr;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  color: var(--ink-faint);
+}
+
+/* ---- العدسات ---- */
+
+.rv-chip.is-save { border-style: dashed; color: var(--accent); }
+
+.rv-lenses {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+}
+.rv-lens {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  overflow: hidden;
+}
+.rv-lens:hover { border-color: var(--accent-soft); }
+.rv-lens-open {
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  padding: var(--sp-1) var(--sp-3);
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+}
+.rv-lens-del {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 0 var(--sp-2);
+  border: 0;
+  border-inline-start: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-faint);
+}
+.rv-lens-del:hover { background: var(--red-bg); color: var(--red); }

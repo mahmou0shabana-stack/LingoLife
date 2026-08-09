@@ -31,7 +31,9 @@ import { getPerson } from '../services/person-service.js';
 import { getThread, THREAD_STATUS_LABEL } from '../services/thread-service.js';
 import {
   AXIS, ABSENT_AXES, riverPage, dayDetail, adjacentDays, continuingStories,
+  listLenses, saveLens, removeLens,
 } from '../services/atlas-service.js';
+import { toastOk, toastError } from '../components/toast.js';
 
 /**
  * حالة التصفّح.
@@ -157,6 +159,13 @@ async function filterBar(filters) {
           <span class="rv-chip-x">${raw(icon('close', 12))}</span>
         </button>`).join(''))}
       <button class="rv-chip is-clear" data-action="river-clear">امسح الكل</button>
+      <!--
+        العدسة سؤالٌ تكرّر عليك فحفظتَه: «شغلي مع إيجور»، «كل مرّة رحت
+        فيها المصلحة». تُحفَظ بالاسم الذي تعرفها به أنت.
+      -->
+      <button class="rv-chip is-save" data-action="river-save-lens">
+        ${raw(icon('star', 13))} احفظها كعدسة
+      </button>
     </div>`;
 }
 
@@ -201,11 +210,38 @@ async function storiesStrip() {
     </section>`;
 }
 
+/**
+ * العدسات المحفوظة — أسئلتك المتكرّرة، بأسمائك أنت.
+ *
+ * ⚠️ **ولا عدسةَ مدمجة.** جرّبتُ إضافة «الشغل» و«اليوميّات» جاهزتين،
+ *    فوجدتُهما تحتاجان قرارًا لستُ صاحبه: أيّ الأنواع «شغل»؟ «فحص»
+ *    شغلٌ عندك وقد لا يكون عند غيرك. وتصنيفٌ اخترعتُه لك يبدو معلومةً
+ *    عنك وهو تخمينٌ منّي (بند 89).
+ */
+async function lensStrip() {
+  const lenses = await listLenses();
+  if (!lenses.length) return '';
+
+  return html`
+    <div class="rv-lenses">
+      <span class="rv-filters-head">عدساتك:</span>
+      ${raw(lenses.map((lens) => html`
+        <span class="rv-lens">
+          <button class="rv-lens-open" data-action="river-lens" data-id="${lens.id}">
+            <bdi>${lens.name}</bdi>
+          </button>
+          <button class="rv-lens-del" data-action="river-lens-remove" data-id="${lens.id}"
+                  aria-label="امسح العدسة">${raw(icon('close', 12))}</button>
+        </span>`).join(''))}
+    </div>`;
+}
+
 export async function renderRiver(main) {
   if (!state.days.length && !state.loading) await loadMore({ reset: true });
 
   const bar = await filterBar(state.filters);
   const stories = bar ? '' : await storiesStrip();
+  const lenses = bar ? '' : await lensStrip();
   const empty = !state.days.length;
 
   let lastMonth = null;
@@ -228,6 +264,7 @@ export async function renderRiver(main) {
     </div>
 
     ${raw(bar)}
+    ${raw(lenses)}
     ${raw(stories)}
 
     ${raw(empty ? emptyState(Boolean(bar)) : html`
@@ -496,6 +533,38 @@ export async function handleRiverAction(action, target) {
 
   if (action === 'go-facets') {
     navigate('/facets');
+    return true;
+  }
+
+  /* ---- العدسات ---- */
+
+  if (action === 'river-save-lens') {
+    // ⚠️ `prompt` عمدًا: الاسم سطرٌ واحد، ونافذةٌ كاملة له كلفةٌ بلا
+    //    مقابل. ولو احتاجت العدسة وصفًا أو لونًا صارت نافذة.
+    const name = window.prompt('اسم العدسة — إيه السؤال اللي بتجاوبه؟');
+    if (name === null) return true;
+    try {
+      await saveLens(name, state.filters);
+      toastOk(`«${name.trim()}» اتحفظت — هتلاقيها فوق النهر`);
+    } catch (error) {
+      toastError(error.message);
+    }
+    await rerender();
+    return true;
+  }
+
+  if (action === 'river-lens') {
+    const lens = (await listLenses()).find((row) => row.id === target?.dataset.id);
+    if (!lens) return true;
+    state.filters = { ...lens.filters, ...(lens.placeLabel ? { placeLabel: lens.placeLabel } : {}) };
+    await loadMore({ reset: true });
+    await rerender();
+    return true;
+  }
+
+  if (action === 'river-lens-remove') {
+    await removeLens(target?.dataset.id);
+    await rerender();
     return true;
   }
 
