@@ -11,7 +11,7 @@ import { urlFor, releaseUrls, AUDIO_ROLE_LABEL } from '../services/media-service
 import { html, raw, formatDuration } from '../utils/dom.js';
 import { formatDate } from '../utils/dates.js';
 import { typeLabel } from '../services/type-service.js';
-import { AXIS, pivotsFor } from '../services/atlas-service.js';
+import { AXIS, pivotsFor, facetTree } from '../services/atlas-service.js';
 import { threadsOfScene } from '../services/thread-service.js';
 import { icon } from '../components/icons.js';
 
@@ -153,12 +153,55 @@ function sectionVoices(scene, audio) {
       ${raw(
         audio.length
           ? html`<div class="script-foot">
+              ${raw(audio.length > 1
+                ? html`<button class="mini-btn" data-action="play-all-audio" data-id="${scene.id}">
+                    ${raw(icon('play'))} شغّلهم كلهم
+                  </button>`
+                : '')}
               <button class="mini-btn" data-action="record-audio" data-id="${scene.id}">
                 ${raw(icon('mic'))} سجّل صوتك
               </button>
             </div>`
           : ''
       )}
+    </section>`;
+}
+
+/**
+ * مَن كان هنا.
+ *
+ * ⚠️ **مُشتقٌّ من نفس مصدر الأطلس** — `personId` على أجزاء المحادثة —
+ *    لا من `scene.peopleIds`. ذلك الحقل يُكتب `[]` عند الإنشاء ولا
+ *    يُملأ في أي مكان، وقراءته هنا تُظهر «مفيش حد» في ذكرى فيها
+ *    ثلاثة تكلّموا.
+ *
+ * ⚠️ وحدُّه مكتوبٌ في الشاشة: مَن حضر ولم يتكلّم لا يظهر — ولا مصدرَ
+ *    في التطبيق يقوله.
+ */
+function sectionPeople(scene, people, unlinked) {
+  if (!people.length && !unlinked.length) return '';
+
+  return html`
+    <section class="sec" id="sec-people">
+      ${raw(head('person', 'مين كان هنا', people.length || '', null))}
+      <div class="people-row">
+        ${raw(people.map((person) => html`
+          <button class="rv-person" data-action="facet-open"
+                  data-axis="personId" data-id="${person.id}" data-label="${person.name}">
+            ${raw(icon('person', 15))} <bdi>${person.name}</bdi>
+            <span class="pivot-count">${person.count}</span>
+          </button>`).join(''))}
+
+        ${raw(unlinked.map((name) => html`
+          <button class="rv-person is-loose" data-action="manage-people" title="اربطه بشخص">
+            <bdi>${name}</bdi>
+            <span class="pivot-count">?</span>
+          </button>`).join(''))}
+      </div>
+      <p class="rv-hint">
+        دول اللي اتكلّموا في المحادثة، والرقم عدد ذكرياتك مع كل واحد.
+        مين حضر وما اتكلّمش مش هيبان — مفيش مصدر يقوله.
+      </p>
     </section>`;
 }
 
@@ -451,13 +494,30 @@ export async function renderScene(main, sceneId, options = {}) {
   const images = mediaItems.filter((m) => m.kind === 'image');
   const audio = mediaItems.filter((m) => m.kind === 'audio');
 
-  const [parts, expressionList, notesBlock, threads, pivots] = await Promise.all([
+  const [parts, expressionList, notesBlock, threads, pivots, tree] = await Promise.all([
     listConversationParts(sceneId),
     listSceneExpressions(sceneId),
     getBlock(sceneId, 'notes'),
     threadsOfScene(sceneId),
     pivotsFor(sceneId),
+    facetTree(),
   ]);
+
+  /*
+   * مَن كان هنا — من أجزاء المحادثة نفسها لا من حقلٍ على الذكرى.
+   * والعدد الظاهر بجانب كلٍّ هو عدد ذكرياتك **معه** كلّها، فيصير
+   * مدخلًا للأطلس لا رقمًا محلّيًّا.
+   */
+  const spokeHere = [...new Set(parts.filter((p) => p.personId).map((p) => p.personId))];
+  const scenePeople = spokeHere
+    .map((id) => tree.people.find((row) => row.id === id))
+    .filter(Boolean)
+    .map((row) => ({ id: row.id, name: row.label, count: row.count }));
+
+  // متحدّثون بأسمائهم النصّية بلا شخصٍ مربوط — يُعرَضون ليُربطوا.
+  const looseSpeakers = [...new Set(
+    parts.filter((p) => !p.personId && !p.isMine && p.speaker).map((p) => p.speaker)
+  )];
 
   const counts = {
     images: images.length,
@@ -568,6 +628,7 @@ export async function renderScene(main, sceneId, options = {}) {
       ${raw(sectionLanguage(scene, expressionList))}
       ${raw(sectionScripts(scene, scriptList, options.activeScriptId))}
       ${raw(sectionConversation(scene, parts))}
+      ${raw(sectionPeople(scene, scenePeople, looseSpeakers))}
       ${raw(sectionMistakes(scene, mistakes))}
       ${raw(sectionLife(scene, expressionList))}
       ${raw(sectionRecall(scene, images.length > 0))}

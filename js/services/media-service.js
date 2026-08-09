@@ -232,10 +232,40 @@ export function urlFor(mediaRecord, { thumb = true } = {}) {
   return url;
 }
 
-/** يحرّر كل الروابط المخزّنة. يُستدعى عند تغيير الشاشة. */
+/**
+ * وسائطُ قيد الاستعمال الآن، لا تُحرَّر روابطها.
+ *
+ * ⚠️ **مالكٌ واحد للرابط.** كانت خدمة الصوت تُحرّر رابط المقطع السابق
+ *    بنفسها بينما الكاش هنا لا يزال يحتفظ به — فيعود `urlFor` برابطٍ
+ *    ميّت. المسار الحيّ الذي كشفه: شغّل تسجيلًا، ثم آخر، ثم عُد
+ *    للأوّل → «الملف مش موجود» وهو موجود.
+ *
+ *    فالملكيّة هنا وحدها، والمُشغّل **يُعلن ما يستعمله** ولا يُحرّر.
+ */
+const pinned = new Set();
+
+/** يثبّت وسائط فلا يُحرّرها تغيير الشاشة. */
+export function pinMedia(ids) {
+  for (const id of [].concat(ids)) if (id) pinned.add(id);
+}
+
+/** يفكّ التثبيت — ولا يُحرّر فورًا: `releaseUrls` صاحبة القرار. */
+export function unpinMedia(ids) {
+  for (const id of [].concat(ids)) pinned.delete(id);
+}
+
+/**
+ * يحرّر الروابط المخزّنة. يُستدعى عند تغيير الشاشة.
+ *
+ * ⚠️ ما هو مثبَّت يبقى: الصوت يكمل بعد مغادرة الشاشة عمدًا (راجع
+ *    `audio-service`)، وتحريرُ رابطه يقطعه عند أوّل تقديمٍ أو إعادة.
+ */
 export function releaseUrls() {
-  for (const url of urlCache.values()) URL.revokeObjectURL(url);
-  urlCache.clear();
+  for (const [key, url] of urlCache) {
+    if (pinned.has(key.slice(0, key.lastIndexOf(':')))) continue;
+    URL.revokeObjectURL(url);
+    urlCache.delete(key);
+  }
 }
 
 /* ------------------------------------------------------------

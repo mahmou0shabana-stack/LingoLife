@@ -139,3 +139,174 @@ describe('مشغّل الصوت', () => {
     stopAllAudio();
   });
 });
+
+/* ================================================================== *
+ * الطابور
+ * ================================================================== */
+
+const track = (n) => ({ mediaId: `MED_Q_${n}`, url: silentWav(1), title: `مقطع ${n}` });
+
+describe('طابور الأصوات', () => {
+  it('المقطع المفرد طابورٌ من واحد', async () => {
+    await audio.load(track('single')).catch(() => {});
+    // ⚠️ لولا ذلك لصار في الخدمة مساران يختلف سلوك نهايتهما.
+    expect(audio.state.queueTotal).toBe(1);
+    expect(audio.state.hasNext).toBe(false);
+    expect(audio.state.hasPrevious).toBe(false);
+    audio.clear();
+  });
+
+  it('يبدأ من أوّل الطابور ويعرف ما بعده', async () => {
+    await audio.loadQueue([track('a'), track('b'), track('c')]).catch(() => {});
+    expect(audio.state.queueTotal).toBe(3);
+    expect(audio.state.queueIndex).toBe(0);
+    expect(audio.state.hasNext).toBe(true);
+    expect(audio.state.hasPrevious).toBe(false);
+    audio.clear();
+  });
+
+  it('«التالي» يتقدّم، ولا يتجاوز الأخير', async () => {
+    await audio.loadQueue([track('a'), track('b')]).catch(() => {});
+    await audio.next().catch(() => {});
+    expect(audio.state.queueIndex).toBe(1);
+    expect(audio.state.hasNext).toBe(false);
+
+    await audio.next().catch(() => {});
+    expect(audio.state.queueIndex).toBe(1);
+    audio.clear();
+  });
+
+  it('يبدأ من الموضع المطلوب', async () => {
+    await audio.loadQueue([track('a'), track('b'), track('c')], 2).catch(() => {});
+    expect(audio.state.queueIndex).toBe(2);
+    audio.clear();
+  });
+
+  it('موضعٌ خارج المدى يُقصَر ولا يرمي', async () => {
+    await audio.loadQueue([track('a'), track('b')], 99).catch(() => {});
+    expect(audio.state.queueIndex).toBe(1);
+    audio.clear();
+  });
+
+  it('⚠️ «شغّل الكل» وأنت في وسطه يكمل من مكانك', async () => {
+    const list = [track('a'), track('b'), track('c')];
+    await audio.loadQueue(list, 1).catch(() => {});
+    expect(audio.state.queueIndex).toBe(1);
+
+    // نفس الطابور مرّةً ثانية — إعادة البدء تُلغي ما سمعتَه بلا طلب.
+    await audio.loadQueue(list, 0).catch(() => {});
+    expect(audio.state.queueIndex).toBe(1);
+    audio.clear();
+  });
+
+  it('«السابق» في أوّل المقطع يرجع، وفي وسطه يعيده من أوّله', async () => {
+    /*
+     * ⚠️ مقاطع طويلة عمدًا: التقديم إلى الثانية الخامسة في مقطعٍ طوله
+     *    ثانية يُقصَر إلى نهايته، فيبدو «رجوع» وكأنه تجاوز الشرط —
+     *    وهو ما أسقط أوّل صياغةٍ لهذا الاختبار.
+     */
+    const long = [
+      { mediaId: 'MED_Q_long_a', url: silentWav(10), title: 'طويل أ' },
+      { mediaId: 'MED_Q_long_b', url: silentWav(10), title: 'طويل ب' },
+    ];
+    await audio.loadQueue(long, 1).catch(() => {});
+    await audio.previous().catch(() => {});
+    expect(audio.state.queueIndex).toBe(0);
+
+    await audio.next().catch(() => {});
+    audio.seek(5);
+    expect(audio.state.currentTime > 3).toBe(true);
+
+    await audio.previous().catch(() => {});
+    // ما زال على الثاني — «رجوع» في وسط المقطع تعني «من أوّله».
+    expect(audio.state.queueIndex).toBe(1);
+    expect(audio.state.currentTime < 1).toBe(true);
+    audio.clear();
+  });
+
+  it('طابورٌ فارغ لا يفعل شيئًا ولا يرمي', async () => {
+    audio.clear();
+    await audio.loadQueue([]).catch(() => {});
+    expect(audio.state.queueTotal).toBe(0);
+    expect(audio.state.hasTrack).toBe(false);
+  });
+
+  it('الإغلاق يُفرّغ الطابور', async () => {
+    await audio.loadQueue([track('a'), track('b')]).catch(() => {});
+    audio.clear();
+    expect(audio.state.queueTotal).toBe(0);
+    expect(audio.state.hasTrack).toBe(false);
+  });
+});
+
+describe('ملكيّة روابط الوسائط', () => {
+  it('⚠️ رابط الوسيط يبقى حيًّا بعد تشغيل غيره', async () => {
+    const { media } = await import('../js/db/repositories.js');
+    const { urlFor, releaseUrls } = await import('../js/services/media-service.js');
+
+    const mk = (name) => media.create({
+      kind: 'audio', blob: new Blob([new Uint8Array([1, 2, 3, 4])], { type: 'audio/webm' }),
+      filename: name, role: 'note', mime: 'audio/webm', bytes: 4, caption: name,
+    });
+    const a = await mk('أ.webm');
+    const b = await mk('ب.webm');
+
+    const first = urlFor(a, { thumb: false });
+    await audio.load({ mediaId: a.id, url: first, title: 'أ' }).catch(() => {});
+    await audio.load({ mediaId: b.id, url: urlFor(b, { thumb: false }), title: 'ب' }).catch(() => {});
+
+    /*
+     * كانت خدمة الصوت تُحرّر رابط السابق بينما الكاش يحتفظ به، فيعود
+     * `urlFor` برابطٍ ميّت. المسار الحيّ: شغّل تسجيلًا، ثم آخر، ثم عُد
+     * للأوّل → «الملف مش موجود» وهو موجود.
+     */
+    const again = urlFor(a, { thumb: false });
+    expect(again).toBe(first);
+    const response = await fetch(again);
+    expect(response.ok).toBe(true);
+
+    audio.clear();
+    releaseUrls();
+    for (const row of [a, b]) await media.destroy(row.id);
+  });
+
+  it('الجاري تشغيله لا يُحرَّر بتغيير الشاشة', async () => {
+    const { media } = await import('../js/db/repositories.js');
+    const { urlFor, releaseUrls } = await import('../js/services/media-service.js');
+
+    const row = await media.create({
+      kind: 'audio', blob: new Blob([new Uint8Array([5, 6])], { type: 'audio/webm' }),
+      filename: 'ج.webm', role: 'note', mime: 'audio/webm', bytes: 2, caption: 'ج',
+    });
+    const url = urlFor(row, { thumb: false });
+    await audio.load({ mediaId: row.id, url, title: 'ج' }).catch(() => {});
+
+    // ⚠️ الصوت يكمل بعد مغادرة الشاشة عمدًا — وتحريرُ رابطه يقطعه.
+    releaseUrls();
+    const response = await fetch(url);
+    expect(response.ok).toBe(true);
+
+    audio.clear();
+    releaseUrls();
+    await media.destroy(row.id);
+  });
+
+  it('وبعد الإغلاق يُحرَّر مع البقيّة', async () => {
+    const { media } = await import('../js/db/repositories.js');
+    const { urlFor, releaseUrls } = await import('../js/services/media-service.js');
+
+    const row = await media.create({
+      kind: 'audio', blob: new Blob([new Uint8Array([7, 8])], { type: 'audio/webm' }),
+      filename: 'د.webm', role: 'note', mime: 'audio/webm', bytes: 2, caption: 'د',
+    });
+    const url = urlFor(row, { thumb: false });
+    await audio.load({ mediaId: row.id, url, title: 'د' }).catch(() => {});
+
+    audio.clear();
+    releaseUrls();
+    let alive = true;
+    try { await fetch(url); } catch { alive = false; }
+    expect(alive).toBe(false);
+    await media.destroy(row.id);
+  });
+});

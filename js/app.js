@@ -279,6 +279,26 @@ function wireActions() {
       case 'record-audio': return handleRecord(sceneId, target, AUDIO_ROLE.NOTE);
       case 'record-retell': return handleRecord(sceneId, target, AUDIO_ROLE.RETELLING);
 
+      /*
+       * ⚠️ الطابور يُبنى من **الترتيب المعروض** لا من ترتيب القاعدة:
+       *    تضغط «شغّلهم كلهم» فتسمعهم بنفس ترتيب ما تراه أمامك.
+       */
+      case 'play-all-audio': {
+        const rows = [...document.querySelectorAll('#sec-voices [data-action="play-audio"]')]
+          .map((btn) => btn.dataset.id);
+        const records = (await media.getMany(rows)).filter((row) => row?.blob);
+        if (!records.length) return toastError('مفيش تسجيلات نشغّلها');
+
+        const scene = id ? await scenes.get(id) : null;
+        await audio.loadQueue(records.map((record) => ({
+          mediaId: record.id,
+          url: urlFor(record, { thumb: false }),
+          title: record.caption || record.filename || 'تسجيل',
+          subtitle: scene?.titleAr || '',
+        })));
+        return;
+      }
+
       case 'play-audio': {
         const record = await media.get(id);
         if (!record?.blob) return toastError('الملف مش موجود');

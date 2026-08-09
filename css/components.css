@@ -2019,3 +2019,19 @@
 }
 .cn-absent summary { cursor: pointer; color: var(--ink-faint); }
 .cn-absent p { margin: var(--sp-2) 0 0; line-height: 1.8; }
+
+/* ---- الأشخاص داخل الذكرى وطابور الأصوات ---- */
+
+.people-row { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+
+/* متحدّثٌ بالاسم بلا شخصٍ مربوط — مدعوٌّ للربط لا خطأ. */
+.rv-person.is-loose {
+  border-style: dashed;
+  color: var(--ink-soft);
+}
+.rv-person.is-loose:hover { border-color: var(--amber-line); background: var(--amber-bg); }
+
+.mp-btn[hidden] { display: none !important; }
+.mp-btn:disabled { opacity: 0.35; cursor: default; }
+/* «التالي» معكوسٌ عن «السابق» — الاتجاه معنًى في RTL كما في LTR. */
+.mp-next svg { transform: scaleX(-1); }

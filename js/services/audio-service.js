@@ -14,6 +14,8 @@
  *    إغلاقها. التصغير والتبديل والقفل — كلها تُبقيه شغّالًا.
  */
 
+import { pinMedia, unpinMedia } from './media-service.js';
+
 /** المستمعون على تغيّر الحالة. */
 const listeners = new Set();
 
@@ -22,6 +24,16 @@ let el = null;
 
 /** الوسيط الجاري. */
 let current = null;
+
+/**
+ * الطابور — المقاطع التي تُشغَّل بالتتابع.
+ *
+ * ⚠️ **المقطع الواحد طابورٌ من واحد.** لولا ذلك لصار في الخدمة مساران:
+ *    «شغّل هذا» و«شغّل هؤلاء»، ولاختلف سلوك النهاية بينهما — فينتهي
+ *    المقطع المفرد بشيءٍ وينتهي مقطع الطابور بشيءٍ آخر، ويظهر الفرق
+ *    كعطبٍ لا كتصميم.
+ */
+let queue = { tracks: [], index: 0 };
 
 /** إعدادات التكرار الحيّة. */
 const options = {
@@ -64,6 +76,11 @@ function element() {
 
   el.addEventListener('ended', () => {
     options.played++;
+    /*
+     * ⚠️ التكرار **قبل** الطابور: «كرّرها ٥ مرات» تعني هذه الخمس، لا
+     *    أن ينتقل بعد الأولى. والانتقال لا يحدث إلا بعد استيفاء
+     *    التكرار — أو مع اللوب لا يحدث أبدًا، وهو المقصود منه.
+     */
     if (options.loop || options.played < options.reps) {
       el.currentTime = options.a ?? 0;
       el.play().catch(() => {});
@@ -71,6 +88,12 @@ function element() {
       return;
     }
     options.played = 0;
+
+    if (queue.index + 1 < queue.tracks.length) {
+      playAt(queue.index + 1);
+      return;
+    }
+
     stopFrames();
     emit();
   });
@@ -101,6 +124,32 @@ function stopFrames() {
   frame = null;
 }
 
+/**
+ * يشغّل عنصر الطابور رقم `index`.
+ *
+ * ⚠️ **لا يُحرّر رابط السابق.** الروابط يملكها `media-service`، وهذا
+ *    يُعلن ما يستعمله بـ`pinMedia` ولا يُحرّر شيئًا — وإلّا عاد الكاش
+ *    هناك برابطٍ ميّت. راجع `releaseUrls`.
+ */
+async function playAt(index) {
+  const track = queue.tracks[index];
+  if (!track) return;
+
+  const audio = element();
+  queue.index = index;
+  current = track;
+  options.played = 0;
+  options.a = null;
+  options.b = null;
+
+  audio.src = track.url;
+  audio.playbackRate = options.rate;
+  publishMetadata();
+  emit();
+
+  return api.play();
+}
+
 /* ------------------------------------------------------------------ *
  * Media Session — التحكّم من شاشة القفل
  * ------------------------------------------------------------------ */
@@ -127,6 +176,12 @@ function publishMetadata() {
     stop: () => api.stop(),
     seekbackward: (d) => api.seek(el.currentTime - (d.seekOffset || 10)),
     seekforward: (d) => api.seek(el.currentTime + (d.seekOffset || 10)),
+    /*
+     * أزرار «التالي/السابق» على شاشة القفل — تُلغى مع المقطع المفرد
+     * فلا يظهر زرٌّ لا يفعل شيئًا.
+     */
+    nexttrack: queue.tracks.length > 1 ? () => api.next() : null,
+    previoustrack: queue.tracks.length > 1 ? () => api.previous() : null,
     seekto: (d) => api.seek(d.seekTime),
   };
 
@@ -181,35 +236,71 @@ export const api = {
       a: options.a,
       b: options.b,
       hasTrack: Boolean(current),
+      /** موضعك في الطابور — `total: 1` تعني مقطعًا مفردًا. */
+      queueIndex: queue.index,
+      queueTotal: queue.tracks.length,
+      hasNext: queue.index + 1 < queue.tracks.length,
+      hasPrevious: queue.index > 0,
     };
   },
 
   /**
-   * يحمّل مقطعًا ويشغّله.
+   * يحمّل مقطعًا ويشغّله — وهو **طابورٌ من واحد**.
    * @param {{ mediaId: string, url: string, title?: string, subtitle?: string, artwork?: string }} track
    */
   async load(track) {
-    const audio = element();
-
-    if (current?.mediaId === track.mediaId) {
+    if (current?.mediaId === track.mediaId && queue.tracks.length <= 1) {
       // نفس المقطع: نبدّل التشغيل بدل إعادة التحميل من الصفر.
+      const audio = element();
       return audio.paused ? api.play() : api.pause();
     }
+    return api.loadQueue([track], 0);
+  },
 
-    // نحرّر رابط المقطع السابق حتى لا يتراكم الـ Blob في الذاكرة.
-    if (current?.url?.startsWith('blob:')) URL.revokeObjectURL(current.url);
+  /**
+   * يحمّل طابورًا ويبدأ من موضعٍ فيه.
+   *
+   * ⚠️ لا يُشغَّل الطابور من الصفر إن كان الجاري بداخله: تضغط «شغّل
+   *    الكل» وأنت تسمع الثالث فيكمل من الثالث. إعادةُ البدء تُلغي ما
+   *    سمعتَه بلا أن تطلب.
+   *
+   * @param {object[]} tracks
+   * @param {number} startIndex
+   */
+  async loadQueue(tracks, startIndex = 0) {
+    if (!tracks?.length) return;
 
-    current = track;
-    options.played = 0;
-    options.a = null;
-    options.b = null;
+    // ما كان مثبَّتًا للطابور السابق يُفكّ، والجديد يُثبَّت.
+    unpinMedia(queue.tracks.map((t) => t.mediaId));
+    queue = { tracks: [...tracks], index: 0 };
+    pinMedia(queue.tracks.map((t) => t.mediaId));
 
-    audio.src = track.url;
-    audio.playbackRate = options.rate;
-    publishMetadata();
-    emit();
+    const resume = current
+      ? queue.tracks.findIndex((t) => t.mediaId === current.mediaId)
+      : -1;
+    return playAt(resume >= 0 ? resume : Math.max(0, Math.min(startIndex, tracks.length - 1)));
+  },
 
-    return api.play();
+  /** التالي في الطابور — أو لا شيء إن كان الأخير. */
+  async next() {
+    if (queue.index + 1 >= queue.tracks.length) return;
+    return playAt(queue.index + 1);
+  },
+
+  /**
+   * السابق — أو **بداية الجاري** إن مضى عليه أكثر من ثلاث ثوانٍ.
+   *
+   * ⚠️ سلوكٌ مألوف من كل مُشغّل: «رجوع» في أوّل المقطع تعني السابق،
+   *    وفي وسطه تعني «من أوّله». والقفزُ للسابق دائمًا يجعل إعادة
+   *    سماع الجاري مستحيلة بزرّ واحد.
+   */
+  async previous() {
+    if (el && el.currentTime > 3) {
+      el.currentTime = 0;
+      return api.play();
+    }
+    if (queue.index === 0) return;
+    return playAt(queue.index - 1);
   },
 
   async play() {
@@ -277,12 +368,14 @@ export const api = {
 
   /** يفرّغ المشغّل تمامًا — يُنادى عند حذف المقطع الجاري. */
   clear() {
-    if (!el) return;
+    // ⚠️ فكُّ التثبيت لا التحرير: الروابط يملكها `media-service`.
+    unpinMedia(queue.tracks.map((t) => t.mediaId));
+    queue = { tracks: [], index: 0 };
+    current = null;
+    if (!el) return void emit();
     el.pause();
     el.removeAttribute('src');
     el.load();
-    if (current?.url?.startsWith('blob:')) URL.revokeObjectURL(current.url);
-    current = null;
     stopFrames();
     if ('mediaSession' in navigator) navigator.mediaSession.metadata = null;
     emit();
