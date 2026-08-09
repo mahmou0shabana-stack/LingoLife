@@ -398,11 +398,90 @@
   gap: var(--sp-4);
 }
 
+/*
+  المسرح يحصر الصورة، والصورة تتحرّك داخله بـ`transform`. ولولا
+  `overflow: hidden` لخرجت المكبَّرة فوق الأزرار.
+*/
+.lb-stage {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  /* السحب هنا لنا: التنقّل والتحريك — لا لتمرير الصفحة. */
+  touch-action: none;
+  cursor: zoom-in;
+}
+.lb-stage.is-zoomed { cursor: grab; }
+.lb-stage.is-zoomed:active { cursor: grabbing; }
+
 .lightbox img {
   max-width: 100%;
-  max-height: 72vh;
+  max-height: 100%;
   border-radius: var(--radius-md);
   object-fit: contain;
+  transform-origin: center;
+  /* بلا انتقال أثناء السحب — التأخير يجعل التحريك لزجًا. */
+  transition: transform 0.12s ease-out;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.lb-stage.is-zoomed img { transition: none; }
+
+/* ---- الوصف ---- */
+
+.lb-caption { width: 100%; max-width: 520px; }
+.lb-caption input {
+  width: 100%;
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: center;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+.lb-caption input::placeholder { color: rgba(255, 255, 255, 0.45); }
+.lb-caption input:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* ---- التنقّل ---- */
+
+.lb-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+}
+.lb-nav[hidden] { display: none !important; }
+
+.lb-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  cursor: pointer;
+}
+.lb-arrow:hover { background: rgba(255, 255, 255, 0.24); }
+/* «التالية» معكوسة عن «السابقة» — الاتجاه معنًى. */
+.lb-arrow.is-next svg { transform: scaleX(-1); }
+
+.lb-count {
+  direction: ltr;
+  font-size: var(--fs-sm);
+  color: rgba(255, 255, 255, 0.7);
+  min-width: 56px;
+  text-align: center;
 }
 
 .lightbox-bar {

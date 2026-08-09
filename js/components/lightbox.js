@@ -1,32 +1,84 @@
 /**
  * LingoLife — عارض الصورة
  *
- * يفتح الصورة بحجمها الكامل مع ما يمكن فعله بها: تعيينها غلافًا،
- * ربطها بنصّ أو صوت، استخراج نصّها للتدرّب، تنزيل الأصل، وإزالتها من
- * الذكرى بتأكيدٍ وتراجع.
+ * ═══════════════════════════════════════════════════════════════
+ * ثلاثة أشياء يفعلها بصورةٍ في هذا التطبيق تحديدًا
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * **١. تتنقّل بين صور الذكرى بلا إغلاقٍ وفتح.** كان كل تصفّحٍ لصورتين
+ * يعني إغلاقًا وضغطةً وفتحًا — والذكرى فيها ستّ صور غالبًا.
+ *
+ * **٢. تُكبّر لتقرأ.** الصور هنا ليست ذكرياتٍ بصريّة وحدها: كثيرٌ منها
+ * **لافتاتٌ وأوراقٌ فيها روسيّة تريد قراءتها**. وصورةٌ محصورةٌ في
+ * الشاشة تجعل ذلك مستحيلًا.
+ *
+ * **٣. تسمّيها.** `caption` كان حقلًا ميّتًا يُكتب `''` ولا يُملأ في أي
+ * مكان، فيعرض العارض اسم الملفّ: `IMG_20260212.jpg` مكان «لافتة
+ * المستودع». والاسم هو ما تبحث به بعد سنة.
+ *
+ * وما كان يفعله من قبل باقٍ كما هو: الغلاف، والربط، واستخراج النصّ،
+ * وتنزيل الأصل، والإزالة بتأكيدٍ وتراجع.
  */
 
 import { html, raw } from '../utils/dom.js';
 import { media } from '../db/repositories.js';
-import { setCover, removeFromScene, undoRemove, urlFor } from '../services/media-service.js';
+import {
+  setCover, removeFromScene, undoRemove, urlFor, sceneMedia, setCaption,
+} from '../services/media-service.js';
 import { resolveLinks } from '../services/link-service.js';
 import { toastOk } from './toast.js';
 import { actWithUndo } from '../services/delete-service.js';
 import { reloadScene } from '../ui-state.js';
 import { openLinksModal } from '../modals/link-modal.js';
 import { openShadowFromImage } from '../services/shadow/shadow-entry.js';
+import { icon } from './icons.js';
 
-/** عارض الصورة — مع تعيين غلاف وتنزيل الأصل وإزالة. */
+/** مستويات التكبير — ثلاثةٌ تكفي لقراءة لافتة. */
+const ZOOMS = [1, 2, 3];
+
+/**
+ * يفتح عارض الصورة.
+ *
+ * @param {string} mediaId الصورة المطلوبة
+ * @param {string} sceneId ذكراها — منها تُشتقّ بقيّة الصور للتنقّل
+ */
 export async function openLightbox(mediaId, sceneId) {
   const record = await media.get(mediaId);
   if (!record) return;
+
+  /*
+   * كل صور الذكرى للتنقّل بينها. وإن تعذّر (صورةٌ خارج ذكرى) فالعارض
+   * يعمل على واحدةٍ — لا يسقط.
+   */
+  const images = sceneId ? await sceneMedia(sceneId, 'image') : [record];
+  let index = Math.max(0, images.findIndex((row) => row.id === mediaId));
+  if (!images.length) images.push(record);
+
+  let zoom = 0;
+  let pan = { x: 0, y: 0 };
 
   const box = document.createElement('div');
   box.className = 'lightbox';
   box.innerHTML = html`
     <button class="lightbox-close" aria-label="إغلاق">✕</button>
-    <img src="${urlFor(record, { thumb: false })}" alt="${record.caption || ''}">
+
+    <div class="lb-stage" data-lb-stage>
+      <img data-lb-img alt="">
+    </div>
+
+    <div class="lb-caption">
+      <input type="text" data-lb-caption maxlength="120"
+             placeholder="سمّيها — الاسم ده هتلاقيها بيه بعد سنة">
+    </div>
+
+    <div class="lb-nav" data-lb-nav>
+      <button class="lb-arrow" data-lb="prev" aria-label="السابقة">${raw(icon('back', 18))}</button>
+      <span class="lb-count" data-lb-count></span>
+      <button class="lb-arrow is-next" data-lb="next" aria-label="التالية">${raw(icon('back', 18))}</button>
+    </div>
+
     <div class="lightbox-bar">
+      <button data-lb="zoom" data-lb-zoom>كبّر</button>
       <button data-lb="cover">اجعلها الغلاف</button>
       <button data-lb="links">اربطها بصوت أو نصّ</button>
       <button data-lb="shadow">استخرج النصّ واتدرّب</button>
@@ -35,70 +87,173 @@ export async function openLightbox(mediaId, sceneId) {
     </div>
     <div class="lightbox-links" data-lb-links></div>`;
 
-  // نعرض ما هو مرتبط بها فعلًا — لا يحتاج المستخدم أن يتذكّر.
-  resolveLinks(mediaId)
-    .then((links) => {
-      const host = box.querySelector('[data-lb-links]');
-      if (!host || !links.length) return;
-      host.innerHTML = links
-        .map((l) => {
-          const label = l.entity.kind === 'audio'
-            ? `🎙 ${l.entity.caption || l.entity.filename}`
-            : `📄 ${(l.entity.text || '').slice(0, 40) || 'سكريبت'}`;
-          return `<span class="link-badge">${label}</span>`;
-        })
-        .join('');
-    })
-    .catch(() => {});
+  const img = box.querySelector('[data-lb-img]');
+  const stage = box.querySelector('[data-lb-stage]');
+  const captionInput = box.querySelector('[data-lb-caption]');
 
-  const close = () => {
+  const currentRow = () => images[index];
+
+  /** يحفظ الوصف إن تغيّر — بلا زرّ حفظ. */
+  async function flushCaption() {
+    const row = currentRow();
+    const value = captionInput.value.trim();
+    if (!row || value === (row.caption || '')) return;
+    row.caption = value;
+    await setCaption(row.id, value).catch(() => {});
+  }
+
+  function applyZoom() {
+    const scale = ZOOMS[zoom];
+    if (zoom === 0) pan = { x: 0, y: 0 };
+    img.style.transform = `translate(${pan.x}px, ${pan.y}px) scale(${scale})`;
+    stage.classList.toggle('is-zoomed', zoom > 0);
+    box.querySelector('[data-lb-zoom]').textContent = zoom === 0 ? 'كبّر' : `${scale}× — صغّر`;
+  }
+
+  async function show(next) {
+    await flushCaption();
+    index = (next + images.length) % images.length;
+    const row = currentRow();
+
+    img.src = urlFor(row, { thumb: false });
+    img.alt = row.caption || '';
+    captionInput.value = row.caption || '';
+    zoom = 0;
+    pan = { x: 0, y: 0 };
+    applyZoom();
+
+    const nav = box.querySelector('[data-lb-nav]');
+    nav.hidden = images.length < 2;
+    box.querySelector('[data-lb-count]').textContent = `${index + 1} / ${images.length}`;
+
+    // الروابط تخصّ الصورة المعروضة — تُعاد قراءتها مع كل تنقّل.
+    const host = box.querySelector('[data-lb-links]');
+    host.innerHTML = '';
+    resolveLinks(row.id)
+      .then((links) => {
+        if (currentRow()?.id !== row.id) return;
+        host.innerHTML = links
+          .map((l) => {
+            const label = l.entity.kind === 'audio'
+              ? `🎙 ${l.entity.caption || l.entity.filename}`
+              : `📄 ${(l.entity.text || '').slice(0, 40) || 'سكريبت'}`;
+            return `<span class="link-badge">${label}</span>`;
+          })
+          .join('');
+      })
+      .catch(() => {});
+  }
+
+  const close = async () => {
+    await flushCaption();
     box.remove();
     document.removeEventListener('keydown', onKey);
-  };
-  const onKey = (e) => {
-    if (e.key === 'Escape') close();
+    // الوصف قد يكون تغيّر — الذكرى تُعيد رسم شبكتها.
+    if (sceneId) reloadScene(sceneId);
   };
 
-  box.addEventListener('click', async (e) => {
-    if (e.target === box || e.target.closest('.lightbox-close')) return close();
+  /*
+   * ⚠️ السهمان **مكانيّان لا منطقيّان**: الصفحة RTL، فالأقدم على
+   *    اليمين. سهم اليمين يذهب للسابقة وسهم اليسار للتالية — وهو ما
+   *    تتوقّعه العين لأن ذلك اتجاه الشريط المعروض أمامك.
+   */
+  const onKey = (event) => {
+    if (event.key === 'Escape') return void close();
+    if (event.target === captionInput) return;
+    if (event.key === 'ArrowRight') show(index - 1);
+    if (event.key === 'ArrowLeft') show(index + 1);
+    if (event.key === ' ') {
+      event.preventDefault();
+      zoom = (zoom + 1) % ZOOMS.length;
+      applyZoom();
+    }
+  };
 
-    const action = e.target.closest('[data-lb]')?.dataset.lb;
+  /* ---- السحب: تنقّل حين لا تكبير، وتحريك حين تكبير ---- */
+
+  let drag = null;
+  stage.addEventListener('pointerdown', (event) => {
+    drag = { x: event.clientX, y: event.clientY, panX: pan.x, panY: pan.y, moved: false };
+    stage.setPointerCapture(event.pointerId);
+  });
+
+  stage.addEventListener('pointermove', (event) => {
+    if (!drag) return;
+    const dx = event.clientX - drag.x;
+    const dy = event.clientY - drag.y;
+    if (Math.abs(dx) > 6 || Math.abs(dy) > 6) drag.moved = true;
+    if (zoom === 0) return;
+    pan = { x: drag.panX + dx, y: drag.panY + dy };
+    applyZoom();
+  });
+
+  stage.addEventListener('pointerup', (event) => {
+    if (!drag) return;
+    const dx = event.clientX - drag.x;
+    const moved = drag.moved;
+    drag = null;
+
+    // مكبَّرة: السحب حرّكها ولا ينقل. غير مكبَّرة: سحبةٌ عريضة تنقل.
+    if (zoom > 0) return;
+    if (moved && Math.abs(dx) > 40) return void show(dx > 0 ? index - 1 : index + 1);
+    // ضغطةٌ بلا سحب تُكبّر — أسرع من قصد الزرّ على تابلت.
+    if (!moved) {
+      zoom = (zoom + 1) % ZOOMS.length;
+      applyZoom();
+    }
+  });
+
+  box.addEventListener('click', async (event) => {
+    if (event.target === box || event.target.closest('.lightbox-close')) return void close();
+
+    const action = event.target.closest('[data-lb]')?.dataset.lb;
     if (!action) return;
 
+    if (action === 'prev') return void show(index - 1);
+    if (action === 'next') return void show(index + 1);
+
+    if (action === 'zoom') {
+      zoom = (zoom + 1) % ZOOMS.length;
+      return applyZoom();
+    }
+
     if (action === 'cover') {
-      await setCover(sceneId, mediaId);
-      close();
+      await setCover(sceneId, currentRow().id);
+      await close();
       toastOk('بقت الغلاف');
-      reloadScene(sceneId);
     }
 
     if (action === 'links') {
-      close();
-      openLinksModal(mediaId, sceneId);
+      const id = currentRow().id;
+      await close();
+      openLinksModal(id, sceneId);
     }
 
     if (action === 'shadow') {
-      close();
-      openShadowFromImage(mediaId, sceneId);
+      const id = currentRow().id;
+      await close();
+      openShadowFromImage(id, sceneId);
     }
 
     if (action === 'download') {
       const { downloadBlob } = await import('../utils/dom.js');
+      const row = currentRow();
       // الأصل كما رُفع — بايت ببايت
-      downloadBlob(record.blob, record.filename || `${record.id}.jpg`);
+      downloadBlob(row.blob, row.filename || `${row.id}.jpg`);
     }
 
     if (action === 'remove') {
       // الملف نفسه يبقى في `media`؛ الذي يُشال هو ربطه بالذكرى —
       // فالتراجع لا يحتاج أن يجد الـ Blob من جديد.
+      const row = currentRow();
       let linkId = null;
       await actWithUndo({
         what: 'الصورة دي',
-        detail: record.caption || record.filename || '',
+        detail: row.caption || row.filename || '',
         confirmLabel: 'شيلها',
         remove: async () => {
-          linkId = await removeFromScene(sceneId, mediaId);
-          close();
+          linkId = await removeFromScene(sceneId, row.id);
+          await close();
         },
         restore: () => undoRemove(linkId),
         after: () => reloadScene(sceneId),
@@ -106,6 +261,9 @@ export async function openLightbox(mediaId, sceneId) {
     }
   });
 
+  captionInput.addEventListener('blur', flushCaption);
+
   document.addEventListener('keydown', onKey);
   document.body.append(box);
+  await show(index);
 }
