@@ -81,6 +81,102 @@ if (!hasExport || !hasRestore) console.log('  ✗ أزرار النسخ الاح
 else console.log('  ✓ شاشة الإعدادات كاملة');
 
 /* ------------------------------------------------------------------ *
+ * فحص كل شاشة تُفتَح بلا مُعطى
+ *
+ * ⚠️ فحص رسم الوحدات يستورد الملفّ فيكشف استيرادًا مكسورًا في أعلاه —
+ *    **ولا يكشف اسمًا ناقصًا داخل دالّة**. استعملتُ `STATE` في
+ *    `scene-view` بلا استيرادها، فمرّت الاختبارات الخمسمئة وفحص
+ *    الوحدات وفحص الإقلاع كلها، لأن الإقلاع يزور `/settings` وحدها.
+ *
+ *    فصار كل مسارٍ بلا مُعطى يُفتَح ويُطالَب بألّا يرمي. والمسارات ذات
+ *    المُعطى (`/scene/:id`) تحتاج بياناتٍ مزروعة — تُغطّى بالاختبارات
+ *    وبالتجربة في متصفّح.
+ * ------------------------------------------------------------------ */
+
+console.log('\nفحص الشاشات');
+
+/*
+ * ⚠️ **الشاشة الفارغة تُثبت القليل.** أوّل نسخةٍ من هذا الفحص مرّت على
+ *    استيرادٍ محذوف لأن القاعدة كانت فارغة، فرسمت الشاشة حالتها
+ *    الفارغة ولم تبلغ السطر المكسور. فنزرع أوّلًا ما يُشغّل المسارات
+ *    الحقيقيّة: ذكرى وشخص وخيط وتعبير وكلمة محفوظة.
+ */
+/*
+ * ⚠️ **`browser.newPage()` يفتح سياقًا جديدًا في كل مرّة**، ولكل سياقٍ
+ *    تقسيمُ تخزينٍ مستقلّ. فكانت البذرة تُكتَب في قاعدةٍ لا تراها أيُّ
+ *    صفحةٍ بعدها: تقول البذرة `ذكريات=1` وتقول كل شاشةٍ `ذكريات=0`،
+ *    والقاعدة موجودةٌ والشقّ صحيح — لأنها ببساطة قاعدةٌ أخرى.
+ *    قِسْتُ ذلك قبل إصلاحه: `p1.context() === p2.context()` ← `false`.
+ *
+ *    فسياقٌ واحدٌ للبذرة وللشاشات كلها. ونمنع عامل الخدمة داخله: لا
+ *    فائدة منه هنا، وقد يُقدّم وحدةً مخزّنةً بدل التي على القرص.
+ */
+const sweepContext = await browser.newContext();
+await sweepContext.route('**/service-worker.js', (route) => route.abort());
+
+const seedPage = await sweepContext.newPage();
+await seedPage.goto(`${baseUrl.replace(/\/$/, '')}/index.html`);
+await seedPage.waitForTimeout(1200);
+const seededSceneId = await seedPage.evaluate(async (base) => {
+  const { openDB } = await import(`${base}/js/db/database.js`);
+  await openDB();
+  const { createScene } = await import(`${base}/js/services/scene-service.js`);
+  const { addPerson } = await import(`${base}/js/services/person-service.js`);
+  const { createThread, addSceneToThread } = await import(`${base}/js/services/thread-service.js`);
+  const { addConversationPart, addExpression, addScript } =
+    await import(`${base}/js/services/content-service.js`);
+  const { saveItem, SAVED_KIND } = await import(`${base}/js/services/saved-service.js`);
+
+  const scene = await createScene({
+    titleAr: 'فحص الشاشات', titleRu: 'Проверка', date: '2026-05-01',
+    type: 'meeting', placeName: 'المكتب',
+  });
+  const person = await addPerson({ name: 'فاحص' });
+  const thread = await createThread({ title: 'خيط الفحص' });
+  await addSceneToThread(thread.id, scene.id);
+  await addConversationPart(scene.id, { speaker: 'فاحص', text: 'Проверка', personId: person.id });
+  await addScript(scene.id, { title: 'سكريبت', text: 'Проверка связи' });
+  await addExpression(scene.id, { text: 'по итогам', meaningAr: 'بناءً على النتائج' });
+  await saveItem({ text: 'связь', kind: SAVED_KIND.WORD, sceneId: scene.id, tagIds: ['hard'] });
+
+  return scene.id;
+}, baseUrl.replace(/\/$/, ''));
+await seedPage.close();
+
+const ROUTES = ['/', '/life', '/language', '/river', '/facets', '/constellation',
+  '/threads', '/search', '/trash', '/import', '/settings',
+  // ومسارات بمُعطى — على ما زُرع للتوّ.
+  `/scene/${seededSceneId}`, '/day/2026-05-01'];
+
+const routeFailures = [];
+for (const route of ROUTES) {
+  const errors = [];
+  const page = await sweepContext.newPage();
+  page.on('pageerror', (error) => errors.push(error.message));
+  await page.goto(`${baseUrl.replace(/\/$/, '')}/index.html#${route}`);
+  /*
+   * ⚠️ الانتظار على **اختفاء الدوّارة** لا على مدّةٍ مقدَّرة: تسعمئة
+   *    مليّة كانت تكفي الشاشات الخفيفة وتقيس شاشة الذكرى وهي نصف
+   *    مرسومة — فيمرّ عطبٌ لأن السطر المكسور لم يُبلَغ بعد.
+   */
+  await page.waitForFunction(
+    () => !document.querySelector('#app-main .loading'),
+    null,
+    { timeout: 15_000 }
+  ).catch(() => {});
+  await page.waitForTimeout(250);
+
+  // شاشةٌ سقطت تعرض لوحة الخطأ العامّة بدل محتواها.
+  const crashed = await page.locator('.empty-state h2', { hasText: 'حصل خطأ في العرض' }).count();
+  if (errors.length || crashed) routeFailures.push(`${route} → ${errors[0] || 'لوحة خطأ'}`);
+  await page.close();
+}
+await sweepContext.close();
+
+if (routeFailures.length) for (const row of routeFailures) console.log(`  ✗ ${row}`);
+else console.log(`  ✓ ${ROUTES.length} شاشة تُفتَح بلا خطأ`);
+
+/* ------------------------------------------------------------------ *
  * فحص رسم الوحدات
  *
  * ⚠️ الاختبارات تستورد الخدمات لا الشاشات، وفحص الإقلاع يلمس شاشة
@@ -254,6 +350,7 @@ const bootOk =
   bootErrors.length === 0 &&
   hasExport > 0 &&
   hasRestore > 0 &&
+  routeFailures.length === 0 &&
   moduleFailures.length === 0 &&
   escapeIssues.length === 0;
 process.exit(result.failed || !bootOk ? 1 : 0);
