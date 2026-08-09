@@ -32,10 +32,10 @@ function threadCard(thread, count) {
   return html`
     <a class="thread-card${thread.isOpen ? '' : ' is-done'}" href="#/thread/${thread.id}">
       <div class="thread-card-head">
-        <b>${esc(thread.title)}</b>
+        <b>${thread.title}</b>
         ${raw(statusChip(thread.status))}
       </div>
-      ${raw(thread.description ? html`<p class="thread-card-desc">${esc(thread.description)}</p>` : '')}
+      ${raw(thread.description ? html`<p class="thread-card-desc">${thread.description}</p>` : '')}
       <div class="thread-card-meta">
         <span>${count} حدث</span>
         ${raw(thread.startDate ? html`<span>من ${formatDate(thread.startDate)}</span>` : '')}
@@ -137,8 +137,8 @@ export async function renderThread(main, id) {
         <a class="thread-event" href="#/scene/${scene.id}">
           <span class="thread-event-date">${formatDate(scene.date)}</span>
           <span class="thread-event-main">
-            <b>${esc(scene.titleAr || scene.titleRu || 'ذكرى')}</b>
-            <small>${esc(typeLabel(scene.type))}${scene.placeName ? ` · ${esc(scene.placeName)}` : ''}</small>
+            <b>${scene.titleAr || scene.titleRu || 'ذكرى'}</b>
+            <small>${typeLabel(scene.type)}${scene.placeName ? ` · ${scene.placeName}` : ''}</small>
           </span>
           <button class="mini-btn" data-action="thread-remove-scene"
             data-thread="${thread.id}" data-id="${scene.id}"
@@ -149,7 +149,7 @@ export async function renderThread(main, id) {
 
   main.innerHTML = html`
     <div class="view-head">
-      <h1>${esc(thread.title)}</h1>
+      <h1>${thread.title}</h1>
       <div class="sub">
         ${raw(statusChip(thread.status))}
         ${raw(from ? html`<span> · من ${formatDate(from)}</span>` : '')}
@@ -161,7 +161,7 @@ export async function renderThread(main, id) {
       </div>
     </div>
 
-    ${raw(thread.description ? html`<p class="thread-desc">${esc(thread.description)}</p>` : '')}
+    ${raw(thread.description ? html`<p class="thread-desc">${thread.description}</p>` : '')}
 
     <div class="panel thread-actions">
       <label for="th-status">الحالة</label>

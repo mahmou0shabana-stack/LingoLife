@@ -8,7 +8,7 @@
 import { getSceneFull } from '../services/scene-service.js';
 import { listConversationParts, listSceneExpressions, getBlock, scriptTypeLabel, registerLabel, registerClass } from '../services/content-service.js';
 import { urlFor, releaseUrls, AUDIO_ROLE_LABEL } from '../services/media-service.js';
-import { html, raw, esc, formatDuration } from '../utils/dom.js';
+import { html, raw, formatDuration } from '../utils/dom.js';
 import { formatDate } from '../utils/dates.js';
 import { typeLabel } from '../services/type-service.js';
 import { threadsOfScene } from '../services/thread-service.js';
@@ -464,7 +464,7 @@ export async function renderScene(main, sceneId, options = {}) {
               .map(
                 (t) =>
                   html`<a class="chip chip-thread" href="#/thread/${t.id}">
-                    ${raw(icon('link'))} ${esc(t.title)}
+                    ${raw(icon('link'))} ${t.title}
                   </a>`
               )
               .join('')

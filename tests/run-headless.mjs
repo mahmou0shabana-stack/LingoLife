@@ -15,7 +15,7 @@
  */
 
 import { chromium } from 'playwright';
-import { readdirSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const baseUrl = process.argv[2] || 'http://localhost:8124';
@@ -132,6 +132,102 @@ if (moduleFailures.length) {
 
 await browser.close();
 
+/* ------------------------------------------------------------------ *
+ * فحص التهريب المزدوج
+ *
+ * ⚠️ الوسم `html` يهرّب كل قيمةٍ مُدرَجة وحده. فـ`${esc(x)}` بداخله
+ *    تهريبٌ مرّتين: عنوانٌ فيه علامة اقتباس يُعرَض `&quot;` حرفيًّا،
+ *    وذكرى اسمها «قعدة "الشلّة"» تظهر مشوّهة.
+ *
+ *    ولم يكشفه أي اختبار: النصوص التجريبية كلها بلا محارف خاصّة،
+ *    فالتهريب المزدوج لا أثر له عليها. ظهر أوّل ما عُرضت رسالة محلّل
+ *    JSON — وفيها علامات اقتباس دائمًا.
+ *
+ *    و`esc` **داخل قالبٍ عادي** صحيحةٌ ولازمة: لا وسمَ يهرّب هناك.
+ *    فالفحص يفرّق بين الحالتين ولا يمنع الثانية.
+ * ------------------------------------------------------------------ */
+
+console.log('\nفحص التهريب المزدوج');
+
+/** مواضع `${esc(` التي يهرّبها وسم `html` مرّةً ثانية. */
+function doubleEscapes(source) {
+  const hits = [];
+  const stack = [];
+  let i = 0;
+
+  const lineAt = (index) => source.slice(0, index).split('\n').length;
+
+  while (i < source.length) {
+    const c = source[i];
+
+    if (c === '/' && source[i + 1] === '/' && stack.length === 0) {
+      const nl = source.indexOf('\n', i);
+      i = nl < 0 ? source.length : nl;
+      continue;
+    }
+    if (c === '/' && source[i + 1] === '*') {
+      const end = source.indexOf('*/', i + 2);
+      i = end < 0 ? source.length : end + 2;
+      continue;
+    }
+    // نصٌّ عادي — لا يُفسَّر ما بداخله.
+    if ((c === '"' || c === "'") && (!stack.length || stack.at(-1).kind === 'expr')) {
+      i += 1;
+      while (i < source.length && source[i] !== c) i += source[i] === '\\' ? 2 : 1;
+      i += 1;
+      continue;
+    }
+    if (c === '`') {
+      if (stack.at(-1)?.kind === 'tpl') stack.pop();
+      else {
+        let k = i - 1;
+        while (k >= 0 && ' \n\t'.includes(source[k])) k -= 1;
+        stack.push({ kind: 'tpl', tagged: source.slice(k - 3, k + 1) === 'html' });
+      }
+      i += 1;
+      continue;
+    }
+    if (c === '$' && source[i + 1] === '{' && stack.at(-1)?.kind === 'tpl') {
+      // أي قالبٍ موسوم في السلسلة يهرّب النتيجة، ولو كان المباشر عاديًّا.
+      const escaped = stack.some((f) => f.kind === 'tpl' && f.tagged);
+      if (escaped && source.slice(i + 2, i + 6) === 'esc(') hits.push(lineAt(i));
+      stack.push({ kind: 'expr' });
+      i += 2;
+      continue;
+    }
+    if (c === '{' && stack.at(-1)?.kind === 'expr') {
+      stack.push({ kind: 'expr' });
+      i += 1;
+      continue;
+    }
+    if (c === '}' && stack.at(-1)?.kind === 'expr') {
+      stack.pop();
+      i += 1;
+      continue;
+    }
+    i += c === '\\' ? 2 : 1;
+  }
+
+  return hits;
+}
+
+const escapeIssues = [];
+for (const path of modules) {
+  for (const line of doubleEscapes(readFileSync(path, 'utf8'))) {
+    escapeIssues.push(`${path}:${line}`);
+  }
+}
+
+if (escapeIssues.length) {
+  for (const issue of escapeIssues) console.log(`  ✗ ${issue} — esc() جوّه html بتهرّب مرتين`);
+} else {
+  console.log('  ✓ مفيش تهريب مزدوج');
+}
+
 const bootOk =
-  bootErrors.length === 0 && hasExport > 0 && hasRestore > 0 && moduleFailures.length === 0;
+  bootErrors.length === 0 &&
+  hasExport > 0 &&
+  hasRestore > 0 &&
+  moduleFailures.length === 0 &&
+  escapeIssues.length === 0;
 process.exit(result.failed || !bootOk ? 1 : 0);

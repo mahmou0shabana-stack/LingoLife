@@ -70,8 +70,8 @@ export async function openThreadLinkModal(sceneId, onDone) {
                       <label class="thread-suggest-row">
                         <input type="radio" name="pick" value="${s.thread.id}" />
                         <span>
-                          <b>${esc(s.thread.title)}</b>
-                          <small>${esc(s.reasons.join(' + '))}</small>
+                          <b>${s.thread.title}</b>
+                          <small>${s.reasons.join(' + ')}</small>
                         </span>
                       </label>`
                   )
@@ -92,7 +92,7 @@ export async function openThreadLinkModal(sceneId, onDone) {
                   available
                     .map(
                       (t) =>
-                        `<option value="${t.id}">${esc(t.title)} — ${THREAD_STATUS_LABEL[t.status]}</option>`
+                        `<option value="${t.id}">${t.title} — ${THREAD_STATUS_LABEL[t.status]}</option>`
                     )
                     .join('')
                 )}
@@ -153,12 +153,12 @@ export async function openThreadEditModal(threadId, onDone) {
       <div class="field">
         <label for="te-title">العنوان</label>
         <input id="te-title" name="title" type="text" maxlength="80"
-          value="${esc(thread.title)}" />
+          value="${thread.title}" />
       </div>
       <div class="field">
         <label for="te-desc">الوصف (اختياري)</label>
         <textarea id="te-desc" name="description"
-          placeholder="القصّة دي عن إيه بالظبط؟">${esc(thread.description)}</textarea>
+          placeholder="القصّة دي عن إيه بالظبط؟">${thread.description}</textarea>
       </div>
       <div class="field">
         <label for="te-status">الحالة</label>

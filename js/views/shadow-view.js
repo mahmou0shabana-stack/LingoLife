@@ -348,8 +348,8 @@ function originPanel(source) {
           .map(
             (t) => html`
               <div class="sh-origin-turn${t.isMine ? ' mine' : ''}${t.picked ? '' : ' skipped'}">
-                <span class="sh-origin-who">${esc(t.speaker)}</span>
-                <span class="sh-origin-said" dir="ltr" lang="ru">${esc(t.text)}</span>
+                <span class="sh-origin-who">${t.speaker}</span>
+                <span class="sh-origin-said" dir="ltr" lang="ru">${t.text}</span>
               </div>`
           )
           .join('')
@@ -358,10 +358,10 @@ function originPanel(source) {
             .map(
               (s) =>
                 html`<span class="sh-origin-sent${s.picked ? '' : ' skipped'}"
-                  dir="ltr" lang="ru">${esc(s.text)}</span>`
+                  dir="ltr" lang="ru">${s.text}</span>`
             )
             .join(' ')
-        : html`<p class="sh-origin-raw" dir="ltr" lang="ru">${esc(origin.text || '')}</p>`;
+        : html`<p class="sh-origin-raw" dir="ltr" lang="ru">${origin.text || ''}</p>`;
 
   // كم تركتَ خارج الجلسة؟ يُقال بالعدد لا يُترك للتخمين.
   const skipped =
@@ -954,8 +954,8 @@ function voiceOptions(voices, selected) {
             list
               .map(
                 (v) =>
-                  html`<option value="${esc(v.name)}" ${v.name === selected ? 'selected' : ''}>
-                    ${esc(v.name)}
+                  html`<option value="${v.name}" ${v.name === selected ? 'selected' : ''}>
+                    ${v.name}
                   </option>`
               )
               .join('')

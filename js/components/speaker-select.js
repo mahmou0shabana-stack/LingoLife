@@ -27,7 +27,7 @@ export async function speakerSelect(state = {}) {
   const options = people
     .map(
       (p) => html`<option value="${p.id}" ${p.id === selectedId ? 'selected' : ''}>
-        ${esc(p.name)}${p.role ? ` — ${esc(p.role)}` : ''}
+        ${p.name}${p.role ? ` — ${p.role}` : ''}
       </option>`
     )
     .join('');
@@ -53,7 +53,7 @@ export async function speakerSelect(state = {}) {
         تختفي بياناتها عند التبديل — قد تعود إليها.
       -->
       <input type="text" name="speaker" data-speaker-text
-        placeholder="اسم المتحدّث… مثلًا Алексей" value="${esc(freeText)}"
+        placeholder="اسم المتحدّث… مثلًا Алексей" value="${freeText}"
         autocomplete="off" ${selectedId || isMine ? 'hidden' : ''} />
 
       <p class="field-hint" data-speaker-hint hidden></p>
