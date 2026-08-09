@@ -207,11 +207,29 @@ export const STORES = {
   topics: { indexes: [['normalizedName', 'normalizedName'], ['state', 'state']] },
   tags: { indexes: [['normalizedName', 'normalizedName'], ['state', 'state']] },
 
-  /** محرك العلاقات — يجعل "ظهر في 7 مشاهد" استعلامًا واحدًا (بند 56). */
+  /**
+   * محرك العلاقات — يجعل «ظهر في 7 مشاهد» استعلامًا واحدًا (بند 56).
+   *
+   * ⚠️ **`kind` هو الحقل، و`type` أثرٌ مهجور.** وُلد الجدول بحقل
+   *    `type`، ثم كتب الكود `kind` وقرأه، وبقي `type` يُكتب معه بلا
+   *    أن يُقرأ أبدًا — حقلان لنفس المعنى، وهو ما سمّاه التدقيق «د-5».
+   *
+   *    و`kind` هو الذي بقي لأنه اصطلاح المشروع كلّه: `media.kind` و
+   *    `savedItems.kind` و`contentBlocks.kind`. أمّا `type` فاسمٌ
+   *    نتخلّص منه في `scenes` أيضًا لصالح `eventTypeId`.
+   *
+   *    فهارس `type` تبقى معلَنة: حذف فهرسٍ منشور ممنوع (§3.6 قاعدة 2)،
+   *    ورجوعٌ إلى كودٍ أقدم يستعملها. هي وقفٌ لا استعمال.
+   */
   relationships: {
     indexes: [
       ['fromId', 'fromId'],
       ['toId', 'toId'],
+      ['kind', 'kind'],
+      ['from_kind', ['fromId', 'kind']],
+      ['to_kind', ['toId', 'kind']],
+
+      // ↓ مهجورة. لا يقرؤها كود اليوم.
       ['type', 'type'],
       ['from_type', ['fromId', 'type']],
       ['to_type', ['toId', 'type']],

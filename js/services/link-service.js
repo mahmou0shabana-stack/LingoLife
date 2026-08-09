@@ -52,39 +52,62 @@ export async function link(fromId, toId, kind) {
   const existing = await findLink(fromId, toId, kind);
   if (existing) return existing;
 
-  return relationships.create({ fromId, toId, kind, type: kind, note: '' });
+  /*
+   * ⚠️ `kind` وحده. كان يُكتب `type: kind` معه — حقلان لنفس المعنى،
+   *    أحدهما لم يُقرأ قطّ («د-5» في التدقيق). انتهت دورة الكتابة
+   *    المزدوجة في ترقية v8؛ و`type` يبقى على السجلات القديمة ولا
+   *    يُحذف منها (§3.6).
+   */
+  return relationships.create({ fromId, toId, kind, note: '' });
 }
 
 /** يفكّ رابطًا من أي اتجاه. */
 export async function unlink(fromId, toId, kind) {
   const existing = await findLink(fromId, toId, kind);
-  if (existing) await relationships.remove(existing.id);
+  // ⚠️ كانت `relationships.remove` — ودالّةٌ بهذا الاسم غير موجودة في
+  //    المستودع أصلًا. فكل إلغاء ربطٍ كان يرمي، ويُسقط معه `Promise.all`
+  //    في نافذة الربط — فلا يُحفظ حتى ما أضفته في نفس الجلسة.
+  //    الاسم الصحيح `destroy`: الرابط يُزال بإلغاء الربط لا بالسلة.
+  if (existing) await relationships.destroy(existing.id);
   return Boolean(existing);
 }
 
 /** يبحث عن رابط بين طرفين بأي ترتيب. */
 async function findLink(fromId, toId, kind) {
-  const rows = await relationships.byIndex('fromId', fromId);
-  const direct = rows.find((r) => r.toId === toId && r.kind === kind && r.state === STATE.ACTIVE);
-  if (direct) return direct;
+  const [direct, reverse] = await Promise.all([
+    relationships.byIndex('from_kind', [fromId, kind]),
+    relationships.byIndex('to_kind', [fromId, kind]),
+  ]);
 
-  const reverse = await relationships.byIndex('toId', fromId);
-  return reverse.find((r) => r.fromId === toId && r.kind === kind && r.state === STATE.ACTIVE) || null;
+  return (
+    direct.find((r) => r.toId === toId && r.state === STATE.ACTIVE) ||
+    reverse.find((r) => r.fromId === toId && r.state === STATE.ACTIVE) ||
+    null
+  );
 }
 
 /**
  * كل ما يرتبط بعنصر — من الاتجاهين معًا.
+ *
+ * حين يُعطى `kind` نسأل الفهرس المركّب مباشرةً بدل جلب كل روابط
+ * العنصر وتصفيتها — وهو المكسب العملي من توحيد الحقل.
+ *
  * @param {string} id
  * @param {string} [kind] — تصفية بنوع الربط
  */
 export async function linksOf(id, kind = null) {
-  const [outgoing, incoming] = await Promise.all([
-    relationships.byIndex('fromId', id),
-    relationships.byIndex('toId', id),
-  ]);
+  const [outgoing, incoming] = kind
+    ? await Promise.all([
+        relationships.byIndex('from_kind', [id, kind]),
+        relationships.byIndex('to_kind', [id, kind]),
+      ])
+    : await Promise.all([
+        relationships.byIndex('fromId', id),
+        relationships.byIndex('toId', id),
+      ]);
 
   return [...outgoing, ...incoming]
-    .filter((row) => row.state === STATE.ACTIVE && (!kind || row.kind === kind))
+    .filter((row) => row.state === STATE.ACTIVE)
     // الطرف الآخر هو ما يهمّ المستدعي، أيًّا كان اتجاه التخزين.
     .map((row) => ({ ...row, otherId: row.fromId === id ? row.toId : row.fromId }));
 }
@@ -109,7 +132,7 @@ export async function resolveLinks(id, kind = null) {
 /** يزيل كل روابط عنصر — يُنادى عند حذفه نهائيًا. */
 export async function unlinkAll(id) {
   const rows = await linksOf(id);
-  await Promise.all(rows.map((row) => relationships.remove(row.id)));
+  await Promise.all(rows.map((row) => relationships.destroy(row.id)));
   return rows.length;
 }
 
