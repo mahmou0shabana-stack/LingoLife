@@ -106,11 +106,13 @@ export async function renderFacets(main) {
       </div>`)}
 
     ${raw(tree.total ? html`
+      <div class="fc-board">
       ${raw(section('النوع', 'star', typeRows, 'مفيش أنواع مستعملة'))}
       ${raw(section('الأشخاص', 'person', peopleRows,
         'مفيش أشخاص مربوطين بالمحادثات لسه — اربطهم من «مين بيتكلم».'))}
       ${raw(section('المكان', 'place', placeRows, 'مفيش أماكن مكتوبة في ذكرياتك'))}
       ${raw(section('الخيوط', 'link', threadRows, 'مفيش خيوط فيها ذكريات'))}
+      </div>
     ` : '')}
 
     <details class="fc-absent">

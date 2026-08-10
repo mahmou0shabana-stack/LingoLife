@@ -80,6 +80,7 @@ export async function renderLanguage(main) {
         </p>
         <button class="btn btn-ghost" data-action="go-river">افتح النهر</button>
       </div>` : html`
+      <div class="fc-board">
 
       <section class="lg-section">
         <h3>${raw(icon('star', 17))} التعبيرات
@@ -123,6 +124,7 @@ export async function renderLanguage(main) {
             بتتحفظ من كتاب الظلّ بتصنيفٍ بيقول ليه التقطتها.
           </p>
         </section>` : '')}
+      </div>
     `)}
 
     <details class="fc-absent">

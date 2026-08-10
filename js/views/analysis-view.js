@@ -91,6 +91,7 @@ export async function renderAnalysis(main) {
         </p>
         <button class="btn btn-ghost" data-action="go-river">افتح النهر</button>
       </div>` : html`
+      <div class="fc-board">
 
       ${raw(section('أنماط بتتكرّر في تصحيحاتك', 'compare', mistakes.total,
         mistakes.types.map(mistakeGroup).join(''),
@@ -113,17 +114,29 @@ export async function renderAnalysis(main) {
           </p>` : '',
         'لمّا تحفظ كلمة أو جملة وتقول ليه، هنا هيبان نوع الصعوبة الغالب عندك.'))}
 
-      ${raw(section('لغتك بتحصل فين', 'place', 0, html`
-        ${raw(where.types.length ? html`
-          <h4 class="an-sub">المواقف</h4>
-          ${raw(where.types.map((row) => facetRow('typeId', row)).join(''))}` : '')}
-        ${raw(where.people.length ? html`
-          <h4 class="an-sub">الناس</h4>
-          ${raw(where.people.map((row) => facetRow('personId', row)).join(''))}` : '')}
-        ${raw(where.places.length ? html`
-          <h4 class="an-sub">الأماكن</h4>
-          ${raw(where.places.map((row) => facetRow('placeName', row)).join(''))}` : '')}`,
-        'لمّا تبقى عندك ذكريات بأنواع وأماكن وناس، هنا هيبان فين روسيّتك بتعيش.'))}
+      <!--
+        ⚠️ ثلاثة أقسام لا قسمٌ بثلاثة عناوين فرعيّة. السبب معماريّ
+           وبصريّ معًا: القسم لا ينقسم بين عمودين، فواحدٌ طويلٌ يقفز
+           كلّه إلى العمود الثاني ويترك الأوّل فارغًا — رأيتُه في لقطةٍ
+           على مقاس التابلت. وثلاثةٌ قصيرة تنضغط. وهو أيضًا ما تفعله
+           شاشة المحاور أصلًا.
+
+        ⚠️ ولا علامةَ اقتباسٍ مائلة في تعليقٍ داخل قالب: هي تُنهي
+           القالب نفسه. أسقطتْ صفحاتِ التطبيق كلَّها لحظةَ كتابتها.
+      -->
+      ${raw(where.types.length ? section('لغتك بتحصل في أي مواقف', 'star', 0,
+        where.types.map((row) => facetRow('typeId', row)).join('')) : '')}
+
+      ${raw(where.people.length ? section('مع مين', 'person', 0,
+        where.people.map((row) => facetRow('personId', row)).join('')) : '')}
+
+      ${raw(where.places.length ? section('وفين', 'place', 0,
+        where.places.map((row) => facetRow('placeName', row)).join('')) : '')}
+
+      ${raw(!where.types.length && !where.people.length && !where.places.length
+        ? section('لغتك بتحصل فين', 'place', 0, '',
+          'لمّا تبقى عندك ذكريات بأنواع وأماكن وناس، هنا هيبان فين روسيّتك بتعيش.')
+        : '')}
 
       ${raw(section('إيقاعك', 'clock', 0, rhythm.total ? html`
         <div class="lg-stages">
@@ -161,6 +174,7 @@ export async function renderAnalysis(main) {
           ولا «أتقنتها». خمسين تكرار في الظلّ مش معناها إنك بتقولها لبني آدم.
         </p>` : '',
         'لمّا تشتغل في كتاب الظلّ، هنا هيبان اللي اتمرّنت عليه فعلًا.'))}
+      </div>
     `)}
 
     <details class="fc-absent">
