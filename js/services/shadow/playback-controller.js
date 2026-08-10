@@ -43,6 +43,31 @@ export const PRACTICE_MODE = Object.freeze({
   MY_ROLE: 'myRole',
 });
 
+/**
+ * مصادر الصوت الثلاثة — متمايزة في التسمية عمدًا (بند 22).
+ *
+ * ⚠️ الاسم القديم كان `'human'`، وهو يعني **تسجيلك أنت**. الاسم كذبةٌ
+ *    صغيرة تكبر: حين يدخل الناطق الأصلي يصير في التطبيق «بشريّان»
+ *    أحدهما ليس بشرًا أصليًّا والآخر ليس أنت. فصار `'mine'`.
+ *
+ *    و`normalizeAudioSource` تقرأ القديم فتعيد الجديد — الجلسات
+ *    المحفوظة تعمل كما كانت بلا ترقية بيانات ولا لمس سجل.
+ */
+export const AUDIO_SOURCE = Object.freeze({
+  /** النطق الآلي — دائمًا متاح، ولا يُسمَّى بشريًّا أبدًا. */
+  TTS: 'tts',
+  /** تسجيلك أنت المربوط بهذا المصدر. كان اسمه `human`. */
+  MINE: 'mine',
+  /** تسجيل ناطقٍ أصلي جُلب من الخارج — للكلمات المفردة فقط. */
+  NATIVE: 'native',
+});
+
+/** يقبل الاسم القديم `'human'` ويعيد `'mine'`. */
+export function normalizeAudioSource(value) {
+  if (value === 'human') return AUDIO_SOURCE.MINE;
+  return Object.values(AUDIO_SOURCE).includes(value) ? value : AUDIO_SOURCE.MINE;
+}
+
 /** حدود الفاصل بالملّي ثانية — للإدخال الحرّ. */
 export const INTERVAL_MIN_MS = 0;
 export const INTERVAL_MAX_MS = 10000;
@@ -86,6 +111,12 @@ export function createPlaybackController({
    * اختبار آلة الحالة كاملةً بلا أصوات ولا انتظار المتصفّح.
    */
   speaker = speak,
+  /**
+   * يحلّ نطقًا أصليًّا لنصٍّ ما، أو `null`. مَحقون كذلك: المحرّك لا
+   * يعرف شبكةً ولا موافقةً — الشاشة تمرّر دالّةً تعرفهما.
+   * @type {null | ((text: string) => Promise<{url?: string, speaker?: string|null, status?: string}|null>)}
+   */
+  nativeResolver = null,
 }) {
   const state = {
     index: 0,
@@ -107,10 +138,11 @@ export function createPlaybackController({
     autoAdvance: settings.autoAdvance ?? true,
     volume: settings.volume ?? 1,
     /**
-     * مصدر الصوت: `human` يعني «تسجيل بشري إن وُجد، وإلا TTS» —
-     * نفس سلوك التطبيق القديم. `tts` يفرض النطق الآلي دائمًا.
+     * مصدر الصوت. `mine` يعني «تسجيلي إن وُجد، وإلا TTS» — نفس سلوك
+     * التطبيق القديم تحت اسمٍ صادق. `tts` يفرض الآلي دائمًا.
+     * و`native` يُدار خارج المحرّك: الشاشة تحقن الرابط في المقطع.
      */
-    audioSource: settings.audioSource ?? 'human',
+    audioSource: normalizeAudioSource(settings.audioSource),
   };
 
   /** يُلغي أي دورة قديمة. راجع الشرح أعلى الملف. */
@@ -119,6 +151,33 @@ export function createPlaybackController({
   /** كلمات المقطع الحالي في وضع الكلمة. */
   let words = [];
   let wordIndex = 0;
+
+  /**
+   * المقاطع المحدَّدة للتدريب (بند 21).
+   *
+   * فارغةٌ تعني «كلها». وحين تُملأ يتحرّك التنقّل **داخلها وحدها**:
+   * تختار سبع جملٍ من ثمانيَ عشرة فتدور عليها هي، بلا أن تفقد
+   * فهارسها الأصلية — فالإبراز في صفحة المصدر يبقى على مكانه الصحيح،
+   * ودليل الممارسة يُنسب إلى المقطع الحقيقي لا إلى ترتيبٍ مؤقّت.
+   */
+  let selection = new Set();
+
+  /** هل هذا الفهرس داخل التحديد؟ (وكلّها داخله حين لا تحديد) */
+  function inSelection(index) {
+    return selection.size === 0 || selection.has(index);
+  }
+
+  /** الفهرس التالي داخل التحديد، أو -1 إن لم يبقَ شيء. */
+  function nextSelected(from) {
+    for (let i = from + 1; i < segments.length; i++) if (inSelection(i)) return i;
+    return -1;
+  }
+
+  /** الفهرس السابق داخل التحديد، أو -1. */
+  function previousSelected(from) {
+    for (let i = from - 1; i >= 0; i--) if (inSelection(i)) return i;
+    return -1;
+  }
 
   function emit(type, extra = {}) {
     onEvent({
@@ -220,16 +279,38 @@ export function createPlaybackController({
       });
     } else {
       // تسجيلك بصوتك أصدق من أي TTS — يُقدَّم عليه متى وُجد.
-      const human =
-        config.audioSource === 'human' && config.practiceMode !== PRACTICE_MODE.WORD
+      // (وهو للجملة لا للكلمة: تسجيلك للجملة كاملة لا يُقصّ.)
+      const mine =
+        config.audioSource === AUDIO_SOURCE.MINE && config.practiceMode !== PRACTICE_MODE.WORD
           ? segments[state.index]?.humanAudioUrl
           : null;
 
-      if (human) {
-        emit('source', { source: 'human' });
-        await playHuman(human, config.rate, config.volume);
+      /*
+       * الناطق الأصلي للكلمة المفردة وحدها: لا يوجد على تلك الخوادم
+       * تسجيلٌ لجملتك. والحلّ **مَحقون** (`nativeResolver`) لا مبنيّ
+       * هنا — المحرّك لا يعرف شبكةً، فيبقى اختباره حتميًّا.
+       */
+      let native = null;
+      if (!mine && config.audioSource === AUDIO_SOURCE.NATIVE && nativeResolver) {
+        native = await nativeResolver(currentText()).catch(() => null);
+        if (myToken !== runToken || !state.running || state.paused) return;
+      }
+
+      if (mine) {
+        emit('source', { source: AUDIO_SOURCE.MINE });
+        await playHuman(mine, config.rate, config.volume);
+      } else if (native?.url) {
+        emit('source', { source: AUDIO_SOURCE.NATIVE, speaker: native.speaker || null });
+        await playHuman(native.url, config.rate, config.volume);
       } else {
-        emit('source', { source: 'tts' });
+        // ⚠️ السقوط مُعلَن لا صامت: `fallbackFrom` تخبر الشاشة أن
+        //    تقول «مالقيناش تسجيل — نطقناها آليًا». صوتٌ آليّ تظنّه
+        //    بشريًّا أسوأ من لا شيء (بند 89).
+        emit('source', {
+          source: AUDIO_SOURCE.TTS,
+          fallbackFrom: config.audioSource === AUDIO_SOURCE.NATIVE ? AUDIO_SOURCE.NATIVE : null,
+          reason: native?.status || null,
+        });
         await speaker(currentText(), {
           rate: config.rate,
           voiceName: config.voiceName,
@@ -249,15 +330,45 @@ export function createPlaybackController({
       return;
     }
 
+    /*
+     * في وضع الكلمة اكتملت **كلمة** لا مقطع.
+     *
+     * ⚠️ هذا كان ناقصًا: كان اكتمال تكرارات الكلمة يقفز إلى المقطع
+     *    التالي، فلا سبيل إلى المرور على كلمات الجملة تباعًا. «После
+     *    того как документ все подпишут» ستّ كلمات — كانت تُقرأ
+     *    الأولى ثم تُقفَز الجملة كلها.
+     */
+    if (config.practiceMode === PRACTICE_MODE.WORD && words.length) {
+      emit('word-complete', { index: wordIndex, repetitions: state.repetition });
+
+      if (wordIndex < words.length - 1) {
+        if (!config.autoAdvance) {
+          state.running = false;
+          emit('stop');
+          return;
+        }
+        wordIndex++;
+        state.repetition = 0;
+        emit('word-select', { word: words[wordIndex], index: wordIndex });
+        timer = setTimeout(() => {
+          if (myToken === runToken) cycle();
+        }, intervalMs(config));
+        return;
+      }
+
+      // آخر كلمة: المقطع اكتمل بكلماته كلها.
+      emit('words-complete', { count: words.length });
+    }
+
     // اكتمل هذا المقطع.
     emit('segment-complete', { repetitions: state.repetition });
 
-    if (config.autoAdvance && state.index < segments.length - 1) {
+    if (config.autoAdvance && nextSelected(state.index) !== -1) {
       next();
       return;
     }
 
-    if (state.index >= segments.length - 1) {
+    if (nextSelected(state.index) === -1) {
       state.running = false;
       state.finished = true;
       emit('session-complete');
@@ -270,7 +381,10 @@ export function createPlaybackController({
 
   const controller = {
     get state() {
-      return { ...state, settings: { ...config } };
+      // `wordIndex` و`words` خارج كائن `state` لأنهما يخصّان وضع
+      // الكلمة وحده — لكنهما جزء من الموضع الذي تحتاج الواجهة قراءته،
+      // فيُضمّان هنا لا في الداخل.
+      return { ...state, wordIndex, wordCount: words.length, settings: { ...config } };
     },
 
     get segments() {
@@ -288,6 +402,11 @@ export function createPlaybackController({
     /** يبدأ التشغيل من الموضع الحالي. */
     start() {
       if (!segments.length || state.running) return;
+      // لا يبدأ من مقطعٍ خارج تحديدك: يقفز لأوّل محدَّد.
+      if (!inSelection(state.index)) {
+        const first = nextSelected(-1);
+        if (first !== -1) state.index = first;
+      }
       halt();
       state.running = true;
       state.paused = false;
@@ -342,19 +461,37 @@ export function createPlaybackController({
       }
     },
 
+    /**
+     * التالي — **بحسب الوضع**.
+     *
+     * ⚠️ كان ينقل المقطع دائمًا حتى في وضع الكلمة، فيقفز الجملة كلها
+     *    بينما أنت تتنقّل بين كلماتها. الوضعان يحفظان موضعيهما
+     *    مستقلَّين: التنقّل بالكلمات لا يفقدك جملتك، والعودة لوضع
+     *    الجملة تجدها حيث تركتها.
+     */
     next() {
-      if (state.index >= segments.length - 1) {
+      if (config.practiceMode === PRACTICE_MODE.WORD && words.length) {
+        if (wordIndex < words.length - 1) return controller.selectWord(wordIndex + 1);
+        // آخر كلمة: ننتقل للمقطع التالي ونبدأ من كلمته الأولى.
+      }
+
+      const target = nextSelected(state.index);
+      if (target === -1) {
         halt();
         state.running = false;
         state.finished = true;
         emit('session-complete');
         return;
       }
-      controller.goTo(state.index + 1);
+      controller.goTo(target);
     },
 
     previous() {
-      controller.goTo(state.index - 1);
+      if (config.practiceMode === PRACTICE_MODE.WORD && words.length && wordIndex > 0) {
+        return controller.selectWord(wordIndex - 1);
+      }
+      const back = previousSelected(state.index);
+      if (back !== -1) controller.goTo(back);
     },
 
     /**
@@ -375,13 +512,32 @@ export function createPlaybackController({
       else wordIndex = Math.min(wordIndex, Math.max(0, words.length - 1));
     },
 
+    /**
+     * يحصر التدريب في مقاطع بعينها (بند 21).
+     *
+     * @param {number[]|Set<number>} indices فارغةٌ = كلّها
+     */
+    setSelection(indices) {
+      selection = new Set(indices || []);
+      emit('selection', { selected: [...selection].sort((a, b) => a - b) });
+    },
+
+    get selection() {
+      return [...selection].sort((a, b) => a - b);
+    },
+
+    /** هل هذا المقطع داخل التدريب الحالي؟ */
+    isSelected(index) {
+      return inSelection(index);
+    },
+
     /** يختار كلمة للتدريب عليها وحدها. */
     selectWord(index) {
       const wasRunning = state.running && !state.paused;
       halt();
       wordIndex = Math.max(0, Math.min(words.length - 1, index));
       state.repetition = 0;
-      emit('word-select', { word: words[wordIndex] });
+      emit('word-select', { word: words[wordIndex], index: wordIndex });
       if (wasRunning) {
         state.running = true;
         cycle();

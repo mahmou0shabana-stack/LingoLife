@@ -16,7 +16,16 @@ import { html, raw, formatBytes } from '../utils/dom.js';
 import { relativeTime } from '../utils/dates.js';
 import { toast, toastOk, toastError } from '../components/toast.js';
 import { confirmAction, showModal } from '../components/modal.js';
+import {
+  nativeAudioConsent,
+  nativeCacheStats,
+  clearNativeCache,
+  revokeNativeAudio,
+  NATIVE_HOSTS,
+} from '../services/shadow/native-audio.js';
 import { icon } from '../components/icons.js';
+import { counted } from '../utils/plural.js';
+import { unknownOriginCount, claimUnknownOrigins } from '../services/language-service.js';
 import { APP_VERSION, BUILD_ID } from '../config.js';
 
 export async function renderSettings(main) {
@@ -34,6 +43,14 @@ export async function renderSettings(main) {
   const topStores = Object.entries(counts)
     .filter(([, n]) => n > 0)
     .sort((a, b) => b[1] - a[1]);
+
+  const native = {
+    consent: await nativeAudioConsent(),
+    stats: await nativeCacheStats(),
+  };
+
+  // ظهورات كُتبت قبل بند 38 — راجع ترقية v10.
+  const unknownOrigins = await unknownOriginCount();
 
   main.innerHTML = html`
     <div class="view-head">
@@ -78,6 +95,18 @@ export async function renderSettings(main) {
                 style="margin-top:var(--sp-2)">فعّل التخزين الدائم</button>`
           : ''
       )}
+    </div>
+
+    <div class="panel">
+      <h3>${raw(icon('upload', 18))} استيراد مشهد مُجهَّز</h3>
+      <p class="text-soft text-sm" style="margin-bottom:var(--sp-3)">
+        لو حوّلت موقفًا لحزمة تحليل بره التطبيق، تقدر تدخّلها من هنا.
+        <strong>المعاينة قبل الكتابة دايمًا</strong> — تشوف إيه اللي
+        هيتكتب وإيه اللي مش هيدخل وليه، وبعدين تقرّر.
+      </p>
+      <button class="btn btn-ghost btn-block" data-action="go-import">
+        ${raw(icon('upload', 18))} افتح شاشة الاستيراد
+      </button>
     </div>
 
     <div class="panel">
@@ -139,6 +168,9 @@ export async function renderSettings(main) {
         : ''
     )}
 
+    ${raw(privacyPanel(native))}
+    ${raw(originsPanel(unknownOrigins))}
+
     <div class="panel">
       <h3>${raw(icon('refresh', 18))} التطبيق</h3>
       <div class="kv-row"><span class="k">الإصدار</span><span class="v">${APP_VERSION}</span></div>
@@ -161,6 +193,116 @@ export async function renderSettings(main) {
         واسترجاع العالم من السحابة.
       </div>
     </div>`;
+}
+
+/**
+ * ما الذي يغادر جهازك — في مكانٍ واحد ظاهر (بند 22).
+ *
+ * الموافقة تُعطى داخل شاشة الظلّ في سياقها، لكنها لا يجوز أن تُدفَن
+ * هناك: أن تعرف **بعد شهر** ماذا وافقتَ عليه ومتى وكم كلمة خرجت، وأن
+ * تسحبه من مكانٍ تعرفه — هذا ما يجعل الموافقة موافقة.
+ */
+function privacyPanel({ consent, stats }) {
+  return html`
+    <div class="panel">
+      <h3>${raw(icon('info', 18))} ما يغادر جهازك</h3>
+
+      <p class="field-hint" style="margin-bottom:var(--sp-3)">
+        LingoLife بيشتغل كله على جهازك. الاستثناء الوحيد هو
+        <strong>النطق الأصلي</strong>: بيبعت <strong>الكلمة الروسية بس</strong>
+        لخوادم خارجية (${NATIVE_HOSTS.join(' · ')}) عشان يجيب تسجيل لناطق أصلي.
+      </p>
+
+      <div class="kv-row">
+        <span class="k">النطق الأصلي</span>
+        <span class="v">${consent.enabled ? 'مفعّل' : 'مطفي (الافتراضي)'}</span>
+      </div>
+      ${raw(
+        consent.consentedAt
+          ? html`<div class="kv-row">
+              <span class="k">وافقت عليه</span>
+              <span class="v">${relativeTime(consent.consentedAt)}</span>
+            </div>`
+          : ''
+      )}
+      <div class="kv-row">
+        <span class="k">تسجيلات محفوظة على جهازك</span>
+        <span class="v num">${stats.words}</span>
+      </div>
+      ${raw(
+        stats.words
+          ? html`<div class="kv-row">
+              <span class="k">حجمها</span>
+              <span class="v"><bdi>${formatBytes(stats.bytes)}</bdi></span>
+            </div>`
+          : ''
+      )}
+      ${raw(
+        stats.misses
+          ? html`<div class="kv-row">
+              <span class="k">كلمات دوّرنا عليها وملقيناش</span>
+              <span class="v num">${stats.misses}</span>
+            </div>`
+          : ''
+      )}
+
+      ${raw(
+        consent.enabled
+          ? html`<p class="field-hint" style="margin:var(--sp-3) 0">
+                الرجوع بيقفل الميزة <strong>ويمسح كل اللي اتجاب</strong> —
+                مش بنقفل الباب ونحتفظ باللي دخل.
+              </p>
+              <button class="btn btn-ghost btn-block" data-action="native-revoke">
+                اقفل النطق الأصلي وامسح اللي اتجاب
+              </button>`
+          : html`<p class="field-hint" style="margin-top:var(--sp-3)">
+              مفيش حاجة بتخرج من جهازك دلوقتي. التفعيل من داخل شاشة الظلّ،
+              بزرّ مصدر الصوت.
+            </p>`
+      )}
+      ${raw(
+        !consent.enabled && stats.words + stats.misses
+          ? html`<button class="btn btn-ghost btn-block" style="margin-top:var(--sp-2)"
+              data-action="native-clear">امسح الـ${stats.words + stats.misses} تسجيل المخزّن</button>`
+          : ''
+      )}
+    </div>`;
+}
+
+/**
+ * ظهورات لا نعرف من أين جاءت — راجع ترقية v10.
+ *
+ * ⚠️ **تظهر فقط حين يكون فيه ما يُقَرّ به.** لوحةٌ تقول «صفر ظهور
+ *    مجهول» تشغل مكانًا بلا خبر، وتسأل عن شيءٍ لا وجود له.
+ */
+function originsPanel(unknownOrigins) {
+  if (!unknownOrigins) return '';
+
+  return html`
+      <div class="panel">
+        <h3>${raw(icon('clock', 18))} ظهورات مش عارفين جت منين</h3>
+
+        <p class="field-hint" style="margin-bottom:var(--sp-3)">
+          التطبيق كان بيكتب «كتبته بإيدك» على <strong>كل</strong> ظهور تعبير،
+          سواء كتبته فعلًا أو جه مع مشهد مُجهَّز أو التقطته وإنت بتتمرّن —
+          الحقل كان ثابت مش بيتغيّر. دلوقتي كل ظهور جديد بيسجّل منشأه صح،
+          والقديم اترجّع لـ<strong>«مش معروف منين»</strong> لأن الادّعاء
+          القديم كان بلا سند.
+        </p>
+
+        <div class="kv-row">
+          <span class="k">ظهورات مجهولة المنشأ</span>
+          <span class="v num">${unknownOrigins}</span>
+        </div>
+
+        <p class="field-hint" style="margin:var(--sp-3) 0">
+          لو إنت عارف إنك كتبتهم كلهم بإيدك، قول كده — <strong>إنت اللي
+          عارف، مش التطبيق</strong>.
+        </p>
+        <button class="btn btn-ghost btn-block" data-action="claim-origins">
+          دول كلهم كتبتهم بإيدي
+        </button>
+      </div>`;
 }
 
 /**
@@ -187,7 +329,26 @@ function pickFile(accept) {
 }
 
 /** إجراءات شاشة الإعدادات — يُستدعى من app.js. */
+/**
+ * يعيد رسم الشاشة بعد فعلٍ يغيّر أرقامها.
+ * بلا هذا يبقى «مفعّل» معروضًا بعد أن أُقفل — والرقم الكاذب أسوأ من
+ * غيابه (بند 89).
+ */
+async function refresh() {
+  const main = document.getElementById('app-main');
+  if (main) await renderSettings(main);
+}
+
 export async function handleSettingsAction(action) {
+  if (action === 'claim-origins') {
+    const n = await claimUnknownOrigins();
+    toastOk(n
+      ? `تمام — ${counted(n, 'ظهور', 'ظهورين', 'ظهورات')} بقت مكتوبة بإيدك`
+      : 'مفيش ظهورات مجهولة');
+    await refresh();
+    return true;
+  }
+
   if (action === 'request-persist') {
     const result = await requestPersistence();
     if (result.persisted) toastOk('التخزين الدائم اتفعّل — بياناتك محميّة من المسح التلقائي');
@@ -350,6 +511,37 @@ export async function handleSettingsAction(action) {
     const registrations = (await navigator.serviceWorker?.getRegistrations()) || [];
     await Promise.all(registrations.map((r) => r.unregister()));
     window.location.reload();
+    return true;
+  }
+
+  if (action === 'native-revoke') {
+    const ok = await confirmAction({
+      title: 'اقفل النطق الأصلي',
+      message:
+        'مش هيخرج من جهازك أي حاجة تاني، و<strong>كل التسجيلات اللي اتجابت هتتمسح</strong>. ' +
+        'تقدر تفعّلها تاني في أي وقت من شاشة الظلّ.',
+      confirmLabel: 'اقفل وامسح',
+    });
+    if (!ok) return true;
+    await revokeNativeAudio();
+    toastOk('اتقفل، والمخزّن اتمسح');
+    await refresh();
+    return true;
+  }
+
+  if (action === 'native-clear') {
+    const { words, misses } = await nativeCacheStats();
+    const ok = await confirmAction({
+      title: 'امسح التسجيلات المخزّنة',
+      message:
+        `هيتمسح ${words} تسجيل${misses ? ` و${misses} كلمة دوّرنا عليها وملقيناش` : ''}. ` +
+        'مش بيأثر على أي حاجة من بياناتك — دي حاجات مجلوبة من برّه.',
+      confirmLabel: 'امسح',
+    });
+    if (!ok) return true;
+    const removed = await clearNativeCache();
+    toastOk(`اتمسح ${removed}`);
+    await refresh();
     return true;
   }
 

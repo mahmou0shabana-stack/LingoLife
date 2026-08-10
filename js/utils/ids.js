@@ -45,6 +45,9 @@ export const PREFIX = Object.freeze({
   SHADOW_SEGMENT: 'SHG',
   EVIDENCE: 'EVD',
   SAVED: 'SAV',
+  NATIVE_AUDIO: 'NAU',
+  EVENT_TYPE: 'ETY',
+  THREAD: 'THR',
 });
 
 function encodeTime(ms, len = 10) {

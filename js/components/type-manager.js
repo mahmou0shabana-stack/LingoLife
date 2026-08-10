@@ -23,6 +23,8 @@ import {
   mergeInto,
   usageCount,
   usageCounts,
+  renameImpact,
+  similarTypes,
 } from '../services/type-service.js';
 
 /**
@@ -52,6 +54,7 @@ export function openTypeManager({ focusId = null } = {}) {
           <button type="submit" class="btn btn-primary btn-sm">${icon('plus', 15)} أضف</button>
         </form>
         <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" data-similar>شوف المكرَّر</button>
           <button type="button" class="btn btn-ghost" data-toggle-archived></button>
           <button type="button" class="btn btn-primary" data-close>تمام</button>
         </div>
@@ -215,6 +218,116 @@ export function openTypeManager({ focusId = null } = {}) {
       });
     }
 
+    /**
+     * إعادة التسمية عامّة بطبيعتها — لكن ليست صامتة (بند 10).
+     *
+     * الذكرى تحمل **معرّف** النوع لا اسمه، فتغيير الاسم يظهر فورًا في
+     * كل ذكرى تستعمله. وهذا هو المطلوب غالبًا، لكنه ليس بديهيًّا: أن
+     * تعدّل «فحص» فتجد سبعًا وعشرين ذكرى تبدّلت دفعةً واحدة مفاجأةٌ لا
+     * ميزة. فنقول العدد ونعرض المخرج الثالث قبل الفعل.
+     */
+    async function askRename(id, label) {
+      const impact = await renameImpact(id, label);
+
+      // لا تبعة تُذكَر: لا نُقحم نافذةً بين يدك والنتيجة.
+      if (impact.from === impact.to) {
+        editing = null;
+        return void render();
+      }
+      if (!impact.scenes) {
+        return void run(async () => {
+          await updateType(id, { label });
+          editing = null;
+        }, 'اتعدّل.');
+      }
+
+      let choice = null;
+      const value = await showModal({
+        title: `«${impact.from}» ← «${impact.to}»`,
+        submitLabel: 'نفّذ',
+        body: `
+          <p class="tm-hint">
+            النوع ده مستعمَل في <strong>${impact.scenes} ذكرى</strong>${
+              impact.children ? ` وتحته ${impact.children} فرع` : ''
+            }. الاسم الجديد هيظهر فيها كلها — الذكريات بتحمل النوع نفسه
+            مش اسمه، فمفيش حاجة بتضيع.
+          </p>
+          <div class="field">
+            <label>
+              <input type="radio" name="mode" value="rename" checked />
+              حدّث الاسم في الكل — ${impact.scenes} ذكرى
+            </label>
+            <label>
+              <input type="radio" name="mode" value="new" />
+              سيب «${esc(impact.from)}» زي ما هو، واعمل نوع جديد اسمه
+              «${esc(impact.to)}»
+            </label>
+          </div>`,
+        onSubmit: (data, close) => {
+          choice = data.mode;
+          close();
+        },
+      });
+      if (value !== 'submit' || !choice) return;
+
+      await run(async () => {
+        if (choice === 'new') {
+          const parent = (await listTypes({ includeArchived: true })).find((t) => t.id === id);
+          await addType({ label, parentId: parent?.parentId || null });
+        } else {
+          await updateType(id, { label });
+        }
+        editing = null;
+      }, choice === 'new' ? `عملنا «${label}» نوعًا جديدًا.` : `اتعدّل في ${impact.scenes} ذكرى.`);
+    }
+
+    /**
+     * أنواعٌ تبدو واحدًا مكرَّرًا (بند 11).
+     *
+     * ⚠️ **اقتراحٌ لا دمج تلقائي.** «فحص داخلي» و«فحص خارجي» متشابهان
+     *    نصًّا ومختلفان تمامًا معنًى — والآلة لا تعرف الفرق وأنت تعرفه.
+     *    فالزرّ هنا يفتح الدمج ولا يفعله.
+     */
+    async function openSimilar() {
+      const pairs = await similarTypes();
+      if (!pairs.length) {
+        toast('مفيش أنواع مكرّرة — كله واضح.');
+        return;
+      }
+
+      let picked = null;
+      const value = await showModal({
+        title: 'أنواع شبه بعضها',
+        submitLabel: 'ادمج المختار',
+        body: `
+          <p class="tm-hint">
+            دول أنواع أسماؤها قريبة من بعض. ممكن يكونوا نفس الحاجة
+            مكرَّرة، وممكن يكونوا حاجتين مختلفتين فعلًا —
+            <strong>إنت اللي تقرّر</strong>، إحنا بنعرض بس.
+          </p>
+          <div class="field">
+            ${pairs
+              .map(
+                (p, i) => `
+                <label>
+                  <input type="radio" name="pair" value="${i}" ${i === 0 ? 'checked' : ''} />
+                  «${esc(p.a.label)}» و«${esc(p.b.label)}»
+                  <span class="tm-count">${esc(p.reason)}</span>
+                </label>`
+              )
+              .join('')}
+          </div>`,
+        onSubmit: (data, close) => {
+          picked = pairs[Number(data.pair)];
+          close();
+        },
+      });
+      if (value !== 'submit' || !picked) return;
+
+      // نفتح شاشة الدمج المعتادة: هي التي تعرض العدد وتسأل عن الاتجاه.
+      await openMerge(picked.a.id);
+    }
+
     async function askArchive(id) {
       const all = await listTypes({ includeArchived: true });
       const type = all.find((t) => t.id === id);
@@ -272,6 +385,7 @@ export function openTypeManager({ focusId = null } = {}) {
       if (button.dataset.restore) {
         return void run(async () => archiveType(button.dataset.restore, false), 'رجّعناه.');
       }
+      if (button.hasAttribute('data-similar')) return void openSimilar();
       if (button.dataset.merge) return void openMerge(button.dataset.merge);
     });
 
@@ -295,11 +409,7 @@ export function openTypeManager({ focusId = null } = {}) {
         }, `ضفنا «${label}» كفرع.`);
       }
       if (form.dataset.edit) {
-        const id = form.dataset.edit;
-        return void run(async () => {
-          await updateType(id, { label });
-          editing = null;
-        }, 'اتعدّل.');
+        return void askRename(form.dataset.edit, label);
       }
     });
 

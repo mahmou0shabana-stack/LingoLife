@@ -105,6 +105,21 @@
       await import('./types.test.js');
       await import('./delete.test.js');
       await import('./saved.test.js');
+      await import('./trash.test.js');
+      await import('./search.test.js');
+      await import('./dates.test.js');
+      await import('./plural.test.js');
+      await import('./links.test.js');
+      await import('./people.test.js');
+      await import('./threads.test.js');
+      await import('./import.test.js');
+      await import('./import-plan.test.js');
+      await import('./import-apply.test.js');
+      await import('./atlas.test.js');
+      await import('./lightbox.test.js');
+      await import('./language.test.js');
+      await import('./analysis.test.js');
+      await import('./analysis-request.test.js');
 
       const result = await run((event) => {
         if (event.type === 'suite') {

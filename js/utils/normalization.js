@@ -48,6 +48,37 @@ export function normalize(text) {
   return out;
 }
 
+/**
+ * مسافة تحرير بحدٍّ أعلى: نتوقّف حالما نتجاوزه بدل إكمال المصفوفة.
+ *
+ * ⚠️ **الحدّ ليس تحسينًا فقط بل جزءٌ من العقد**: ما يتجاوزه يعود
+ *    `limit + 1` لا المسافة الحقيقية. فالسؤال المطروح دائمًا «هل
+ *    هذان متقاربان؟» لا «كم بينهما بالضبط؟»، والثاني لا يحتاجه أحد.
+ *
+ * تُستعمَل حيث نقترح تشابهًا: أنواع الأحداث المكرّرة (بند 11)،
+ * ومطابقة أسماء الحزمة المستوردة بما عندك. ولذلك تعيش هنا لا في
+ * إحداهما — الثانية لا تستورد من الأولى لتأخذ حرفًا مشتركًا.
+ */
+export function editDistance(a, b, limit = 3) {
+  if (Math.abs(a.length - b.length) > limit) return limit + 1;
+  let prev = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const row = [i];
+    let best = i;
+    for (let j = 1; j <= b.length; j++) {
+      row[j] = Math.min(
+        prev[j] + 1,
+        row[j - 1] + 1,
+        prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1)
+      );
+      best = Math.min(best, row[j]);
+    }
+    if (best > limit) return limit + 1;
+    prev = row;
+  }
+  return prev[b.length];
+}
+
 /** أرقام عربية-هندية إلى لاتينية. */
 export function normalizeDigits(text) {
   return (text || '').replace(/[٠-٩]/g, (d) =>

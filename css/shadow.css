@@ -341,6 +341,81 @@
 
 .sh-scene-title b { color: var(--sh-ink); font-weight: 600; }
 
+/* ─── بطاقة المصدر: مِن أين جاءت هذه الجلسة (بند 13) ─── */
+
+.sh-source {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+  padding: 9px 11px;
+  border-radius: 13px;
+  border: 1px solid var(--sh-line);
+  background: rgba(255, 255, 255, .03);
+}
+
+.sh-source-icon { font-size: 18px; line-height: 1; }
+
+.sh-source-body {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+  min-width: 0;
+  flex: 1;
+  font-size: 12px;
+}
+
+.sh-source-body b { color: var(--sh-accent-2); font-weight: 600; }
+
+.sh-source-name {
+  color: var(--sh-ink);
+  font-weight: 600;
+  /* عنوانٌ طويل يقصّ ولا يدفع زرّ «افتح الأصل» خارج البطاقة. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.sh-source-body small { color: var(--sh-mute); font-size: 11px; }
+
+.sh-source-open {
+  flex: none;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--sh-line);
+  background: transparent;
+  color: var(--sh-mute);
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.sh-source-open:hover { border-color: var(--sh-accent-2); color: var(--sh-ink); }
+
+/* اسم المتحدّث على السطر: الفرق بين نصٍّ ومحادثة. */
+.sh-line-spk {
+  flex: none;
+  align-self: flex-start;
+  margin-top: 2px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--sh-line);
+  background: rgba(255, 255, 255, .04);
+  color: var(--sh-mute);
+  font-size: 10px;
+  font-family: inherit;
+  font-style: normal;
+  white-space: nowrap;
+}
+
+.sh-line-spk.mine {
+  border-color: rgba(139, 92, 246, .45);
+  background: rgba(139, 92, 246, .16);
+  color: var(--sh-ink);
+}
+
 /* سطر الجملة */
 .sh-line {
   display: flex;
@@ -1009,6 +1084,40 @@
   flex-wrap: wrap;
 }
 
+/* ═══════════════ التابلت رأسيًّا — الكتاب يبقى كتابًا ═══════════════
+
+   كانت نقطة التحوّل 900px وحدها، فكل تابلت رأسي (768 · 810 · 834)
+   يقع على تخطيط الموبايل: المصدر فوق والممارسة تحت. والبند 7 يطلب
+   بقاء فكرة الصفحتين المتقابلتين على التابلت.
+
+   الصفحتان هنا أضيق، فالنسبة الافتراضية تميل للمصدر أقلّ (48%)
+   ويقلّ الحشو — الكتاب أنحف لا مقطوع.
+   ═══════════════════════════════════════════════════════════════ */
+@media (min-width: 700px) and (max-width: 899px) and (orientation: portrait) {
+  .sh-pages { flex-direction: row; }
+
+  .sh-left {
+    flex: 0 0 var(--split, 48%);
+    padding: 14px 15px;
+  }
+
+  .sh-right { flex: 1; padding: 14px 15px; }
+
+  .sh-spine {
+    height: auto;
+    width: 16px;
+    cursor: col-resize;
+    background: linear-gradient(180deg, transparent, rgba(139, 92, 246, .16), transparent);
+  }
+
+  .sh-spine::after { width: 3px; height: 44px; }
+
+  .sh-book { margin: 0 12px 12px; }
+
+  /* الصفحة أضيق: الجملة الجارية تصغر قليلًا فلا تُقطَع كلماتها. */
+  .sh-current-text { font-size: calc(clamp(17px, 2.6vw, 22px) * var(--sh-font-size, 1) * var(--font-scale, 1)); }
+}
+
 /* ═══════════════ التابلت أفقيًا — الكتاب يُفتح ═══════════════ */
 @media (min-width: 900px) {
   .sh-pages { flex-direction: row; }
@@ -1354,10 +1463,40 @@ body.shadow-open { overflow: hidden; }
   background: rgba(255, 255, 255, .025);
 }
 
+/* الخطوط مجموعةٌ بصيغة الكتابة: تبحث عن شكلٍ فتجده حيث يُنتظَر. */
+.sh-fontgroup + .sh-fontgroup { margin-top: 12px; }
+
+.sh-fontgroup h4 {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--sh-ink);
+}
+
+.sh-fontgroup h4 small {
+  font-size: 10px;
+  font-weight: 400;
+  color: var(--sh-mute);
+}
+
+.sh-fontpanel-warn {
+  margin: 0 0 10px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  border: 1px solid rgba(245, 158, 11, .35);
+  background: rgba(245, 158, 11, .12);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--sh-ink);
+}
+
 .sh-fontpanel-grid {
   display: grid;
   /* خمسة في الصفّ على التابلت، وتنزل تلقائيًّا على الشاشة الضيّقة. */
-  grid-template-columns: repeat(auto-fill, minmax(64px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
   gap: 7px;
 }
 
@@ -1391,6 +1530,24 @@ body.shadow-open { overflow: hidden; }
 }
 
 .sh-fontchip:hover { border-color: var(--sh-accent-2); }
+
+/* خطٌّ بلا سيريلية: يبقى قابلًا للاختيار (قد تريده للاتينية) لكنه
+   موسومٌ صراحةً — لا زرّ يبدو أنه يعمل وهو لا يعمل (بند 89). */
+.sh-fontchip.lacks {
+  border-color: rgba(245, 158, 11, .4);
+  opacity: .55;
+}
+
+.sh-fontchip.lacks::after {
+  content: '⚠︎';
+  position: absolute;
+  inset-block-start: 3px;
+  inset-inline-end: 5px;
+  font-size: 9px;
+  color: #f59e0b;
+}
+
+.sh-fontchip { position: relative; }
 
 .sh-fontchip.on {
   border-color: var(--sh-accent);
@@ -1451,4 +1608,429 @@ body.shadow-open { overflow: hidden; }
   /* العبارة الإرشادية عربية داخل حقلٍ لاتيني. */
   direction: rtl;
   text-align: end;
+}
+
+/* ─── شريط تحديد المقاطع (بند 21) ─── */
+
+.sh-select-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  border: 1px solid var(--sh-accent);
+  background: rgba(139, 92, 246, .12);
+}
+
+.sh-select-count {
+  font-size: 13px;
+  color: var(--sh-mute);
+  /* «7 / 18» تُقرأ من اليسار مهما كان اتجاه الصفحة. */
+  direction: ltr;
+  unicode-bidi: isolate;
+}
+
+.sh-select-count b { color: var(--sh-ink); font-size: 15px; }
+
+.sh-select-actions { display: flex; gap: 4px; flex: 1; }
+
+.sh-select-actions button {
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--sh-line);
+  background: rgba(255, 255, 255, .04);
+  color: var(--sh-mute);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.sh-select-actions button:hover { color: var(--sh-ink); border-color: var(--sh-accent-2); }
+
+.sh-select-go {
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 0;
+  background: var(--sh-accent);
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* مربّع الاختيار على السطر — لا يظهر إلا في وضع التحديد. */
+.sh-line-pick { display: none; }
+
+.sh-line-pick {
+  flex: 0 0 auto;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  border: 1.5px solid var(--sh-line);
+  margin-inline-end: 2px;
+}
+
+[data-lines].picking .sh-line-pick { display: block; }
+
+[data-lines].picking .sh-line.picked .sh-line-pick {
+  background: var(--sh-accent);
+  border-color: var(--sh-accent);
+  /* علامة صحّ مرسومة بالخلفية — بلا أيقونة إضافية. */
+  background-image:
+    linear-gradient(45deg, transparent 44%, #fff 44%, #fff 56%, transparent 56%),
+    linear-gradient(-45deg, transparent 56%, #fff 56%, #fff 68%, transparent 68%);
+  background-size: 100% 100%;
+}
+
+[data-lines].picking .sh-line.picked {
+  border-color: var(--sh-accent);
+  background: rgba(139, 92, 246, .1);
+}
+
+/* ─── وجهات حفظ الممارسة السريعة (بند 19) ─── */
+
+.sh-scratch-save {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--sh-mute);
+}
+
+.sh-scratch-save button {
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--sh-line);
+  background: rgba(255, 255, 255, .04);
+  color: var(--sh-ink);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.sh-scratch-save button:hover { border-color: var(--sh-accent-2); }
+
+/* ══════════════════════════════════════════════════════════════
+   عالمان لا لونان — بندان 80 و109
+
+   كان وجها الكتاب بنفسجيَّين داكنَين معًا: كتابٌ بلون واحد لا
+   كتابٌ بصفحتين. والمواصفة تريد فرقًا يُحسّ لا يُلاحَظ:
+
+     • **اليسرى: العالم الذي عشته.** ورقٌ دافئ فاتح وحبرٌ داكن —
+       صورةٌ التُقطت، وسطورٌ قيلت، وذكرى وقعت في نهارٍ ما.
+     • **اليمنى: أن تجعله لك.** سطح الصفحة نفسه نيليٌّ عميق بنجومٍ
+       خافتة — لا بطاقة داكنة داخل صفحة، بل **الصفحة هي الفضاء**.
+
+   ⚠️ **عرضٌ محض (بند 84).** لا يمسّ نصًّا ولا تقسيمًا ولا جلسة ولا
+      دليل ممارسة. حذفُ هذا القسم كلّه يُرجع الشكل القديم ولا يغيّر
+      سلوكًا واحدًا.
+
+   والتنفيذ **بإعادة تعريف التوكِنات على `.sh-left` وحدها**، لا
+   بإعادة كتابة مكوّناتها. كل ما في الصفحة يقرأ `--sh-ink` و
+   `--sh-line` و`--sh-mute` أصلًا، فقلبُ القيم يقلب الصفحة كلها —
+   وأي مكوّن يُضاف غدًا يرث العالم الصحيح بلا سطرٍ إضافي.
+   ══════════════════════════════════════════════════════════════ */
+
+.sh-left {
+  /* ورقٌ لا أبيض: الأبيض النقيّ على شاشةٍ في غرفةٍ مظلمة يُتعب
+     العين، والورق الحقيقي مائلٌ للدفء دائمًا. */
+  --sh-page: #F6EEE0;
+  --sh-page-2: #FBF6EC;
+  --sh-ink: #2C2318;
+  --sh-mute: #7B6A52;
+  --sh-faint: #A39074;
+  --sh-line: rgba(122, 94, 58, .20);
+  --sh-line-soft: rgba(122, 94, 58, .10);
+  /* بديل البنفسجي في هذا العالم: مِحبرةٌ بنّية دافئة. */
+  --sh-accent: #A5622B;
+  --sh-accent-2: #8B6534;
+  --sh-glow: rgba(165, 98, 43, .30);
+
+  color: var(--sh-ink);
+  background:
+    /* حبيبات ورق خفيفة — تُحسّ ولا تُرى. */
+    radial-gradient(1px 1px at 20% 30%, rgba(120, 92, 58, .05), transparent),
+    radial-gradient(1px 1px at 70% 60%, rgba(120, 92, 58, .04), transparent),
+    linear-gradient(170deg, var(--sh-page-2), var(--sh-page));
+}
+
+/*
+ * الخلفيات المكتوبة بـ`rgba(255,255,255,…)` صُمِّمت لسطحٍ داكن:
+ * أبيضُ شفّاف فوق ورقٍ فاتح يختفي. هنا نقلبها إلى أسودَ شفّاف
+ * بنفس الخفّة، فيبقى التمييز محسوسًا.
+ */
+.sh-left .sh-source,
+.sh-left .sh-cover-box,
+.sh-left .sh-line,
+.sh-left .sh-fontpanel,
+.sh-left .sh-fontchip,
+.sh-left .sh-pill,
+.sh-left .sh-scratch-save button,
+.sh-left .sh-line-spk {
+  background: rgba(74, 55, 30, .045);
+}
+
+.sh-left .sh-line:hover,
+.sh-left .sh-fontchip:hover { background: rgba(74, 55, 30, .075); }
+
+.sh-left .sh-line.current {
+  /* إبرازٌ دافئ لا كاريوكي: تعرف أين أنت بلا أن يُصرَخ في وجهك. */
+  background: rgba(165, 98, 43, .13);
+  border-color: rgba(165, 98, 43, .38);
+}
+
+.sh-left .sh-line.practiced { background: rgba(74, 55, 30, .07); }
+
+.sh-left .sh-fontchip.on {
+  background: rgba(165, 98, 43, .17);
+  box-shadow: 0 0 0 1px var(--sh-accent) inset;
+}
+
+.sh-left .sh-cover-tools {
+  background: rgba(251, 246, 236, .88);
+}
+
+.sh-left .sh-cover-tools button:hover { background: rgba(74, 55, 30, .09); }
+.sh-left .sh-cover-tools button.on { background: var(--sh-accent); color: #FFF9F0; }
+
+.sh-left .sh-cover-grip {
+  background: linear-gradient(180deg, transparent, rgba(165, 98, 43, .16));
+}
+
+.sh-left .sh-select-go { color: #FFF9F0; }
+
+/* شريط تمرير الورقة بلون الحبر لا بلون النجوم. */
+.sh-left { scrollbar-color: rgba(122, 94, 58, .35) transparent; }
+.sh-left::-webkit-scrollbar-thumb { background: rgba(122, 94, 58, .35); }
+
+/* ─── اليمنى: الصفحة **هي** الفضاء ─── */
+
+.sh-right {
+  position: relative;
+  /* أعمق من خلفية الكتاب لا مجرّد أغمق: تدرّج عمقٍ من الكعب إلى
+     الحافّة، فيبدو الفضاء ذاهبًا إلى بعيد. */
+  background:
+    radial-gradient(130% 100% at 0% 0%, #1A1338 0%, #0D0A1E 55%, #070512 100%);
+}
+
+/* نجوم الصفحة اليمنى وحدها — أكثف من نجوم الخلفية العامّة، فهي
+   هنا سطحٌ لا خلفيّة بعيدة. */
+.sh-right::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: .75;
+  background-image:
+    radial-gradient(1.5px 1.5px at 24% 12%, rgba(226, 218, 255, .85), transparent),
+    radial-gradient(1.1px 1.1px at 62% 8%, rgba(167, 139, 250, .7), transparent),
+    radial-gradient(1px 1px at 84% 26%, rgba(226, 218, 255, .55), transparent),
+    radial-gradient(1.3px 1.3px at 14% 44%, rgba(167, 139, 250, .6), transparent),
+    radial-gradient(1px 1px at 48% 58%, rgba(226, 218, 255, .45), transparent),
+    radial-gradient(1.4px 1.4px at 78% 72%, rgba(190, 170, 255, .55), transparent),
+    radial-gradient(1px 1px at 32% 88%, rgba(226, 218, 255, .4), transparent);
+}
+
+/* المحتوى فوق النجوم لا تحتها. */
+.sh-right > * { position: relative; z-index: 1; }
+
+/* ─── الكعب: حدٌّ بين عالمين ─── */
+
+/*
+ * الطيّة تُصنَع بظلٍّ داخليّ على حافّتَي الصفحتين لا بصورة: ورقةٌ
+ * تنحني تُظلم عند الكعب وتفتح عند الحافّة الخارجية. والانحناء
+ * **مقيَّد** — كتابٌ مفتوح على منضدة لا صفحةٌ تُقلَب.
+ */
+.sh-spine {
+  background:
+    linear-gradient(90deg,
+      rgba(0, 0, 0, .28) 0%,
+      rgba(0, 0, 0, .10) 35%,
+      rgba(139, 92, 246, .16) 50%,
+      rgba(0, 0, 0, .10) 65%,
+      rgba(0, 0, 0, .28) 100%);
+}
+
+.sh-left { box-shadow: inset -14px 0 22px -18px rgba(56, 38, 12, .85); }
+.sh-right { box-shadow: inset 14px 0 24px -18px rgba(0, 0, 0, .9); }
+
+/* على الموبايل الصفحتان فوق بعضهما، فالطيّة أفقيّة لا رأسيّة. */
+@media (max-width: 699px) {
+  .sh-spine {
+    background:
+      linear-gradient(180deg,
+        rgba(0, 0, 0, .28) 0%,
+        rgba(139, 92, 246, .16) 50%,
+        rgba(0, 0, 0, .28) 100%);
+  }
+  .sh-left  { box-shadow: inset 0 -14px 22px -18px rgba(56, 38, 12, .85); }
+  .sh-right { box-shadow: inset 0 14px 24px -18px rgba(0, 0, 0, .9); }
+}
+
+/*
+ * الكتاب نفسه صار مجرّد إطار: الصفحتان تملآنه بعالميهما، فخلفيّته
+ * لا تُرى إلا عند الحوافّ. نُبقيها داكنة فتصير حافّة الغلاف.
+ */
+.sh-book { background: var(--sh-bg-2); }
+
+@media (prefers-reduced-motion: reduce) {
+  /* لا حركة هنا أصلًا — النجوم ثابتة والتدرّجات ساكنة. مكتوبٌ
+     صراحةً حتى لا يُضاف وميضٌ لاحقًا بلا حارس. */
+  .sh-right::before { animation: none; }
+}
+
+/*
+ * الجملة الجارية: **في** الفضاء لا على بطاقةٍ فوقه.
+ *
+ * البند 80 يقول «الصفحة هي الفضاء» — وبطاقةٌ ذات حدٍّ صريح تنقضه:
+ * تصير الجملة ملصقةً على سماء بدل أن تكون فيها. فالحدّ يخفت،
+ * والخلفية تصير هالةً تنبع من المركز وتتلاشى، فتُقرأ الجملة كأنها
+ * مضيئة بذاتها.
+ */
+.sh-right .sh-current-card {
+  border-color: transparent;
+  background: radial-gradient(90% 120% at 50% 45%, rgba(139, 92, 246, .16), transparent 72%);
+}
+
+/* عند النطق يظهر الحدّ فتعرف أنها حيّة — إشارةٌ لا زينة. */
+.sh-right .sh-current-card.speaking {
+  border-color: rgba(167, 139, 250, .5);
+  box-shadow: 0 0 34px -6px var(--sh-glow);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   لوحة الأصل — نظيرة لوحة الصورة، للنصّ (بند 13)
+
+   الصورة لها إطارها منذ البداية. والسكريبت والمحادثة لم يكن لهما
+   شيء: تراهما مُقسَّمَين إلى مقاطع ممارسة، والأصل غائب. فصار لهما
+   إطارٌ بنفس المنطق — يُمرَّر داخله فلا يدفع المقاطع لأسفل،
+   ويُحجَّم بمقبض، ويُطوى حين لا تحتاجه.
+   ══════════════════════════════════════════════════════════════ */
+
+.sh-origin {
+  margin-bottom: 10px;
+  border-radius: 13px;
+  border: 1px solid var(--sh-line);
+  background: rgba(255, 255, 255, .03);
+  overflow: hidden;
+}
+
+.sh-origin > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--sh-mute);
+  list-style: none;
+}
+
+/* السهم الافتراضي يختلف بين المتصفّحات؛ نرسمه بأنفسنا فيتّسق. */
+.sh-origin > summary::-webkit-details-marker { display: none; }
+
+.sh-origin > summary::before {
+  content: '▸';
+  flex: none;
+  font-size: 10px;
+  transition: transform .15s ease;
+}
+
+.sh-origin[open] > summary::before { transform: rotate(90deg); }
+
+@media (prefers-reduced-motion: reduce) {
+  .sh-origin > summary::before { transition: none; }
+}
+
+/* «٣ مش في الجلسة دي» — يُقال بالعدد لا يُترك للتخمين. */
+.sh-origin-note {
+  margin-inline-start: auto;
+  padding: 1px 8px;
+  border-radius: 999px;
+  border: 1px solid var(--sh-line);
+  font-size: 10.5px;
+}
+
+.sh-origin-scroll {
+  /* الارتفاع من المقبض، والتمرير **داخل** الإطار — الأصل لا يدفع
+     المقاطع لأسفل مهما طال. */
+  height: var(--origin-h, 160px);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 4px 12px 10px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--sh-line) transparent;
+  font-size: 13.5px;
+  line-height: 1.9;
+}
+
+.sh-origin-scroll::-webkit-scrollbar { width: 5px; }
+.sh-origin-scroll::-webkit-scrollbar-thumb {
+  background: var(--sh-line);
+  border-radius: 999px;
+}
+
+.sh-origin-raw { margin: 0; white-space: pre-wrap; }
+
+/* الجملة داخل الأصل: تُقرأ في سياقها، والمتروكة تخفت ولا تختفي. */
+.sh-origin-sent { color: var(--sh-ink); }
+.sh-origin-sent.skipped { opacity: .45; }
+
+/* المحادثة تُعرَض **كمحادثة**: أدوارٌ بأصحابها. قائمةٌ مسطّحة من
+   الجمل تُضيّع مَن قال ماذا — وهو نصف معناها. */
+.sh-origin-turn {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 3px 0;
+}
+
+.sh-origin-turn.skipped { opacity: .45; }
+
+.sh-origin-who {
+  flex: none;
+  min-width: 7ch;
+  font-size: 11px;
+  color: var(--sh-mute);
+  font-family: inherit;
+  font-style: normal;
+}
+
+/* دورك أنت مميَّز — تعرف أين كنت تتكلّم بنظرة. */
+.sh-origin-turn.mine .sh-origin-who { color: var(--sh-accent-2); }
+
+.sh-origin-said { flex: 1; min-width: 0; color: var(--sh-ink); }
+
+.sh-origin-grip {
+  height: 14px;
+  display: grid;
+  place-items: center;
+  cursor: ns-resize;
+  touch-action: none;
+  background: linear-gradient(180deg, transparent, rgba(139, 92, 246, .14));
+}
+
+.sh-origin-grip::after {
+  content: '';
+  width: 40px;
+  height: 3px;
+  border-radius: 999px;
+  background: var(--sh-line);
+}
+
+.sh-origin-grip:active::after,
+.sh-origin-grip:focus-visible::after { background: var(--sh-accent); }
+.sh-origin-grip:focus-visible { outline: none; }
+
+/* على الورق الدافئ: الأبيض الشفّاف يختفي، فيُقلب إلى حبرٍ خفيف. */
+.sh-left .sh-origin,
+.sh-left .sh-origin-note { background: rgba(74, 55, 30, .045); }
+
+.sh-left .sh-origin-grip {
+  background: linear-gradient(180deg, transparent, rgba(165, 98, 43, .16));
 }

@@ -50,9 +50,28 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h4l3 8 4-16 3 8h4"/></svg>
         <span>حياتي</span>
       </button>
+      <!--
+        النهر بجوار «حياتي» لا بدلًا منها: حياتي تجيب «إيه اللي حصل في
+        مايو؟» بشبكة بطاقات، والنهر يجيب «إيه اللي حصل بعد إيه وقد إيه
+        كان بينهم؟» بترتيبٍ متّصل وفجواتٍ معروضة. سؤالان مختلفان.
+      -->
+      <button class="nav-btn" data-nav="river" onclick="location.hash='#/river'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7c3-2 5 2 8 0s5-2 8 0M3 12c3-2 5 2 8 0s5-2 8 0M3 17c3-2 5 2 8 0s5-2 8 0"/></svg>
+        <span>النهر</span>
+      </button>
       <button class="nav-btn" data-nav="language" onclick="location.hash='#/language'">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16M4 12h10M4 19h7"/><path d="m17 15 3 3-3 3"/></svg>
         <span>لغتي</span>
+      </button>
+
+      <button class="nav-btn" data-nav="analysis" onclick="location.hash='#/analysis'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>
+        <span>تحليل</span>
+      </button>
+
+      <button class="nav-btn" data-nav="search" onclick="location.hash='#/search'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+        <span>بحث</span>
       </button>
 
       <button class="nav-btn secondary divide-before" data-nav="trash" onclick="location.hash='#/trash'">

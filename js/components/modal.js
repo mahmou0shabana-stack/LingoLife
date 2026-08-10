@@ -19,7 +19,15 @@ const stack = [];
  *           onSubmit?: (formData: object, close: Function) => void|Promise<void> }} options
  * @returns {Promise<string|null>} قيمة الزر المضغوط، أو null عند الإلغاء
  */
-export function showModal({ title, body, actions, onSubmit, submitLabel = 'حفظ' }) {
+/**
+ * @param {{title, body, actions, onSubmit, submitLabel,
+ *          onMount?: (modal: HTMLElement) => void}} config
+ *
+ * `onMount` تُنادى بعد إلحاق النافذة بالصفحة: حقلٌ حيّ داخل نموذج
+ * (منتقي المتحدّث مثلًا) يحتاج أن يربط مستمعيه، ولا يمكنه ذلك قبل
+ * وجود عناصره في الـDOM.
+ */
+export function showModal({ title, body, actions, onSubmit, submitLabel = 'حفظ', onMount }) {
   return new Promise((resolve) => {
     const overlay = document.createElement('div');
     overlay.className = 'overlay';
@@ -96,7 +104,13 @@ export function showModal({ title, body, actions, onSubmit, submitLabel = 'حف�
     document.body.append(overlay);
     stack.push(overlay);
 
-    const firstField = overlay.querySelector('input, textarea, select');
+    // قبل التركيز: `onMount` قد تُخفي حقلًا أو تُظهره، والتركيز على
+    // حقلٍ مخفيّ لا يعمل.
+    onMount?.(overlay.querySelector('.modal'));
+
+    const firstField = overlay.querySelector(
+      'input:not([hidden]), textarea:not([hidden]), select:not([hidden])'
+    );
     firstField?.focus();
   });
 }

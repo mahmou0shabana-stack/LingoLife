@@ -16,7 +16,9 @@ import { activeDbName, stagingDbName, SLOT_A, SLOT_B, deleteDatabase, setActiveD
 import { buildBackup } from '../js/services/backup/export.js';
 import { inspectBackup, restoreBackup } from '../js/services/backup/restore.js';
 import { migrateBundle, isSupportedVersion } from '../js/services/backup/backup-migrations.js';
-import { BACKUP_FORMAT_VERSION } from '../js/services/backup/backup-format.js';
+import { BACKUP_FORMAT_VERSION, EXCLUDED_STORES } from '../js/services/backup/backup-format.js';
+import { BACKUP_STORES } from '../js/services/backup/serialize.js';
+import { STORES } from '../js/db/schema.js';
 import { TARGET_VERSION } from '../js/db/migrations.js';
 
 /** يكتب عالم الاختبار في القاعدة النشطة. */
@@ -493,5 +495,39 @@ describe('التوافق الخلفي مع الملفات الذهبية', () =>
       expect(sceneIds.has(link.sceneId)).toBeTruthy();
       expect(mediaIds.has(link.mediaId)).toBeTruthy();
     }
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * ما لا يدخل النسخة
+ * ------------------------------------------------------------------ */
+
+describe('النسخة الاحتياطية — المستبعَد', () => {
+  it('لكل مستبعَد سببٌ مكتوب', () => {
+    for (const [store, reason] of Object.entries(EXCLUDED_STORES)) {
+      if (!reason || reason.length < 10) throw new Error(`${store} مستبعَد بلا سبب مفهوم`);
+    }
+  });
+
+  it('المستبعَد فعلًا خارج قائمة النسخ', () => {
+    for (const store of Object.keys(EXCLUDED_STORES)) {
+      expect(BACKUP_STORES.includes(store)).toBe(false);
+    }
+  });
+
+  /*
+   * ⚠️ خاصيّة خصوصية لا تحسين حجم: `nativeAudio` بايتاتٌ جاءت من
+   *    خوادم خارجية وليست بياناتك. نسختك الاحتياطية ملفٌّ تشاركه
+   *    وتنقله — فلا يحمل ما ليس لك، ويبقى حجمه حجم حياتك.
+   */
+  it('تسجيلات النطق المجلوبة لا تدخل نسختك', () => {
+    expect(BACKUP_STORES.includes('nativeAudio')).toBe(false);
+    expect('nativeAudio' in EXCLUDED_STORES).toBe(true);
+  });
+
+  it('وكل ما عداه يدخل — لا مستودع يسقط صامتًا', () => {
+    const covered = new Set([...BACKUP_STORES, ...Object.keys(EXCLUDED_STORES)]);
+    const missing = Object.keys(STORES).filter((s) => !covered.has(s));
+    expect(missing).toEqual([]);
   });
 });

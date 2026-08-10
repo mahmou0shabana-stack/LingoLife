@@ -398,11 +398,90 @@
   gap: var(--sp-4);
 }
 
+/*
+  المسرح يحصر الصورة، والصورة تتحرّك داخله بـ`transform`. ولولا
+  `overflow: hidden` لخرجت المكبَّرة فوق الأزرار.
+*/
+.lb-stage {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  /* السحب هنا لنا: التنقّل والتحريك — لا لتمرير الصفحة. */
+  touch-action: none;
+  cursor: zoom-in;
+}
+.lb-stage.is-zoomed { cursor: grab; }
+.lb-stage.is-zoomed:active { cursor: grabbing; }
+
 .lightbox img {
   max-width: 100%;
-  max-height: 72vh;
+  max-height: 100%;
   border-radius: var(--radius-md);
   object-fit: contain;
+  transform-origin: center;
+  /* بلا انتقال أثناء السحب — التأخير يجعل التحريك لزجًا. */
+  transition: transform 0.12s ease-out;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+.lb-stage.is-zoomed img { transition: none; }
+
+/* ---- الوصف ---- */
+
+.lb-caption { width: 100%; max-width: 520px; }
+.lb-caption input {
+  width: 100%;
+  font: inherit;
+  font-size: var(--fs-sm);
+  text-align: center;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+.lb-caption input::placeholder { color: rgba(255, 255, 255, 0.45); }
+.lb-caption input:focus {
+  outline: none;
+  border-color: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* ---- التنقّل ---- */
+
+.lb-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+}
+.lb-nav[hidden] { display: none !important; }
+
+.lb-arrow {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.14);
+  color: #fff;
+  cursor: pointer;
+}
+.lb-arrow:hover { background: rgba(255, 255, 255, 0.24); }
+/* «التالية» معكوسة عن «السابقة» — الاتجاه معنًى. */
+.lb-arrow.is-next svg { transform: scaleX(-1); }
+
+.lb-count {
+  direction: ltr;
+  font-size: var(--fs-sm);
+  color: rgba(255, 255, 255, 0.7);
+  min-width: 56px;
+  text-align: center;
 }
 
 .lightbox-bar {
@@ -790,4 +869,1459 @@
 .sv-row-note {
   font-size: var(--fs-sm);
   color: var(--ink-soft);
+}
+
+/* ------------------------------------------------------------
+   السلة — صفوف مجمّعة بالنوع
+   ------------------------------------------------------------ */
+.trash-group { margin-bottom: var(--sp-5); }
+
+.trash-list { padding: 0; }
+
+.trash-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.trash-row:last-child { border-bottom: 0; }
+
+.trash-icon {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-alt);
+  color: var(--ink-soft);
+}
+
+.trash-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.trash-title {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.trash-sub {
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+}
+
+.trash-when {
+  font-size: var(--fs-xs);
+  color: var(--ink-faint);
+}
+
+.trash-tools {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-2);
+}
+
+/* على الشاشات الأوسع الأزرار في سطر واحد جنب المحتوى. */
+@media (min-width: 560px) {
+  .trash-tools { flex-direction: row; align-items: center; }
+}
+
+/* ------------------------------------------------------------
+   البحث
+   ------------------------------------------------------------ */
+.search-box {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface-soft);
+  color: var(--ink-soft);
+  margin-bottom: var(--sp-3);
+}
+
+.search-box:focus-within { border-color: var(--accent); }
+
+.search-box input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  font: inherit;
+  font-size: var(--fs-md);
+  padding: var(--sp-3) 0;
+  color: var(--ink);
+}
+
+.search-box input:focus { outline: none; }
+
+/* زرّ المسح الأصلي في حقل search يختلف بين المتصفّحات — نستعمل زرّنا. */
+.search-box input::-webkit-search-cancel-button { display: none; }
+
+.search-box button {
+  border: 0;
+  background: transparent;
+  color: var(--ink-soft);
+  font-size: var(--fs-md);
+  cursor: pointer;
+  padding: var(--sp-2);
+}
+
+.search-filters {
+  display: flex;
+  gap: var(--sp-2);
+  overflow-x: auto;
+  padding-bottom: var(--sp-2);
+  margin-bottom: var(--sp-4);
+  scrollbar-width: none;
+}
+
+.search-filters::-webkit-scrollbar { display: none; }
+
+.chip-btn {
+  flex: 0 0 auto;
+  padding: 6px var(--sp-3);
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--line);
+  background: var(--surface-soft);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.chip-btn.on {
+  background: var(--accent-wash);
+  border-color: var(--accent);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.search-group { margin-bottom: var(--sp-5); }
+.search-list { padding: 0; }
+
+.search-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  text-align: start;
+  padding: var(--sp-3);
+  border: 0;
+  border-bottom: 1px solid var(--line-soft);
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.search-row:last-child { border-bottom: 0; }
+.search-row:hover { background: var(--bg-alt); }
+
+.search-row-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.search-row-title { font-weight: 600; overflow-wrap: anywhere; }
+
+.search-row-sub {
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+}
+
+.search-row-excerpt {
+  font-size: var(--fs-sm);
+  color: var(--ink-faint);
+  overflow-wrap: anywhere;
+}
+
+/* ------------------------------------------------------------
+   التحميل التدريجي
+   ------------------------------------------------------------ */
+.load-more {
+  min-height: 60px;
+  display: grid;
+  place-items: center;
+  color: var(--ink-soft);
+  font-size: var(--fs-sm);
+}
+
+/* ------------------------------------------------------------
+   منتقي المتحدّث ومكتبة الأشخاص
+
+   نفس هيكل منتقي النوع ولوحته — تكرار مقصود: مَن يعرف أحدهما
+   يعرف الآخر، ومَن يعدّل واحدًا يعرف أين يعدّل الثاني.
+   ------------------------------------------------------------ */
+
+.speaker-field {
+  display: grid;
+  /* المنتقي وزرّ المكتبة في صفّ، وخانة الاسم والتلميح تحتهما بعرض
+     كامل — الاسم قد يطول والتلميح جملةٌ لا كلمة. */
+  grid-template-columns: 1fr auto;
+  gap: var(--sp-2);
+  align-items: stretch;
+}
+
+.speaker-field select { min-width: 0; }
+.speaker-field .btn { white-space: nowrap; }
+
+.speaker-field [data-speaker-text],
+.speaker-field [data-speaker-hint] {
+  grid-column: 1 / -1;
+}
+
+.speaker-field [data-speaker-hint] {
+  margin: 0;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md, 10px);
+  background: var(--accent-soft, rgba(139, 92, 246, .1));
+}
+
+.speaker-field [data-speaker-hint] .btn { margin-inline-start: var(--sp-2); }
+
+/* ─── صفّ الشخص ─── */
+
+.person-row { gap: var(--sp-3); }
+
+/* نقطة اللون: تمييز الأصوات بالنظر قبل القراءة. */
+.person-dot {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+
+.person-sub {
+  display: block;
+  font-size: var(--fs-xs, 12px);
+  color: var(--ink-soft);
+  font-weight: 400;
+}
+
+.person-edit {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--sp-2);
+}
+
+.person-edit input:first-child { grid-column: 1 / -1; }
+.person-edit .btn { grid-column: auto; }
+
+/* ─── المتحدّثون بلا شخص ─── */
+
+.pm-unlinked {
+  margin-top: var(--sp-4);
+  padding: var(--sp-3);
+  border-radius: var(--r-lg, 14px);
+  border: 1px solid var(--line);
+  background: var(--bg-soft, rgba(0, 0, 0, .02));
+}
+
+.pm-unlinked h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-sm, 14px);
+}
+
+.pm-unlinked-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+  padding: var(--sp-2) 0;
+  border-top: 1px solid var(--line);
+}
+
+.pm-unlinked-row .tm-label { flex: 1; min-width: 8ch; }
+.pm-unlinked-row select { max-width: 18ch; }
+
+/* ------------------------------------------------------------
+   الخيوط — القائمة والصفحة
+   ------------------------------------------------------------ */
+
+.thread-list {
+  display: grid;
+  gap: var(--sp-3);
+}
+
+.thread-card {
+  display: block;
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-lg, 14px);
+  border: 1px solid var(--line);
+  background: var(--surface, #fff);
+  color: inherit;
+  text-decoration: none;
+}
+
+.thread-card:hover { border-color: var(--accent, #8B5CF6); }
+
+/* الخيط المنتهي يخفت: قصّةٌ خلصت لا تزاحم قصّةً تنتظرك. */
+.thread-card.is-done { opacity: .7; }
+
+.thread-card-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.thread-card-head b { flex: 1; min-width: 0; }
+
+.thread-card-desc {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-sm, 14px);
+  color: var(--ink-soft);
+}
+
+.thread-card-meta {
+  display: flex;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+  margin-top: var(--sp-2);
+  font-size: var(--fs-xs, 12px);
+  color: var(--ink-soft);
+}
+
+/* ─── رقاقة الحالة: تُقرأ قبل أن تُقرأ ─── */
+
+.thread-status {
+  flex: none;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: var(--fs-xs, 12px);
+  border: 1px solid currentColor;
+}
+
+.thread-status.is-active   { color: #1F9D62; }
+.thread-status.is-waiting  { color: #B4740E; }
+.thread-status.is-paused   { color: #6B7280; }
+.thread-status.is-resolved { color: #4B5563; }
+.thread-status.is-reopened { color: #C2410C; }
+
+.thread-done { margin-top: var(--sp-4); }
+.thread-done summary { cursor: pointer; color: var(--ink-soft); font-size: var(--fs-sm, 14px); }
+.thread-done .thread-list { margin-top: var(--sp-3); }
+
+.thread-desc { color: var(--ink-soft); margin: 0 0 var(--sp-3); }
+
+.thread-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex-wrap: wrap;
+}
+
+.thread-actions label { color: var(--ink-soft); font-size: var(--fs-sm, 14px); }
+.thread-actions select { flex: 1; min-width: 12ch; }
+
+/* ─── الخطّ الزمني: القصّة كما جرت ─── */
+
+.thread-timeline { margin-top: var(--sp-4); }
+
+.thread-event {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  border-radius: var(--r-lg, 14px);
+  border: 1px solid var(--line);
+  background: var(--surface, #fff);
+  color: inherit;
+  text-decoration: none;
+}
+
+.thread-event:hover { border-color: var(--accent, #8B5CF6); }
+
+.thread-event-date {
+  flex: none;
+  font-size: var(--fs-xs, 12px);
+  color: var(--ink-soft);
+  min-width: 11ch;
+}
+
+.thread-event-main { flex: 1; min-width: 0; }
+.thread-event-main small { display: block; color: var(--ink-soft); font-size: var(--fs-xs, 12px); }
+
+/*
+ * الفجوة بين حدثين: «بعد ١٢ يوم» جزءٌ من القصّة لا حشو — هي المدّة
+ * التي انتظرتَ فيها ردًّا.
+ */
+.thread-gap {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) 0;
+  padding-inline-start: var(--sp-4);
+  color: var(--ink-soft);
+  font-size: var(--fs-xs, 12px);
+}
+
+.thread-gap::before {
+  content: '';
+  width: 2px;
+  height: 18px;
+  background: var(--line);
+  border-radius: 999px;
+}
+
+/* ─── رقاقة الخيط على الذكرى ─── */
+
+.chip-thread {
+  text-decoration: none;
+  color: inherit;
+  border-color: var(--accent, #8B5CF6);
+}
+
+/* ─── اقتراحات الربط ─── */
+
+.thread-suggest {
+  margin-bottom: var(--sp-3);
+  padding: var(--sp-3);
+  border-radius: var(--r-lg, 14px);
+  border: 1px solid var(--line);
+  background: var(--bg-soft, rgba(0, 0, 0, .02));
+}
+
+.thread-suggest h4 { margin: 0 0 var(--sp-2); font-size: var(--fs-sm, 14px); }
+
+.thread-suggest-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  padding: var(--sp-2) 0;
+  cursor: pointer;
+}
+
+/* السبب تحت الاسم: تقرأ لماذا اقترحناه قبل أن توافق. */
+.thread-suggest-row small {
+  display: block;
+  color: var(--ink-soft);
+  font-size: var(--fs-xs, 12px);
+}
+
+/* ==================================================================
+   استيراد مشهد مُجهَّز — المعاينة قبل الالتزام (بند 36)
+
+   المبدأ البصري: **القرار وسببه في سطرٍ واحد.** الخانة على اليمين،
+   وحالتها ثم سببها بجوارها، والبدائل تحتها مباشرةً. فصلُ السبب عن
+   القرار يجعل الاختيار تخمينًا.
+   ================================================================== */
+
+.imp-intro p { margin: 0; color: var(--ink-soft); }
+
+.imp-fatal {
+  border: 1px solid var(--red-line);
+  background: var(--red-bg);
+  color: var(--ink);
+}
+.imp-fatal b { color: var(--red); display: block; margin-bottom: var(--sp-2); }
+.imp-fatal p { margin: var(--sp-1) 0 0; font-size: var(--fs-sm); }
+
+/*
+  مربّع اللصق لاتينيّ الاتجاه دائمًا: محتواه JSON، وعرضه من اليمين
+  يكسر أقواسه فيبدو الملفّ تالفًا وهو سليم.
+*/
+.imp-paste {
+  direction: ltr;
+  text-align: left;
+  width: 100%;
+  min-height: 220px;
+  margin-top: var(--sp-3);
+  padding: var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--ink);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--fs-sm);
+  line-height: 1.6;
+  resize: vertical;
+}
+.imp-paste:focus { outline: 2px solid var(--accent-line); border-color: var(--accent-soft); }
+
+.imp-actions {
+  display: flex;
+  gap: var(--sp-2);
+  margin-top: var(--sp-4);
+}
+.imp-actions .btn { flex: 1; }
+
+/*
+  شريط الالتزام يبقى في المتناول مهما طالت المعاينة.
+
+  ⚠️ خلفيّةٌ مصمتة لا متدرّجة: الشفافيّة كانت تُظهر نصّ الصفّ الذي
+     تحته من خلفه، فيبدو الزرّان مكتوبين فوق كلام.
+*/
+.imp-actions.is-sticky {
+  position: sticky;
+  bottom: 0;
+  z-index: var(--z-sticky);
+  margin-top: var(--sp-5);
+  padding: var(--sp-3) 0;
+  background: var(--bg);
+  box-shadow: 0 -10px 16px -8px var(--bg);
+  border-top: 1px solid var(--line-soft);
+}
+
+/* ---- الحصيلة ---- */
+
+.imp-summary {
+  display: flex;
+  gap: var(--sp-3);
+  text-align: center;
+}
+.imp-figure { flex: 1; }
+.imp-figure b {
+  display: block;
+  font-family: var(--font-display);
+  font-size: var(--fs-2xl);
+  line-height: 1.1;
+  /* ⚠️ الأرقام لاتينيّة الاتجاه: «12 من 3» تنقلب بلا هذا. */
+  direction: ltr;
+}
+.imp-figure span { font-size: var(--fs-xs); color: var(--ink-soft); }
+.imp-figure.is-off b { color: var(--ink-faint); }
+
+/* ---- الأقسام والصفوف ---- */
+
+.imp-section { margin-top: var(--sp-5); }
+.imp-section h3 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-md);
+}
+.imp-count {
+  direction: ltr;
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--ink-soft);
+  background: var(--bg-alt);
+  border-radius: var(--radius-pill);
+  padding: 2px 10px;
+}
+.imp-section.is-muted h3, .imp-section.is-warn h3 { color: var(--ink-soft); }
+
+.imp-note {
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+  line-height: 1.7;
+}
+
+.imp-row {
+  padding: var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  margin-bottom: var(--sp-2);
+}
+.imp-row.is-off { background: var(--surface-soft); opacity: 0.62; }
+.imp-row.is-muted { background: var(--bg-alt); border-style: dashed; }
+
+.imp-pick {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  cursor: pointer;
+}
+.imp-pick input { margin-top: 4px; flex: none; }
+.imp-pick input:disabled { opacity: 0.45; cursor: default; }
+
+.imp-label { font-weight: 600; line-height: 1.6; word-break: break-word; }
+
+.imp-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+.imp-why { font-size: var(--fs-xs); color: var(--ink-soft); }
+
+.imp-chip {
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  border-radius: var(--radius-pill);
+  padding: 2px 9px;
+  background: var(--bg-alt);
+  color: var(--ink-soft);
+}
+.imp-chip.is-new { background: var(--accent-wash); color: var(--accent); }
+.imp-chip.is-reuse { background: var(--green-bg); color: var(--green); }
+
+/* ---- البدائل ---- */
+
+.imp-alts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px dashed var(--line);
+}
+.imp-alts-head {
+  width: 100%;
+  font-size: var(--fs-xs);
+  color: var(--ink-soft);
+}
+.imp-alt {
+  font: inherit;
+  cursor: pointer;
+  text-align: start;
+  border: 1px solid var(--accent-line);
+  background: var(--accent-wash);
+  color: var(--ink);
+  border-radius: var(--radius-sm);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-sm);
+}
+.imp-alt em {
+  display: block;
+  font-style: normal;
+  font-size: var(--fs-2xs);
+  color: var(--ink-soft);
+}
+.imp-alt.is-plain { background: var(--surface); border-color: var(--line); }
+.imp-alt:hover { border-color: var(--accent-soft); }
+
+/* ---- التقرير ---- */
+
+.imp-report { margin: 0; padding-inline-start: var(--sp-4); }
+.imp-report li { margin-bottom: var(--sp-1); }
+.imp-report b { direction: ltr; display: inline-block; }
+
+/* ==================================================================
+   نهر الزمن وشاشة اليوم (WS4)
+
+   المبدأ البصري: **الفجوة معلومة لا فراغ.** المسافة بين يومين تُرسَم
+   ويُكتب طولها، فترى بعينك الشهر الذي لم تسجّل فيه شيئًا.
+
+   وعمدًا بلا زخرفة في هذه النسخة: أوّلًا يصحّ التنقّل والربط، ثم
+   يأتي الخيال البصري فوق أساسٍ ثابت.
+   ================================================================== */
+
+.rv-river { position: relative; }
+
+.rv-month {
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  color: var(--ink-soft);
+  margin: var(--sp-5) 0 var(--sp-3);
+  padding-bottom: var(--sp-2);
+  border-bottom: 1px solid var(--line);
+}
+.rv-month:first-child { margin-top: 0; }
+
+/* ---- اليوم ---- */
+
+.rv-day {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.rv-day-head {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  font: inherit;
+  cursor: pointer;
+  text-align: start;
+  padding: var(--sp-3);
+  border: 0;
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--surface-soft);
+  color: var(--ink);
+}
+.rv-day-head:hover { background: var(--accent-wash); }
+.rv-day-date { font-weight: 700; }
+.rv-day-rel { font-size: var(--fs-xs); color: var(--ink-faint); }
+.rv-day-count {
+  margin-inline-start: auto;
+  direction: ltr;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--ink-soft);
+  background: var(--bg-alt);
+  border-radius: var(--radius-pill);
+  padding: 1px 9px;
+}
+
+/* ---- الذكرى داخل اليوم ---- */
+
+.rv-scene {
+  display: block;
+  width: 100%;
+  font: inherit;
+  cursor: pointer;
+  text-align: start;
+  padding: var(--sp-3);
+  border: 0;
+  border-top: 1px solid var(--line-soft);
+  background: transparent;
+  color: var(--ink);
+}
+.rv-scene:first-of-type { border-top: 0; }
+.rv-scene:hover { background: var(--surface-soft); }
+.rv-scene-title { display: block; font-weight: 600; line-height: 1.6; }
+
+.rv-scene-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+
+.rv-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: var(--fs-2xs);
+  font-weight: 600;
+  border-radius: var(--radius-pill);
+  padding: 2px 9px;
+  background: var(--accent-wash);
+  color: var(--accent);
+}
+.rv-tag.is-plain { background: var(--bg-alt); color: var(--ink-soft); font-weight: 500; }
+.rv-tag svg { width: 13px; height: 13px; }
+
+/* ---- الفجوة ---- */
+
+.rv-gap {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) 0;
+  margin-inline-start: var(--sp-5);
+}
+/* الخيط الرأسي هو النهر نفسه — متّصلٌ عبر الفراغ. */
+.rv-gap::before {
+  content: '';
+  width: 2px;
+  min-height: 22px;
+  align-self: stretch;
+  background: repeating-linear-gradient(
+    to bottom, var(--line-strong) 0 4px, transparent 4px 9px
+  );
+  border-radius: 2px;
+}
+.rv-gap span {
+  font-size: var(--fs-xs);
+  color: var(--ink-faint);
+}
+/* شهرٌ فأكثر بلا تسجيل يستحقّ أن يُرى، لا أن يُقرأ بحثًا. */
+.rv-gap.is-long::before { background: var(--amber-line); }
+.rv-gap.is-long span { color: var(--amber); font-weight: 600; }
+
+.rv-end {
+  text-align: center;
+  font-size: var(--fs-xs);
+  color: var(--ink-faint);
+  padding: var(--sp-5) 0;
+}
+
+/* ---- المرشّحات ---- */
+
+.rv-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  margin-bottom: var(--sp-4);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-md);
+  background: var(--accent-wash);
+}
+.rv-filters-head { font-size: var(--fs-xs); color: var(--ink-soft); }
+.rv-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  padding: var(--sp-1) var(--sp-3);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--ink);
+}
+.rv-chip:hover { border-color: var(--accent-soft); }
+.rv-chip-x { display: inline-flex; color: var(--ink-faint); }
+.rv-chip.is-clear { border-style: dashed; color: var(--ink-soft); }
+
+.rv-absent {
+  margin-top: var(--sp-6);
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+}
+.rv-absent summary { cursor: pointer; color: var(--ink-faint); }
+.rv-absent p { margin: var(--sp-2) 0 0; }
+
+/* ---- شاشة اليوم ---- */
+
+.rv-daynav {
+  display: flex;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+}
+.rv-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  flex: 1;
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  padding: var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+}
+.rv-nav-btn:disabled { opacity: 0.4; cursor: default; }
+.rv-nav-btn.is-mid { background: var(--bg-alt); }
+/*
+  الاتجاه معنًى لا زخرفة — وفي RTL «للوراء» يمينًا.
+  أيقونة `back` سهمٌ لليسار، فتُقلَب في زرّ «الأقدم» (وهو الأيمن في
+  ترتيب القراءة) وتبقى كما هي في «الأحدث».
+*/
+.rv-nav-btn:first-child svg { transform: scaleX(-1); }
+
+.rv-day-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-4);
+  text-align: center;
+}
+.rv-stat { flex: 1; min-width: 60px; }
+.rv-stat b {
+  display: block;
+  font-family: var(--font-display);
+  font-size: var(--fs-xl);
+  direction: ltr;
+}
+.rv-stat span { font-size: var(--fs-xs); color: var(--ink-soft); }
+
+.rv-section { margin-top: var(--sp-5); }
+.rv-section h3 { margin: 0 0 var(--sp-2); font-size: var(--fs-md); }
+
+.rv-section .rv-scene {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  margin-bottom: var(--sp-2);
+}
+
+.rv-line {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--ink);
+  text-decoration: none;
+  margin-bottom: var(--sp-2);
+}
+.rv-line .rv-tag { margin-inline-start: auto; }
+.rv-line.is-plain { background: var(--surface-soft); }
+
+.rv-people, .rv-exprs { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.rv-person {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--ink);
+}
+.rv-person:hover { border-color: var(--accent-soft); background: var(--accent-wash); }
+
+.rv-expr {
+  direction: ltr;
+  font-family: var(--font-ru);
+  font-size: var(--fs-sm);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  background: var(--surface-tint);
+  color: var(--ink);
+}
+
+.rv-hint {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-xs);
+  color: var(--ink-faint);
+  line-height: 1.7;
+}
+
+/* ---- القصص المكمّلة ورقاقة الخيط ---- */
+
+.rv-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sp-3);
+}
+
+.rv-tag.is-thread { background: var(--violet-bg); color: var(--violet); }
+
+.rv-stories {
+  margin-bottom: var(--sp-5);
+  padding: var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+}
+.rv-stories h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+}
+
+.rv-story {
+  display: block;
+  width: 100%;
+  font: inherit;
+  cursor: pointer;
+  text-align: start;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  margin-bottom: var(--sp-2);
+}
+.rv-story:last-child { margin-bottom: 0; }
+.rv-story:hover { border-color: var(--accent-soft); }
+.rv-story-title { display: block; font-weight: 600; }
+.rv-story-meta { font-size: var(--fs-xs); color: var(--ink-faint); }
+
+/* ==================================================================
+   أشجار المحاور
+
+   صفٌّ واحد لكل قيمة: اسمها ثم عددها. والعدد في أقصى السطر ليصطفّ
+   عموديًّا فتُقارَن الأرقام بمسحةٍ واحدة.
+   ================================================================== */
+
+.fc-section { margin-top: var(--sp-5); }
+.fc-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-md);
+}
+
+.fc-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  width: 100%;
+  font: inherit;
+  cursor: pointer;
+  text-align: start;
+  padding: var(--sp-3);
+  /* التفريع يُزاح للداخل — والاتجاه منطقيّ فيصحّ في RTL وحده. */
+  padding-inline-start: calc(var(--sp-3) + var(--depth, 0) * var(--sp-5));
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  margin-bottom: var(--sp-2);
+}
+.fc-row:hover { border-color: var(--accent-soft); background: var(--accent-wash); }
+
+/* أصلٌ بلا ذكرياتٍ خاصّةٍ به: يُعرَض ليحمل فروعه ولا يُضغَط. */
+.fc-row.is-parent {
+  cursor: default;
+  background: transparent;
+  border-style: dashed;
+  color: var(--ink-faint);
+}
+
+.fc-label { flex: 1; font-weight: 600; }
+.fc-count {
+  direction: ltr;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--ink-soft);
+  background: var(--bg-alt);
+  border-radius: var(--radius-pill);
+  padding: 2px 10px;
+  min-width: 34px;
+  text-align: center;
+}
+.fc-status {
+  font-size: var(--fs-2xs);
+  border-radius: var(--radius-pill);
+  padding: 2px 8px;
+  background: var(--bg-alt);
+  color: var(--ink-soft);
+}
+
+.fc-empty, .fc-note {
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-sm);
+  color: var(--ink-faint);
+  line-height: 1.7;
+}
+
+.fc-absent {
+  margin-top: var(--sp-6);
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+}
+.fc-absent summary { cursor: pointer; color: var(--ink-faint); }
+.fc-absent p { margin: var(--sp-2) 0 0; }
+
+/* ---- المحور من داخل الذكرى ---- */
+
+.pivot-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-3);
+  padding-top: var(--sp-3);
+  border-top: 1px dashed var(--line);
+}
+.pivot-head { font-size: var(--fs-xs); color: var(--ink-faint); }
+.pivot {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  padding: var(--sp-1) var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--ink);
+}
+.pivot:hover { border-color: var(--accent-soft); background: var(--accent-wash); }
+.pivot-count {
+  direction: ltr;
+  font-size: var(--fs-2xs);
+  font-weight: 700;
+  color: var(--ink-faint);
+}
+
+/* ---- العدسات ---- */
+
+.rv-chip.is-save { border-style: dashed; color: var(--accent); }
+
+.rv-lenses {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-4);
+}
+.rv-lens {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  overflow: hidden;
+}
+.rv-lens:hover { border-color: var(--accent-soft); }
+.rv-lens-open {
+  font: inherit;
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  padding: var(--sp-1) var(--sp-3);
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+}
+.rv-lens-del {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 0 var(--sp-2);
+  border: 0;
+  border-inline-start: 1px solid var(--line);
+  background: transparent;
+  color: var(--ink-faint);
+}
+.rv-lens-del:hover { background: var(--red-bg); color: var(--red); }
+
+/* ==================================================================
+   الكوكبة
+
+   رسمٌ دائريٌّ محسوب لا محاكاةٌ فيزيائيّة: الشكل ثابتٌ بين الفتحات،
+   فموضع الاسم يصير شيئًا تتذكّره. ورسمٌ يقفز في كل مرّة جميلٌ مرّةً
+   ومُربكٌ دائمًا.
+   ================================================================== */
+
+.cn-wrap {
+  display: flex;
+  justify-content: center;
+  padding: var(--sp-3) 0;
+}
+
+.cn-svg {
+  width: 100%;
+  max-width: 460px;
+  height: auto;
+  /* الرسم لاتينيّ الاتجاه: الإحداثيات محسوبة ولا تنقلب مع الصفحة. */
+  direction: ltr;
+  overflow: visible;
+}
+
+.cn-wire {
+  stroke: var(--accent-line);
+  stroke-linecap: round;
+  cursor: pointer;
+  transition: stroke 0.15s;
+}
+.cn-wire:hover { stroke: var(--accent-soft); }
+.cn-wire.is-open { stroke: var(--accent); }
+
+.cn-node { cursor: pointer; }
+.cn-node circle {
+  fill: var(--surface);
+  stroke: var(--accent);
+  stroke-width: 2;
+  transition: fill 0.15s;
+}
+.cn-node:hover circle { fill: var(--accent-wash); }
+.cn-node text {
+  font-family: var(--font-ar);
+  font-size: 11px;
+  fill: var(--ink);
+  /* النصّ العربي داخل SVG يحتاج اتجاهه صراحةً. */
+  direction: rtl;
+}
+
+.cn-legend {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--sp-4);
+  font-size: var(--fs-xs);
+  color: var(--ink-soft);
+  padding-bottom: var(--sp-3);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.cn-hint {
+  margin: var(--sp-4) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--ink-faint);
+  text-align: center;
+  line-height: 1.7;
+}
+
+.cn-pair-panel { margin-top: var(--sp-4); }
+.cn-pair-panel h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin: 0 0 var(--sp-2);
+  font-size: var(--fs-md);
+}
+.cn-pair-count {
+  direction: ltr;
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-wash);
+  border-radius: var(--radius-pill);
+  padding: 2px 10px;
+}
+
+.cn-scene {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  width: 100%;
+  font: inherit;
+  cursor: pointer;
+  text-align: start;
+  padding: var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  margin-bottom: var(--sp-2);
+}
+.cn-scene:hover { border-color: var(--accent-soft); }
+.cn-scene span { font-size: var(--fs-xs); color: var(--ink-faint); flex: none; }
+
+.cn-absent {
+  margin-top: var(--sp-6);
+  font-size: var(--fs-sm);
+  color: var(--ink-soft);
+}
+.cn-absent summary { cursor: pointer; color: var(--ink-faint); }
+.cn-absent p { margin: var(--sp-2) 0 0; line-height: 1.8; }
+
+/* ---- الأشخاص داخل الذكرى وطابور الأصوات ---- */
+
+.people-row { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+
+/* متحدّثٌ بالاسم بلا شخصٍ مربوط — مدعوٌّ للربط لا خطأ. */
+.rv-person.is-loose {
+  border-style: dashed;
+  color: var(--ink-soft);
+}
+.rv-person.is-loose:hover { border-color: var(--amber-line); background: var(--amber-bg); }
+
+.mp-btn[hidden] { display: none !important; }
+.mp-btn:disabled { opacity: 0.35; cursor: default; }
+/* «التالي» معكوسٌ عن «السابق» — الاتجاه معنًى في RTL كما في LTR. */
+.mp-next svg { transform: scaleX(-1); }
+
+/* ==================================================================
+   لغتي وحياة التعبير
+
+   المبدأ: **الوقائع في جهة والتقدير في جهة.** الخطّ الزمني يُقرأ
+   كسلسلة ذكريات، واختيار المرحلة شبكةُ أزرارٍ منفصلةٌ تحته بنصٍّ
+   يقول إنها قولك.
+   ================================================================== */
+
+.lg-section { margin-top: var(--sp-5); }
+.lg-section h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 var(--sp-3);
+  font-size: var(--fs-md);
+}
+.lg-section h3 .fc-count { margin-inline-start: auto; }
+
+.lg-title {
+  direction: ltr;
+  text-align: start;
+  font-family: var(--font-ru);
+}
+
+.lg-row {
+  display: block;
+  width: 100%;
+  font: inherit;
+  cursor: pointer;
+  text-align: start;
+  padding: var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--ink);
+  margin-bottom: var(--sp-2);
+}
+.lg-row:hover { border-color: var(--accent-soft); }
+
+.lg-ru {
+  display: block;
+  direction: ltr;
+  text-align: start;
+  font-family: var(--font-ru);
+  font-weight: 600;
+}
+.lg-ar { display: block; font-size: var(--fs-sm); color: var(--ink-soft); }
+.lg-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-2);
+}
+
+/* أين قابلتَه غير هنا — عناوين الذكريات الأخرى. */
+.lg-where {
+  display: block;
+  margin-top: var(--sp-1);
+  font-size: var(--fs-2xs);
+  color: var(--ink-faint);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ---- المراحل ---- */
+
+.lg-stages {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+  margin-bottom: var(--sp-2);
+}
+.lg-stage { flex: 1; min-width: 64px; text-align: center; }
+.lg-stage b {
+  display: block;
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  direction: ltr;
+}
+.lg-stage span { font-size: var(--fs-2xs); color: var(--ink-soft); }
+
+.lg-stage-pick {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--sp-2);
+}
+.lg-stage-btn {
+  font: inherit;
+  cursor: pointer;
+  text-align: start;
+  padding: var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--ink);
+}
+.lg-stage-btn:hover { border-color: var(--accent-soft); }
+.lg-stage-btn b { display: block; font-size: var(--fs-sm); }
+.lg-stage-btn span { font-size: var(--fs-2xs); color: var(--ink-faint); }
+/* المختارة: تقديرك الحالي — لا «مرحلة وصلت إليها» في شريط تقدّم. */
+.lg-stage-btn.is-on {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+}
+.lg-stage-btn.is-on b { color: var(--accent); }
+
+.lg-words { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.lg-word {
+  direction: ltr;
+  font-family: var(--font-ru);
+  font-size: var(--fs-sm);
+  cursor: pointer;
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface-tint);
+  color: var(--ink);
+}
+.lg-word:hover { border-color: var(--accent-soft); }
+
+.lg-note {
+  margin: var(--sp-2) 0 0;
+  font-size: var(--fs-xs);
+  color: var(--ink-faint);
+  line-height: 1.8;
+}
+
+/* ------------------------------------------------------------
+   التحليل المُشتقّ — «إيه اللي بيانك بيقوله»
+   ------------------------------------------------------------ */
+
+/* صفٌّ يعرض ولا يُضغَط: تصنيفُ التقاطٍ لا محورَ للنهر عليه. */
+.fc-row.is-plain {
+  cursor: default;
+  background: var(--surface-soft);
+}
+.fc-row.is-plain:hover { border-color: var(--line); background: var(--surface-soft); }
+
+.an-sub {
+  font-size: var(--fs-xs);
+  color: var(--ink-faint);
+  margin: var(--sp-4) 0 var(--sp-2);
+  font-weight: 600;
+}
+.an-sub:first-child { margin-top: 0; }
+
+/* نمطُ خطأ: مطويٌّ على أمثلته — الرقم يُفتَح فيريك دليله. */
+.an-group {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  margin-bottom: var(--sp-2);
+  overflow: hidden;
+}
+.an-group > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  cursor: pointer;
+  list-style: none;
+}
+.an-group > summary::-webkit-details-marker { display: none; }
+.an-group > summary:hover { background: var(--accent-wash); }
+.an-group .an-name { flex: 1; font-size: var(--fs-sm); font-weight: 600; }
+
+/* الحالة نفسها: قلتَ كذا، والصحيح كذا، وأين حدث. */
+.an-case {
+  display: block;
+  width: 100%;
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+  padding: var(--sp-3);
+  border: 0;
+  border-top: 1px solid var(--line-soft);
+  background: var(--surface-soft);
+  color: var(--ink);
+}
+.an-case:hover { background: var(--accent-wash); }
+
+.an-wrong, .an-natural {
+  display: block;
+  direction: ltr;
+  text-align: start;
+  font-family: var(--font-ru);
+  font-size: var(--fs-sm);
+}
+/* الخطأ مشطوبٌ باهت، والصحيح واضحٌ أخضر — الفرق يُقرأ بلا قراءة. */
+.an-wrong { color: var(--ink-faint); text-decoration: line-through; }
+.an-natural { color: var(--green); font-weight: 600; }
+
+.an-why {
+  display: block;
+  font-size: var(--fs-xs);
+  color: var(--ink-soft);
+  margin-top: var(--sp-1);
+}
+.an-where {
+  display: block;
+  font-size: var(--fs-2xs);
+  color: var(--ink-faint);
+  margin-top: var(--sp-1);
 }

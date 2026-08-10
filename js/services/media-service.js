@@ -94,6 +94,35 @@ function audioDuration(file) {
   });
 }
 
+/**
+ * وسائط الذكرى بترتيب عرضها.
+ *
+ * ⚠️ **بالترتيب المحفوظ في الرابط لا في `media`.** الصور تُرتَّب داخل
+ *    الذكرى، والملفّ نفسه قد يظهر في ذكرياتٍ عدّة بترتيبٍ مختلف — فما
+ *    يحكم هو الرابط.
+ */
+export async function sceneMedia(sceneId, kind = null) {
+  const links = (await sceneMediaLinks.byIndex('sceneId', sceneId))
+    .filter((link) => link.state === STATE.ACTIVE)
+    .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+  const rows = await media.getMany(links.map((link) => link.mediaId));
+  return rows
+    .filter((row) => row && row.state === STATE.ACTIVE)
+    .filter((row) => !kind || row.kind === kind);
+}
+
+/**
+ * يكتب وصف الوسيط.
+ *
+ * ⚠️ `caption` كان يُكتب `''` عند الإنشاء **ولا يُملأ في أي مكان** —
+ *    حقلٌ ميّت كـ`peopleIds`. والعارض كان يعرض اسم الملفّ بدلًا منه:
+ *    `IMG_20260212.jpg` مكان «لافتة المستودع».
+ */
+export async function setCaption(mediaId, caption) {
+  return media.update(mediaId, { caption: (caption || '').trim() });
+}
+
 /** الترتيب التالي داخل المشهد. */
 async function nextOrder(sceneId) {
   const links = await sceneMediaLinks.byIndex('sceneId', sceneId);
@@ -232,10 +261,40 @@ export function urlFor(mediaRecord, { thumb = true } = {}) {
   return url;
 }
 
-/** يحرّر كل الروابط المخزّنة. يُستدعى عند تغيير الشاشة. */
+/**
+ * وسائطُ قيد الاستعمال الآن، لا تُحرَّر روابطها.
+ *
+ * ⚠️ **مالكٌ واحد للرابط.** كانت خدمة الصوت تُحرّر رابط المقطع السابق
+ *    بنفسها بينما الكاش هنا لا يزال يحتفظ به — فيعود `urlFor` برابطٍ
+ *    ميّت. المسار الحيّ الذي كشفه: شغّل تسجيلًا، ثم آخر، ثم عُد
+ *    للأوّل → «الملف مش موجود» وهو موجود.
+ *
+ *    فالملكيّة هنا وحدها، والمُشغّل **يُعلن ما يستعمله** ولا يُحرّر.
+ */
+const pinned = new Set();
+
+/** يثبّت وسائط فلا يُحرّرها تغيير الشاشة. */
+export function pinMedia(ids) {
+  for (const id of [].concat(ids)) if (id) pinned.add(id);
+}
+
+/** يفكّ التثبيت — ولا يُحرّر فورًا: `releaseUrls` صاحبة القرار. */
+export function unpinMedia(ids) {
+  for (const id of [].concat(ids)) pinned.delete(id);
+}
+
+/**
+ * يحرّر الروابط المخزّنة. يُستدعى عند تغيير الشاشة.
+ *
+ * ⚠️ ما هو مثبَّت يبقى: الصوت يكمل بعد مغادرة الشاشة عمدًا (راجع
+ *    `audio-service`)، وتحريرُ رابطه يقطعه عند أوّل تقديمٍ أو إعادة.
+ */
 export function releaseUrls() {
-  for (const url of urlCache.values()) URL.revokeObjectURL(url);
-  urlCache.clear();
+  for (const [key, url] of urlCache) {
+    if (pinned.has(key.slice(0, key.lastIndexOf(':')))) continue;
+    URL.revokeObjectURL(url);
+    urlCache.delete(key);
+  }
 }
 
 /* ------------------------------------------------------------

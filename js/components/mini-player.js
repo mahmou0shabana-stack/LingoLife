@@ -35,8 +35,10 @@ function build() {
         <span data-mp-sub></span>
       </div>
       <span class="mp-time" data-mp-time>0:00</span>
+      <button class="mp-btn" data-mp="prev" aria-label="السابق" hidden>${icon('back', 16)}</button>
       <button class="mp-btn" data-mp="back" aria-label="عشر ثوانٍ للخلف">${icon('skipBack', 16)}</button>
       <button class="mp-btn" data-mp="fwd" aria-label="عشر ثوانٍ للأمام">${icon('skipForward', 16)}</button>
+      <button class="mp-btn mp-next" data-mp="next" aria-label="التالي" hidden>${icon('back', 16)}</button>
       <button class="mp-btn" data-mp="close" aria-label="إغلاق">✕</button>
     </div>`;
 
@@ -46,6 +48,8 @@ function build() {
 
     switch (target.dataset.mp) {
       case 'toggle': return api.toggle();
+      case 'prev': return api.previous();
+      case 'next': return api.next();
       case 'back': return api.seek(api.state.currentTime - 10);
       case 'fwd': return api.seek(api.state.currentTime + 10);
       case 'close': return api.clear();
@@ -87,7 +91,23 @@ function paint(state) {
   if (!state.hasTrack) return;
 
   root.querySelector('[data-mp-title]').textContent = state.title;
-  root.querySelector('[data-mp-sub]').textContent = state.subtitle || '';
+
+  /*
+   * موضعك في الطابور جزءٌ من العنوان الفرعي: «٢ من ٥» تقول إن ما
+   * تسمعه ليس وحده وإن هناك ما بعده — بلا زرٍّ إضافي يشرح ذلك.
+   * والمقطع المفرد (`queueTotal <= 1`) لا يُظهر شيئًا.
+   */
+  const place = state.queueTotal > 1 ? `${state.queueIndex + 1} من ${state.queueTotal}` : '';
+  root.querySelector('[data-mp-sub]').textContent =
+    [place, state.subtitle].filter(Boolean).join(' · ');
+
+  // زرّا الطابور يظهران مع الطابور وحده، ويُعطَّلان في طرفيه.
+  const prev = root.querySelector('[data-mp="prev"]');
+  const next = root.querySelector('[data-mp="next"]');
+  prev.hidden = state.queueTotal <= 1;
+  next.hidden = state.queueTotal <= 1;
+  next.disabled = !state.hasNext;
+  prev.disabled = !state.hasPrevious && state.currentTime <= 3;
   root.querySelector('[data-mp-time]').textContent =
     `${clock(state.currentTime)} / ${clock(state.duration)}`;
 

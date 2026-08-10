@@ -28,6 +28,10 @@ export const words = createRepository('words', PREFIX.WORD);
 export const mistakeComparisons = createRepository('mistakeComparisons', PREFIX.MISTAKE);
 
 /* ---- التنظيم ---- */
+// أنواع الأحداث: المدمجة بمعرّفاتٍ ثابتة مقروءة (`meeting`), والمضافة
+// بمعرّفٍ مولَّد. الاثنان في نفس المستودع لأنهما نفس الكيان.
+export const eventTypes = createRepository('eventTypes', PREFIX.EVENT_TYPE);
+export const eventThreads = createRepository('eventThreads', PREFIX.THREAD);
 export const people = createRepository('people', PREFIX.PERSON);
 export const places = createRepository('places', PREFIX.PLACE);
 export const journeys = createRepository('journeys', PREFIX.JOURNEY);
@@ -40,6 +44,9 @@ export const shadowSessions = createRepository('shadowSessions', PREFIX.SHADOW_S
 export const shadowSegments = createRepository('shadowSegments', PREFIX.SHADOW_SEGMENT);
 export const practiceEvidence = createRepository('practiceEvidence', PREFIX.EVIDENCE);
 export const savedItems = createRepository('savedItems', PREFIX.SAVED);
+// مفتاحه الكلمة نفسها (`keyPath: 'word'`) لا معرّف مولَّد: الكلمة هي
+// الهويّة هنا، فجلبها مرّتين يجب أن يصيب نفس السجل.
+export const nativeAudio = createRepository('nativeAudio', PREFIX.NATIVE_AUDIO);
 
 /* ---- المراجعة ---- */
 export const reviewItems = createRepository('reviewItems', PREFIX.REVIEW);
@@ -102,6 +109,8 @@ export const ALL_REPOS = {
   sentencePatterns,
   words,
   mistakeComparisons,
+  eventTypes,
+  eventThreads,
   people,
   places,
   journeys,
@@ -112,6 +121,7 @@ export const ALL_REPOS = {
   shadowSegments,
   practiceEvidence,
   savedItems,
+  nativeAudio,
   reviewItems,
   reviewHistory,
   analysisRuns,

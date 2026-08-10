@@ -14,10 +14,12 @@ import { icon } from '../components/icons.js';
 import { toast, toastOk, toastError } from '../components/toast.js';
 import { showModal, confirmAction } from '../components/modal.js';
 import { navigate } from '../router.js';
-import { splitWords } from '../services/shadow/segmenter.js';
+import { splitWords, splitSentences } from '../services/shadow/segmenter.js';
 import { toEgyptian } from '../services/shadow/dialect.js';
 import {
   createPlaybackController,
+  AUDIO_SOURCE,
+  normalizeAudioSource,
   PRACTICE_MODE,
   REPEAT_MODE,
   intervalLabel,
@@ -34,12 +36,23 @@ import {
   recordSegmentPractice,
   savePosition,
   saveSessionSettings,
+  describeSource,
+  SOURCE_TYPE,
 } from '../services/shadow/shadow-session-service.js';
 import { markSentence, loadUserDictionary } from '../services/shadow/stress.js';
 import {
   loadExpressionIndex, clearExpressionIndex, expressionsIn, expressionDetail,
 } from '../services/shadow/analysis-link.js';
-import { FONTS, applyFont, ensureFontsLoaded, fontById } from '../services/shadow/fonts.js';
+import {
+  FONTS,
+  COVERAGE_NOTE,
+  applyFont,
+  ensureFontsLoaded,
+  fontById,
+  fontFullLabel,
+  fontsByForm,
+  measureCoverage,
+} from '../services/shadow/fonts.js';
 import { LANGUAGES, languageByCode, translate, isEnabled as trEnabled, setEnabled as setTrEnabled } from '../services/shadow/translate.js';
 import { practiceStreak, recentPractice } from '../services/shadow/shadow-session-service.js';
 import { scripts, contentBlocks, scenes, sceneMediaLinks, media, shadowSegments } from '../db/repositories.js';
@@ -48,8 +61,20 @@ import { resolveLinks, LINK } from '../services/link-service.js';
 import {
   SAVED_KIND, listSavedTags, addSavedTag, saveItem, listSaved, isSaved,
 } from '../services/saved-service.js';
+import {
+  addExpression, addScript, listConversationParts, EXPRESSION_SOURCE,
+} from '../services/content-service.js';
 import { savedItems } from '../db/repositories.js';
 import { deleteWithUndo } from '../services/delete-service.js';
+import {
+  findNativeAudio,
+  grantNativeAudio,
+  revokeNativeAudio,
+  nativeAudioConsent,
+  isPronounceableWord,
+  nativeCacheStats,
+  NATIVE_HOSTS,
+} from '../services/shadow/native-audio.js';
 
 /** حالة الشاشة الحيّة. */
 let player = null;
@@ -66,6 +91,9 @@ let modalClickHandler = null;
  * النصّ.
  */
 let scratchPlayer = null;
+/** وضع التحديد ومجموعته (بند 21). */
+let selecting = false;
+let picked = new Set();
 
 /** أوضاع عرض النصّ. */
 const DISPLAY = Object.freeze({ RU: 'ru', EGY: 'egy', HIDDEN: 'hidden' });
@@ -76,6 +104,9 @@ export function disposeShadow() {
   player = null;
   scratchPlayer?.destroy();
   scratchPlayer = null;
+  selecting = false;
+  picked = new Set();
+  nativeMissSaid.clear();
   ctx = null;
   recorder?.cancel?.();
   recorder = null;
@@ -101,6 +132,261 @@ async function readCurrentSource(session) {
     return block ? { text: block.text || '', version: block.rev ?? null } : null;
   }
   return null;
+}
+
+/* ------------------------------------------------------------------ *
+ * النطق الأصلي — بند 22
+ * ------------------------------------------------------------------ */
+
+/** التسمية الصادقة: ثلاثة مصادر متمايزة، ولا يُسمَّى المُصنَّع بشريًّا. */
+const AUDIO_LABEL = Object.freeze({
+  [AUDIO_SOURCE.TTS]: '🤖 آلي (TTS)',
+  [AUDIO_SOURCE.MINE]: '🎙 تسجيلي',
+  [AUDIO_SOURCE.NATIVE]: '🌍 ناطق أصلي',
+});
+
+/**
+ * ما الذي يمكن اختياره في **هذه** الجلسة؟
+ *
+ * «تسجيلي» لا يُعرَض بلا تسجيلٍ مربوط — زرٌّ يبدو أنه يعمل وهو لا
+ * يعمل ممنوع (بند 89). والآلي دائمًا موجود لأنه دائمًا يعمل.
+ */
+function audioChoices(hasMine = Boolean(ctx?.humanAudioUrl)) {
+  const list = [AUDIO_SOURCE.TTS];
+  if (hasMine) list.push(AUDIO_SOURCE.MINE);
+  list.push(AUDIO_SOURCE.NATIVE);
+  return list;
+}
+
+/**
+ * المصدر **المتاح فعلًا** في هذه الجلسة.
+ *
+ * ⚠️ الافتراضي المحفوظ `mine` (ورثناه من `human` القديم)، وجلسةٌ بلا
+ *    تسجيل مربوط كانت تعرض «🎙 تسجيلي» وهي تنطق آليًّا — زرٌّ يقول
+ *    غير ما يفعل (بند 89). المحرّك كان يسقط إلى TTS صحيحًا؛ الكذبة
+ *    كانت في التسمية وحدها، وهي أسوأ ما يكون: تصدّقها.
+ */
+export function effectiveAudioSource(saved, hasMine) {
+  const wanted = normalizeAudioSource(saved);
+  return audioChoices(hasMine).includes(wanted) ? wanted : AUDIO_SOURCE.TTS;
+}
+
+/**
+ * يُمرَّر للمحرّك فيحلّ نطقًا أصليًّا — أو `null` فيسقط إلى TTS.
+ *
+ * الشبكة والموافقة هنا لا في المحرّك: يبقى المحرّك حتميًّا وقابلًا
+ * للاختبار بلا خادم.
+ */
+async function resolveNative(text) {
+  const word = (text || '').trim();
+  if (!isPronounceableWord(word)) return { status: 'not-a-word' };
+  const result = await findNativeAudio(word);
+  return result.status === 'ok' ? result : { status: result.status };
+}
+
+/**
+ * نصّ الموافقة. يسمّي الخوادم بأسمائها ويقول بالضبط ما الذي يخرج —
+ * موافقةٌ لا تعرف على ماذا توافق ليست موافقة.
+ */
+/**
+ * يقول سبب السقوط إلى TTS — مرّةً لكل سبب لا مع كل تكرار.
+ *
+ * التكرار خمس مرّات لنفس الكلمة يعني خمسة أحداث `source`؛ توستٌ في كل
+ * مرّة يجعل الرسالة الصادقة إزعاجًا فتُتجاهَل، وهو نقيض الغرض.
+ */
+const nativeMissSaid = new Set();
+function announceNativeMiss(reason) {
+  const key = reason || 'unknown';
+  if (nativeMissSaid.has(key)) return;
+  nativeMissSaid.add(key);
+
+  const said = {
+    'not-a-word': 'الناطق الأصلي للكلمات المفردة بس — الجملة بتتنطق آليًا',
+    'not-found': 'مالقيناش تسجيل لناطق أصلي للكلمة دي — نطقناها آليًا',
+    offline: 'مفيش إنترنت دلوقتي — نطقناها آليًا',
+    // «ما استطعنا السؤال» غير «سألنا فقالوا لا»، والفرق يهمّك: الأولى
+    // تُصلَح بشبكةٍ أفضل، والثانية لا.
+    unreachable: 'مقدرناش نوصل لخوادم النطق — نطقناها آليًا',
+    disabled: 'الناطق الأصلي مقفول — نطقناها آليًا',
+  }[key];
+  if (said) toast(said);
+}
+
+async function askNativeConsent() {
+  const ok = await confirmAction({
+    title: '🌍 النطق الأصلي',
+    message:
+      'دي <strong>الميزة الوحيدة في التطبيق اللي بتخرج من جهازك</strong>.<br><br>' +
+      'لمّا تشغّلها، <strong>الكلمة الروسية اللي بتتدرّب عليها</strong> هتتبعت ' +
+      `لخوادم خارجية (${NATIVE_HOSTS.join(' · ')}) عشان ندوّر على تسجيل ` +
+      'لناطق أصلي.<br><br>' +
+      '• الكلمة بس هي اللي بتخرج — مش جملتك ولا ذكرياتك ولا أي حاجة تخصّك.<br>' +
+      '• اللي بنلاقيه بيتحفظ على جهازك، فالكلمة ما بتخرجش تاني.<br>' +
+      '• للكلمات المفردة بس — مفيش تسجيل لجملتك على الخوادم دي.<br>' +
+      '• تقدر ترجع في أي وقت، والرجوع بيمسح كل اللي اتجاب.',
+    confirmLabel: 'موافق، شغّلها',
+  });
+  if (!ok) return false;
+  ctx.nativeConsent = await grantNativeAudio();
+  return true;
+}
+
+/**
+ * من أين جاءت هذه الجلسة؟ (بند 13)
+ *
+ * كانت الصفحة اليسرى تقول «المشهد والنصّ الأصلي» — وهي جملةٌ صادقة
+ * ولا تفيد: لا تعرف أهذا سكريبتٌ كامل أم دور متحدّثٍ في محادثة أم
+ * جملٌ اخترتها بنفسك أم نصٌّ استُخرج من صورة. وثلاثتها الأولى تختلف
+ * اختلافًا يغيّر ما تتوقّعه من الجلسة.
+ *
+ * فصار المصدر مُسمًّى باسمه، **وقابلًا للفتح**: التدريب طبقةٌ فوق
+ * المحتوى لا بديلٌ عنه، فطريق العودة إلى الأصل يجب أن يبقى ظاهرًا.
+ *
+ * @returns {Promise<{icon: string, kind: string, name: string,
+ *                    note: string, href: string|null}>}
+ */
+async function resolveSource(session, segments) {
+  // القراءة هنا، والتصنيف في الخدمة — فيبقى منطق الوصف مُختبَرًا
+  // بلا تهيئة مستودعات (`describeSource`).
+  let resolved = {};
+  /**
+   * **الأصل كما هو** — لا كما قسّمناه (بند 13).
+   *
+   * ⚠️ المقاطع مشتقّة، والأصل هو النصّ. حين يقسّم المُقسِّم في موضعٍ
+   *    غريب، أو تسأل «هو كان بيقول إيه بالظبط قبل الجملة دي؟»، فليس
+   *    في الصفحة ما يجيب. الصورة لها لوحتها منذ البداية، والسكريبت
+   *    والمحادثة لم يكن لهما شيء.
+   */
+  let origin = null;
+
+  try {
+    if (session.sourceType === SOURCE_TYPE.SCRIPT || session.sourceType === SOURCE_TYPE.SELECTION) {
+      const script = await scripts.get(session.sourceId);
+      resolved = script ? { title: script.title } : { missing: true };
+      if (script?.text) {
+        const all = splitSentences(script.text);
+        const inSession = new Set(segments.map((s) => (s.sourceTextSnapshot || '').trim()));
+        origin = {
+          kind: 'text',
+          text: script.text,
+          // في المختارات: نُعلِّم ما تتدرّب عليه وما تركته، فترى الاختيار
+          // في سياقه بدل أن ترى قائمةً بلا أصل.
+          sentences: all.map((text) => ({ text, picked: inSession.has(text.trim()) })),
+          total: all.length,
+        };
+      }
+    } else if (session.sourceType === SOURCE_TYPE.CONVERSATION) {
+      const parts = session.sceneId ? await listConversationParts(session.sceneId) : [];
+      // ⚠️ المحادثة تُعرَض **كمحادثة**: أدوارٌ بأصحابها بترتيبها. قائمةٌ
+      //    مسطّحة من الجمل تُضيّع مَن قال ماذا — وهو نصف معناها.
+      if (parts.length) {
+        const inSession = new Set(segments.map((s) => (s.sourceTextSnapshot || '').trim()));
+        origin = {
+          kind: 'turns',
+          turns: parts.map((p) => ({
+            speaker: p.speaker || 'المتحدث',
+            isMine: Boolean(p.isMine),
+            text: p.text || '',
+            picked: inSession.has((p.text || '').trim()),
+          })),
+          total: parts.length,
+        };
+      }
+    } else if (session.sourceType === SOURCE_TYPE.CONTENT_BLOCK) {
+      const block = await contentBlocks.get(session.sourceId);
+      resolved = block ? { title: block.title } : { missing: true };
+      if (block?.text) origin = { kind: 'text', text: block.text };
+    } else if (session.sourceType === SOURCE_TYPE.MEDIA_TEXT) {
+      resolved = { title: session.title };
+    }
+  } catch {
+    resolved = { missing: true };
+  }
+
+  return { ...describeSource(session, segments, resolved), origin };
+}
+
+/** بطاقة المصدر أعلى الصفحة اليسرى. */
+function sourceBadge(source) {
+  return html`
+    <div class="sh-source">
+      <span class="sh-source-icon" aria-hidden="true">${source.icon}</span>
+      <span class="sh-source-body">
+        <b>${source.kind}</b>
+        <span class="sh-source-name">${source.name}</span>
+        ${raw(source.note ? html`<small>${source.note}</small>` : '')}
+      </span>
+      ${raw(
+        source.href
+          ? html`<button class="sh-source-open" data-sh="open-source"
+              data-to="${source.href}">افتح الأصل</button>`
+          : ''
+      )}
+    </div>`;
+}
+
+/**
+ * لوحة الأصل — نظيرة لوحة الصورة، للنصّ (بند 13).
+ *
+ * الصورة لها إطارها منذ البداية: تُمرَّر داخله وتُثبَّت وتُحجَّم.
+ * والسكريبت والمحادثة لم يكن لهما شيء — تراهما مُقسَّمَين إلى مقاطع
+ * ممارسة، والأصل غائب. وهو غيابٌ يُحسّ في لحظتين:
+ *
+ *  · حين يقسّم المُقسِّم في موضعٍ غريب فتريد أن ترى الجملة كما كُتبت.
+ *  · وحين تسأل «هو قال إيه قبل دي؟» — والمقاطع لا تحفظ الجوار.
+ *
+ * فصار لهما إطارٌ بنفس منطق إطار الصورة: **يُمرَّر داخله** فلا يدفع
+ * المقاطع لأسفل، **ويُحجَّم** بمقبض، **ويُطوى** حين لا تحتاجه.
+ *
+ * ⚠️ **عرضٌ محض.** لا يعدّل نصًّا ولا يعيد تقسيمًا ولا يمسّ الجلسة.
+ */
+function originPanel(source) {
+  const origin = source?.origin;
+  if (!origin) return '';
+
+  const body =
+    origin.kind === 'turns'
+      ? origin.turns
+          .map(
+            (t) => html`
+              <div class="sh-origin-turn${t.isMine ? ' mine' : ''}${t.picked ? '' : ' skipped'}">
+                <span class="sh-origin-who">${t.speaker}</span>
+                <span class="sh-origin-said" dir="ltr" lang="ru">${t.text}</span>
+              </div>`
+          )
+          .join('')
+      : origin.sentences
+        ? origin.sentences
+            .map(
+              (s) =>
+                html`<span class="sh-origin-sent${s.picked ? '' : ' skipped'}"
+                  dir="ltr" lang="ru">${s.text}</span>`
+            )
+            .join(' ')
+        : html`<p class="sh-origin-raw" dir="ltr" lang="ru">${origin.text || ''}</p>`;
+
+  // كم تركتَ خارج الجلسة؟ يُقال بالعدد لا يُترك للتخمين.
+  const skipped =
+    origin.kind === 'turns'
+      ? origin.turns.filter((t) => !t.picked).length
+      : (origin.sentences || []).filter((s) => !s.picked).length;
+
+  return html`
+    <details class="sh-origin" data-origin ${ctx.originOpen ? 'open' : ''}>
+      <summary>
+        ${origin.kind === 'turns' ? 'المحادثة الأصلية' : 'النصّ الأصلي'}
+        ${raw(
+          skipped
+            ? html`<span class="sh-origin-note">${skipped} مش في الجلسة دي</span>`
+            : ''
+        )}
+      </summary>
+      <div class="sh-origin-scroll" style="--origin-h:${ctx.originHeight}px">
+        ${raw(body)}
+      </div>
+      <div class="sh-origin-grip" data-origin-grip role="separator"
+        aria-label="اسحب لتغيير ارتفاع النصّ الأصلي"></div>
+    </details>`;
 }
 
 /** صورة غلاف المشهد — الصفحة اليسرى تعرض الذكرى لا النصّ وحده. */
@@ -139,11 +425,12 @@ export async function renderShadow(main, sessionId) {
   const { session, segments } = loaded;
   await loadVoices();
 
-  const [current, scene, cover, voices] = await Promise.all([
+  const [current, scene, cover, voices, source] = await Promise.all([
     readCurrentSource(session),
     session.sceneId ? scenes.get(session.sceneId) : null,
     coverImage(session.sceneId),
     listVoices(),
+    resolveSource(session, segments),
   ]);
 
   const change = current ? detectSourceChange(session, current) : { changed: false };
@@ -171,6 +458,7 @@ export async function renderShadow(main, sessionId) {
     scene,
     cover,
     voices,
+    source,
     display: session.displayMode || DISPLAY.RU,
     volume: session.volume ?? 1,
     lang: session.translationLang || 'ams',
@@ -178,11 +466,18 @@ export async function renderShadow(main, sessionId) {
     stress: session.showStress ?? true,
     autoRead: false,
     humanAudioUrl,
-    audioSource: session.audioSource || 'human',
+    // تقرأ `'human'` القديم فتعيد `'mine'` (بلا ترقية بيانات)، ثم
+    // تحصره فيما هو متاح فعلًا في هذه الجلسة.
+    audioSource: effectiveAudioSource(session.audioSource, Boolean(humanAudioUrl)),
+    nativeConsent: await nativeAudioConsent(),
     coverHeight: session.coverHeight || 200,
     coverZoom: session.coverZoom || 100,
     coverPinned: session.coverPinned ?? false,
     fontSize: session.fontSize ?? 1,
+    // مطويّة افتراضيًّا: الأصل مرجعٌ تفتحه عند الحاجة لا شيءٌ يزاحم
+    // ما تتدرّب عليه.
+    originOpen: session.originOpen ?? false,
+    originHeight: session.originHeight || 160,
   };
 
   main.innerHTML = shell();
@@ -209,12 +504,14 @@ export async function renderShadow(main, sessionId) {
     })),
     settings: { ...session, volume: ctx.volume, audioSource: ctx.audioSource },
     onEvent: handleEvent,
+    nativeResolver: resolveNative,
   });
 
   player.goTo(session.currentSegmentIndex || 0);
   syncSegment();
   wireSpine(main);
   wireCoverResize(main);
+  wireOriginPanel(main);
   wireInteractions(main);
   wireModalActions();
 }
@@ -249,7 +546,7 @@ function wireModalActions() {
 }
 
 function shell() {
-  const { session, segments, scene, cover, change, voices } = ctx;
+  const { session, segments, scene, cover, change, voices, source } = ctx;
   const idx = session.currentSegmentIndex || 0;
 
   return html`
@@ -280,6 +577,8 @@ function shell() {
               <span class="t">المشهد والنصّ الأصلي</span>
             </div>
 
+            ${raw(sourceBadge(source))}
+            ${raw(originPanel(source))}
             ${raw(change.changed ? staleBanner(change) : '')}
             ${raw(cover ? coverPanel(cover) : '')}
             ${raw(
@@ -290,7 +589,23 @@ function shell() {
                 : ''
             )}
 
-            <div data-lines>
+            <!--
+              شريط التحديد (بند 21): يظهر عند طلبه فقط. التدريب على
+              سبعٍ من ثمانيَ عشرة لا يحتاج مغادرة الجلسة ولا إعادة
+              بنائها — الفهارس تبقى كما هي والمحرّك يدور في المحدَّد.
+            -->
+            <div class="sh-select-bar" data-select-bar hidden>
+              <span class="sh-select-count"><b data-select-count>0</b> / ${segments.length}</span>
+              <div class="sh-select-actions">
+                <button data-sh="sel" data-pick="all">الكل</button>
+                <button data-sh="sel" data-pick="none">مسح</button>
+                <button data-sh="sel" data-pick="difficult">صعبة</button>
+                <button data-sh="sel" data-pick="unpracticed">لسه</button>
+              </div>
+              <button class="sh-select-go" data-sh="sel-apply">تدرّب على المحدَّد</button>
+            </div>
+
+            <div data-lines class="${''}">
               ${raw(segments.map((s, i) => lineHtml(s, i, i === idx)).join(''))}
             </div>
 
@@ -353,6 +668,17 @@ function shell() {
             </form>
 
             <!--
+              وجهات الحفظ (بند 19): النصّ الذي كتبته الآن لا يضيع بمجرّد
+              مسحه. يظهر الصفّ حين يكون هناك نصٌّ يُقرأ فعلًا.
+            -->
+            <div class="sh-scratch-save" data-scratch-save hidden>
+              <span>احفظها في:</span>
+              <button data-sh="scratch-to" data-to="saved">🔖 المحفوظات</button>
+              <button data-sh="scratch-to" data-to="expression">✦ تعبير</button>
+              <button data-sh="scratch-to" data-to="script">📄 سكريبت في الذكرى</button>
+            </div>
+
+            <!--
               شريط القراءة السريعة: القيم الثلاث الحيّة في سطر واحد،
               والنقر على أيّها يفتح الدرج عندها. كانت هذه القيم ثلاث
               بطاقات تأكل نصف الصفحة، وأنت لا تغيّرها كل جملة —
@@ -375,11 +701,14 @@ function shell() {
               <button data-sh="words">✦ الكلمات</button>
               <button data-sh="difficult">صعبة</button>
               <button data-sh="save-item">🔖 احفظها</button>
+              <button data-sh="select-mode">☑︎ حدّد</button>
               ${raw(
                 segments.some((seg) => seg.isMine)
                   ? html`<button data-sh="my-role">🎭 دوري</button>`
-                  : html`<button data-sh="audio-source" class="${ctx.audioSource === 'human' ? 'on' : ''}">
-                      ${ctx.humanAudioUrl ? '👤 بشري' : '🤖 آلي'}
+                  : html`<button data-sh="audio-source"
+                      class="${ctx.audioSource === AUDIO_SOURCE.TTS ? '' : 'on'}"
+                      title="اضغط لتبديل مصدر الصوت">
+                      ${AUDIO_LABEL[ctx.audioSource]}
                     </button>`
               )}
             </div>
@@ -570,28 +899,45 @@ function coverPanel(url) {
 /**
  * لوحة الخطّ — مطويّة حتى تُطلَب.
  *
- * كان زرّ الخطّ يدوّر على العشرة واحدًا واحدًا: للوصول إلى «مذكّرة»
+ * كان زرّ الخطّ يدوّر على العشرة واحدًا واحدًا: للوصول إلى خطٍّ بعينه
  * تضغط خمس مرّات وتقرأ خمسة أشكال لا تريدها. صارت اللوحة تعرضها كلها
  * **بخطّها نفسه** — تختار بالنظر لا بالتجربة.
  *
- * ومقياس الحجم معها، لأن الخطّ والحجم قرارٌ واحد: خطّ «راقص» صغير
+ * ومقياس الحجم معها، لأن الخطّ والحجم قرارٌ واحد: الخطّ المتّصل صغيرًا
  * غير مقروء، والمطبعي الكبير يبتلع الشاشة.
+ *
+ * والعيّنة **سيريلية** (`Аа Бб`) لا لاتينية: أنت تختار خطًّا لنصٍّ
+ * روسي، فالعيّنة يجب أن تكون بالحروف التي ستقرأها فعلًا — وإن نقصت
+ * في الخطّ ظهر ذلك في العيّنة نفسها قبل أن تختاره.
  */
 function fontPanel() {
   return html`
     <div class="sh-fontpanel" data-fontpanel hidden>
-      <div class="sh-fontpanel-grid">
-        ${raw(
-          FONTS.map(
-            (f) => html`
-              <button class="sh-fontchip ${f.id === ctx.font ? 'on' : ''}" data-sh="font-pick"
-                data-font="${f.id}" style="font-family:${f.stack};font-style:${f.style}"
-                lang="ru">
-                <b>Аа</b><small>${f.label}</small>
-              </button>`
-          ).join('')
-        )}
-      </div>
+      <p class="sh-fontpanel-warn" data-font-warn hidden></p>
+      ${raw(
+        fontsByForm()
+          .map(
+            (group) => html`
+              <div class="sh-fontgroup">
+                <h4>${group.label}<small>${group.hint}</small></h4>
+                <div class="sh-fontpanel-grid">
+                  ${raw(
+                    group.fonts
+                      .map(
+                        (f) => html`
+                          <button class="sh-fontchip ${f.id === ctx.font ? 'on' : ''}"
+                            data-sh="font-pick" data-font="${f.id}"
+                            style="font-family:${f.stack};font-style:${f.style}" lang="ru">
+                            <b>Аа</b><small>${f.label}</small>
+                          </button>`
+                      )
+                      .join('')
+                  )}
+                </div>
+              </div>`
+          )
+          .join('')
+      )}
       <div class="sh-fontpanel-size">
         <span>حجم النصّ</span>
         <input type="range" class="sh-range" data-font-size
@@ -610,8 +956,8 @@ function voiceOptions(voices, selected) {
             list
               .map(
                 (v) =>
-                  html`<option value="${esc(v.name)}" ${v.name === selected ? 'selected' : ''}>
-                    ${esc(v.name)}
+                  html`<option value="${v.name}" ${v.name === selected ? 'selected' : ''}>
+                    ${v.name}
                   </option>`
               )
               .join('')
@@ -633,7 +979,15 @@ function lineHtml(segment, index, isCurrent) {
     .join(' ');
 
   return html`<button class="${classes}" data-line="${index}">
+    <span class="sh-line-pick" data-pick-box aria-hidden="true"></span>
     <span class="n">${index + 1}</span>
+    ${raw(
+      // في جلسة المحادثة السطر بلا اسمٍ يفقد نصف معناه: أن تعرف مَن
+      // يقول ماذا هو الفرق بين نصٍّ ومحادثة (بند 13).
+      segment.speaker
+        ? html`<span class="sh-line-spk ${segment.isMine ? 'mine' : ''}">${segment.speaker}</span>`
+        : ''
+    )}
     <span class="tx" data-line-text>${segment.sourceTextSnapshot}${raw(
       segment.translationSnapshot ? html`<span class="tr" hidden>${segment.translationSnapshot}</span>` : ''
     )}</span>
@@ -724,9 +1078,22 @@ function handleEvent(event) {
       break;
     }
 
+    /*
+     * الحالة تقول **مِن أين** يأتي الصوت الآن، لا «بيشتغل» وحدها.
+     * وحين نطلب ناطقًا أصليًّا فلا نجده، نقول ذلك بدل أن نُسمِعك آليًّا
+     * وأنت تحسبه بشريًّا (بند 89).
+     */
     case 'source': {
       const status = $('[data-status]');
-      if (status) status.textContent = event.source === 'human' ? 'بصوتك' : 'بيشتغل';
+      if (status) {
+        status.textContent =
+          event.source === AUDIO_SOURCE.MINE ? 'بصوتك'
+          : event.source === AUDIO_SOURCE.NATIVE
+            ? `ناطق أصلي${event.speaker ? ` · ${event.speaker}` : ''}`
+          : event.fallbackFrom === AUDIO_SOURCE.NATIVE ? 'آلي — مالقيناش تسجيل'
+          : 'بيشتغل';
+      }
+      if (event.fallbackFrom === AUDIO_SOURCE.NATIVE) announceNativeMiss(event.reason);
       break;
     }
 
@@ -744,7 +1111,18 @@ function handleEvent(event) {
     case 'word-select':
       $('[data-card]')?.classList.remove('your-turn');
       highlightWord(event.wordIndex);
+      // يجلب الكلمة الجارية لمرأى العين حين يمرّ المحرّك عليها وحده.
+      document
+        .querySelector(`[data-word="${event.wordIndex}"]`)
+        ?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
       break;
+
+    case 'words-complete': {
+      // مرّ على كلمات الجملة كلها — يعود العدّ للجملة لا للكلمة.
+      const done = $('[data-counter]');
+      if (done) done.textContent = '—';
+      break;
+    }
 
     case 'segment-complete':
       persistSegment(event);
@@ -1085,13 +1463,59 @@ function applyFonts() {
   const app = document.querySelector('.shadow-app');
   if (app) app.style.setProperty('--sh-font-size', ctx.fontSize);
 
-  document.querySelectorAll('[data-font-label]').forEach((n) => { n.textContent = font.label; });
+  document.querySelectorAll('[data-font-label]').forEach((n) => {
+    n.textContent = fontFullLabel(font);
+  });
   document.querySelectorAll('[data-sh="font-pick"]').forEach((n) => {
     n.classList.toggle('on', n.dataset.font === ctx.font);
   });
 
   const sizeLabel = $('[data-font-size-label]');
   if (sizeLabel) sizeLabel.textContent = `${Math.round(ctx.fontSize * 100)}%`;
+}
+
+/**
+ * يقيس تغطية السيريلية على هذا الجهاز ويوسم ما ينقصه (بند 17).
+ *
+ * القياس عند **فتح اللوحة** لا عند الإقلاع: الخطوط تُحمَّل بـ
+ * `display=swap` فلا تصل حتى تُطلَب، وقياسٌ مبكّر يتّهمها ظلمًا.
+ *
+ * وحين لا يصل أيُّ خطٍّ (بلا شبكة، أو شبكةٌ تحجب Google Fonts) نقول
+ * ذلك **مرّة واحدة أعلى اللوحة** بدل تسعة تحذيرات متطابقة — المشكلة
+ * حينها في الشبكة لا في الخطوط.
+ */
+let coverageMarked = false;
+async function markFontCoverage() {
+  if (coverageMarked) return;
+  coverageMarked = true;
+
+  let report;
+  try {
+    report = await measureCoverage();
+  } catch {
+    coverageMarked = false;
+    return;
+  }
+
+  const measured = FONTS.filter((f) => f.family);
+  const offline = measured.every((f) => report[f.id]?.status === 'not-loaded');
+
+  const warn = $('[data-font-warn]');
+  if (warn) {
+    warn.hidden = !offline;
+    if (offline) warn.textContent = COVERAGE_NOTE['not-loaded'];
+  }
+
+  for (const font of FONTS) {
+    const chip = document.querySelector(`[data-sh="font-pick"][data-font="${font.id}"]`);
+    if (!chip) continue;
+    const status = report[font.id]?.status || 'unknown';
+    // في حالة انقطاع الشبكة لا نوسم خطًّا بعينه: التحذير أعلاه يكفي.
+    const flag = status === 'no-cyrillic' || (status === 'not-loaded' && !offline);
+    chip.classList.toggle('lacks', flag);
+    if (flag) chip.title = COVERAGE_NOTE[status];
+    else chip.removeAttribute('title');
+  }
 }
 
 /** يفتح الدرج أو يغلقه. */
@@ -1167,6 +1591,15 @@ function showTips() {
  * النصّ الخارجي
  * ------------------------------------------------------------------ */
 
+/** يعكس مجموعة التحديد على السطور وعلى العدّاد. */
+function renderPicked() {
+  const count = $('[data-select-count]');
+  if (count) count.textContent = picked.size;
+  document.querySelectorAll('[data-line]').forEach((node) => {
+    node.classList.toggle('picked', picked.has(Number(node.dataset.line)));
+  });
+}
+
 /** المحرّك الفاعل الآن: الخارجي إن كان مفتوحًا، وإلا محرّك الجلسة. */
 function activePlayer() {
   return scratchPlayer || player;
@@ -1205,6 +1638,7 @@ function readScratch(text) {
   const lbl = $('[data-current-lbl]');
   if (lbl) lbl.textContent = '✎ نصّ من عندك';
   $('[data-scratch-clear]')?.removeAttribute('hidden');
+  $('[data-scratch-save]')?.removeAttribute('hidden');
 
   scratchPlayer.start();
 }
@@ -1240,6 +1674,51 @@ function handleScratchEvent(event) {
   }
 }
 
+/**
+ * يحفظ النصّ الخارجي حيث تريد (بند 19).
+ *
+ * ⚠️ **لا يمسّ مصدر الجلسة.** الممارسة السريعة نصٌّ عابر؛ حفظه يُنشئ
+ *    شيئًا جديدًا في مكانه الصحيح ولا يعدّل السكريبت الذي تتدرّب عليه.
+ */
+async function saveScratchTo(where) {
+  const text = (ctx.scratch || '').trim();
+  if (!text) return toast('مفيش نصّ نحفظه');
+
+  try {
+    if (where === 'saved') {
+      await saveItem({
+        text,
+        kind: text.split(/\s+/).length > 1 ? SAVED_KIND.SENTENCE : SAVED_KIND.WORD,
+        sceneId: ctx.session.sceneId,
+        sessionId: ctx.session.id,
+      });
+      return toastOk('اتحفظت في المحفوظات');
+    }
+
+    if (where === 'expression') {
+      if (!ctx.session.sceneId) return toastError('الجلسة دي مش مربوطة بذكرى');
+      /*
+       * لا اقتباس هنا: النصّ الخارجي **هو** التعبير نفسه، وتكراره
+       * كاقتباسٍ يوهم بسياقٍ لا وجود له. لكن الجلسة تُسجَّل، فتعرف
+       * بعد شهرٍ أنك التقطته وأنت تتمرّن لا وأنت تكتب.
+       */
+      await addExpression(ctx.session.sceneId, {
+        text,
+        source: { type: EXPRESSION_SOURCE.SHADOW, id: ctx.session.id },
+      });
+      return toastOk('اتضافت كتعبير في الذكرى');
+    }
+
+    if (where === 'script') {
+      if (!ctx.session.sceneId) return toastError('الجلسة دي مش مربوطة بذكرى');
+      await addScript(ctx.session.sceneId, { title: 'من الممارسة السريعة', text });
+      return toastOk('اتضاف سكريبت جديد في الذكرى');
+    }
+  } catch (err) {
+    toastError(err.message || 'مقدرناش نحفظ');
+  }
+}
+
 /** يرجع من النصّ الخارجي إلى جملة الجلسة. */
 function clearScratch() {
   if (!scratchPlayer) return;
@@ -1250,6 +1729,7 @@ function clearScratch() {
   const lbl = $('[data-current-lbl]');
   if (lbl) lbl.textContent = 'الجملة الحالية';
   $('[data-scratch-clear]')?.setAttribute('hidden', '');
+  $('[data-scratch-save]')?.setAttribute('hidden', '');
 
   const input = $('[data-scratch-input]');
   if (input) input.value = '';
@@ -1495,7 +1975,18 @@ function wireInteractions(main) {
     if (event.target.hasAttribute('data-drawer-veil')) return toggleDrawer(false);
 
     const line = event.target.closest('[data-line]');
-    if (line) return player.goTo(Number(line.dataset.line));
+    if (line) {
+      const at = Number(line.dataset.line);
+      // في وضع التحديد النقر يختار لا ينتقل — وإلا تعذّر الاختيار
+      // أصلًا لأن كل نقرة تقفز بالجلسة.
+      if (selecting) {
+        if (picked.has(at)) picked.delete(at);
+        else picked.add(at);
+        renderPicked();
+        return;
+      }
+      return player.goTo(at);
+    }
 
     const mark = event.target.closest('[data-expr]');
     if (mark) return openAnalysisDrawer(mark.dataset.expr);
@@ -1523,6 +2014,11 @@ function wireInteractions(main) {
     switch (btn.dataset.sh) {
       case 'exit':
         return navigate(ctx.session.sceneId ? `/scene/${ctx.session.sceneId}` : '/life');
+
+      // التدريب طبقةٌ فوق المحتوى لا بديلٌ عنه: طريق العودة للأصل
+      // يبقى ظاهرًا داخل الجلسة نفسها (بند 13).
+      case 'open-source':
+        return navigate(btn.dataset.to);
 
       case 'tips':
         return showTips();
@@ -1556,6 +2052,9 @@ function wireInteractions(main) {
 
       case 'scratch-clear':
         return clearScratch();
+
+      case 'scratch-to':
+        return saveScratchTo(btn.dataset.to);
 
       case 'drawer':       return toggleDrawer(true);
       case 'drawer-close': return toggleDrawer(false);
@@ -1625,22 +2124,86 @@ function wireInteractions(main) {
       case 'save-item':
         return openSaveDialog();
 
+      /* ---- تحديد المقاطع (بند 21) ---- */
+
+      case 'select-mode': {
+        selecting = !selecting;
+        btn.classList.toggle('on', selecting);
+        const bar = $('[data-select-bar]');
+        if (bar) bar.hidden = !selecting;
+        document.querySelector('[data-lines]')?.classList.toggle('picking', selecting);
+        if (!selecting) {
+          // الخروج من وضع التحديد يرفع الحصر — لا يُبقيك محصورًا بلا
+          // شريطٍ يُذكّرك بأنك محصور.
+          picked.clear();
+          player.setSelection([]);
+        }
+        renderPicked();
+        return;
+      }
+
+      case 'sel': {
+        const all = ctx.segments.map((_, i) => i);
+        const pick = btn.dataset.pick;
+        picked.clear();
+        if (pick === 'all') all.forEach((i) => picked.add(i));
+        if (pick === 'difficult') {
+          all.filter((i) => ctx.segments[i].practiceStatus === 'difficult').forEach((i) => picked.add(i));
+        }
+        if (pick === 'unpracticed') {
+          all.filter((i) => !(ctx.segments[i].repetitionsCompleted > 0)).forEach((i) => picked.add(i));
+        }
+        renderPicked();
+        return;
+      }
+
+      case 'sel-apply': {
+        if (!picked.size) return toast('محدّدتش أي جملة');
+        player.setSelection(picked);
+        player.goTo([...picked].sort((a, b) => a - b)[0]);
+        toastOk(`التدريب على ${picked.size} جملة`);
+        // نخرج من وضع الاختيار ونُبقي الحصر: أنت الآن تتدرّب عليها.
+        selecting = false;
+        const bar = $('[data-select-bar]');
+        if (bar) bar.hidden = true;
+        document.querySelector('[data-lines]')?.classList.remove('picking');
+        document.querySelector('[data-sh="select-mode"]')?.classList.remove('on');
+        return;
+      }
+
       case 'record':
         return toggleRecording(btn);
 
       case 'tell':
         return tellItNow(btn);
 
+      /*
+       * دورةٌ من ثلاثة (بند 22): آلي → تسجيلي (إن وُجد) → ناطق أصلي.
+       * والاختيار الثالث يمرّ بموافقةٍ صريحة أوّل مرّة، فإن رُفضت لا
+       * يتغيّر شيء — لا نُفعّل ما لم يُوافَق عليه ثم «نتذكّر» لاحقًا.
+       */
       case 'audio-source': {
-        if (!ctx.humanAudioUrl) {
-          return toast('مفيش تسجيل بشري مربوط بالنصّ ده — اربط تسجيل من المشغّل');
+        const choices = audioChoices();
+        const next = choices[(choices.indexOf(ctx.audioSource) + 1) % choices.length];
+
+        if (next === AUDIO_SOURCE.NATIVE && !ctx.nativeConsent.enabled) {
+          const granted = await askNativeConsent();
+          if (!granted) return;
         }
-        ctx.audioSource = ctx.audioSource === 'human' ? 'tts' : 'human';
-        player.updateSettings({ audioSource: ctx.audioSource });
-        btn.classList.toggle('on', ctx.audioSource === 'human');
-        btn.textContent = ctx.audioSource === 'human' ? '👤 بشري' : '🤖 آلي';
-        toast(ctx.audioSource === 'human' ? 'هيشغّل تسجيلك البشري' : 'هينطق آليًا');
-        return saveSessionSettings(ctx.session.id, { audioSource: ctx.audioSource });
+
+        ctx.audioSource = next;
+        player.updateSettings({ audioSource: next });
+        btn.classList.toggle('on', next !== AUDIO_SOURCE.TTS);
+        btn.textContent = AUDIO_LABEL[next];
+
+        if (next === AUDIO_SOURCE.NATIVE) {
+          // نقولها قبل أن يضغط تشغيل، لا بعد أن يسمع صوتًا آليًّا
+          // ويظنّه ناطقًا أصليًّا.
+          toast('للكلمات المفردة بس — الجملة هتفضل آلية');
+        } else {
+          toast(next === AUDIO_SOURCE.MINE ? 'هيشغّل تسجيلك' : 'هينطق آليًا');
+        }
+        return saveSessionSettings(ctx.session.id, { audioSource: next });
       }
 
       case 'my-role': {
@@ -1675,7 +2238,10 @@ function wireInteractions(main) {
         if (!panel) return;
         panel.hidden = !panel.hidden;
         btn.classList.toggle('on', !panel.hidden);
-        if (!panel.hidden) panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        if (!panel.hidden) {
+          panel.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+          markFontCoverage();
+        }
         return;
       }
 
@@ -1747,6 +2313,70 @@ function applyCover() {
   box.style.setProperty('--cover-zoom', `${ctx.coverZoom}%`);
   const label = box.querySelector('[data-cover-zoom]');
   if (label) label.textContent = `${ctx.coverZoom}%`;
+}
+
+/**
+ * مقبض ارتفاع لوحة الأصل، وحفظ حالة طيّها.
+ *
+ * نفس منطق مقبض الصورة: الحدّ الأدنى يمنع اختفاء اللوحة فيتعذّر
+ * إرجاعها، والأعلى يُبقي مقطعًا واحدًا على الأقل مرئيًّا تحتها.
+ */
+function wireOriginPanel(main) {
+  const box = main.querySelector('[data-origin]');
+  if (!box) return;
+
+  // الطيّ يُحفظ: مَن يفتح الأصل يفتحه لأنه يحتاجه، ولا يصحّ أن يُغلَق
+  // في وجهه عند كل عودة للجلسة.
+  box.addEventListener('toggle', () => {
+    ctx.originOpen = box.open;
+    saveSessionSettings(ctx.session.id, { originOpen: box.open }).catch(() => {});
+  });
+
+  const grip = box.querySelector('[data-origin-grip]');
+  const scroll = box.querySelector('.sh-origin-scroll');
+  if (!grip || !scroll) return;
+
+  let dragging = false;
+  let startY = 0;
+  let startH = 0;
+  const maxHeight = () => Math.max(120, Math.round(window.innerHeight * 0.55));
+
+  const apply = () => scroll.style.setProperty('--origin-h', `${ctx.originHeight}px`);
+
+  grip.addEventListener('pointerdown', (event) => {
+    dragging = true;
+    startY = event.clientY;
+    startH = scroll.getBoundingClientRect().height;
+    grip.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  });
+
+  grip.addEventListener('pointermove', (event) => {
+    if (!dragging) return;
+    ctx.originHeight = Math.max(80, Math.min(maxHeight(), Math.round(startH + (event.clientY - startY))));
+    apply();
+  });
+
+  const end = (event) => {
+    if (!dragging) return;
+    dragging = false;
+    grip.releasePointerCapture(event.pointerId);
+    saveSessionSettings(ctx.session.id, { originHeight: ctx.originHeight }).catch(() => {});
+  };
+
+  grip.addEventListener('pointerup', end);
+  grip.addEventListener('pointercancel', end);
+
+  // ولمن لا يسحب — على تابلت بلوحة مفاتيح، أو بلا لمسٍ دقيق.
+  grip.tabIndex = 0;
+  grip.addEventListener('keydown', (event) => {
+    const step = event.key === 'ArrowUp' ? -20 : event.key === 'ArrowDown' ? 20 : 0;
+    if (!step) return;
+    event.preventDefault();
+    ctx.originHeight = Math.max(80, Math.min(maxHeight(), ctx.originHeight + step));
+    apply();
+    saveSessionSettings(ctx.session.id, { originHeight: ctx.originHeight }).catch(() => {});
+  });
 }
 
 /**

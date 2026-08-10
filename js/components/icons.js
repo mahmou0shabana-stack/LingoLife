@@ -52,6 +52,11 @@ export const icons = {
   trash: () =>
     wrap('<path d="M3 6h18M8 6V4a1 1 0 0 1 1-1h6a1 1 0 0 1 1 1v2m2 0-1 14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1L5 6"/>'),
 
+  /** حلقتان متشابكتان — الخيط يربط أحداثًا لا يحتويها. */
+  link: () => wrap('<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>'),
+
+  close: () => wrap('<path d="M18 6 6 18M6 6l12 12"/>'),
+
   plus: () => wrap('<path d="M12 5v14M5 12h14"/>'),
 
   back: () => wrap('<path d="m15 18-6-6 6-6"/>'),
@@ -79,6 +84,8 @@ export const icons = {
   clock: () => wrap('<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>'),
 
   download: () => wrap('<path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>'),
+
+  upload: () => wrap('<path d="M12 15V3m0 0 4 4m-4-4L8 7M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/>'),
 
   refresh: () => wrap('<path d="M21 12a9 9 0 1 1-3-6.7M21 4v5h-5"/>'),
 

@@ -113,7 +113,7 @@ export async function ensureConversation(sceneId) {
 }
 
 /** يضيف جزءًا للمحادثة. */
-export async function addConversationPart(sceneId, { speaker, text, translation, isMine }) {
+export async function addConversationPart(sceneId, { speaker, text, translation, isMine, personId = null }) {
   const conversation = await ensureConversation(sceneId);
   const parts = await conversationParts.byIndex('conversationId', conversation.id);
   const order = parts.reduce((max, p) => Math.max(max, p.order ?? 0), 0) + 1;
@@ -126,7 +126,10 @@ export async function addConversationPart(sceneId, { speaker, text, translation,
     isMine: isMine ? 1 : 0,
     text: (text || '').trim(),
     translation: (translation || '').trim(),
-    personId: null,
+    // ⚠️ `speaker` و`personId` **ليسا بديلين**: الأوّل ما كتبتَه أنت
+    //    وقتها، والثاني مَن نظنّه. يبقى الاثنان، فلو أخطأنا في النسبة
+    //    ظلّ الأصل مكتوبًا (بند 107).
+    personId: personId || null,
     audioMediaId: null,
     timestampMs: null,
     notes: '',
@@ -188,12 +191,52 @@ export function registerClass(id) {
   return REGISTERS.find((r) => r.id === id)?.cls || '';
 }
 
+/* ------------------------------------------------------------------ *
+ * منشأ الظهور *(بند 38)*
+ * ------------------------------------------------------------------ */
+
+/**
+ * من أين جاء هذا الظهور.
+ *
+ * ⚠️ كان `sourceType` يُكتب `'manual'` **دائمًا ولكل ظهور**، و
+ *    `sourceQuote` يُكتب `''` — بينما للنداءات الثلاثة منشأٌ مختلفٌ
+ *    فعلًا. حقلٌ يُكتب ثابتًا هو حقلٌ ميّت، وهو سادس ما وُجد من هذا
+ *    الصنف في هذه الجولة.
+ *
+ * ⚠️ ولا يُخمَّن منشأ: ظهورٌ لا نعرف من أين جاء يبقى `unknown` ويُقال
+ *    ذلك في الشاشة. الظهورات المكتوبة قبل هذا التغيير كلها كذلك —
+ *    كانت تقول «يدوي» وهي لا تعرف، ولا نُبقي على ادّعاءٍ لا سند له.
+ */
+export const EXPRESSION_SOURCE = Object.freeze({
+  MANUAL: 'manual',
+  IMPORT: 'import',
+  SHADOW: 'shadow',
+  UNKNOWN: 'unknown',
+});
+
+const SOURCE_LABEL = Object.freeze({
+  [EXPRESSION_SOURCE.MANUAL]: 'كتبته بإيدك',
+  [EXPRESSION_SOURCE.IMPORT]: 'جه مع مشهد مُجهَّز',
+  [EXPRESSION_SOURCE.SHADOW]: 'التقطته وإنت بتتمرّن',
+  [EXPRESSION_SOURCE.UNKNOWN]: 'مش معروف منين',
+});
+
+/** وسم المنشأ بالعربي — والمجهول يُقال ولا يُخفى. */
+export function expressionSourceLabel(id) {
+  return SOURCE_LABEL[id] || SOURCE_LABEL[EXPRESSION_SOURCE.UNKNOWN];
+}
+
 /**
  * يضيف تعبيرًا ويسجّل ظهوره في المشهد.
  * التعبير كيان عالمي واحد — لو موجود نربط ظهورًا جديدًا فقط.
- * هذا ما يجعل Expression Life ممكنًا لاحقًا (المرحلة 2).
+ *
+ * `source` منشأ الظهور: `{ type, id, quote }`. يُمرَّر من كل نداء —
+ * فمن لم يمرّره لا يُنسَب إلى «يدوي» كذبًا بل إلى `unknown`.
  */
-export async function addExpression(sceneId, { text, meaningAr, register = 'professional', note }) {
+export async function addExpression(
+  sceneId,
+  { text, meaningAr, register = 'professional', note, source }
+) {
   const clean = (text || '').trim();
   if (!clean) throw new Error('نص التعبير مطلوب');
 
@@ -219,13 +262,17 @@ export async function addExpression(sceneId, { text, meaningAr, register = 'prof
     expression = await expressions.update(expression.id, { meaningAr: meaningAr.trim() });
   }
 
+  const known = Object.values(EXPRESSION_SOURCE).includes(source?.type);
   await expressionOccurrences.create({
     expressionId: expression.id,
     sceneId,
     occurredAt: Date.now(),
     kind: 'appeared',
-    sourceQuote: '',
-    sourceType: 'manual',
+    // الاقتباس هو النصّ حول التعبير في مصدره — لا التعبير نفسه، وإلّا
+    // كرّرناه في سطرين وأوهمنا بسياقٍ لا وجود له.
+    sourceQuote: (source?.quote || '').trim(),
+    sourceType: known ? source.type : EXPRESSION_SOURCE.UNKNOWN,
+    sourceId: source?.id || null,
   });
 
   return { expression, isNew };

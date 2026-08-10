@@ -351,3 +351,65 @@ export async function sessionsForSource(sourceType, sourceId) {
   const rows = await shadowSessions.byIndex('source', [sourceType, sourceId]);
   return rows.filter((s) => s.state === STATE.ACTIVE);
 }
+
+/* ------------------------------------------------------------------ *
+ * وصف المصدر — بند 13
+ *
+ * كانت الصفحة اليسرى تقول «المشهد والنصّ الأصلي»: جملةٌ صادقة ولا
+ * تفيد. لا تعرف أهذا سكريبتٌ كامل أم دور متحدّثٍ في محادثة أم جملٌ
+ * اخترتها بنفسك أم نصٌّ استُخرج من صورة — وهي فروقٌ تغيّر ما تتوقّعه
+ * من الجلسة، وتغيّر إلى أين تعود إن أردت الأصل.
+ *
+ * الوصف هنا **خالٍ من القاعدة** عمدًا: الشاشة تجلب العنوان وتمرّره،
+ * فيبقى المنطق مُختبَرًا بلا تهيئة مستودعات.
+ * ------------------------------------------------------------------ */
+
+/** ما يُعرَض لكل نوع مصدر. `unit` وحدة العدّ لأن «جزء» ليست «جملة». */
+export const SOURCE_LABEL = Object.freeze({
+  [SOURCE_TYPE.SCRIPT]: { icon: '📝', kind: 'سكريبت', unit: 'جملة', fallback: 'سكريبت بلا عنوان' },
+  [SOURCE_TYPE.CONVERSATION]: { icon: '💬', kind: 'محادثة', unit: 'جزء', fallback: 'المحادثة كلها' },
+  [SOURCE_TYPE.SELECTION]: { icon: '✂️', kind: 'جمل مختارة', unit: 'جملة اخترتها', fallback: 'من سكريبت' },
+  // ⚠️ لا نُخفي أن المصدر آليّ: OCR على خطّ يدٍ روسي يخطئ كثيرًا.
+  [SOURCE_TYPE.MEDIA_TEXT]: { icon: '🖼️', kind: 'نصّ من صورة', unit: 'جملة', fallback: 'نصّ مستخرَج', caution: 'مراجَعة يدويًّا' },
+  [SOURCE_TYPE.CONTENT_BLOCK]: { icon: '🧩', kind: 'مقطع محتوى', unit: 'جملة', fallback: 'مقطع' },
+  [SOURCE_TYPE.SCENE]: { icon: '🎬', kind: 'ذكرى', unit: 'مقطع', fallback: 'ذكرى' },
+  [SOURCE_TYPE.EXPRESSION]: { icon: '💡', kind: 'تعبير', unit: 'مقطع', fallback: 'تعبير' },
+});
+
+const UNKNOWN_SOURCE = { icon: '📄', kind: 'مصدر', unit: 'مقطع', fallback: '—' };
+
+/**
+ * @param {object} session
+ * @param {{speaker?: string|null}[]} segments
+ * @param {{title?: string|null, missing?: boolean}} [resolved]
+ *        عنوان المصدر كما قرأته الشاشة، و`missing` حين تعذّرت قراءته.
+ * @returns {{icon: string, kind: string, name: string, note: string, href: string|null}}
+ */
+export function describeSource(session, segments = [], resolved = {}) {
+  const spec = SOURCE_LABEL[session?.sourceType] || UNKNOWN_SOURCE;
+  const count = segments.length;
+
+  // المتحدّث يُقرأ من المقاطع نفسها: جلسةُ دورٍ واحد تحمل اسمه في
+  // كلّ مقطع، وجلسةُ المحادثة كلها تحمل أكثر من اسم.
+  let name = resolved.title || spec.fallback;
+  if (session?.sourceType === SOURCE_TYPE.CONVERSATION) {
+    const speakers = [...new Set(segments.map((s) => s?.speaker).filter(Boolean))];
+    if (speakers.length === 1) name = speakers[0];
+    else if (speakers.length > 1) name = `${speakers.length} متحدّثين`;
+    else name = spec.fallback;
+  }
+
+  const parts = [`${count} ${spec.unit}`];
+  if (spec.caution) parts.push(spec.caution);
+  // مصدرٌ حُذف: الجلسة تبقى صالحة — لقطتها محفوظة في المقاطع — فنقول
+  // ذلك بدل أن نصمت أو نسقط الشاشة.
+  if (resolved.missing) parts.push('المصدر مش موجود دلوقتي');
+
+  return {
+    icon: spec.icon,
+    kind: spec.kind,
+    name,
+    note: parts.join(' · '),
+    href: session?.sceneId ? `/scene/${session.sceneId}` : null,
+  };
+}

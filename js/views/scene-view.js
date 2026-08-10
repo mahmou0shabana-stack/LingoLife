@@ -11,6 +11,10 @@ import { urlFor, releaseUrls, AUDIO_ROLE_LABEL } from '../services/media-service
 import { html, raw, formatDuration } from '../utils/dom.js';
 import { formatDate } from '../utils/dates.js';
 import { typeLabel } from '../services/type-service.js';
+import { AXIS, pivotsFor, facetTree } from '../services/atlas-service.js';
+import { STAGE_LABEL, expressionLife } from '../services/language-service.js';
+import { counted } from '../utils/plural.js';
+import { threadsOfScene } from '../services/thread-service.js';
 import { icon } from '../components/icons.js';
 
 /** أقسام اللوحة — العدد يظهر في الفهرس المصغّر. */
@@ -151,12 +155,55 @@ function sectionVoices(scene, audio) {
       ${raw(
         audio.length
           ? html`<div class="script-foot">
+              ${raw(audio.length > 1
+                ? html`<button class="mini-btn" data-action="play-all-audio" data-id="${scene.id}">
+                    ${raw(icon('play'))} شغّلهم كلهم
+                  </button>`
+                : '')}
               <button class="mini-btn" data-action="record-audio" data-id="${scene.id}">
                 ${raw(icon('mic'))} سجّل صوتك
               </button>
             </div>`
           : ''
       )}
+    </section>`;
+}
+
+/**
+ * مَن كان هنا.
+ *
+ * ⚠️ **مُشتقٌّ من نفس مصدر الأطلس** — `personId` على أجزاء المحادثة —
+ *    لا من `scene.peopleIds`. ذلك الحقل يُكتب `[]` عند الإنشاء ولا
+ *    يُملأ في أي مكان، وقراءته هنا تُظهر «مفيش حد» في ذكرى فيها
+ *    ثلاثة تكلّموا.
+ *
+ * ⚠️ وحدُّه مكتوبٌ في الشاشة: مَن حضر ولم يتكلّم لا يظهر — ولا مصدرَ
+ *    في التطبيق يقوله.
+ */
+function sectionPeople(scene, people, unlinked) {
+  if (!people.length && !unlinked.length) return '';
+
+  return html`
+    <section class="sec" id="sec-people">
+      ${raw(head('person', 'مين كان هنا', people.length || '', null))}
+      <div class="people-row">
+        ${raw(people.map((person) => html`
+          <button class="rv-person" data-action="facet-open"
+                  data-axis="personId" data-id="${person.id}" data-label="${person.name}">
+            ${raw(icon('person', 15))} <bdi>${person.name}</bdi>
+            <span class="pivot-count">${person.count}</span>
+          </button>`).join(''))}
+
+        ${raw(unlinked.map((name) => html`
+          <button class="rv-person is-loose" data-action="manage-people" title="اربطه بشخص">
+            <bdi>${name}</bdi>
+            <span class="pivot-count">?</span>
+          </button>`).join(''))}
+      </div>
+      <p class="rv-hint">
+        دول اللي اتكلّموا في المحادثة، والرقم عدد ذكرياتك مع كل واحد.
+        مين حضر وما اتكلّمش مش هيبان — مفيش مصدر يقوله.
+      </p>
     </section>`;
 }
 
@@ -296,10 +343,20 @@ function sectionLanguage(scene, expressionList) {
         .map(
           (e) => html`
             <div class="lang-row">
-              <div class="txt">
+              <button class="txt" data-action="open-expression" data-id="${e.id}">
                 <span class="ru" dir="ltr" lang="ru">${e.text}</span>
                 ${raw(e.meaningAr ? html`<span class="meaning">${e.meaningAr}</span>` : '')}
-              </div>
+              </button>
+              ${raw(
+                /*
+                 * ⚠️ المرحلة تظهر **حين تكون خبرًا**. «سمعته» هي حال كل
+                 *    تعبيرٍ لم تحكم عليه بعد، فطبعُها على كل سطر يزحم
+                 *    النصّ الروسيّ حتى يلتفّ — ولا يقول شيئًا.
+                 */
+                e.masteryState && e.masteryState !== 'heard'
+                  ? html`<span class="tag is-stage">${STAGE_LABEL[e.masteryState]}</span>`
+                  : ''
+              )}
               ${raw(
                 e.register
                   ? html`<span class="tag ${registerClass(e.register)}">${registerLabel(e.register)}</span>`
@@ -322,49 +379,44 @@ function sectionLanguage(scene, expressionList) {
 }
 
 /**
- * Expression Life — الخط الزمني.
- * المراحل معروضة دائمًا كهيكل؛ المرحلة المحقّقة فقط هي المضيئة.
- * لا تواريخ مخترعة — الباهت يعني "لسه محصلش".
+ * رحلة التعبير — **أين قابلتَه غير هنا**.
+ *
+ * ⚠️ كان هنا شريطٌ من ستّ مراحل ومؤشّرٌ يقول «دلوقتي» تحت واحدة.
+ *    وكان يقول «سمعته» **دائمًا ولكل تعبير إلى الأبد**: الحقل الذي
+ *    يقرؤه يُكتب مرّةً عند الإنشاء ولا يرفعه شيءٌ في التطبيق كلّه.
+ *    شريطُ تقدّمٍ لا يتقدّم أسوأ من غيابه — يَعِد بقياسٍ لا يقع.
+ *    والمرحلة انتقلت لصفحة التعبير، حيث تختارها **بيدك**.
+ *
+ * ⚠️ ثم أوّل بديلٍ كتبتُه سرد التعبيرات كلها — فصار القسم نسخةً ثانية
+ *    من «اللغة جوّه الذكرى» فوقه مباشرةً: نفس التعبير مرّتين في شاشة
+ *    واحدة. رأيتُ ذلك في لقطةٍ من متصفّح لا في مراجعةِ كود.
+ *
+ *    فالقسم لا يعرض إلا ما له حياةٌ **خارج هذه الذكرى** — وإلّا اختفى.
+ *    تعبيرٌ قابلتَه هنا وحدَه لا رحلةَ له بعد، وسطرٌ يقول «أول مرّة»
+ *    يملأ الشاشة بلا خبر.
  */
-function sectionLife(scene, expressionList) {
-  const STEPS = [
-    { k: 'heard', t: 'سمعته' },
-    { k: 'understood', t: 'فهمته' },
-    { k: 'practiced', t: 'تمرّنت' },
-    { k: 'used', t: 'استخدمته' },
-    { k: 'natural', t: 'بقى طبيعي' },
-    { k: 'automatic', t: 'تلقائي' },
-  ];
-
-  const first = expressionList[0];
-  const currentIndex = first ? Math.max(0, STEPS.findIndex((s) => s.k === first.masteryState)) : -1;
+function sectionLife(journeys) {
+  if (!journeys.length) return '';
 
   return html`
     <section class="sec" id="sec-life">
-      ${raw(head('clock', 'رحلة التعبير', '', null))}
-      ${raw(
-        first
-          ? html`<div class="ru" dir="ltr" lang="ru" style="font-weight:600;margin-bottom:2px">${first.text}</div>`
-          : html`<div class="text-sm text-faint" style="margin-bottom:2px">
-              أول ما تضيف تعبير، هتشوف رحلته من "سمعته" لحد "تلقائي"
-            </div>`
-      )}
-
-      <div class="life-track">
-        ${raw(
-          STEPS.map((s, i) => {
-            let cls = 'pending';
-            if (currentIndex >= 0 && i < currentIndex) cls = 'done';
-            else if (currentIndex >= 0 && i === currentIndex) cls = 'now';
-            return html`
-              <div class="life-step ${cls}">
-                <span class="dot"></span>
-                <span class="t">${s.t}</span>
-                <span class="d">${raw(cls === 'pending' ? '—' : cls === 'now' ? 'دلوقتي' : '✓')}</span>
-              </div>`;
-          }).join('')
-        )}
+      ${raw(head('clock', 'رحلة التعبير', journeys.length, null))}
+      <div class="text-sm text-faint mb-2">
+        التعبيرات دي قابلتها في ذكريات تانية كمان.
       </div>
+      ${raw(journeys.map(({ expression, elsewhere }) => html`
+        <button class="lg-row" data-action="open-expression" data-id="${expression.id}">
+          <span class="lg-ru" dir="ltr" lang="ru">${expression.text}</span>
+          ${raw(expression.meaningAr ? html`<span class="lg-ar">${expression.meaningAr}</span>` : '')}
+          <span class="lg-meta">
+            ${raw(expression.masteryState && expression.masteryState !== 'heard'
+              ? html`<span class="rv-tag is-plain">${STAGE_LABEL[expression.masteryState]}</span>`
+              : '')}
+            <span class="fc-count">كمان في
+              ${counted(elsewhere.length, 'ذكرى', 'ذكريتين', 'ذكريات')}</span>
+          </span>
+          <span class="lg-where">${elsewhere.slice(0, 3).map((o) => o.title).join(' · ')}</span>
+        </button>`).join(''))}
     </section>`;
 }
 
@@ -399,6 +451,36 @@ function sectionNotes(scene, notesText) {
    العرض الكامل
    ============================================================ */
 
+/**
+ * من هذه الذكرى إلى ما يشبهها — مداخل الأطلس من داخل الذكرى.
+ *
+ * ⚠️ هذا هو الاستعمال الحقيقي للأطلس: تقرأ ذكرى فتسأل «إمتى تاني
+ *    قابلت الراجل ده؟» — لا تفتح شجرةً وتبحث عن اسمه فيها.
+ *
+ * ⚠️ ولا يُعرَض محورٌ إلا إن كان وراءه غيرها (تُصفّيه `pivotsFor`):
+ *    «شوف باقي ذكرياتك في المكان ده» على ذكرى وحيدةٍ هناك وعدٌ كاذب —
+ *    تضغطه فتجدها هي.
+ */
+function pivotRow(pivots) {
+  if (!pivots.length) return '';
+  const word = {
+    [AXIS.TYPE]: 'زيّها',
+    [AXIS.PLACE]: 'في',
+    [AXIS.PERSON]: 'مع',
+    [AXIS.THREAD]: 'في قصّة',
+  };
+  return html`
+    <div class="pivot-row">
+      <span class="pivot-head">شوف كمان:</span>
+      ${raw(pivots.map((pivot) => html`
+        <button class="pivot" data-action="facet-open"
+                data-axis="${pivot.axis}" data-id="${pivot.value}" data-label="${pivot.label}">
+          ${word[pivot.axis]}${raw(pivot.label ? html` <bdi>${pivot.label}</bdi>` : '')}
+          <span class="pivot-count">${pivot.count}</span>
+        </button>`).join(''))}
+    </div>`;
+}
+
 export async function renderScene(main, sceneId, options = {}) {
   releaseUrls();
 
@@ -419,11 +501,45 @@ export async function renderScene(main, sceneId, options = {}) {
   const images = mediaItems.filter((m) => m.kind === 'image');
   const audio = mediaItems.filter((m) => m.kind === 'audio');
 
-  const [parts, expressionList, notesBlock] = await Promise.all([
+  const [parts, expressionList, notesBlock, threads, pivots, tree] = await Promise.all([
     listConversationParts(sceneId),
     listSceneExpressions(sceneId),
     getBlock(sceneId, 'notes'),
+    threadsOfScene(sceneId),
+    pivotsFor(sceneId),
+    facetTree(),
   ]);
+
+  /*
+   * أين ظهر كل تعبير **غير هنا** — وهو وحده ما يجعل «رحلة التعبير»
+   * رحلةً. يُقرأ من `expressionLife` نفسها التي تقرؤها صفحة التعبير،
+   * فلا يقول الرقمُ هنا شيئًا ويقول هناك غيره.
+   */
+  const journeys = [];
+  for (const expression of expressionList) {
+    const life = await expressionLife(expression.id);
+    const seen = new Map();
+    for (const occurrence of life?.occurrences || []) {
+      if (occurrence.sceneId !== sceneId) seen.set(occurrence.sceneId, occurrence);
+    }
+    if (seen.size) journeys.push({ expression, elsewhere: [...seen.values()] });
+  }
+
+  /*
+   * مَن كان هنا — من أجزاء المحادثة نفسها لا من حقلٍ على الذكرى.
+   * والعدد الظاهر بجانب كلٍّ هو عدد ذكرياتك **معه** كلّها، فيصير
+   * مدخلًا للأطلس لا رقمًا محلّيًّا.
+   */
+  const spokeHere = [...new Set(parts.filter((p) => p.personId).map((p) => p.personId))];
+  const scenePeople = spokeHere
+    .map((id) => tree.people.find((row) => row.id === id))
+    .filter(Boolean)
+    .map((row) => ({ id: row.id, name: row.label, count: row.count }));
+
+  // متحدّثون بأسمائهم النصّية بلا شخصٍ مربوط — يُعرَضون ليُربطوا.
+  const looseSpeakers = [...new Set(
+    parts.filter((p) => !p.personId && !p.isMine && p.speaker).map((p) => p.speaker)
+  )];
 
   const counts = {
     images: images.length,
@@ -453,10 +569,28 @@ export async function renderScene(main, sceneId, options = {}) {
                   ${raw(icon('place'))} أضف المكان
                 </button>`
           )}
+          <!--
+            الخيوط التي تنتمي إليها الذكرى — بأسمائها لا بمعرّفاتها
+            (بند 29)، وكلٌّ منها رابطٌ إلى قصّته.
+          -->
+          ${raw(
+            threads
+              .map(
+                (t) =>
+                  html`<a class="chip chip-thread" href="#/thread/${t.id}">
+                    ${raw(icon('link'))} ${t.title}
+                  </a>`
+              )
+              .join('')
+          )}
+          <button class="chip editable" data-action="thread-link" data-id="${scene.id}">
+            ${raw(icon('link'))} ${threads.length ? 'اربطها بقصّة تانية' : 'اربطها بقصّة'}
+          </button>
           <button class="chip editable" data-action="edit-scene" data-id="${scene.id}">
             ${raw(icon('edit'))} تعديل
           </button>
         </div>
+        ${raw(pivotRow(pivots))}
       </div>
 
       <div class="top-actions">
@@ -464,6 +598,9 @@ export async function renderScene(main, sceneId, options = {}) {
           data-id="${scene.id}" aria-label="مفضّلة">${raw(icon('star'))}</button>
         <button class="tool-btn" data-action="export-scene" data-id="${scene.id}">
           ${raw(icon('download'))} تصدير
+        </button>
+        <button class="tool-btn" data-action="analysis-request" data-id="${scene.id}">
+          ${raw(icon('sparkle'))} حلّلها
         </button>
         <button class="tool-btn" data-action="trash-scene" data-id="${scene.id}">
           ${raw(icon('trash'))} السلة
@@ -516,8 +653,9 @@ export async function renderScene(main, sceneId, options = {}) {
       ${raw(sectionLanguage(scene, expressionList))}
       ${raw(sectionScripts(scene, scriptList, options.activeScriptId))}
       ${raw(sectionConversation(scene, parts))}
+      ${raw(sectionPeople(scene, scenePeople, looseSpeakers))}
       ${raw(sectionMistakes(scene, mistakes))}
-      ${raw(sectionLife(scene, expressionList))}
+      ${raw(sectionLife(journeys))}
       ${raw(sectionRecall(scene, images.length > 0))}
       ${raw(sectionNotes(scene, notesBlock.text))}
     </div>`;

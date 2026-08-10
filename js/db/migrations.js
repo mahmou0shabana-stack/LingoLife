@@ -12,7 +12,21 @@
  * هذا الملف هو الضمانة الفعلية بأن تحديث الكود لا يمسّ بياناتك.
  */
 
-import { STORES } from './schema.js';
+import { STORES, STATE } from './schema.js';
+import { BUILT_IN_EVENT_TYPES } from './seeds.js';
+
+/**
+ * تطبيعٌ مبسَّط للترقيات وحدها.
+ *
+ * ⚠️ **لا تستورد `utils/normalization.js` هنا.** الترقية المنشورة لا
+ *    يتغيّر سلوكها أبدًا (§3.6)، وذلك الملفّ يتحسّن مع الوقت — فلو
+ *    استوردناه لتبدّل ما كتبته ترقيةُ الأمس كلما حسّنّا التطبيع اليوم.
+ *    والقيمة المكتوبة هنا **مؤقّتة على أي حال**: الخدمة تعيد حسابها
+ *    بالتطبيع الكامل عند أوّل كتابة على السجل.
+ */
+function simpleNormalize(text) {
+  return (text || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
 
 /**
  * ينشئ store مع فهارسه من تعريف schema.
@@ -131,6 +145,166 @@ export const MIGRATIONS = [
     up(db) {
       // store جديد بالكامل: إضافة محضة لا تمسّ سجلًا قائمًا.
       createStore(db, 'savedItems');
+    },
+  },
+
+  {
+    v: 6,
+    note: 'ذاكرة النطق الأصلي — تسجيل مجلوب يُحفظ فلا تتكرّر مغادرة الكلمة',
+    up(db) {
+      // store جديد بالكامل: إضافة محضة لا تمسّ سجلًا قائمًا، ولا
+      // يحتاج ردمًا — فارغٌ يعني «ما جُلب شيء بعد»، وهو الصحيح.
+      createStore(db, 'nativeAudio');
+    },
+  },
+
+  {
+    v: 7,
+    note: 'الأنواع تصير كيانات في القاعدة — بلا لمس مشهدٍ واحد',
+    /*
+     * ⚠️ أخطر ترقية في المشروع: كل الترقيات قبلها **تضيف بجانب**
+     *    بياناتك، وهذه أوّل واحدة تنقل معنًى قائمًا من مكان إلى مكان.
+     *
+     * والحيلة التي تجعلها آمنة: **البذر بالمعرّفات الحالية نفسها**
+     *    (`meeting`, `inspection`, …). `scene.type` يحمل هذه
+     *    المعرّفات أصلًا، فبمجرّد وجودها في `eventTypes` يصير كل
+     *    مشهدٍ موصولًا بنوعه — بلا كتابة بايتٍ واحد في `scenes`.
+     *
+     * وأربع شبكات أمان:
+     *  1. `settings['scene.types']` **لا يُحذف** (بند 107). لو انكشف
+     *     عطبٌ بعد أسبوع، تخصيصاتك ما زالت حيث كانت.
+     *  2. `scene.type` **لا يُحذف** ولا يُغيَّر — يُوسَم مهجورًا فقط.
+     *  3. `scene.eventTypeId` يُملأ منه، والحقلان يُكتبان معًا دورةً
+     *     كاملة (§3.6).
+     *  4. البذر بـ`put` لا `add`: ترقيةٌ أُعيد تشغيلها لا تنفجر.
+     */
+    up(db, tx) {
+      createStore(db, 'eventTypes');
+      const types = tx.objectStore('eventTypes');
+      const now = Date.now();
+
+      const record = (type) => ({
+        ...type,
+        // التطبيع هنا نسخةٌ **مبسَّطة عمدًا** من `utils/normalization.js`:
+        // الترقية لا تستورد من طبقةٍ تتغيّر (راجع ترويسة `seeds.js`).
+        // والخدمة تعيد حسابه بالتطبيع الكامل عند أوّل كتابة.
+        normalizedName: simpleNormalize(type.label),
+        createdAt: now,
+        updatedAt: now,
+      });
+
+      for (const seed of BUILT_IN_EVENT_TYPES) types.put(record(seed));
+
+      // تخصيصاتك تُكتب فوق المبذور بنفس المعرّف، والجديد يُضاف.
+      const stored = tx.objectStore('settings').get('scene.types');
+      stored.onsuccess = () => {
+        const custom = stored.result?.value;
+        if (!Array.isArray(custom)) return;
+
+        for (const type of custom) {
+          if (!type?.id) continue;
+          const existing = types.get(type.id);
+          existing.onsuccess = () => {
+            const base = existing.result || {
+              parentId: null, aliases: [], icon: null, color: null,
+              builtIn: false, order: 999, createdAt: now,
+            };
+            const label = type.label ?? base.label;
+            types.put({
+              ...base,
+              ...type,
+              label,
+              normalizedName: simpleNormalize(label),
+              state: type.archived ? STATE.ARCHIVED : base.state || STATE.ACTIVE,
+              updatedAt: now,
+            });
+          };
+        }
+      };
+
+      // الحقل الجديد على المشاهد. `type` يبقى كما هو — هذه إضافة لا نقل.
+      return backfill(tx, 'scenes', (scene) => {
+        if (scene.eventTypeId === undefined) {
+          scene.eventTypeId = scene.type ?? null;
+          return scene;
+        }
+      });
+    },
+  },
+
+  {
+    v: 8,
+    note: 'العلاقات: `kind` هو الحقل، و`type` يُترك أثرًا مهجورًا',
+    /*
+     * «د-5» في التدقيق: حقلان لنفس المعنى. وُلد الجدول بـ`type`، ثم
+     * كتب الكود `kind` **وقرأه**، وبقي `type` يُكتب معه بلا أن يُقرأ.
+     *
+     * والازدواج ليس تشويهًا جماليًّا: الخيوط (WS1-ج) تُبنى فوق هذا
+     * الجدول مباشرةً، فتنظيفه الآن تنظيفُ جدولٍ صغير، وتأجيله تنظيفُه
+     * وتحته خيوط.
+     *
+     * ⚠️ و`type` **لا يُحذف من السجلات**. حذف حقلٍ من بياناتٍ قائمة
+     *    ترقيةٌ إتلافية، والقاعدة تمنعها. يتوقّف عن الكتابة فحسب،
+     *    فيذبل مع السجلات الجديدة ويبقى في القديمة شاهدًا.
+     */
+    up(db, tx) {
+      // فهارس `kind` المركّبة: تحوّل «هات روابط هذا العنصر من هذا
+      // النوع» من مسحٍ في الذاكرة إلى إصابةِ فهرس.
+      addIndexIfMissing(tx, 'relationships', 'kind', 'kind');
+      addIndexIfMissing(tx, 'relationships', 'from_kind', ['fromId', 'kind']);
+      addIndexIfMissing(tx, 'relationships', 'to_kind', ['toId', 'kind']);
+
+      // سجلٌّ كُتب قبل أن يبدأ الكود بكتابة `kind` (أي قبل v4) يحمل
+      // `type` وحده. بلا هذا الردم يصير غير مرئيّ للاستعلام الجديد.
+      return backfill(tx, 'relationships', (row) => {
+        if (row.kind === undefined && row.type !== undefined) {
+          row.kind = row.type;
+          return row;
+        }
+      });
+    },
+  },
+
+  {
+    v: 9,
+    note: 'خيوط الأحداث — القضيّة الممتدّة فوق المشاهد لا داخلها',
+    up(db) {
+      // store جديد بالكامل: إضافة محضة لا تمسّ سجلًا قائمًا.
+      //
+      // ⚠️ ولا حقلَ يُضاف إلى `scenes`. عضويّة المشهد في الخيط
+      //    **علاقةٌ** في `relationships` لا حقلٌ فيه (بند 27): المشهد
+      //    يبقى مستقلًّا، وخيطٌ يُحذف لا يترك أثرًا في ذكرياتك.
+      createStore(db, 'eventThreads');
+    },
+  },
+
+  {
+    v: 10,
+    note: 'منشأ الظهور: ادّعاءٌ ثابتٌ يصير إقرارًا بالجهل',
+    /*
+     * `expressionOccurrences.sourceType` كان يُكتب `'manual'` **ثابتًا
+     * لكل ظهور** ولمساراته الثلاثة كلها (بند 38). فظهورٌ جاء من
+     * استيرادٍ أو من الظلّ يقول «كتبته بإيدك» وهو لا يعرف.
+     *
+     * ⚠️ **وهذه ليست ترقيةً إتلافية** رغم أنها تكتب فوق قيمة: الحقل
+     *    كان ثابتًا لا يحمل خبرًا، فلا معلومةَ فيه تضيع. تحويله إلى
+     *    `'unknown'` يستبدل ادّعاءً بلا سند بإقرارٍ صادق، لا أكثر.
+     *
+     * ⚠️ ولا تُحوَّل إلا `'manual'` وحدها. الظهورات المكتوبة **بعد**
+     *    بند 38 تحمل `import` أو `shadow` أو `manual` عن معرفة — لكن
+     *    الترقية تجري مرّةً واحدة عند الانتقال من v9، وقبلها لا وجود
+     *    لغير `'manual'`. فلا لبس.
+     *
+     * وما تعرفه أنت يبقى لك: زرٌّ في الإعدادات يقول «الظهورات دي
+     * كتبتها بإيدي» يرجّعها. التطبيق لا يدّعي، وإنت تقرّ.
+     */
+    up(db, tx) {
+      return backfill(tx, 'expressionOccurrences', (row) => {
+        if (row.sourceType === 'manual') {
+          row.sourceType = 'unknown';
+          return row;
+        }
+      });
     },
   },
 
