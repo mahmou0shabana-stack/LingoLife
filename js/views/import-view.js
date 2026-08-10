@@ -26,15 +26,19 @@
  * فلو استبعدتَ سبعة نزل الرقم سبعة (بند 89).
  */
 
-import { html, raw, $ } from '../utils/dom.js';
+import { html, raw, $, esc, downloadBlob } from '../utils/dom.js';
 import { icon } from '../components/icons.js';
 import { toast, toastOk, toastError } from '../components/toast.js';
 import { navigate } from '../router.js';
 import { parsePackage } from '../services/import/parse.js';
 import { planImport, decide, ACTION } from '../services/import/plan.js';
 import { kindName } from '../services/import/package-format.js';
-import { plural } from '../utils/plural.js';
+import { plural, counted } from '../utils/plural.js';
 import { applyImport } from '../services/import/apply.js';
+import {
+  buildAnalysisRequest, requestSummary, requestFilename,
+} from '../services/analysis/request.js';
+import { confirmAction } from '../components/modal.js';
 
 /**
  * حالة الشاشة.
@@ -344,6 +348,58 @@ function captureText() {
 }
 
 export async function handleImportAction(action, target) {
+  /*
+   * تصدير طلب تحليل *(WS6-ب)*.
+   *
+   * ⚠️ هنا لأن **الردّ يعود من هذه الشاشة نفسها**: الطلب يخرج، وما
+   *    يعود حزمةُ استيرادٍ عاديّة تمرّ بالمعاينة كأي حزمة. وضعُه في
+   *    ملفٍّ ثالث يفصل شقّي رحلةٍ واحدة.
+   */
+  if (action === 'analysis-request') {
+    const sceneId = target?.dataset.id;
+    if (!sceneId) return true;
+
+    const request = await buildAnalysisRequest(sceneId);
+    const summary = requestSummary(request);
+
+    /*
+     * ⚠️ **يُقال ما سيخرج قبل أن يخرج** — بعدده لا بوصفٍ عامّ. الملفّ
+     *    فيه نصوص ذكراك وأسماء مَن تكلّم، والتطبيق لا يعرف إلى أين
+     *    ستأخذه. «موافق» على المجهول ليست موافقة.
+     */
+    const bits = [
+      summary.scripts && counted(summary.scripts, 'سكريبت', 'سكريبتين', 'سكريبتات'),
+      summary.conversation
+        && counted(summary.conversation, 'جزء محادثة', 'جزأين من المحادثة', 'أجزاء محادثة'),
+      summary.expressions && counted(summary.expressions, 'تعبير', 'تعبيرين', 'تعبيرات'),
+      summary.mistakes && counted(summary.mistakes, 'تصحيح', 'تصحيحين', 'تصحيحات'),
+      summary.hasNotes && 'ملاحظاتك',
+    ].filter(Boolean);
+
+    const who = summary.speakers.length
+      ? ` وأسماء: ${summary.speakers.join('، ')}.`
+      : '';
+
+    const ok = await confirmAction({
+      title: 'الملف ده هيطلع من جهازك',
+      message:
+        `هيتحفظ ملف فيه <strong>${esc(summary.title)}</strong>: `
+        + `${bits.length ? esc(bits.join('، ')) : 'العنوان والتاريخ بس'}.${esc(who)}`
+        + '<br><br>التطبيق <strong>مش هيبعته لحدّ</strong> — هيحفظه على جهازك وبس. '
+        + 'إنت اللي تديه لأي محلِّل تختاره، وساعتها بيخرج من عندك. '
+        + '<br><br>وردّه بترجّعه من نفس الشاشة دي، وهتشوف كل سطر قبل ما يتكتب.',
+      confirmLabel: 'احفظ الملف',
+    });
+    if (!ok) return true;
+
+    downloadBlob(
+      new Blob([JSON.stringify(request, null, 2)], { type: 'application/json' }),
+      requestFilename(request)
+    );
+    toastOk('اتحفظ — افتحه، انسخه لأي محلِّل، ورجّع ردّه هنا');
+    return true;
+  }
+
   if (action === 'import-file') {
     const file = await pickJson();
     if (!file) return true;

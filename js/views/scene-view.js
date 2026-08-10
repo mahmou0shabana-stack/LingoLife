@@ -599,6 +599,9 @@ export async function renderScene(main, sceneId, options = {}) {
         <button class="tool-btn" data-action="export-scene" data-id="${scene.id}">
           ${raw(icon('download'))} تصدير
         </button>
+        <button class="tool-btn" data-action="analysis-request" data-id="${scene.id}">
+          ${raw(icon('sparkle'))} حلّلها
+        </button>
         <button class="tool-btn" data-action="trash-scene" data-id="${scene.id}">
           ${raw(icon('trash'))} السلة
         </button>

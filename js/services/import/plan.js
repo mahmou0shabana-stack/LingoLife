@@ -146,18 +146,37 @@ export async function planImport(pkg) {
         : 'نفس العنوان بتاريخٍ تاني',
     }));
 
+  /*
+   * ردُّ طلبِ تحليل *(WS6-ب)* يحمل معرّف الذكرى التي خرج من أجلها.
+   *
+   * ⚠️ **وهذا استثناءٌ من «الافتراض إنشاء» بسببٍ لا بتساهل**: القاعدة
+   *    موضوعةٌ لأن مطابقة الاسم تخمين — وذكريتان بنفس العنوان شيئان
+   *    مختلفان. أمّا المعرّف فهو الذكرى نفسها التي ضغطتَ «حلّلها» وأنت
+   *    فيها، فلا تخمينَ يُخشى.
+   *
+   *    ويبقى ظاهرًا في المعاينة قابلًا للتغيير، فلا شيء يتخطّى عينك.
+   */
+  const origin = pkg.forSceneId
+    ? allScenes.find((s) => s.id === pkg.forSceneId)
+    : null;
+
   const scene = decision({
     id: 'scene',
     kind: 'scene',
     label: pkg.scene.title,
-    // ⚠️ الافتراض إنشاءٌ دائمًا. الكتابة داخل ذكرى موجودة قرارٌ لك،
-    //    لأن حزمةً تُكتب في الذكرى الخطأ تخلط حياتين لا تُفرَّقان بعدها
-    //    بسهولة.
-    action: ACTION.CREATE,
-    why: duplicates.length
-      ? `فيه ${duplicates.length === 1 ? 'ذكرى' : `${duplicates.length} ذكريات`} بنفس العنوان — بصّ قبل ما تكمّل`
-      : 'ذكرى جديدة',
-    alternatives: duplicates.map((d) => alt(d.id, `${d.label}${d.date ? ` · ${d.date}` : ''}`, d.why)),
+    // ⚠️ الافتراض إنشاءٌ دائمًا فيما عدا ذلك. الكتابة داخل ذكرى موجودة
+    //    قرارٌ لك، لأن حزمةً تُكتب في الذكرى الخطأ تخلط حياتين لا
+    //    تُفرَّقان بعدها بسهولة.
+    action: origin ? ACTION.ATTACH : ACTION.CREATE,
+    targetId: origin ? origin.id : null,
+    why: origin
+      ? 'ده ردّ على طلب تحليل للذكرى دي — هيتكتب جوّاها'
+      : duplicates.length
+        ? `فيه ${duplicates.length === 1 ? 'ذكرى' : `${duplicates.length} ذكريات`} بنفس العنوان — بصّ قبل ما تكمّل`
+        : 'ذكرى جديدة',
+    alternatives: duplicates
+      .filter((d) => d.id !== origin?.id)
+      .map((d) => alt(d.id, `${d.label}${d.date ? ` · ${d.date}` : ''}`, d.why)),
     data: pkg.scene,
   });
 
