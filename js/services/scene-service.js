@@ -41,7 +41,14 @@ export async function createScene({ titleAr, titleRu = '', date, type = 'other',
     context: (context || '').trim(),
     placeId: null,
     placeName: (placeName || '').trim(),
-    peopleIds: [],
+    /*
+     * ⚠️ `peopleIds` **لم يعد يُكتب** *(WS9)*. كان يُكتب `[]` ولا يُملأ
+     *    في أي مكان — حقلٌ ميّت يوهم بأن المشاركين حقلٌ على الذكرى.
+     *
+     *    والمشاركة صارت علاقة `scene:person` كما العضويّة كلها في هذا
+     *    المشروع (§3.6.1). والحقل يبقى على السجلات القديمة ولا يُحذف
+     *    منها — نفس ما فُعل بـ`relationships.type` في v8.
+     */
     journeyId: null,
     topicIds: [],
     tagIds: [],

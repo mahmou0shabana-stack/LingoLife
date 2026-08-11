@@ -2365,3 +2365,56 @@
     margin-bottom: var(--sp-5);
   }
 }
+
+/* ------------------------------------------------------------
+   مَن كان في الذكرى — المشاركون والمتكلّمون
+
+   ⚠️ «حضر» و«اتكلّم» يظهران معًا ولا يُدمجان في وسمٍ واحد: الفرق
+      بينهما هو كل ما أضافه WS9.
+   ------------------------------------------------------------ */
+
+.pv-why {
+  font-size: var(--fs-2xs);
+  color: var(--ink-faint);
+  margin-inline-start: 2px;
+}
+
+/* منتقي المشاركين */
+.pp-list {
+  max-height: 46vh;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: var(--sp-2);
+  background: var(--surface-soft);
+}
+
+.pp-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 9px var(--sp-3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.pp-row:hover { background: var(--accent-wash); }
+
+/* مَن تكلّم: معلَّمٌ ولا يُطفأ — واقعةٌ لا إعلان. */
+.pp-row.is-locked { cursor: default; opacity: 0.85; }
+.pp-row.is-locked:hover { background: none; }
+
+.pp-row input {
+  inline-size: 18px;
+  block-size: 18px;
+  flex: none;
+  accent-color: var(--accent);
+}
+
+.pp-name { flex: 1; font-size: var(--fs-sm); min-width: 0; }
+.pp-role, .pp-why { font-size: var(--fs-2xs); color: var(--ink-faint); }
+.pp-why {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  padding: 2px 9px;
+}

@@ -9,8 +9,8 @@
  *     يجعل النهر نهرًا لا قائمة.
  *  3. **الصفحة لا تُسقط أحدًا** — يومٌ أكبر من دفعة القراءة لا تختفي
  *     نصف ذكرياته بصمت.
- *  4. **الشخص مُشتقٌّ بحدوده** — مَن تكلّم يظهر، ومَن حضر ولم يتكلّم
- *     لا يظهر. والحدّ مُعلَنٌ لا مخفيّ.
+ *  4. **الشخص مُشتقٌّ من دليلين** — مَن تكلّم يظهر بكلامه، ومَن أُعلن
+ *     حضورُه يظهر بإعلانه. كان الحدّ أن الصامت يختفي، ورفعه WS9.
  */
 
 import { describe, it, expect } from './test-runner.js';
@@ -24,6 +24,7 @@ import { addPerson } from '../js/services/person-service.js';
 import { resetTypes } from '../js/services/type-service.js';
 import { createThread, addSceneToThread, THREAD_STATUS } from '../js/services/thread-service.js';
 import { addConversationPart, addExpression } from '../js/services/content-service.js';
+import { addParticipant } from '../js/services/participant-service.js';
 import {
   AXIS, ABSENT_AXES, placeKey, facetsFor, allowedSceneIds,
   riverPage, dayDetail, adjacentDays, facetTree, continuingStories,
@@ -73,20 +74,37 @@ describe('الأطلس — اشتقاق المحاور', () => {
 
     const facets = await facetsFor([s]);
     expect(facets.get(s.id).personIds).toEqual([igor.id]);
-    // الحقل الميّت يبقى فارغًا ولا يُقرَأ منه شيء.
+    /*
+     * ⚠️ والحقل الميّت لم يعد يُكتب أصلًا (WS9). كان يُكتب فارغًا
+     *    ولا يُقرَأ، فصار لا يُكتب — والصفوف القديمة تحتفظ به كما هي،
+     *    كما فُعل بـ`relationships.type` في v8.
+     */
     const row = await scenes.get(s.id);
-    expect(row.peopleIds).toEqual([]);
+    expect(row.peopleIds).toBe(undefined);
   });
 
-  it('مَن حضر ولم يتكلّم لا يظهر — والحدّ معلَن', async () => {
+  it('⚠️ مَن حضر ولم يتكلّم يظهر — الحدّ الذي رفعه WS9', async () => {
     await fresh();
     const igor = await addPerson({ name: 'إيجور' });
-    await addPerson({ name: 'مارينا' });
+    const marina = await addPerson({ name: 'مارينا' });
+    const s = await scene('اجتماع', '2026-04-01');
+    await addConversationPart(s.id, { speaker: 'إيجور', text: 'Привет', personId: igor.id });
+    // مارينا كانت هناك ولم تتكلّم — وأُعلن حضورها.
+    await addParticipant(s.id, marina.id);
+
+    const facets = await facetsFor([s]);
+    expect(facets.get(s.id).personIds.sort()).toEqual([igor.id, marina.id].sort());
+  });
+
+  it('ومَن لا كلامَ له ولا إعلان لا يظهر — الاشتقاق ليس قائمةَ كلّ الناس', async () => {
+    await fresh();
+    const igor = await addPerson({ name: 'إيجور' });
+    await addPerson({ name: 'غريب' });          // لا كلام ولا إعلان
     const s = await scene('اجتماع', '2026-04-01');
     await addConversationPart(s.id, { speaker: 'إيجور', text: 'Привет', personId: igor.id });
 
     const facets = await facetsFor([s]);
-    expect(facets.get(s.id).personIds.length).toBe(1);
+    expect(facets.get(s.id).personIds).toEqual([igor.id]);
   });
 
   it('المتحدّث بلا شخصٍ مربوط لا يُنتج معرّفًا فارغًا', async () => {

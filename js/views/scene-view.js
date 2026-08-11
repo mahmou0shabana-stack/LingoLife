@@ -15,6 +15,7 @@ import { AXIS, pivotsFor, facetTree } from '../services/atlas-service.js';
 import { STAGE_LABEL, expressionLife } from '../services/language-service.js';
 import { counted } from '../utils/plural.js';
 import { threadsOfScene } from '../services/thread-service.js';
+import { scenePeople as scenePeopleWithEvidence } from '../services/participant-service.js';
 import { icon } from '../components/icons.js';
 
 /** أقسام اللوحة — العدد يظهر في الفهرس المصغّر. */
@@ -177,20 +178,26 @@ function sectionVoices(scene, audio) {
  *    يُملأ في أي مكان، وقراءته هنا تُظهر «مفيش حد» في ذكرى فيها
  *    ثلاثة تكلّموا.
  *
- * ⚠️ وحدُّه مكتوبٌ في الشاشة: مَن حضر ولم يتكلّم لا يظهر — ولا مصدرَ
- *    في التطبيق يقوله.
+ * ⚠️ **وحاضرٌ ومتكلّمٌ شيئان** *(WS9)*. كان القسم يعرض مَن تكلّم وحده،
+ *    فيختفي مَن حضر وصمت. فصار يعرض الاتحاد، **ويقول لكلٍّ لماذا
+ *    ظهر** — لأن «كان هناك» و«قال جملة» واقعتان مختلفتان، ودمجُهما
+ *    في «موجود» يخسر الفرق.
  */
 function sectionPeople(scene, people, unlinked) {
-  if (!people.length && !unlinked.length) return '';
-
   return html`
     <section class="sec" id="sec-people">
-      ${raw(head('person', 'مين كان هنا', people.length || '', null))}
+      ${raw(head('person', 'مين كان هنا', people.length || '',
+        'edit-participants', scene.id, 'مين كمان'))}
+
+      ${raw(people.length || unlinked.length ? html`
       <div class="people-row">
         ${raw(people.map((person) => html`
           <button class="rv-person" data-action="facet-open"
                   data-axis="personId" data-id="${person.id}" data-label="${person.name}">
             ${raw(icon('person', 15))} <bdi>${person.name}</bdi>
+            <span class="pv-why">${person.spoke
+              ? (person.declared ? 'حضر واتكلّم' : `اتكلّم ${person.saidCount}`)
+              : 'حضر'}</span>
             <span class="pivot-count">${person.count}</span>
           </button>`).join(''))}
 
@@ -199,10 +206,15 @@ function sectionPeople(scene, people, unlinked) {
             <bdi>${name}</bdi>
             <span class="pivot-count">?</span>
           </button>`).join(''))}
-      </div>
+      </div>` : html`
+      <div class="text-sm text-faint">
+        مين كان معاك في اللحظة دي؟ اللي بيتكلّم في المحادثة بيبان هنا
+        لوحده — واللي حضر وسكت تقوله إنت.
+      </div>`)}
+
       <p class="rv-hint">
-        دول اللي اتكلّموا في المحادثة، والرقم عدد ذكرياتك مع كل واحد.
-        مين حضر وما اتكلّمش مش هيبان — مفيش مصدر يقوله.
+        «حضر» يعني إنت قلت إنه كان هناك. «اتكلّم» يعني له جملة في
+        المحادثة. والرقم عدد ذكرياتك معه كلها.
       </p>
     </section>`;
 }
@@ -526,15 +538,16 @@ export async function renderScene(main, sceneId, options = {}) {
   }
 
   /*
-   * مَن كان هنا — من أجزاء المحادثة نفسها لا من حقلٍ على الذكرى.
-   * والعدد الظاهر بجانب كلٍّ هو عدد ذكرياتك **معه** كلّها، فيصير
-   * مدخلًا للأطلس لا رقمًا محلّيًّا.
+   * مَن كان هنا — **مُعلَنٌ ومُشتقّ معًا** *(WS9)*. الخدمة تجمع
+   * المشاركين الذين أعلنتَهم والمتكلّمين الذين لهم جملة، وتقول لكلٍّ
+   * لماذا ظهر. والعدد الظاهر بجانبه عدد ذكرياتك **معه** كلّها من
+   * الأطلس، فيصير مدخلًا لا رقمًا محلّيًّا.
    */
-  const spokeHere = [...new Set(parts.filter((p) => p.personId).map((p) => p.personId))];
-  const scenePeople = spokeHere
-    .map((id) => tree.people.find((row) => row.id === id))
-    .filter(Boolean)
-    .map((row) => ({ id: row.id, name: row.label, count: row.count }));
+  const here = await scenePeopleWithEvidence(sceneId);
+  const scenePeople = here.map((person) => ({
+    ...person,
+    count: tree.people.find((row) => row.id === person.id)?.count || 0,
+  }));
 
   // متحدّثون بأسمائهم النصّية بلا شخصٍ مربوط — يُعرَضون ليُربطوا.
   const looseSpeakers = [...new Set(

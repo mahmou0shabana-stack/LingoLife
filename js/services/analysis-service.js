@@ -70,7 +70,19 @@ export async function mistakePatterns({ examples = 3 } = {}) {
   const live = new Map(sceneRows.map((s) => [s.id, s]));
 
   // خطأٌ في ذكرى محذوفة لا يُعَدّ: العدّ يشير إلى ما يُفتَح.
-  const alive = rows.filter((row) => row.state === STATE.ACTIVE && live.has(row.sceneId));
+  const alive = rows
+    .filter((row) => row.state === STATE.ACTIVE && live.has(row.sceneId))
+    /*
+     * ⚠️ **الأحدث أوّلًا، وبفاصلٍ قاطع.** `getAll()` تعود بترتيب المفتاح
+     *    — ومعرّفاتنا عشوائيّة، فكانت «أوّل ثلاثة أمثلة» تعني ثلاثةً
+     *    بلا معنى، تختلف من قاعدةٍ لأخرى. والأحدث أنفع: هو ما تتذكّره.
+     *
+     * ⚠️ والفاصل بالمعرّف ليس زينة: تصحيحان في نفس الميلّية لهما
+     *    `createdAt` واحد، فبلا فاصلٍ يصير ترتيبهما رهن تنفيذ `sort`.
+     *    (كشفه اختبارٌ سقط بعد أن مرّ مرّتين — كان ينجح بالحظّ.)
+     */
+    .sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0)
+      || String(a.id).localeCompare(String(b.id)));
 
   const byType = new Map();
   for (const row of alive) {

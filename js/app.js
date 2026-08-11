@@ -69,6 +69,7 @@ import { openNewSceneModal, openEditSceneModal } from './modals/scene-modals.js'
 import {
   openScriptModal, openPartModal, openMistakeModal, openExpressionModal,
 } from './modals/content-modals.js';
+import { openParticipantsModal } from './modals/participant-modals.js';
 import { handleAddImages, handleAddAudio, handleRecord } from './modals/media-actions.js';
 import { openLightbox } from './components/lightbox.js';
 import { openLinksModal } from './modals/link-modal.js';
@@ -364,6 +365,7 @@ function wireActions() {
       case 'add-part': return openPartModal(sceneId);
       case 'add-mistake': return openMistakeModal(sceneId);
       case 'add-expression': return openExpressionModal(sceneId);
+      case 'edit-participants': return openParticipantsModal(sceneId);
 
       case 'show-script': {
         ui.activeScriptId = id;

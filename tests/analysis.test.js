@@ -60,7 +60,28 @@ describe('أنماط الأخطاء — واقعةٌ لا نسبة', () => {
     expect(out.total).toBe(3);
     expect(out.types[0].label).toBe('جنس الكلمة');
     expect(out.types[0].count).toBe(2);
-    expect(out.types[0].items[0].natural).toBe('одно несоответствие');
+    /*
+     * ⚠️ الاثنان معًا — لا «أوّلهما». إنشاؤهما متتاليًا لا يضمن
+     *    `createdAt` مختلفًا، فتأكيدُ الأوّل كان **ينجح بالحظّ**: مرّ
+     *    مرّتين ثم سقط بلا تغييرٍ في الكود. الترتيبُ نفسه له اختبارُه
+     *    تحت، بطوابع يضبطها هو.
+     */
+    expect(out.types[0].items.map((row) => row.natural).sort())
+      .toEqual(['два стола', 'одно несоответствие'].sort());
+  });
+
+  it('⚠️ والأحدث أوّلًا — ترتيبٌ قاطع لا رهنَ ترتيب المفاتيح', async () => {
+    await fresh();
+    const s = await scene('ذكرى', '2026-04-01');
+    const older = await addMistake(s.id, { wrong: 'a', natural: 'الأقدم', mistakeType: 'gender' });
+    const newer = await addMistake(s.id, { wrong: 'b', natural: 'الأحدث', mistakeType: 'gender' });
+
+    // طابعان مختلفان صراحةً — الإنشاء المتتالي قد يقع في ميلّيةٍ واحدة.
+    await mistakeComparisons.putRaw({ ...older, createdAt: 1000 });
+    await mistakeComparisons.putRaw({ ...newer, createdAt: 2000 });
+
+    const out = await mistakePatterns();
+    expect(out.types[0].items.map((row) => row.natural)).toEqual(['الأحدث', 'الأقدم']);
   });
 
   it('كل مثالٍ يعرف ذكراه — الرقم مدخلٌ لا زينة', async () => {

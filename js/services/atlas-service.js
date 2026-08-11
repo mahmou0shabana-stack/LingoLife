@@ -26,18 +26,18 @@
  * | الزمن    | `scene.date` + فهرس `date`        | كامل             |
  * | النوع    | `scene.type` + `typeTree()`       | كامل، وشجريّ     |
  * | الخيط    | علاقة `thread:scene`              | كامل             |
- * | الشخص    | `conversationParts.personId`      | **مُشتقّ**       |
+ * | الشخص    | علاقة `scene:person` + المحادثة   | **مُعلَنٌ ومُشتقّ** |
  * | المكان   | `scene.placeName` نصًّا مطبَّعًا    | جزئيّ            |
  * | الموضوع  | —                                 | **غائب**         |
  *
- * ⚠️ **الشخص مُشتقٌّ لا مُعلَن.** على `scene` حقلٌ اسمه `peopleIds`
- *    يُكتب `[]` عند الإنشاء **ولا يُملأ في أي مكان** — حقلٌ ميّت من
- *    الجيل الأوّل. والحقيقة الوحيدة عن «مَن كان في هذه الذكرى» هي
- *    `personId` على أجزاء المحادثة. فنشتقّ منها ولا نقرأ الحقل الميّت،
- *    وهو نفس مبدأ §3.6.1: **العضويّة علاقةٌ لا حقل**.
+ * ⚠️ **الشخص دليلان لا واحد** *(WS9)*. كان مُشتقًّا من `personId` على
+ *    أجزاء المحادثة وحدها، وكان حدُّه معلَنًا: مَن حضر ولم يتكلّم لا
+ *    يظهر. فصار للذكرى **مشاركون مُعلَنون** بعلاقة `scene:person`،
+ *    والمحور يجمع الدليلين — ومَن تكلّم كان هناك بالضرورة.
  *
- *    ونتيجته صادقة بحدودها: مَن حضر ولم يتكلّم لا يظهر. وهذا أصدق من
- *    حقلٍ فارغٍ يوهم بأنه لم يحضر أحد.
+ *    و`scene.peopleIds` يبقى حقلًا ميّتًا لا يُقرأ ولا يُكتب: العضويّة
+ *    **علاقةٌ لا حقل** (§3.6.1)، ومصفوفةٌ على الذكرى تعني إعادة كتابتها
+ *    كلما حُذف شخص.
  *
  * ⚠️ **المكان نصٌّ لا كيان.** `scene.placeId` يبقى `null` دائمًا و
  *    `resolvePlace()` مكتوبةٌ وغير موصولة. فالتجميع على النصّ
@@ -55,6 +55,7 @@ import { STATE } from '../db/schema.js';
 import { normalize } from '../utils/normalization.js';
 import { toISODate, daysBetween } from '../utils/dates.js';
 import { THREAD_SCENE, THREAD_STATUS, OPEN_STATUSES } from './thread-service.js';
+import { SCENE_PERSON } from './participant-service.js';
 
 /* ------------------------------------------------------------------ *
  * المحاور: ما له بيانات وما لا
@@ -102,18 +103,29 @@ export async function facetsFor(sceneRows) {
   const rows = sceneRows.filter(Boolean);
   const ids = rows.map((s) => s.id);
 
-  const [partGroups, linkGroups] = await Promise.all([
+  const [partGroups, linkGroups, participantGroups] = await Promise.all([
     Promise.all(ids.map((id) => conversationParts.byIndex('sceneId', id))),
     Promise.all(ids.map((id) => relationships.byIndex('toId', id))),
+    // الذكرى حاوٍ للمشارك، فرابطُه صادرٌ منها لا وارد إليها.
+    Promise.all(ids.map((id) => relationships.byIndex('from_kind', [id, SCENE_PERSON]))),
   ]);
 
   const map = new Map();
   rows.forEach((scene, i) => {
-    const personIds = [...new Set(
-      partGroups[i]
+    /*
+     * ⚠️ **الاتحاد لا أحدهما** *(WS9)*. مَن تكلّم كان هناك بالضرورة،
+     *    ومَن أعلنتَه مشاركًا قد يكون صمت طول الاجتماع. فالمحور يجمع
+     *    الدليلين — وقبل WS9 كان يقرأ الكلام وحده، فيختفي مَن حضر
+     *    ولم ينطق.
+     */
+    const personIds = [...new Set([
+      ...partGroups[i]
         .filter((part) => part.state === STATE.ACTIVE && part.personId)
-        .map((part) => part.personId)
-    )];
+        .map((part) => part.personId),
+      ...participantGroups[i]
+        .filter((row) => row.state === STATE.ACTIVE)
+        .map((row) => row.toId),
+    ])];
 
     const threadIds = linkGroups[i]
       .filter((row) => row.state === STATE.ACTIVE && row.kind === THREAD_SCENE)
@@ -144,10 +156,15 @@ export async function allowedSceneIds(filters = {}) {
   const sets = [];
 
   if (filters[AXIS.PERSON]) {
-    const parts = await conversationParts.byIndex('personId', filters[AXIS.PERSON]);
-    sets.push(new Set(
-      parts.filter((p) => p.state === STATE.ACTIVE).map((p) => p.sceneId).filter(Boolean)
-    ));
+    // ⚠️ الاتحاد نفسه هنا، وإلّا خالف الترشيحُ العدَّ الذي وعد به.
+    const [parts, joined] = await Promise.all([
+      conversationParts.byIndex('personId', filters[AXIS.PERSON]),
+      relationships.byIndex('to_kind', [filters[AXIS.PERSON], SCENE_PERSON]),
+    ]);
+    sets.push(new Set([
+      ...parts.filter((p) => p.state === STATE.ACTIVE).map((p) => p.sceneId).filter(Boolean),
+      ...joined.filter((r) => r.state === STATE.ACTIVE).map((r) => r.fromId),
+    ]));
   }
 
   if (filters[AXIS.THREAD]) {
@@ -376,9 +393,22 @@ export async function facetTree() {
     places.set(key, entry);
   }
 
-  /* ---- الشخص: مُشتقٌّ من المحادثة ---- */
+  /* ---- الشخص: مُعلَنٌ ومُشتقّ معًا *(WS9)* ---- */
 
   const personScenes = new Map();
+  const addPersonScene = (personId, sceneId) => {
+    if (!personScenes.has(personId)) personScenes.set(personId, new Set());
+    personScenes.get(personId).add(sceneId);
+  };
+
+  // المُعلَنون: علاقة `scene:person`، والذكرى هي الحاوي.
+  for (const row of linkRows) {
+    if (row.state !== STATE.ACTIVE || row.kind !== SCENE_PERSON) continue;
+    if (!live.has(row.fromId)) continue;
+    addPersonScene(row.toId, row.fromId);
+  }
+
+  // والمتكلّمون: دليلٌ مستقلّ، ومَن تكلّم كان هناك.
   for (const part of partRows) {
     if (part.state !== STATE.ACTIVE || !part.personId || !live.has(part.sceneId)) continue;
     if (!personScenes.has(part.personId)) personScenes.set(part.personId, new Set());
@@ -490,21 +520,35 @@ export async function continuingStories({ limit = 5 } = {}) {
  * @returns {Promise<{nodes: object[], links: object[], scenesWithTwo: number}>}
  */
 export async function constellation() {
-  const [sceneRows, partRows, personRows] = await Promise.all([
+  const [sceneRows, partRows, personRows, joinRows] = await Promise.all([
     scenes.getActive(),
     conversationParts.getAll(),
     people.getAll(),
+    relationships.byIndex('kind', SCENE_PERSON),
   ]);
 
   const titleOf = new Map(sceneRows.map((s) => [s.id, s.titleAr || s.titleRu || 'بلا عنوان']));
   const dateOf = new Map(sceneRows.map((s) => [s.id, toISODate(s.date) || s.date || '']));
 
-  /** الذكرى ← مَن تكلّم فيها. */
+  /**
+   * الذكرى ← مَن كان فيها.
+   *
+   * ⚠️ كان «مَن تكلّم فيها» — فاجتماعٌ حضره خمسةٌ وتكلّم اثنان يعطي
+   *    وصلةً واحدة بدل عشر. المشاركون المُعلَنون يدخلون هنا *(WS9)*.
+   */
   const inScene = new Map();
+  const addToScene = (sceneId, personId) => {
+    if (!titleOf.has(sceneId)) return;
+    if (!inScene.has(sceneId)) inScene.set(sceneId, new Set());
+    inScene.get(sceneId).add(personId);
+  };
   for (const part of partRows) {
-    if (part.state !== STATE.ACTIVE || !part.personId || !titleOf.has(part.sceneId)) continue;
-    if (!inScene.has(part.sceneId)) inScene.set(part.sceneId, new Set());
-    inScene.get(part.sceneId).add(part.personId);
+    if (part.state !== STATE.ACTIVE || !part.personId) continue;
+    addToScene(part.sceneId, part.personId);
+  }
+  for (const row of joinRows) {
+    if (row.state !== STATE.ACTIVE || row.kind !== SCENE_PERSON) continue;
+    addToScene(row.fromId, row.toId);
   }
 
   const counts = new Map();
