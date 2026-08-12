@@ -29,7 +29,7 @@
  */
 
 import {
-  scenes, conversationParts, relationships, people, eventThreads,
+  scenes, conversationParts, relationships, people, eventThreads, contentBlocks,
 } from '../../db/repositories.js';
 import { STATE } from '../../db/schema.js';
 import { SCENE_PERSON } from '../participant-service.js';
@@ -43,7 +43,7 @@ import { ASPECTS, aspectById } from './aspects.js';
  * @returns {Promise<object>}
  */
 export async function readWorld() {
-  const [sceneRows, parts, joinRows, threadRows, personRows, threads] = await Promise.all([
+  const [sceneRows, parts, joinRows, threadRows, personRows, threads, blocks] = await Promise.all([
     scenes.getActive(),
     conversationParts.getAll(),
     // إصابةُ فهرس `kind` — لا مسحَ كاملًا لـ`relationships`.
@@ -51,6 +51,8 @@ export async function readWorld() {
     relationships.byIndex('kind', THREAD_SCENE),
     people.getAll(),
     eventThreads.getAll(),
+    /* قراءةٌ سابعةٌ ثابتة — لا استعلامٌ لكل ذكرى. */
+    contentBlocks.getAll(),
   ]);
 
   const live = new Set(sceneRows.map((row) => row.id));
@@ -84,6 +86,14 @@ export async function readWorld() {
     scenesByThread.get(row.fromId).add(row.toId);
   }
 
+  /* أيُّ ذكرى نصُّها الأصليّ مكتوبٌ فعلًا — الفارغ ليس مكتوبًا. */
+  const rawByScene = new Set(
+    blocks
+      .filter((row) => row.state === STATE.ACTIVE && row.kind === 'rawTranscript'
+        && String(row.text || '').trim())
+      .map((row) => row.sceneId)
+  );
+
   // مَن حُذف لا يُعرَض اسمُه ولا يُقترَح.
   const livePeople = personRows.filter((row) => row.state !== STATE.TRASHED);
 
@@ -93,6 +103,7 @@ export async function readWorld() {
     threadTitle: new Map(
       threads.filter((row) => row.state !== STATE.TRASHED).map((row) => [row.id, row.title])
     ),
+    rawByScene,
     declaredByScene,
     speakersByScene,
     threadsByScene,

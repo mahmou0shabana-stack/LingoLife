@@ -103,7 +103,7 @@ export async function openThreadLinkModal(sceneId, onDone) {
 
       <div class="field">
         <label for="th-new">أو ابدأ قصّة جديدة</label>
-        <input id="th-new" name="newTitle" type="text" maxlength="80"
+        <input id="th-new" name="newTitle" type="text" maxlength="160"
           placeholder="مثلًا: شحنة أبريل اللي اتأخّرت" autocomplete="off" />
       </div>
 
@@ -152,7 +152,7 @@ export async function openThreadEditModal(threadId, onDone) {
     body: html`
       <div class="field">
         <label for="te-title">العنوان</label>
-        <input id="te-title" name="title" type="text" maxlength="80"
+        <input id="te-title" name="title" type="text" maxlength="160"
           value="${thread.title}" />
       </div>
       <div class="field">

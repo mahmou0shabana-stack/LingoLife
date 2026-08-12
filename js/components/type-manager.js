@@ -50,7 +50,7 @@ export function openTypeManager({ focusId = null } = {}) {
         <div class="tm-list" data-list></div>
         <form class="tm-add" data-add-root>
           <input type="text" name="label" placeholder="نوع جديد… مثلًا: تسليم شحنة"
-                 maxlength="40" autocomplete="off" />
+                 maxlength="120" autocomplete="off" />
           <button type="submit" class="btn btn-primary btn-sm">${icon('plus', 15)} أضف</button>
         </form>
         <div class="modal-actions">
@@ -91,7 +91,7 @@ export function openTypeManager({ focusId = null } = {}) {
       if (isEditing) {
         return `
           <form class="tm-row tm-row-edit" data-edit="${type.id}" style="--depth:${depth}">
-            <input type="text" name="label" value="${esc(type.label)}" maxlength="40"
+            <input type="text" name="label" value="${esc(type.label)}" maxlength="120"
                    autocomplete="off" data-autofocus />
             <button type="submit" class="btn btn-primary btn-sm">${icon('check', 15)}</button>
             <button type="button" class="btn btn-ghost btn-sm" data-cancel>إلغاء</button>
@@ -130,7 +130,7 @@ export function openTypeManager({ focusId = null } = {}) {
     function addRow(parentId) {
       return `
         <form class="tm-row tm-row-edit" data-add-child="${parentId}" style="--depth:1">
-          <input type="text" name="label" placeholder="اسم الفرع…" maxlength="40"
+          <input type="text" name="label" placeholder="اسم الفرع…" maxlength="120"
                  autocomplete="off" data-autofocus />
           <button type="submit" class="btn btn-primary btn-sm">${icon('check', 15)}</button>
           <button type="button" class="btn btn-ghost btn-sm" data-cancel>إلغاء</button>

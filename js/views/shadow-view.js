@@ -1781,7 +1781,7 @@ async function openSaveDialog() {
               .join('')
           )}
         </div>
-        <input type="text" name="newTag" placeholder="أو اكتب سبب جديد…" maxlength="30" />
+        <input type="text" name="newTag" placeholder="أو اكتب سبب جديد…" maxlength="80" />
       </div>
 
       <div class="field">

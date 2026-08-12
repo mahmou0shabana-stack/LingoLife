@@ -21,13 +21,18 @@ const stack = [];
  */
 /**
  * @param {{title, body, actions, onSubmit, submitLabel,
- *          onMount?: (modal: HTMLElement) => void}} config
+ *          onMount?: (modal: HTMLElement) => void, wide?: boolean}} config
+ *
+ * `wide` لنصٍّ طويل — النصّ الأصلي أطولُ ما يُكتب في التطبيق، ومربّعٌ
+ * بعرض النموذج العادي يجعلك تكتب أقلّ ممّا تذكر *(A6)*.
  *
  * `onMount` تُنادى بعد إلحاق النافذة بالصفحة: حقلٌ حيّ داخل نموذج
  * (منتقي المتحدّث مثلًا) يحتاج أن يربط مستمعيه، ولا يمكنه ذلك قبل
  * وجود عناصره في الـDOM.
  */
-export function showModal({ title, body, actions, onSubmit, submitLabel = 'حفظ', onMount }) {
+export function showModal({
+  title, body, actions, onSubmit, submitLabel = 'حفظ', onMount, wide = false,
+}) {
   return new Promise((resolve) => {
     const overlay = document.createElement('div');
     overlay.className = 'overlay';
@@ -38,7 +43,7 @@ export function showModal({ title, body, actions, onSubmit, submitLabel = 'حف�
     ];
 
     overlay.innerHTML = `
-      <div class="modal" role="dialog" aria-modal="true" aria-label="${title}">
+      <div class="modal${wide ? ' is-wide' : ''}" role="dialog" aria-modal="true" aria-label="${title}">
         <h2>${title}</h2>
         <form data-modal-form>
           ${body}

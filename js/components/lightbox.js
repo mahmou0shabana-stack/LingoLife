@@ -67,7 +67,7 @@ export async function openLightbox(mediaId, sceneId) {
     </div>
 
     <div class="lb-caption">
-      <input type="text" data-lb-caption maxlength="120"
+      <input type="text" data-lb-caption maxlength="200"
              placeholder="سمّيها — الاسم ده هتلاقيها بيه بعد سنة">
     </div>
 

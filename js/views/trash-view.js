@@ -61,7 +61,6 @@ export async function renderTrash(main) {
 
   if (!total) {
     main.innerHTML = html`
-      <button class="back-row" data-action="back">${raw(icon('back'))} رجوع</button>
       <div class="empty-state">
         <div class="glyph">${raw(icon('trash'))}</div>
         <h2>السلة فاضية</h2>
@@ -72,7 +71,6 @@ export async function renderTrash(main) {
   }
 
   main.innerHTML = html`
-    <button class="back-row" data-action="back">${raw(icon('back'))} رجوع</button>
     <div class="view-head">
       <h1>سلة المهملات</h1>
       <div class="sub">${total} عنصر · كلها قابلة للاسترجاع</div>

@@ -49,7 +49,7 @@ export function openPeopleManager() {
         <div data-unlinked></div>
         <form class="tm-add" data-add-person>
           <input type="text" name="name" placeholder="شخص جديد… مثلًا Алексей"
-                 maxlength="60" autocomplete="off" />
+                 maxlength="120" autocomplete="off" />
           <button type="submit" class="btn btn-primary btn-sm">${icon('plus', 15)} أضف</button>
         </form>
         <div class="modal-actions">
@@ -87,11 +87,11 @@ export function openPeopleManager() {
       if (editing === person.id) {
         return `
           <form class="tm-row tm-row-edit person-edit" data-edit="${person.id}">
-            <input type="text" name="name" value="${esc(person.name)}" maxlength="60"
+            <input type="text" name="name" value="${esc(person.name)}" maxlength="120"
                    placeholder="الاسم" autocomplete="off" data-autofocus />
-            <input type="text" name="nameRu" value="${esc(person.nameRu)}" maxlength="60"
+            <input type="text" name="nameRu" value="${esc(person.nameRu)}" maxlength="120"
                    placeholder="بالروسي" dir="ltr" lang="ru" autocomplete="off" />
-            <input type="text" name="role" value="${esc(person.role)}" maxlength="40"
+            <input type="text" name="role" value="${esc(person.role)}" maxlength="120"
                    placeholder="الدور" list="person-roles" autocomplete="off" />
             <button type="submit" class="btn btn-primary btn-sm">${icon('check', 15)}</button>
             <button type="button" class="btn btn-ghost btn-sm" data-cancel>إلغاء</button>
@@ -182,6 +182,20 @@ export function openPeopleManager() {
       listHost.innerHTML = people.length
         ? people.map((p) => personRow(p, counts)).join('')
         : `<p class="tm-hint">لسه مفيش حد. اكتب اسمًا تحت، أو اربط واحدًا من اللي فوق.</p>`;
+
+      /*
+       * ⚠️ **الأدوار تتعلّم منك** *(A8)*. كانت القائمة ثابتةً في الكود
+       *    وحدها، فتكتب «مدير المخزن» عشر مرّات ولا تُقترَح عليك في
+       *    الحادية عشرة. فما كتبتَه بنفسك يُضمّ إليها — **ويسبقها**،
+       *    لأنه أقربُ إلى ما ستكتبه الآن.
+       *
+       * ⚠️ ويُملأ هنا لا عند الفتح: عند الفتح لم يكن أحدٌ قد قُرئ بعد.
+       */
+      const mine = [...new Set(
+        people.map((row) => String(row.role || '').trim()).filter(Boolean)
+      )].filter((role) => !PERSON_ROLES.includes(role));
+      roles.innerHTML = [...mine, ...PERSON_ROLES]
+        .map((r) => `<option value="${esc(r)}"></option>`).join('');
 
       unlinkedHost.innerHTML = unlinkedBlock(unlinked, people.filter((p) => !p.archived));
       archivedButton.textContent = showArchived ? 'إخفاء المؤرشف' : 'إظهار المؤرشف';
@@ -310,10 +324,9 @@ export function openPeopleManager() {
       }
     });
 
-    // قائمة أدوار جاهزة — نقطة بداية لا قائمة مغلقة.
+    // قائمة أدوار جاهزة — تُملأ في `render` لأنها تتعلّم ممّا كتبتَه.
     const roles = document.createElement('datalist');
     roles.id = 'person-roles';
-    roles.innerHTML = PERSON_ROLES.map((r) => `<option value="${r}"></option>`).join('');
     overlay.append(roles);
 
     document.addEventListener('keydown', onKey);

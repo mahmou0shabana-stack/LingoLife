@@ -10,7 +10,7 @@
 
 import { openDB } from './db/database.js';
 import { cleanupStaleSlot } from './services/backup/restore.js';
-import { route, notFound, startRouter, navigate, back, refresh, getCurrentRoute } from './router.js';
+import { route, notFound, startRouter, navigate, back, refresh, getCurrentRoute, canGoBack } from './router.js';
 import { requestPersistence } from './services/storage-service.js';
 import { trashScene, restoreScene } from './services/scene-service.js';
 import {
@@ -75,6 +75,9 @@ import {
   openScriptModal, openPartModal, openMistakeModal, openExpressionModal,
 } from './modals/content-modals.js';
 import { openParticipantsModal } from './modals/participant-modals.js';
+import {
+  openRawTranscriptModal, openCleanTranscriptModal,
+} from './modals/transcript-modals.js';
 import { handleAddImages, handleAddAudio, handleRecord } from './modals/media-actions.js';
 import { openLightbox } from './components/lightbox.js';
 import { openLinksModal } from './modals/link-modal.js';
@@ -158,6 +161,14 @@ function syncNavState() {
 
   const fab = $('#fab');
   if (fab) fab.hidden = !(path === '/' || path.startsWith('/life'));
+
+  /*
+   * ⚠️ الرجوع يظهر حين يكون هناك ما يُرجَع إليه **داخل التطبيق**، ولا
+   *    يظهر على «دلوقتي» لأنها البيت. زرٌّ يظهر دائمًا ثم لا يفعل شيئًا
+   *    أسوأ من زرٍّ لا يظهر.
+   */
+  const backBtn = $('#app-back');
+  if (backBtn) backBtn.hidden = path === '/' || !canGoBack();
 }
 
 
@@ -382,6 +393,41 @@ function wireActions() {
       case 'add-expression': return openExpressionModal(sceneId);
       case 'edit-participants': return openParticipantsModal(sceneId);
       case 'improve': return openImproveModal();
+      case 'app-back': return back();
+
+      /* النصّ الأصلي — سابعُ حقلٍ ميّتٍ صار له شاشة *(A5)*. */
+      case 'write-raw': return openRawTranscriptModal(sceneId || id);
+      case 'tr-edit-clean': return openCleanTranscriptModal(sceneId || id);
+      case 'tr-expand': {
+        target.closest('.tr-block')?.classList.remove('is-clipped');
+        target.remove();
+        return undefined;
+      }
+      case 'tr-copy': {
+        const text = target.closest('.sec')?.querySelector('.tr-text')?.textContent || '';
+        await copyToClipboard(text);
+        return toastOk('اتنسخ');
+      }
+      case 'tr-focus': {
+        /*
+         * ⚠️ وضع التركيز يقرأ ولا يكتب: هو قراءةٌ في شاشةٍ فارغة، لا
+         *    محرّرٌ ثانٍ. والأصل مقفولٌ أصلًا (بند 27).
+         */
+        document.body.classList.add('tr-focused');
+        const sec = target.closest('.sec');
+        sec?.classList.add('is-focused');
+        sec?.querySelector('.tr-block')?.classList.remove('is-clipped');
+        const exit = document.createElement('button');
+        exit.className = 'tr-exit';
+        exit.textContent = 'اخرج من التركيز';
+        exit.addEventListener('click', () => {
+          document.body.classList.remove('tr-focused');
+          sec?.classList.remove('is-focused');
+          exit.remove();
+        });
+        sec?.append(exit);
+        return undefined;
+      }
 
       case 'show-script': {
         ui.activeScriptId = id;

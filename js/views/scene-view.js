@@ -6,6 +6,7 @@
  */
 
 import { getSceneFull } from '../services/scene-service.js';
+import { transcriptOf } from '../services/transcript-service.js';
 import { listConversationParts, listSceneExpressions, getBlock, scriptTypeLabel, registerLabel, registerClass } from '../services/content-service.js';
 import { urlFor, releaseUrls, AUDIO_ROLE_LABEL } from '../services/media-service.js';
 import { html, raw, formatDuration } from '../utils/dom.js';
@@ -25,6 +26,7 @@ const SECTIONS = [
   { id: 'voices', label: 'الأصوات', count: 'audio' },
   { id: 'scripts', label: 'السكريبتات', count: 'scripts' },
   { id: 'conversation', label: 'المحادثة', count: 'parts' },
+  { id: 'transcript', label: 'النصّ الأصلي' },
   { id: 'mistakes', label: 'خطأ / طبيعي', count: 'mistakes' },
   { id: 'language', label: 'اللغة', count: 'expressions' },
   { id: 'recall', label: 'احكيها' },
@@ -450,6 +452,71 @@ function sectionRecall(scene, hasImage) {
     </section>`;
 }
 
+/**
+ * النصّ الأصلي — سابعُ حقلٍ ميّتٍ يُحيا.
+ *
+ * ⚠️ **محدودُ الارتفاع من أوّل يوم** *(A5)*. الملحق يعالجه على أنه
+ *    معروضٌ ويطلب تحديد ارتفاعه، والحقيقة أنه لم يكن معروضًا أصلًا.
+ *    فلا يُبنى مفتوحًا ثم يُقيَّد: يُبنى مقيَّدًا، ويُفتَح بطلبك.
+ *
+ * ⚠️ **والأصل يُكتب مرّةً ثم يُقفَل** *(بند 27)*. النصّ الذي كتبتَه
+ *    ساعتها هو ما قيل فعلًا بأخطائه، وتصحيحُه فوق نفسه يمحو الفرق
+ *    بين ما قلتَه وما كان ينبغي — وعليه يقوم نصفُ التطبيق.
+ */
+function sectionTranscript(scene, t) {
+  const long = t.rawText.length > 600;
+
+  if (!t.hasRaw) {
+    return html`
+      <section class="sec" id="sec-transcript">
+        ${raw(head('script', 'النصّ الأصلي', '', null))}
+        <p class="tr-why">
+          اللي اتقال فعلًا، بأخطائه. بيتكتب <strong>مرّة واحدة</strong>
+          وبعدها مابيتعدّلش — والتصحيح بيبقى نسخة تانية جنبه.
+        </p>
+        ${raw(slot('write-raw', scene.id, 'script', 'اكتب النصّ الأصلي',
+          'من غير ما تظبّطه — الغلط نفسه هو الفايدة'))}
+      </section>`;
+  }
+
+  return html`
+    <section class="sec" id="sec-transcript">
+      ${raw(head('script', 'النصّ الأصلي', '', null))}
+
+      <div class="tr-block${long ? ' is-clipped' : ''}" data-tr-block>
+        <span class="tr-lock" title="مقفول — بند 27">${raw(icon('eyeOff'))} مابيتعدّلش</span>
+        <p class="tr-text ru" dir="auto">${t.rawText}</p>
+        ${raw(long ? html`
+          <button class="tr-more" data-action="tr-expand">اقرا الباقي</button>` : '')}
+      </div>
+
+      <div class="tr-tools">
+        <button class="btn btn-ghost btn-sm" data-action="tr-copy" data-id="${scene.id}">
+          ${raw(icon('copy'))} انسخ
+        </button>
+        <button class="btn btn-ghost btn-sm" data-action="tr-focus" data-id="${scene.id}">
+          ${raw(icon('eye'))} وضع التركيز
+        </button>
+      </div>
+
+      ${raw(t.hasClean ? html`
+        <div class="tr-clean">
+          <div class="tr-clean-head">
+            <h3>${raw(icon('check'))} النسخة المصحّحة</h3>
+            <button class="add" data-action="tr-edit-clean" data-id="${scene.id}">
+              ${raw(icon('edit'))} عدّل
+            </button>
+          </div>
+          <p class="tr-text ru" dir="auto">${t.cleanText}</p>
+        </div>`
+        : html`
+        <button class="tr-addclean" data-action="tr-edit-clean" data-id="${scene.id}">
+          ${raw(icon('plus'))} اعمل نسخة مصحّحة
+          <span>الأصل بيفضل زيّ ما هو — دي بتعيش جنبه</span>
+        </button>`)}
+    </section>`;
+}
+
 function sectionNotes(scene, notesText) {
   return html`
     <section class="sec" id="sec-notes">
@@ -499,7 +566,6 @@ export async function renderScene(main, sceneId, options = {}) {
   const full = await getSceneFull(sceneId);
   if (!full) {
     main.innerHTML = html`
-      <button class="back-row" data-action="back">${raw(icon('back'))} رجوع</button>
       <div class="empty-state">
         <div class="glyph">${raw(icon('info'))}</div>
         <h2>الذكرى دي مش موجودة</h2>
@@ -513,13 +579,14 @@ export async function renderScene(main, sceneId, options = {}) {
   const images = mediaItems.filter((m) => m.kind === 'image');
   const audio = mediaItems.filter((m) => m.kind === 'audio');
 
-  const [parts, expressionList, notesBlock, threads, pivots, tree] = await Promise.all([
+  const [parts, expressionList, notesBlock, threads, pivots, tree, transcript] = await Promise.all([
     listConversationParts(sceneId),
     listSceneExpressions(sceneId),
     getBlock(sceneId, 'notes'),
     threadsOfScene(sceneId),
     pivotsFor(sceneId),
     facetTree(),
+    transcriptOf(sceneId),
   ]);
 
   /*
@@ -566,7 +633,6 @@ export async function renderScene(main, sceneId, options = {}) {
   const cover = images.find((m) => m.id === scene.coverMediaId) || images[0] || null;
 
   main.innerHTML = html`
-    <button class="back-row" data-action="back">${raw(icon('back'))} رجوع</button>
 
     <div class="scene-top">
       <div class="titles">
@@ -666,6 +732,7 @@ export async function renderScene(main, sceneId, options = {}) {
       ${raw(sectionLanguage(scene, expressionList))}
       ${raw(sectionScripts(scene, scriptList, options.activeScriptId))}
       ${raw(sectionConversation(scene, parts))}
+      ${raw(sectionTranscript(scene, transcript))}
       ${raw(sectionPeople(scene, scenePeople, looseSpeakers))}
       ${raw(sectionMistakes(scene, mistakes))}
       ${raw(sectionLife(journeys))}

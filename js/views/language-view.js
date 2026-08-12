@@ -148,7 +148,6 @@ export async function renderExpression(main, expressionId) {
 
   if (!life) {
     main.innerHTML = html`
-      <button class="back-row" data-action="back">${raw(icon('back'))} رجوع</button>
       <div class="empty-state">
         <div class="glyph">${raw(icon('info'))}</div>
         <h2>التعبير ده مش موجود</h2>
@@ -163,7 +162,6 @@ export async function renderExpression(main, expressionId) {
     : 0;
 
   main.innerHTML = html`
-    <button class="back-row" data-action="back">${raw(icon('back'))} رجوع</button>
 
     <div class="view-head">
       <h1 class="lg-title" dir="ltr" lang="ru">${expression.text}</h1>
@@ -248,13 +246,11 @@ export async function renderWord(main, text) {
 
   if (!life) {
     main.innerHTML = html`
-      <button class="back-row" data-action="back">${raw(icon('back'))} رجوع</button>
       <div class="empty-state"><h2>كلمة فاضية</h2></div>`;
     return;
   }
 
   main.innerHTML = html`
-    <button class="back-row" data-action="back">${raw(icon('back'))} رجوع</button>
 
     <div class="view-head">
       <h1 class="lg-title" dir="ltr" lang="ru">${life.text}</h1>

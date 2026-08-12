@@ -3082,3 +3082,125 @@ body:has(.shadow-app) .improve-fab { display: none; }
   .dv-rowtop { flex-direction: column; align-items: flex-start; gap: 2px; }
   .imp-row { flex-direction: column; gap: 0; }
 }
+
+/* ------------------------------------------------------------
+   النصّ الأصلي — سابعُ حقلٍ ميّتٍ صار له شاشة (A5 · A6)
+
+   ⚠️ محدودُ الارتفاع **من أوّل يوم**. لا يُبنى مفتوحًا ثم يُقيَّد:
+      يُبنى مقيَّدًا ويُفتَح بطلبك.
+   ------------------------------------------------------------ */
+
+.tr-why {
+  font-size: var(--fs-xs); color: var(--ink-soft);
+  margin: 0 0 var(--sp-3); line-height: 1.7;
+}
+
+.tr-block { position: relative; }
+.tr-block.is-clipped {
+  max-block-size: 220px;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to bottom, #000 60%, transparent);
+  mask-image: linear-gradient(to bottom, #000 60%, transparent);
+}
+
+.tr-lock {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: var(--fs-2xs); color: var(--ink-faint);
+  background: var(--surface-soft); border-radius: var(--radius-pill);
+  padding: 2px 9px; margin-bottom: var(--sp-2);
+}
+.tr-lock svg { inline-size: 13px; block-size: 13px; }
+
+.tr-text {
+  font-size: var(--fs-sm); line-height: 1.95;
+  white-space: pre-wrap; overflow-wrap: anywhere; margin: 0;
+}
+
+.tr-more {
+  position: absolute; inset-block-end: 0; inset-inline-start: 0;
+  font: inherit; font-size: var(--fs-xs); cursor: pointer;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius-pill); padding: 3px 12px; color: var(--accent);
+}
+
+.tr-tools { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-3); }
+
+.tr-clean {
+  margin-top: var(--sp-4); padding-top: var(--sp-3);
+  border-block-start: 1px dashed var(--line-strong);
+}
+.tr-clean-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--sp-3); margin-bottom: var(--sp-2);
+}
+.tr-clean-head h3 {
+  font-size: var(--fs-sm); margin: 0; color: var(--green);
+  display: flex; gap: 6px; align-items: center;
+}
+.tr-clean-head h3 svg { inline-size: 15px; block-size: 15px; }
+
+.tr-addclean {
+  font: inherit; text-align: start; cursor: pointer; inline-size: 100%;
+  margin-top: var(--sp-3); padding: var(--sp-3);
+  border: 1px dashed var(--line-strong); border-radius: var(--radius-md);
+  background: none; color: var(--ink-soft);
+  display: grid; gap: 2px; font-size: var(--fs-sm);
+}
+.tr-addclean:hover { border-color: var(--accent); color: var(--accent); }
+.tr-addclean span { font-size: var(--fs-2xs); color: var(--ink-faint); }
+
+/* محرّر النصّ — أطولُ ما يُكتب في التطبيق */
+.tr-editor {
+  inline-size: 100%; font: inherit; font-size: var(--fs-sm);
+  line-height: 1.9; padding: var(--sp-3);
+  border: 1px solid var(--line); border-radius: var(--radius-md);
+  background: var(--surface); color: var(--ink); resize: vertical;
+}
+.modal.is-wide { max-inline-size: min(760px, 94vw); }
+
+/* ⚠️ وضع التركيز (A6): شاشةٌ فارغةٌ إلا منه — قراءةٌ لا تحرير. */
+body.tr-focused .board > .sec:not(.is-focused),
+body.tr-focused .scene-head,
+body.tr-focused .app-header,
+body.tr-focused .improve-fab,
+body.tr-focused .fab { display: none; }
+body.tr-focused .app-main { margin-inline-start: 0; }
+body.tr-focused .sec.is-focused {
+  max-inline-size: 68ch; margin-inline: auto;
+}
+body.tr-focused .tr-text { font-size: var(--fs-md); line-height: 2.15; }
+
+.tr-exit {
+  font: inherit; font-size: var(--fs-sm); cursor: pointer;
+  margin-top: var(--sp-5); padding: 8px var(--sp-4);
+  border: 1px solid var(--line); border-radius: var(--radius-pill);
+  background: var(--surface); color: var(--ink-soft);
+}
+
+/* ------------------------------------------------------------
+   الرجوع الكوني (A1)
+
+   ⚠️ واحدٌ في القشرة لا زرٌّ منسوخٌ في كل شاشة.
+   ------------------------------------------------------------ */
+
+.app-back {
+  display: inline-flex; align-items: center; gap: 6px;
+  font: inherit; font-size: var(--fs-sm); cursor: pointer;
+  padding: 7px var(--sp-3); margin-block-end: var(--sp-3);
+  border: 1px solid var(--line); border-radius: var(--radius-pill);
+  background: var(--surface); color: var(--ink-soft);
+  transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+.app-back:hover { color: var(--accent); border-color: var(--accent-line); }
+.app-back svg { inline-size: 15px; block-size: 15px; }
+.app-back[hidden] { display: none; }
+
+/* على الهاتف الهيدر شريطٌ أفقيّ — فالرجوع أيقونةٌ بلا كلمة. */
+@media (max-width: 767px) {
+  .app-back {
+    margin-block-end: 0;
+    padding: 6px 9px;
+    order: -1;
+  }
+  .app-back span { display: none; }
+}

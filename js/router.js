@@ -19,6 +19,20 @@ let notFoundHandler = null;
 let currentRoute = null;
 
 /**
+ * كم تنقُّلًا حدث **داخل التطبيق** منذ فتحه.
+ *
+ * ⚠️ هذا ما يجعل «رجوع» صادقًا. `window.history.length` يعدّ تاريخ
+ *    التبويب كلّه — بما فيه الصفحات قبل التطبيق — فزرُّ رجوعٍ يعتمد
+ *    عليه يخرجك من التطبيق إلى موقعٍ آخر. وهو خروجٌ لا رجوع.
+ */
+let depth = 0;
+
+/** هل هناك موضعٌ داخل التطبيق نرجع إليه؟ */
+export function canGoBack() {
+  return depth > 0;
+}
+
+/**
  * يسجّل مسارًا.
  * @param {string} pattern — مثل '/scene/:id'
  * @param {(params: object) => void | Promise<void>} handler
@@ -61,10 +75,18 @@ export function navigate(path, { replace = false } = {}) {
   }
 }
 
-/** رجوع خطوة. */
+/**
+ * رجوع خطوة — **داخل التطبيق**.
+ *
+ * ⚠️ وإن لم يكن هناك موضعٌ داخليّ فإلى «دلوقتي» لا إلى خارج التطبيق.
+ */
 export function back() {
-  if (window.history.length > 1) window.history.back();
-  else navigate('/');
+  if (depth > 0) {
+    depth -= 1;
+    window.history.back();
+    return;
+  }
+  navigate('/', { replace: true });
 }
 
 /** معلومات المسار الحالي — تُستخدم لتحديد زر التنقّل النشط. */
@@ -85,6 +107,7 @@ async function resolve() {
       params[name] = decodeURIComponent(match[i + 1]);
     });
 
+    if (currentRoute && currentRoute.path !== path) depth += 1;
     currentRoute = { pattern: entry.pattern, path, params };
     try {
       await entry.handler(params);
