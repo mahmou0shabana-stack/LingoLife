@@ -453,9 +453,19 @@ function wireActions() {
       /* النصّ الأصلي — سابعُ حقلٍ ميّتٍ صار له شاشة *(A5)*. */
       case 'write-raw': return openRawTranscriptModal(sceneId || id);
       case 'tr-edit-clean': return openCleanTranscriptModal(sceneId || id);
+      /*
+       * ⚠️ **«اقرا الباقي» تفتح بتمريرٍ داخليّ ثم تطوي** — ولا تمدّ
+       *    النصَّ على الصفحة. راجع `.tr-block.is-open` في components.css:
+       *    لقطتُك كانت 16143 بكسل طولًا.
+       */
       case 'tr-expand': {
-        target.closest('.tr-block')?.classList.remove('is-clipped');
-        target.remove();
+        const block = target.closest('.tr-block');
+        if (!block) return undefined;
+        const opening = block.classList.contains('is-clipped');
+        block.classList.toggle('is-clipped', !opening);
+        block.classList.toggle('is-open', opening);
+        target.textContent = opening ? 'اطوِه' : 'اقرا الباقي';
+        if (!opening) block.scrollTop = 0;
         return undefined;
       }
       case 'tr-copy': {

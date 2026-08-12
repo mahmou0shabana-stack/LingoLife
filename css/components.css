@@ -3103,6 +3103,29 @@ body:has(.shadow-app) .improve-fab { display: none; }
   mask-image: linear-gradient(to bottom, #000 60%, transparent);
 }
 
+/*
+ * ⚠️ **مفتوحٌ ≠ ممدودٌ على الصفحة كلّها.**
+ *
+ * بلاغُك ومعه الدليل: لقطةٌ من جهازك مقاسها 540×**16143** بكسل — النصّ
+ * ماشٍ على طول الصفحة بلا نهاية. والسبب أن «اقرا الباقي» كانت تشيل
+ * الحدَّ **كلَّه**، فتصير الذكرى ستّة عشر ألف بكسل لا تجد فيها موضعك
+ * ولا ترجع منه.
+ *
+ * فصارت ثلاث حالاتٍ لا اثنتان:
+ *   مطويّ (220px)  ──▶  مفتوحٌ بتمريرٍ داخليّ (70vh)  ──▶  وضع التركيز
+ *
+ * والوسطى هي «العرض الذكيّ» الذي طلبتَه: تقرأ كلَّ شيءٍ بلا أن تبتلع
+ * الصفحةَ الفقرةُ الواحدة.
+ */
+.tr-block.is-open {
+  max-block-size: 70vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-inline-end: var(--sp-2);
+  border-inline-start: 3px solid var(--line-soft);
+  padding-inline-start: var(--sp-3);
+}
+
 .tr-lock {
   display: inline-flex; align-items: center; gap: 5px;
   font-size: var(--fs-2xs); color: var(--ink-faint);
