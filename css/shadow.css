@@ -159,14 +159,35 @@
 }
 
 /* الكعب — الخيط الفاصل بين الصفحتين، ويُسحب لتغيير النسبة */
+/*
+ * ⚠️ **٢٠px لا تُمسَك بإصبع.**
+ *
+ * بلاغُك: «التحكّم بين الصفحتين غلط خالص». والشريط كان يعمل فعلًا —
+ * لكن ارتفاعه ٢٠px، وأصغرُ هدفٍ يُمسَك بإصبعٍ في إرشادات أندرويد و
+ * iOS معًا **٤٤px**. فكنتَ تصيب الصفحة لا الشريط، فتظنّه لا يعمل.
+ *
+ * والحلّ ليس شريطًا سميكًا يأكل الشاشة، بل **هدفًا واسعًا ومظهرًا
+ * رفيعًا**: الحشوة تُوسّع ما تلمسه، والخطّ يبقى ٣px.
+ */
 .sh-spine {
   flex: 0 0 auto;
-  height: 20px;
+  min-block-size: 44px;
   display: grid;
   place-items: center;
   cursor: row-resize;
   touch-action: none;
   background: linear-gradient(90deg, transparent, rgba(139, 92, 246, .12), transparent);
+}
+
+/* وعلى الشاشة العريضة الصفحتان جنبًا لجنب، فالسحب أفقيّ. */
+@media (min-width: 900px) {
+  .sh-spine {
+    min-block-size: 0;
+    min-inline-size: 44px;
+    cursor: col-resize;
+    background: linear-gradient(180deg, transparent, rgba(139, 92, 246, .12), transparent);
+  }
+  .sh-spine::after { inline-size: 3px; block-size: 44px; }
 }
 
 .sh-spine::after {
@@ -178,6 +199,8 @@
 }
 
 .sh-spine:active::after { background: var(--sh-accent); }
+/* ويكبر وهو ممسوك — كي تعرف أنك أمسكتَه فعلًا. */
+.sh-spine.is-dragging::after { background: var(--sh-accent); block-size: 5px; }
 
 /* ─────────────── عناوين الصفحات ─────────────── */
 

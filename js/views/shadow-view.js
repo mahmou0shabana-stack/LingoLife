@@ -64,7 +64,10 @@ import {
 import {
   addExpression, addScript, listConversationParts, EXPRESSION_SOURCE,
 } from '../services/content-service.js';
-import { savedItems } from '../db/repositories.js';
+import { savedItems, settings } from '../db/repositories.js';
+
+/** نسبةُ الصفحة اليسرى — تُحفَظ فلا تعيد ضبطها كل جلسة. */
+const SPLIT_KEY = 'shadow.split';
 import { deleteWithUndo } from '../services/delete-service.js';
 import {
   findNativeAudio,
@@ -2442,6 +2445,14 @@ function wireSpine(main) {
   if (!spine || !book) return;
 
   let dragging = false;
+  let savedSplit = 55;
+
+  /* ما ضبطتَه آخر مرّة — يُقرأ عند الفتح فلا تعيد ضبطه كل جلسة. */
+  settings.get(SPLIT_KEY, null).then((stored) => {
+    if (!stored || dragging) return;
+    savedSplit = stored;
+    book.style.setProperty('--split', `${stored}%`);
+  }).catch(() => {});
 
   const apply = (event) => {
     const horizontal = window.matchMedia('(min-width: 900px)').matches;
@@ -2451,17 +2462,30 @@ function wireSpine(main) {
       : (event.clientY - rect.top) / rect.height;
     // الحدّان يمنعان اختفاء صفحة تمامًا.
     const clamped = Math.max(0.25, Math.min(0.78, ratio));
-    book.style.setProperty('--split', `${(clamped * 100).toFixed(1)}%`);
+    savedSplit = Number((clamped * 100).toFixed(1));
+    book.style.setProperty('--split', `${savedSplit}%`);
   };
 
   spine.addEventListener('pointerdown', (event) => {
     dragging = true;
+    spine.classList.add('is-dragging');
     spine.setPointerCapture(event.pointerId);
     event.preventDefault();
   });
   spine.addEventListener('pointermove', (event) => { if (dragging) apply(event); });
-  spine.addEventListener('pointerup', (event) => {
+
+  const release = (event) => {
+    if (!dragging) return;
     dragging = false;
-    spine.releasePointerCapture(event.pointerId);
-  });
+    spine.classList.remove('is-dragging');
+    try { spine.releasePointerCapture(event.pointerId); } catch { /* رُفع أصلًا */ }
+    /*
+     * ⚠️ **ويُحفَظ.** كان يعيش في `style` وحدها، فأوّلُ إعادةِ رسمٍ
+     *    تمحوه وتعود الصفحتان إلى ٥٥٪. أن تضبطه كل مرّة أسوأ من ألّا
+     *    تضبطه.
+     */
+    settings.set(SPLIT_KEY, savedSplit).catch(() => {});
+  };
+  spine.addEventListener('pointerup', release);
+  spine.addEventListener('pointercancel', release);
 }
