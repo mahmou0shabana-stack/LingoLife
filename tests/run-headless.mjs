@@ -145,7 +145,7 @@ await seedPage.close();
 
 const ROUTES = ['/', '/life', '/language', '/river', '/facets', '/constellation',
   '/analysis',
-  '/threads', '/search', '/trash', '/import', '/settings',
+  '/threads', '/search', '/trash', '/import', '/studio', '/settings',
   // ومسارات بمُعطى — على ما زُرع للتوّ.
   `/scene/${seededSceneId}`, '/day/2026-05-01'];
 

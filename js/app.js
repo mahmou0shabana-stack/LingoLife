@@ -60,6 +60,7 @@ import { renderAnalysis } from './views/analysis-view.js';
 import {
   renderConstellation, resetConstellation, handleConstellationAction,
 } from './views/constellation-view.js';
+import { renderStudio, resetStudio, wireStudio } from './views/studio-view.js';
 
 /* ---- الحالة العابرة وإعادة العرض ---- */
 import { ui, reloadScene, refreshStorageCard } from './ui-state.js';
@@ -90,6 +91,12 @@ function view(renderFn, opts = {}) {
     // ساعة يجب أن تبدأ من الصفر لا من قراراتٍ نسيتَ لماذا اتّخذتَها.
     if (renderFn !== renderImport) resetImport();
     if (renderFn !== renderConstellation) resetConstellation();
+    /*
+     * ⚠️ ومغادرة الاستوديو تُسقط الدفعة نصف المحدَّدة — ومعها **قدرة
+     *    التراجع**. وهذا حدٌّ مُعلَنٌ في الشاشة نفسها لا هنا وحده:
+     *    التراجع يعيش في الذاكرة، فمغادرتُك تنهيه.
+     */
+    if (renderFn !== renderStudio) resetStudio();
     // ⚠️ لا نوقف الصوت عند التنقّل. المشغّل يعيش خارج الشاشات عمدًا،
     //    فتسمع تسجيلك وأنت تقرأ سكريبت ذكرى أخرى — والشريط المصغّر
     //    يبقى ظاهرًا في كل الشاشات.
@@ -132,6 +139,7 @@ function syncNavState() {
     : path.startsWith('/language') || path.startsWith('/expression')
       || path.startsWith('/word') ? 'language'
     : path.startsWith('/search') ? 'search'
+    : path.startsWith('/studio') ? 'studio'
     : path.startsWith('/trash') ? 'trash'
     : path.startsWith('/settings') ? 'settings'
     : null;
@@ -573,12 +581,18 @@ async function boot() {
   route('/day/:date', view(renderDay, { param: 'date' }));
   route('/facets', view(renderFacets));
   route('/analysis', view(renderAnalysis));
+  route('/studio', view(renderStudio));
   route('/constellation', view(renderConstellation));
   route('/expression/:id', view(renderExpression));
   route('/word/:text', view(renderWord, { param: 'text' }));
   notFound(() => navigate('/', { replace: true }));
 
   wireActions();
+  /*
+   * الاستوديو يُعيد كتابة `main` كاملةً عند كل خطوة، فمستمعوه مندوبون
+   * من `main` نفسه ويُركَّبون مرّةً هنا — لا مع كل رسم.
+   */
+  wireStudio(main, () => renderStudio(main));
   // اللوحة لا تعرف شاشات التطبيق فتُطلق حدثًا، ونحن نفتح النافذة.
   document.body.addEventListener('audio:links', (event) => {
     const sceneId = getCurrentRoute()?.params?.id || getCurrentRoute()?.path?.split('/')[2];
