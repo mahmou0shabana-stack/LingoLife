@@ -17,6 +17,7 @@
 
 import { html, raw, $, $$, esc, copyToClipboard } from '../utils/dom.js';
 import { icon } from '../components/icons.js';
+import { filterBar, activeCount } from '../components/filter-bar.js';
 import { toast, toastOk, toastError } from '../components/toast.js';
 import { showModal, confirmAction } from '../components/modal.js';
 import { navigate, back } from '../router.js';
@@ -72,7 +73,6 @@ export async function renderDev(main) {
     filterIssues(state.filters),
   ]);
 
-  const hasFilter = Object.values(state.filters).some((v) => v !== '' && v !== null);
 
   main.innerHTML = html`
     <header class="dv-head">
@@ -96,9 +96,10 @@ export async function renderDev(main) {
           </button>`).join(''))}
       </div>
 
-      ${raw(usefulPanel(view))}
-
-      <section class="dv-filters">
+      ${raw(filterBar({
+        active: activeCount(state.filters),
+        clear: 'clear',
+        body: html`<div class="dv-filters">
         <input class="dv-search" type="search" data-dev="query"
                placeholder="دوّر في العناوين والتعليقات…" value="${state.filters.query}" />
         <select data-dev="filter-feature">
@@ -121,9 +122,8 @@ export async function renderDev(main) {
           ${raw(Object.entries(BLOCKED_REASON_META).map(([id, meta]) => html`
             <option value="${id}" ${state.filters.blockedReason === id ? 'selected' : ''}>${meta.label}</option>`).join(''))}
         </select>
-        ${raw(hasFilter ? html`
-          <button class="btn btn-ghost btn-sm" data-dev="clear">شيل الفلاتر</button>` : '')}
-      </section>
+        </div>`,
+      }))}
 
       <div class="dv-listhead">
         <span>${rows.length ? `${rows.length} ${plural(rows.length, 'ملاحظة', 'ملاحظتين', 'ملاحظة')}` : 'مفيش نتايج'}</span>
@@ -137,6 +137,7 @@ export async function renderDev(main) {
         ${raw(rows.map(issueRow).join(''))}
       </div>
 
+      ${raw(usefulPanel(view))}
       ${raw(briefsSection(briefs))}
       ${raw(refusedSection())}
     `)}`;
