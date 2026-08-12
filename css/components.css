@@ -2714,3 +2714,371 @@
   .st-actions .btn { flex: 1; }
   .st-row-top { flex-direction: column; align-items: flex-start; gap: 2px; }
 }
+
+/* ------------------------------------------------------------
+   مختبر التطوّر
+
+   ⚠️ العدّاد يبان إنه بيتضغط. الفرق بين عدّاد ومؤشِّر إن العدّاد
+      بيتفتح، ولو شكله زيّ الرقم الميّت مش هتحاول تضغطه.
+   ------------------------------------------------------------ */
+
+/* زرّ «طوّر ده» — على كل شاشة */
+/*
+ * ⚠️ على نفس جهة `.fab` لا مقابلها. الشريط الجانبي يجلس في
+ *    `inset-inline-start` على الشاشات الواسعة، فزرٌّ هناك يركب فوقه —
+ *    وقد ركب فعلًا، ورآه فحصُ اللقطة لا القراءة.
+ *
+ * ⚠️ ويعلوه بارتفاعه: الاتنان يظهران معًا في «دلوقتي» و«حياتي»،
+ *    وتراكبُهما يجعل ضغطةً واحدة تفتح ما لم تقصد.
+ */
+.improve-fab {
+  position: fixed;
+  inset-block-end: calc(var(--nav-h) + var(--sp-4) + 54px + var(--sp-3)
+                        + env(safe-area-inset-bottom));
+  inset-inline-end: var(--sp-5);
+  inline-size: 44px; block-size: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink-faint);
+  display: grid; place-items: center;
+  cursor: pointer; z-index: var(--z-fab);
+  box-shadow: var(--shadow-sm);
+  transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+}
+.improve-fab:hover { color: var(--accent); border-color: var(--accent-line); }
+.improve-fab svg { inline-size: 20px; block-size: 20px; }
+@media (min-width: 768px) {
+  .improve-fab {
+    inset-block-end: calc(var(--sp-6) + 54px + var(--sp-3));
+    inset-inline-end: var(--sp-6);
+  }
+}
+/* في الظلّ الغامر لا مكان له — الشاشة كلها كتاب. */
+body:has(.shadow-app) .improve-fab { display: none; }
+
+/* ---- الرأس ---- */
+.dv-head {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: var(--sp-4); margin-bottom: var(--sp-5); flex-wrap: wrap;
+}
+.dv-head h1 { font-size: var(--fs-xl); margin: 0; }
+.dv-sub { color: var(--ink-faint); font-size: var(--fs-sm); margin: 4px 0 0; }
+
+/* ---- العدّادات ---- */
+.dv-counters { display: flex; flex-wrap: wrap; gap: var(--sp-3); margin-bottom: var(--sp-5); }
+.dv-counter {
+  font: inherit; cursor: pointer; text-align: start;
+  border: 1px solid var(--line); border-radius: var(--radius-md);
+  background: var(--surface); padding: var(--sp-3) var(--sp-4);
+  display: grid; gap: 2px; min-inline-size: 96px;
+  transition: border-color var(--dur-fast) var(--ease), transform var(--dur-fast) var(--ease);
+}
+.dv-counter:hover { transform: translateY(-2px); border-color: var(--accent-line); }
+.dv-counter.is-on { border-color: var(--accent); background: var(--accent-wash); }
+.dv-counter strong { font-size: var(--fs-2xl); font-family: var(--font-display); line-height: 1; }
+.dv-counter span { font-size: var(--fs-2xs); color: var(--ink-soft); }
+.dv-counter.is-blocked strong { color: var(--red); }
+.dv-counter.is-review strong { color: var(--amber); }
+.dv-counter.is-progress strong { color: var(--accent); }
+.dv-counter.is-resolved strong { color: var(--green); }
+
+/* ---- بطاقات ما يستحقّ العرض ---- */
+.dv-useful {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: var(--sp-4); margin-bottom: var(--sp-5);
+}
+.dv-card {
+  background: var(--surface-soft); border: 1px solid var(--line);
+  border-radius: var(--radius-lg); padding: var(--sp-4);
+}
+.dv-card h2 { font-size: var(--fs-sm); margin: 0 0 var(--sp-3); color: var(--ink-soft); }
+.dv-mini, .dv-facts { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+.dv-mini button {
+  font: inherit; background: none; border: 0; cursor: pointer; padding: 2px 0;
+  color: var(--ink); font-size: var(--fs-sm); text-align: start; inline-size: 100%;
+}
+.dv-mini button:hover { color: var(--accent); }
+.dv-mini strong { font-family: var(--font-display); margin-inline-end: 4px; }
+.dv-facts li { display: grid; gap: 2px; font-size: var(--fs-xs); }
+.dv-facts span { color: var(--ink-faint); }
+.dv-facts strong { font-size: var(--fs-sm); }
+.dv-facts em { font-style: normal; color: var(--ink-faint); font-size: var(--fs-2xs); }
+.dv-facts button {
+  font: inherit; background: none; border: 0; padding: 0; cursor: pointer;
+  color: var(--accent); text-align: start; font-size: var(--fs-sm);
+}
+/* ما لا تكفي عيّنتُه: سببٌ لا رقمٌ كاذب. */
+.dv-nodata { color: var(--amber); }
+
+/* ---- الفلاتر ---- */
+.dv-filters {
+  display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: var(--sp-4);
+}
+.dv-filters select, .dv-search {
+  font: inherit; font-size: var(--fs-sm); padding: 7px var(--sp-3);
+  border: 1px solid var(--line); border-radius: var(--radius-md);
+  background: var(--surface); color: var(--ink);
+}
+.dv-search { flex: 1; min-inline-size: 180px; }
+
+.dv-listhead {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--sp-3); font-size: var(--fs-sm); color: var(--ink-faint);
+  padding-block: var(--sp-2); border-block-end: 1px solid var(--line);
+  margin-bottom: var(--sp-3);
+}
+
+/* ---- الصفوف ---- */
+.dv-rows { display: grid; gap: var(--sp-2); margin-bottom: var(--sp-6); }
+.dv-row {
+  display: flex; align-items: stretch; gap: var(--sp-2);
+  border: 1px solid var(--line); border-radius: var(--radius-md);
+  background: var(--surface); overflow: hidden;
+}
+.dv-row.is-picked { border-color: var(--accent); background: var(--accent-wash); }
+.dv-pick { display: grid; place-items: center; padding-inline-start: var(--sp-3); }
+.dv-pick input { inline-size: 17px; block-size: 17px; accent-color: var(--accent); }
+.dv-rowmain {
+  flex: 1; font: inherit; text-align: start; cursor: pointer;
+  background: none; border: 0; padding: var(--sp-3); display: grid; gap: 4px;
+  min-inline-size: 0;
+}
+.dv-rowmain:hover { background: var(--surface-soft); }
+.dv-rowtop { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); }
+.dv-title { font-size: var(--fs-sm); font-weight: 600; overflow-wrap: anywhere; }
+.dv-rowmeta {
+  display: flex; flex-wrap: wrap; gap: var(--sp-2);
+  font-size: var(--fs-2xs); color: var(--ink-faint);
+}
+.dv-why { color: var(--red); }
+.dv-pri.is-high { color: var(--red); font-weight: 600; }
+.dv-pri.is-low { color: var(--ink-faint); }
+
+.dv-badge {
+  font-size: var(--fs-2xs); border-radius: var(--radius-pill);
+  padding: 2px 9px; border: 1px solid var(--line);
+  background: var(--surface-soft); color: var(--ink-soft); flex: none;
+}
+.dv-badge.is-blocked { background: var(--red-bg); border-color: var(--red-line); color: var(--red); }
+.dv-badge.is-review { background: var(--amber-bg); border-color: var(--amber-line); color: var(--amber); }
+.dv-badge.is-progress { background: var(--accent-wash); border-color: var(--accent-line); color: var(--accent); }
+.dv-badge.is-resolved { background: var(--green-bg); border-color: var(--green-line); color: var(--green); }
+.dv-badge.is-idea { font-style: italic; }
+
+/* ---- الـBriefs ---- */
+.dv-briefs { margin-bottom: var(--sp-6); }
+.dv-briefhead {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--sp-3); margin-bottom: var(--sp-3);
+}
+.dv-briefhead h2 { font-size: var(--fs-md); margin: 0; }
+.dv-briefgrid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--sp-3);
+}
+.dv-brief {
+  font: inherit; text-align: start; cursor: pointer;
+  border: 1px solid var(--line); border-radius: var(--radius-md);
+  background: var(--surface); padding: var(--sp-3) var(--sp-4);
+  display: grid; gap: 4px;
+}
+.dv-brief:hover { border-color: var(--accent-line); }
+.dv-brieftop { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-2); }
+.dv-brieftop bdi { font-weight: 600; font-size: var(--fs-sm); }
+.dv-briefdesc { font-size: var(--fs-2xs); color: var(--ink-faint); }
+
+/* ---- ما رُفض عرضه ---- */
+.dv-refused {
+  border: 1px dashed var(--line-strong); border-radius: var(--radius-lg);
+  padding: var(--sp-4); background: var(--surface-soft); margin-bottom: var(--sp-7);
+}
+.dv-refused summary {
+  cursor: pointer; font-size: var(--fs-sm); color: var(--ink-soft);
+  display: flex; gap: var(--sp-2); align-items: center;
+}
+.dv-refused summary svg { inline-size: 16px; block-size: 16px; }
+.dv-refused ul { list-style: none; padding: 0; margin: var(--sp-4) 0 0; display: grid; gap: var(--sp-3); }
+.dv-refused li {
+  display: grid; gap: 2px; padding-inline-start: var(--sp-3);
+  border-inline-start: 3px solid var(--line-strong);
+}
+.dv-refused strong { font-size: var(--fs-sm); }
+.dv-refused span { font-size: var(--fs-xs); color: var(--ink-soft); line-height: 1.6; }
+
+/* ---- الملاحظة ---- */
+.dv-issue { max-inline-size: 780px; }
+.dv-issuehead {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: var(--sp-3); margin-bottom: var(--sp-3);
+}
+.dv-issuehead h1 { font-size: var(--fs-lg); margin: 0; overflow-wrap: anywhere; }
+.dv-tags { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-bottom: var(--sp-4); }
+.dv-tag {
+  font-size: var(--fs-2xs); color: var(--ink-soft);
+  background: var(--surface-soft); border-radius: var(--radius-pill); padding: 2px 9px;
+}
+.dv-tag.is-ok { background: var(--green-bg); color: var(--green); }
+.dv-tag.is-warn { background: var(--amber-bg); color: var(--amber); }
+.dv-goto {
+  font: inherit; font-size: var(--fs-2xs); cursor: pointer;
+  background: var(--accent-wash); border: 1px solid var(--accent-line);
+  color: var(--accent); border-radius: var(--radius-pill); padding: 2px 10px;
+  display: inline-flex; gap: 4px; align-items: center;
+}
+.dv-goto svg { inline-size: 12px; block-size: 12px; }
+
+.dv-body { font-size: var(--fs-sm); line-height: 1.75; white-space: pre-wrap; margin: 0 0 var(--sp-4); }
+.dv-blocked, .dv-accept, .dv-resolution, .dv-nobreak {
+  border-radius: var(--radius-md); padding: var(--sp-3) var(--sp-4);
+  margin-bottom: var(--sp-3); font-size: var(--fs-sm);
+}
+.dv-blocked { background: var(--red-bg); border: 1px solid var(--red-line); color: var(--red); }
+.dv-blocked p { margin: 4px 0 0; color: var(--ink); }
+.dv-accept { background: var(--surface-soft); border: 1px solid var(--line); }
+.dv-resolution { background: var(--green-bg); border: 1px solid var(--green-line); }
+.dv-resolution p { margin: 4px 0 0; white-space: pre-wrap; }
+.dv-nobreak { background: var(--amber-bg); border: 1px solid var(--amber-line); }
+
+.dv-actions {
+  display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center;
+  margin-block: var(--sp-4);
+}
+.chip.is-warn { border-color: var(--red-line); color: var(--red); }
+.chip.is-ok { border-color: var(--green-line); color: var(--green); }
+.dv-briefpick {
+  font: inherit; font-size: var(--fs-sm); padding: 6px var(--sp-3);
+  border: 1px solid var(--line); border-radius: var(--radius-pill);
+  background: var(--surface); color: var(--ink);
+}
+
+/* ---- الصور والإشارة ---- */
+.dv-shotsec { margin-block: var(--sp-5); display: grid; gap: var(--sp-4); }
+.dv-shotgroup h3 { font-size: var(--fs-sm); margin: 0 0 var(--sp-2); color: var(--ink-soft); }
+.dv-shots { display: flex; flex-wrap: wrap; gap: var(--sp-3); }
+.dv-shot { margin: 0; max-inline-size: 280px; }
+.dv-shotwrap {
+  position: relative; border: 1px solid var(--line);
+  border-radius: var(--radius-md); overflow: hidden; cursor: crosshair;
+}
+.dv-shotwrap img { display: block; inline-size: 100%; }
+.dv-shotwrap.is-marking { outline: 2px solid var(--accent); }
+/* الإشارة على الجزء المقصود — نِسَبٌ لا بكسلات، فتصحّ على أي مقاس. */
+.dv-mark {
+  position: absolute; border: 3px solid var(--red);
+  border-radius: 4px; background: rgba(214, 65, 75, 0.12);
+  pointer-events: none;
+}
+.dv-mark.is-draft { border-style: dashed; }
+.dv-shot figcaption {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--sp-2); font-size: var(--fs-2xs); color: var(--ink-faint); margin-top: 4px;
+}
+.dv-nomark { font-style: italic; }
+.dv-shot figcaption button {
+  font: inherit; background: none; border: 0; cursor: pointer;
+  color: var(--ink-faint); font-size: var(--fs-md); line-height: 1; padding: 0 4px;
+}
+.dv-shot figcaption button:hover { color: var(--red); }
+
+/* ---- الخطّ الزمني ---- */
+.dv-timeline { margin-block: var(--sp-5) var(--sp-7); }
+.dv-timeline h2 { font-size: var(--fs-md); margin: 0 0 var(--sp-3); }
+.dv-timeline ol { list-style: none; padding: 0; margin: 0; display: grid; gap: var(--sp-2); }
+.dv-ev {
+  display: grid; grid-template-columns: auto 1fr; gap: var(--sp-3);
+  align-items: baseline; font-size: var(--fs-xs);
+  padding-inline-start: var(--sp-3); border-inline-start: 3px solid var(--line-strong);
+  padding-block: 4px;
+}
+.dv-ev.is-resolved { border-inline-start-color: var(--green); }
+.dv-ev.is-blocked { border-inline-start-color: var(--red); }
+.dv-ev.is-reopened { border-inline-start-color: var(--amber); }
+.dv-evwhen { color: var(--ink-faint); font-size: var(--fs-2xs); }
+.dv-evwhat em { font-style: normal; color: var(--ink-faint); margin-inline-start: 6px; }
+.dv-evnote {
+  grid-column: 2; color: var(--ink-soft); white-space: pre-wrap;
+  background: var(--surface-soft); border-radius: var(--radius-sm);
+  padding: 4px 8px; margin-top: 2px;
+}
+
+/* ---- جاهز للتطوير ---- */
+.dv-ready {
+  background: var(--accent-wash); border: 1px solid var(--accent-line);
+  border-radius: var(--radius-lg); padding: var(--sp-4); margin-block: var(--sp-5);
+}
+.dv-ready h2 {
+  font-size: var(--fs-sm); margin: 0 0 var(--sp-2);
+  display: flex; gap: var(--sp-2); align-items: center;
+}
+.dv-ready h2 svg { inline-size: 16px; block-size: 16px; }
+.dv-exports { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-block: var(--sp-3); }
+.dv-pdfnote { font-size: var(--fs-2xs); color: var(--ink-faint); margin: 0; line-height: 1.6; }
+
+.dv-briefissues h2 { font-size: var(--fs-md); margin: var(--sp-5) 0 var(--sp-3); }
+
+/* ---- أسباب التوقّف في النموذج ---- */
+.dv-reasons { display: grid; gap: var(--sp-2); margin-bottom: var(--sp-4); }
+.dv-reason {
+  display: flex; gap: var(--sp-3); align-items: flex-start; cursor: pointer;
+  border: 1px solid var(--line); border-radius: var(--radius-md); padding: var(--sp-3);
+}
+.dv-reason:has(input:checked) { border-color: var(--accent); background: var(--accent-wash); }
+.dv-reason input { margin-block-start: 3px; accent-color: var(--accent); }
+.dv-reason span { display: grid; gap: 2px; }
+.dv-reason strong { font-size: var(--fs-sm); }
+.dv-reason em { font-style: normal; font-size: var(--fs-2xs); color: var(--ink-faint); }
+
+/* ---- نموذج «طوّر ده» ---- */
+.imp-where {
+  display: flex; gap: var(--sp-3); align-items: center;
+  background: var(--surface-soft); border: 1px solid var(--line);
+  border-radius: var(--radius-md); padding: var(--sp-3); margin-bottom: var(--sp-4);
+}
+.imp-where svg { inline-size: 18px; block-size: 18px; color: var(--ink-faint); flex: none; }
+.imp-where strong { font-size: var(--fs-sm); display: block; }
+.imp-where code { font-size: var(--fs-2xs); }
+.imp-row { display: flex; gap: var(--sp-3); }
+.imp-row .field { flex: 1; }
+.opt { color: var(--ink-faint); font-weight: 400; }
+
+.imp-similar {
+  border: 1px solid var(--amber-line); background: var(--amber-bg);
+  border-radius: var(--radius-md); padding: var(--sp-3); margin-bottom: var(--sp-4);
+}
+.imp-similar-head, .imp-similar-foot {
+  font-size: var(--fs-2xs); margin: 0 0 var(--sp-2);
+  display: flex; gap: 6px; align-items: center;
+}
+.imp-similar-head svg { inline-size: 14px; block-size: 14px; color: var(--amber); }
+.imp-similar-foot { margin: var(--sp-2) 0 0; color: var(--ink-soft); display: block; }
+.imp-sim {
+  font: inherit; text-align: start; cursor: pointer; inline-size: 100%;
+  background: var(--surface); border: 1px solid var(--line);
+  border-radius: var(--radius-sm); padding: 6px var(--sp-3);
+  display: grid; gap: 2px; margin-bottom: 4px;
+}
+.imp-sim:hover { border-color: var(--accent); }
+.imp-sim-title { font-size: var(--fs-sm); }
+.imp-sim-why { font-size: var(--fs-2xs); color: var(--ink-faint); }
+
+.imp-shots { margin-bottom: var(--sp-4); }
+.imp-thumbs { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-top: var(--sp-2); }
+.imp-thumb { position: relative; inline-size: 72px; block-size: 72px; }
+.imp-thumb img {
+  inline-size: 100%; block-size: 100%; object-fit: cover;
+  border-radius: var(--radius-sm); border: 1px solid var(--line);
+}
+.imp-thumb button {
+  position: absolute; inset-block-start: -6px; inset-inline-end: -6px;
+  inline-size: 20px; block-size: 20px; border-radius: 50%;
+  border: 1px solid var(--line); background: var(--surface);
+  cursor: pointer; font-size: 13px; line-height: 1; color: var(--ink-faint);
+}
+
+@media (max-width: 640px) {
+  .dv-useful { grid-template-columns: 1fr; }
+  .dv-briefgrid { grid-template-columns: 1fr; }
+  .dv-rowtop { flex-direction: column; align-items: flex-start; gap: 2px; }
+  .imp-row { flex-direction: column; gap: 0; }
+}

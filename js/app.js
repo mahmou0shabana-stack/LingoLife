@@ -61,6 +61,10 @@ import {
   renderConstellation, resetConstellation, handleConstellationAction,
 } from './views/constellation-view.js';
 import { renderStudio, resetStudio, wireStudio } from './views/studio-view.js';
+import {
+  renderDev, renderDevIssue, renderDevBrief, resetDev, wireDev,
+} from './views/dev-view.js';
+import { openImproveModal } from './modals/improve-modal.js';
 
 /* ---- الحالة العابرة وإعادة العرض ---- */
 import { ui, reloadScene, refreshStorageCard } from './ui-state.js';
@@ -97,6 +101,8 @@ function view(renderFn, opts = {}) {
      *    التراجع يعيش في الذاكرة، فمغادرتُك تنهيه.
      */
     if (renderFn !== renderStudio) resetStudio();
+    /* ومغادرة المختبر تُسقط فلاتره — لا تُقرأ مرشّحاتٌ نسيتَ سببها. */
+    if (renderFn !== renderDev) resetDev();
     // ⚠️ لا نوقف الصوت عند التنقّل. المشغّل يعيش خارج الشاشات عمدًا،
     //    فتسمع تسجيلك وأنت تقرأ سكريبت ذكرى أخرى — والشريط المصغّر
     //    يبقى ظاهرًا في كل الشاشات.
@@ -140,6 +146,7 @@ function syncNavState() {
       || path.startsWith('/word') ? 'language'
     : path.startsWith('/search') ? 'search'
     : path.startsWith('/studio') ? 'studio'
+    : path.startsWith('/dev') ? 'dev'
     : path.startsWith('/trash') ? 'trash'
     : path.startsWith('/settings') ? 'settings'
     : null;
@@ -374,6 +381,7 @@ function wireActions() {
       case 'add-mistake': return openMistakeModal(sceneId);
       case 'add-expression': return openExpressionModal(sceneId);
       case 'edit-participants': return openParticipantsModal(sceneId);
+      case 'improve': return openImproveModal();
 
       case 'show-script': {
         ui.activeScriptId = id;
@@ -582,6 +590,9 @@ async function boot() {
   route('/facets', view(renderFacets));
   route('/analysis', view(renderAnalysis));
   route('/studio', view(renderStudio));
+  route('/dev', view(renderDev));
+  route('/dev/issue/:id', view(renderDevIssue));
+  route('/dev/brief/:id', view(renderDevBrief));
   route('/constellation', view(renderConstellation));
   route('/expression/:id', view(renderExpression));
   route('/word/:text', view(renderWord, { param: 'text' }));
@@ -593,6 +604,16 @@ async function boot() {
    * من `main` نفسه ويُركَّبون مرّةً هنا — لا مع كل رسم.
    */
   wireStudio(main, () => renderStudio(main));
+  /*
+   * المختبر ثلاث شاشات تتشارك مستمعًا واحدًا — وإعادةُ الرسم تختار
+   * الشاشة من المسار، فزرٌّ في التفصيل يُحدِّث التفصيل لا اللوحة.
+   */
+  wireDev(main, () => {
+    const path = getCurrentRoute()?.path || '/dev';
+    if (path.startsWith('/dev/issue/')) return renderDevIssue(main, path.split('/').pop());
+    if (path.startsWith('/dev/brief/')) return renderDevBrief(main, path.split('/').pop());
+    return renderDev(main);
+  });
   // اللوحة لا تعرف شاشات التطبيق فتُطلق حدثًا، ونحن نفتح النافذة.
   document.body.addEventListener('audio:links', (event) => {
     const sceneId = getCurrentRoute()?.params?.id || getCurrentRoute()?.path?.split('/')[2];

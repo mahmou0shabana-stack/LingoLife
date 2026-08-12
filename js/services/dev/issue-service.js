@@ -239,6 +239,17 @@ export async function resolveIssue(id, resolutionNote) {
     status: STATUS.RESOLVED,
     resolutionNote: note,
     resolvedAt: at,
+    /*
+     * ⚠️ **وسببُ التوقّف يُفرَّغ هنا أيضًا.** كان `setStatus` وحدها
+     *    تفرّغه، فملاحظةٌ وقفت ثم حُلّت تخرج من الوقوف **وتحتفظ
+     *    بسببه** — فيظهر عليها «⛔ واقفة: محتاجة تجربة على الجهاز»
+     *    وهي محلولة، وتظهر في مرشّح «مستنية تجربة» وهي ليست كذلك.
+     *
+     *    كشفه النظر في لقطةٍ لا قراءةُ الكود: الشاشة قالت «مفتوحة»
+     *    وعرضت الصندوق الأحمر في السطر الذي تحته.
+     */
+    blockedReason: '',
+    blockedNote: '',
   });
   await record(id, EVENT.RESOLVED, { from: issue.status, to: STATUS.RESOLVED, note });
   return devIssues.get(id);

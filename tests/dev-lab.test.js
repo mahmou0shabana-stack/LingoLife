@@ -290,6 +290,24 @@ describe('الحلّ وإعادة الفتح — والتاريخ لا يُمح�
     expect(after.resolvedAt >= after.createdAt).toBe(true);
   });
 
+  it('⚠️ والحلّ يفرّغ سبب التوقّف — مايفضلش عليها وهي متحلّة', async () => {
+    /*
+     * عطبٌ حقيقيّ كشفته لقطةُ شاشة: الملاحظة كُتب عليها «مفتوحة»
+     * وتحتها صندوقٌ أحمر يقول «⛔ واقفة: محتاجة تجربة على الجهاز».
+     * وكانت تظهر في مرشّح «مستنية تجربة» وهي ليست كذلك.
+     */
+    await fresh();
+    const row = await issue('حاجة');
+    await blockIssue(row.id, BLOCKED_REASON.DEVICE, 'على التابلت');
+    await resolveIssue(row.id, 'اتعمل');
+
+    const after = await getIssue(row.id);
+    expect(after.blockedReason).toBe('');
+    expect(after.blockedNote).toBe('');
+    // ولا تظهر في مرشّح سبب التوقّف.
+    expect((await filterIssues({ blockedReason: BLOCKED_REASON.DEVICE })).length).toBe(0);
+  });
+
   it('⚠️ وحلٌّ بلا شرح مرفوض — الشرح هو اللي هتقراه بعد شهور', async () => {
     await fresh();
     const row = await issue('حاجة');
