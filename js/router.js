@@ -59,10 +59,28 @@ export function notFound(handler) {
   notFoundHandler = handler;
 }
 
-/** المسار الحالي من الـ hash. */
+/**
+ * المسار الحالي من الـ hash — **بلا ما بعد `?`**.
+ *
+ * ⚠️ `#/scene/SC_1?at=CP_9` مسارُه `/scene/SC_1` و«موضعُه» `at=CP_9`.
+ *    والفصل ضروريّ: بدونه لا يطابق أيَّ مسارٍ مسجَّل، فتفتح شاشةُ
+ *    «مش موجود» بدل الذكرى.
+ */
 export function currentPath() {
-  const hash = window.location.hash.slice(1);
+  const hash = window.location.hash.slice(1).split('?')[0];
   return hash.startsWith('/') ? hash : '/';
+}
+
+/**
+ * ما بعد `?` في المسار — **موضعٌ داخل الشاشة لا وجهةٌ أخرى**.
+ *
+ * به يقول البحثُ «افتح الذكرى **وانزل على الجملة دي**»، فلا تصل إلى
+ * أوّل الصفحة وتبحث بعينك عمّا ضغطتَ عليه.
+ */
+export function currentQuery() {
+  const hash = window.location.hash.slice(1);
+  const at = hash.indexOf('?');
+  return at < 0 ? {} : Object.fromEntries(new URLSearchParams(hash.slice(at + 1)));
 }
 
 /** انتقال برمجي. */

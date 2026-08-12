@@ -293,7 +293,7 @@ function sectionConversation(scene, parts) {
     ? parts
         .map(
           (p) => html`
-            <div class="bubble-row ${p.isMine ? 'mine' : ''}">
+            <div class="bubble-row ${p.isMine ? 'mine' : ''}" data-row="${p.id}">
               <span class="avatar">${(p.speaker || '؟').slice(0, 1)}</span>
               <div class="bubble">
                 <div class="who">${p.speaker}</div>

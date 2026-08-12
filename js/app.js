@@ -10,7 +10,8 @@
 
 import { openDB } from './db/database.js';
 import { cleanupStaleSlot } from './services/backup/restore.js';
-import { route, notFound, startRouter, navigate, back, refresh, getCurrentRoute, canGoBack } from './router.js';
+import { route, notFound, startRouter, navigate, back, refresh, getCurrentRoute, canGoBack, currentQuery } from './router.js';
+import { revealRow } from './components/reveal.js';
 import { requestPersistence } from './services/storage-service.js';
 import { trashScene, restoreScene } from './services/scene-service.js';
 import {
@@ -135,12 +136,27 @@ function view(renderFn, opts = {}) {
       // `opts.param` لأن ليس كل مسارٍ مفتاحه `id`: «اليوم» مفتاحه تاريخ.
       await renderFn(main, params?.[opts.param || 'id'], opts.passUi ? ui : undefined);
       lastRenderedPath = getCurrentRoute()?.path || null;
+
+      /*
+       * ⚠️ **«وصّلني للسطر نفسه»** — بلاغُك. `?at=` في المسار يعني
+       *    موضعًا **داخل** الشاشة لا وجهةً أخرى: ننزل إليه ونُضيئه
+       *    لحظةً. ولا يُنتظَر: لو لم يوجد فالشاشة تبقى كما هي.
+       */
+      const at = currentQuery().at;
+      if (at) revealRow(at);
       /*
        * شاشةٌ جديدة تبدأ من أعلاها، وإعادةُ رسمٍ تعود إلى موضعك.
        * والانتظارُ إطارًا لأن المتصفّح لم يُخطِّط الارتفاع الجديد بعد،
        * فالتمرير إلى موضعٍ أبعد من الارتفاع الحاليّ يُقصَّ إلى القاع.
        */
-      if (keepAt) {
+      /*
+       * ⚠️ **ولا نصعد لأعلى إن كان المطلوب النزول إلى صفّ.** أوّل
+       *    كتابةٍ فعلَت الاثنين، فكان `revealRow` ينزل ثم يسحبه هذا
+       *    السطر إلى الأعلى — تراه يقفز ويعود. كشفَه المتصفّح.
+       */
+      if (at) {
+        /* الصفّ يتكفّل بالموضع. */
+      } else if (keepAt) {
         requestAnimationFrame(() => window.scrollTo({ top: keepAt, behavior: 'instant' }));
       } else {
         window.scrollTo({ top: 0, behavior: 'instant' });

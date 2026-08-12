@@ -33,6 +33,7 @@ import {
 import { STATE } from '../db/schema.js';
 import { matches } from '../utils/normalization.js';
 import { typeLabel } from './type-service.js';
+import { rowLink } from '../components/reveal.js';
 
 /** أقصى ما يُعرض لكل مجموعة — ما بعده «فيه كمان». */
 export const PER_GROUP = 12;
@@ -85,7 +86,8 @@ const GROUPS = [
       subtitle: '',
       excerpt: excerpt(r.text, q),
       ru: true,
-      href: `/scene/${r.sceneId}`,
+      /* ⚠️ ينزل إلى السكريبت نفسه لا إلى أعلى الذكرى (WS20). */
+      href: rowLink(`/scene/${r.sceneId}`, r.id),
     }),
   },
 
@@ -116,7 +118,8 @@ const GROUPS = [
       title: excerpt(r.text, q, 70),
       subtitle: r.speaker || '',
       ru: true,
-      href: `/scene/${r.sceneId}`,
+      /* ⚠️ ينزل إلى الجملة نفسها — وهو بلاغُك: «يوصّلني ليها بعمق». */
+      href: rowLink(`/scene/${r.sceneId}`, r.id),
     }),
   },
 
@@ -132,7 +135,7 @@ const GROUPS = [
       title: r.text,
       subtitle: r.note || (r.kind === 'word' ? 'كلمة' : 'جملة'),
       ru: true,
-      href: r.sceneId ? `/scene/${r.sceneId}` : '/language',
+      href: r.sceneId ? rowLink(`/scene/${r.sceneId}`, r.sourceId || '') : '/language',
     }),
   },
 ];

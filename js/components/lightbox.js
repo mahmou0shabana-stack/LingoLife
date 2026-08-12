@@ -57,6 +57,16 @@ export async function openLightbox(mediaId, sceneId) {
 
   let zoom = 0;
   let pan = { x: 0, y: 0 };
+  /*
+   * ⚠️ **تكبيرٌ حرٌّ بالإصبعين** — بلاغُك: «تكبير وتصغير الصورة بإيدي
+   *    بالتاتش مش بالزراير بس». الأزرار تقفز بين مقاساتٍ معدودة،
+   *    والقرصُ يعطي أي مقاسٍ بينها. فالحرّ يغلب المعدود حين يوجد،
+   *    ويُلغى بالزرّ فيعود إلى القفزات.
+   *
+   * ⚠️ **والأزرار تبقى**: القرص ليس بديلًا بل ثاني طريق — ومَن على
+   *    شاشةٍ بلا لمسٍ يحتاجها.
+   */
+  let free = null;
 
   const box = document.createElement('div');
   box.className = 'lightbox';
@@ -104,11 +114,12 @@ export async function openLightbox(mediaId, sceneId) {
   }
 
   function applyZoom() {
-    const scale = ZOOMS[zoom];
-    if (zoom === 0) pan = { x: 0, y: 0 };
+    const scale = free ?? ZOOMS[zoom];
+    if (scale <= 1.01) pan = { x: 0, y: 0 };
     img.style.transform = `translate(${pan.x}px, ${pan.y}px) scale(${scale})`;
-    stage.classList.toggle('is-zoomed', zoom > 0);
-    box.querySelector('[data-lb-zoom]').textContent = zoom === 0 ? 'كبّر' : `${scale}× — صغّر`;
+    stage.classList.toggle('is-zoomed', scale > 1.01);
+    box.querySelector('[data-lb-zoom]').textContent =
+      scale <= 1.01 ? 'كبّر' : `${scale.toFixed(1)}× — صغّر`;
   }
 
   async function show(next) {
@@ -175,6 +186,8 @@ export async function openLightbox(mediaId, sceneId) {
     if (event.key === 'ArrowLeft') show(index + 1);
     if (event.key === ' ') {
       event.preventDefault();
+      /* الزرّ يُلغي التكبير الحرّ ويعود إلى المقاسات المعدودة. */
+      free = null;
       zoom = (zoom + 1) % ZOOMS.length;
       applyZoom();
     }
@@ -183,22 +196,68 @@ export async function openLightbox(mediaId, sceneId) {
   /* ---- السحب: تنقّل حين لا تكبير، وتحريك حين تكبير ---- */
 
   let drag = null;
+
+  /**
+   * الأصابع الملامسة الآن.
+   *
+   * ⚠️ `Pointer Events` لا `Touch Events`: تغطّي الإصبع والفأرة والقلم
+   *    بمستمعٍ واحد، فلا يُكتب المنطق مرّتين.
+   */
+  const touches = new Map();
+  let pinch = null;
+
+  const spread = () => {
+    const [a, b] = [...touches.values()];
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  };
+
   stage.addEventListener('pointerdown', (event) => {
+    touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (touches.size === 2) {
+      /* بدأ القرص: نُلغي السحب كي لا يتحرّك الإطار مع التكبير. */
+      drag = null;
+      pinch = { start: spread(), from: free ?? ZOOMS[zoom] };
+      return;
+    }
     drag = { x: event.clientX, y: event.clientY, panX: pan.x, panY: pan.y, moved: false };
     stage.setPointerCapture(event.pointerId);
   });
 
   stage.addEventListener('pointermove', (event) => {
+    if (touches.has(event.pointerId)) {
+      touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    }
+
+    if (pinch && touches.size === 2) {
+      const now = spread();
+      if (pinch.start > 0) {
+        /* ⚠️ مُقيَّدٌ بين ١ و٦: تكبيرٌ بلا حدٍّ يضيّع الصورة خارج الشاشة. */
+        free = Math.min(6, Math.max(1, pinch.from * (now / pinch.start)));
+        applyZoom();
+      }
+      return;
+    }
+
     if (!drag) return;
     const dx = event.clientX - drag.x;
     const dy = event.clientY - drag.y;
     if (Math.abs(dx) > 6 || Math.abs(dy) > 6) drag.moved = true;
-    if (zoom === 0) return;
+    if ((free ?? ZOOMS[zoom]) <= 1.01) return;
     pan = { x: drag.panX + dx, y: drag.panY + dy };
     applyZoom();
   });
 
+  const liftFinger = (event) => {
+    touches.delete(event.pointerId);
+    if (touches.size < 2) pinch = null;
+  };
+  stage.addEventListener('pointercancel', liftFinger);
+
   stage.addEventListener('pointerup', (event) => {
+    const wasPinching = Boolean(pinch);
+    liftFinger(event);
+    /* بعد القرص لا تنقّل: رفعُ الإصبع نهايةُ تكبيرٍ لا سحبةُ تصفّح. */
+    if (wasPinching) { drag = null; return; }
     if (!drag) return;
     const dx = event.clientX - drag.x;
     const moved = drag.moved;
@@ -209,6 +268,8 @@ export async function openLightbox(mediaId, sceneId) {
     if (moved && Math.abs(dx) > 40) return void show(dx > 0 ? index - 1 : index + 1);
     // ضغطةٌ بلا سحب تُكبّر — أسرع من قصد الزرّ على تابلت.
     if (!moved) {
+      /* الزرّ يُلغي التكبير الحرّ ويعود إلى المقاسات المعدودة. */
+      free = null;
       zoom = (zoom + 1) % ZOOMS.length;
       applyZoom();
     }
@@ -224,6 +285,8 @@ export async function openLightbox(mediaId, sceneId) {
     if (action === 'next') return void show(index + 1);
 
     if (action === 'zoom') {
+      /* الزرّ يُلغي التكبير الحرّ ويعود إلى المقاسات المعدودة. */
+      free = null;
       zoom = (zoom + 1) % ZOOMS.length;
       return applyZoom();
     }

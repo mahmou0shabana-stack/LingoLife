@@ -3450,3 +3450,24 @@ body.tr-focused .tr-text { font-size: var(--fs-md); line-height: 2.15; }
 
 .app-nav { padding-block-end: calc(var(--sp-2) + env(safe-area-inset-bottom, 0px) + 10px); }
 .nav-btn span { line-height: 1.7; }
+
+/* ------------------------------------------------------------
+   «وصّلني للسطر نفسه» (WS20)
+
+   ⚠️ إضاءةٌ مؤقّتة لا دائمة: لونٌ يبقى على صفٍّ يجعله يبدو مختارًا
+      أو معطَّلًا في كل زيارةٍ بعدها.
+   ------------------------------------------------------------ */
+
+.is-revealed {
+  animation: reveal-flash 2.2s var(--ease);
+  border-radius: var(--radius-md);
+}
+
+@keyframes reveal-flash {
+  0%, 55% { box-shadow: 0 0 0 3px var(--accent); background: var(--accent-wash); }
+  100%    { box-shadow: 0 0 0 3px transparent; background: transparent; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .is-revealed { animation-duration: 0.01ms; box-shadow: 0 0 0 3px var(--accent); }
+}
