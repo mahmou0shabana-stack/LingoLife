@@ -2829,8 +2829,17 @@ body:has(.shadow-app) .improve-fab { display: none; }
   margin-bottom: var(--sp-3);
 }
 
-/* ---- الصفوف ---- */
-.dv-rows { display: grid; gap: var(--sp-2); margin-bottom: var(--sp-6); }
+/* ---- الصفوف ----
+
+   ⚠️ **الصفُّ يُمسَح لا يُقرأ** (WS18). كان `96px` — ثلاثةَ أضعافِ ما
+      يحتاجه سطرٌ وسطر — فتُرى خمسُ ملاحظاتٍ من أربع عشرة على الهاتف.
+      والقائمةُ ليست موضعَ القراءة: القراءةُ في التفصيل بضغطةٍ واحدة.
+
+   ⚠️ **والعنوان سطرٌ واحد بحدّ** (`line-clamp`). بلا حدٍّ يعود عنوانٌ
+      طويلٌ بالصفِّ إلى ثلاثة سطور، فينهار المكسبُ عند أوّل بلاغٍ
+      تكتبه بجملةٍ كاملة — وهي أغلبُ ما تكتب.
+   ---- */
+.dv-rows { display: grid; gap: 6px; margin-bottom: var(--sp-6); }
 .dv-row {
   display: flex; align-items: stretch; gap: var(--sp-2);
   border: 1px solid var(--line); border-radius: var(--radius-md);
@@ -2841,15 +2850,19 @@ body:has(.shadow-app) .improve-fab { display: none; }
 .dv-pick input { inline-size: 17px; block-size: 17px; accent-color: var(--accent); }
 .dv-rowmain {
   flex: 1; font: inherit; text-align: start; cursor: pointer;
-  background: none; border: 0; padding: var(--sp-3); display: grid; gap: 4px;
+  background: none; border: 0; padding: var(--sp-2) var(--sp-3); display: grid; gap: 1px;
   min-inline-size: 0;
 }
 .dv-rowmain:hover { background: var(--surface-soft); }
-.dv-rowtop { display: flex; align-items: baseline; justify-content: space-between; gap: var(--sp-3); }
-.dv-title { font-size: var(--fs-sm); font-weight: 600; overflow-wrap: anywhere; }
+.dv-rowtop { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.dv-title {
+  font-size: var(--fs-sm); font-weight: 600; line-height: 1.45;
+  min-inline-size: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 .dv-rowmeta {
-  display: flex; flex-wrap: wrap; gap: var(--sp-2);
+  display: flex; gap: var(--sp-2); line-height: 1.4;
   font-size: var(--fs-2xs); color: var(--ink-faint);
+  min-inline-size: 0; overflow: hidden; white-space: nowrap;
 }
 .dv-why { color: var(--red); }
 .dv-pri.is-high { color: var(--red); font-weight: 600; }
@@ -2857,7 +2870,8 @@ body:has(.shadow-app) .improve-fab { display: none; }
 
 .dv-badge {
   font-size: var(--fs-2xs); border-radius: var(--radius-pill);
-  padding: 2px 9px; border: 1px solid var(--line);
+  padding: 1px 8px; line-height: 1.5; white-space: nowrap;
+  border: 1px solid var(--line);
   background: var(--surface-soft); color: var(--ink-soft); flex: none;
 }
 .dv-badge.is-blocked { background: var(--red-bg); border-color: var(--red-line); color: var(--red); }
@@ -3079,7 +3093,16 @@ body:has(.shadow-app) .improve-fab { display: none; }
 @media (max-width: 640px) {
   .dv-useful { grid-template-columns: 1fr; }
   .dv-briefgrid { grid-template-columns: 1fr; }
-  .dv-rowtop { flex-direction: column; align-items: flex-start; gap: 2px; }
+  /*
+   * ⚠️ **وكان العنوانُ والشارة يتراصّان سطرين على الهاتف** — وهو ما
+   *    جعل الصفَّ `74px` بعد أن قُصّت حشواتُه كلُّها. قِيسَ: `dv-rowtop`
+   *    وحدَه `40.6px` لسطرٍ ارتفاعه `19.8px`.
+   *
+   *    والتراصُّ كان يحمي العنوانَ من الانضغاط؛ وقد صار محميًّا بحدّه
+   *    (`text-overflow: ellipsis`)، فلا حاجة إليه. ولذلك حُذف السطر
+   *    ولم يُستبدَل بشيء.
+   */
+  .dv-rowmeta { font-size: 10px; }
   .imp-row { flex-direction: column; gap: 0; }
 }
 
@@ -3201,31 +3224,46 @@ body.tr-focused .tr-text { font-size: var(--fs-md); line-height: 2.15; }
 }
 
 /* ------------------------------------------------------------
-   الرجوع الكوني (A1)
+   الرجوع الكوني (A1) — وصار يقول **إلى أين** (WS23)
 
    ⚠️ واحدٌ في القشرة لا زرٌّ منسوخٌ في كل شاشة.
+
+   ⚠️ **وكان على الهاتف أيقونةً بلا كلمة** — `.app-back span { display:
+      none }`. أي أن الجهاز الذي جاء منه بلاغُ «مش عارف فين بيودّي على
+      فين» هو وحدَه الذي حُذف منه النصّ. فصار سطرَ المكان الأعلى،
+      ونصُّه وجهةٌ لا كلمة: «رجوع لـ حياتي».
    ------------------------------------------------------------ */
 
 .app-back {
-  display: inline-flex; align-items: center; gap: 6px;
-  font: inherit; font-size: var(--fs-sm); cursor: pointer;
-  padding: 7px var(--sp-3); margin-block-end: var(--sp-3);
-  border: 1px solid var(--line); border-radius: var(--radius-pill);
-  background: var(--surface); color: var(--ink-soft);
-  transition: color var(--dur-fast) var(--ease), border-color var(--dur-fast) var(--ease);
+  position: relative;
+  display: inline-flex; align-items: center; gap: 5px;
+  font: inherit; font-size: var(--fs-2xs); cursor: pointer;
+  padding: 0; border: 0; background: none; color: var(--ink-faint);
+  max-inline-size: 100%; text-align: start;
+  transition: color var(--dur-fast) var(--ease);
 }
-.app-back:hover { color: var(--accent); border-color: var(--accent-line); }
-.app-back svg { inline-size: 15px; block-size: 15px; }
+.app-back span {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.app-back:hover { color: var(--accent); }
+.app-back svg { inline-size: 13px; block-size: 13px; flex: none; }
 .app-back[hidden] { display: none; }
 
-/* على الهاتف الهيدر شريطٌ أفقيّ — فالرجوع أيقونةٌ بلا كلمة. */
-@media (max-width: 767px) {
-  .app-back {
-    margin-block-end: 0;
-    padding: 6px 9px;
-    order: -1;
-  }
-  .app-back span { display: none; }
+/*
+ * ⚠️ **ومساحةُ اللمس ٤٤ بكسلًا وإن كان السطرُ خمسةَ عشر.** هذا نفسُ
+ *    العطب الذي كان في شريط الظلّ: منطقٌ سليم وهدفٌ أصغر من إصبع،
+ *    فيظنّ المستخدم أنه لا يعمل. والتوسيعُ بعنصرٍ زائفٍ لا بحشوٍ
+ *    حقيقيّ: الحشوُ يُطيل القشرة، وهذا يوسّع ما يُلمَس وحده.
+ *
+ *    وامتدادُه لأسفل يغطّي طرفَ سطر الاسم — وهو غيرُ قابلٍ للضغط
+ *    أصلًا، فأعلى الكتلة كلُّه صار «رجوع». وهو الشائع في المتصفّحات.
+ */
+.app-back::before {
+  content: '';
+  position: absolute;
+  /* قِيسَ بـ`elementFromPoint` لا بالحساب: `-15px` أعطت `42px`. */
+  inset-block: -17px;
+  inset-inline: -10px;
 }
 
 /* ------------------------------------------------------------

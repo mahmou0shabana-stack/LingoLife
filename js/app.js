@@ -10,8 +10,9 @@
 
 import { openDB } from './db/database.js';
 import { cleanupStaleSlot } from './services/backup/restore.js';
-import { route, notFound, startRouter, navigate, back, refresh, getCurrentRoute, canGoBack, currentQuery } from './router.js';
+import { route, notFound, startRouter, navigate, back, refresh, getCurrentRoute, currentQuery } from './router.js';
 import { revealRow } from './components/reveal.js';
+import { syncPlace, startPlace } from './components/place.js';
 import { requestPersistence } from './services/storage-service.js';
 import { trashScene, restoreScene } from './services/scene-service.js';
 import {
@@ -50,7 +51,7 @@ import { renderShadow, disposeShadow } from './views/shadow-view.js';
 import { renderTrash, handleTrashAction } from './views/trash-view.js';
 import { renderDuplicates, handleDuplicatesAction } from './views/duplicates-view.js';
 import { renderPrompts, handlePromptsAction } from './views/prompts-view.js';
-import { startLayers, closeTop, hasLayer } from './components/layers.js';
+import { startLayers, closeTop } from './components/layers.js';
 import { renderThreads, renderThread } from './views/threads-view.js';
 import { openThreadLinkModal, openThreadEditModal } from './modals/thread-modals.js';
 import { renderSearch } from './views/search-view.js';
@@ -210,13 +211,12 @@ function syncNavState() {
   if (fab) fab.hidden = !(path === '/' || path.startsWith('/life'));
 
   /*
-   * ⚠️ الرجوع يظهر حين يكون هناك ما يُرجَع إليه **داخل التطبيق**، ولا
-   *    يظهر على «دلوقتي» لأنها البيت. زرٌّ يظهر دائمًا ثم لا يفعل شيئًا
-   *    أسوأ من زرٍّ لا يظهر.
+   * ⚠️ **وسطرا المكان يقولان أين أنت ومن أين جئت** (WS22). وفيهما
+   *    يُخفى الرجوعُ ويظهر: زرٌّ يظهر دائمًا ثم لا يفعل شيئًا أسوأ من
+   *    زرٍّ لا يظهر — ومَن فوقه طبقةٌ مفتوحة يجد له ما يفعله ولو كان
+   *    في البيت، فيصير نصُّه «اقفل».
    */
-  const backBtn = $('#app-back');
-  // ومَن فوقه طبقةٌ مفتوحة يجد للرجوع ما يفعله ولو كان في البيت.
-  if (backBtn) backBtn.hidden = (path === '/' || !canGoBack()) && !hasLayer();
+  syncPlace();
 }
 
 
@@ -745,6 +745,7 @@ async function boot() {
    *    أي رسم، وإلا مرّت أوّلُ ضغطة رجوعٍ بلا حارس.
    */
   startLayers();
+  startPlace();
   await startRouter();
 }
 

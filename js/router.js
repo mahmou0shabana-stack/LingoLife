@@ -19,17 +19,51 @@ let notFoundHandler = null;
 let currentRoute = null;
 
 /**
- * كم تنقُّلًا حدث **داخل التطبيق** منذ فتحه.
+ * **الأثر** — المسارات التي جئتَ منها، آخرُها أوّلُ ما ترجع إليه.
  *
  * ⚠️ هذا ما يجعل «رجوع» صادقًا. `window.history.length` يعدّ تاريخ
  *    التبويب كلّه — بما فيه الصفحات قبل التطبيق — فزرُّ رجوعٍ يعتمد
  *    عليه يخرجك من التطبيق إلى موقعٍ آخر. وهو خروجٌ لا رجوع.
+ *
+ * ⚠️ **وكان عدّادًا فصار قائمة** (WS23). العدّاد يقول «فيه رجوع» ولا
+ *    يقول **إلى أين** — وبلاغُك كان «مش عارف فين بيودّي على فين»، فلا
+ *    يُجاب عنه برقم. والقائمة تُصلح معه عطبًا كان فيه: العدّاد يزيد مع
+ *    كل `resolve` ولا ينقص أبدًا، لأن `back()` تُنقصه ثم يزيده
+ *    الـ`hashchange` الناتج عنها. فكان «فيه رجوع» صحيحًا إلى الأبد ولو
+ *    عدتَ إلى أوّل شاشةٍ فتحتها.
  */
-let depth = 0;
+let trail = [];
+
+/**
+ * يسجّل انتقالًا من مسارٍ إلى مسار.
+ *
+ * الرجوعُ يُعرَف بأثره لا بمن ناداه: إن كان الوصولُ إلى **آخر** ما في
+ * الأثر فهو رجوع، فيُرفَع. وهذا يشمل زرَّ رجوعِ المتصفّح نفسه — ولا
+ * سبيل لمعرفته غير هذا.
+ *
+ * ⚠️ مُصدَّرةٌ ليختبرها الاختبار مباشرةً: اختبارُها عبر `navigate`
+ *    الحقيقيّة يعني نقلَ صفحة الاختبارات نفسها إلى مسارٍ آخر.
+ */
+export function recordMove(from, to) {
+  if (!from || from === to) return;
+  if (trail.at(-1) === to) trail.pop();
+  else trail.push(from);
+}
+
+/** يمسح الأثر — للاختبارات وحدها. */
+export function resetTrail() {
+  trail = [];
+  replacing = false;
+}
 
 /** هل هناك موضعٌ داخل التطبيق نرجع إليه؟ */
 export function canGoBack() {
-  return depth > 0;
+  return trail.length > 0;
+}
+
+/** المسارُ الذي سيعيدك إليه «رجوع» — أو `null` إن لم يكن. */
+export function backTo() {
+  return trail.at(-1) || null;
 }
 
 /**
@@ -83,10 +117,23 @@ export function currentQuery() {
   return at < 0 ? {} : Object.fromEntries(new URLSearchParams(hash.slice(at + 1)));
 }
 
+/**
+ * هل الانتقال القادم **استبدالٌ** لا خطوةٌ جديدة؟
+ *
+ * ⚠️ `location.replace` تمحو المدخل الحاليّ من تاريخ المتصفّح ولا
+ *    تضيف واحدًا. فلو عدّه الأثرُ خطوةً لصار فيه موضعٌ لا وجودَ له في
+ *    التاريخ: تضغط «رجوع لـ …» فيعود المتصفّح خطوةً أبعد ممّا وعدَك
+ *    الزرّ. وأظهرُ حالاته مسارٌ غيرُ موجودٍ يُستبدَل بـ«دلوقتي».
+ */
+let replacing = false;
+
 /** انتقال برمجي. */
 export function navigate(path, { replace = false } = {}) {
   const target = `#${path.startsWith('/') ? path : `/${path}`}`;
   if (replace) {
+    /* ولو كان الهدف هو الحاليَّ فلا `hashchange` يأتي — فلا نرفع رايةً
+       تبقى مرفوعةً حتى تبتلع التنقّل الذي بعدها. */
+    replacing = window.location.hash !== target;
     window.location.replace(target);
   } else {
     window.location.hash = target;
@@ -99,8 +146,12 @@ export function navigate(path, { replace = false } = {}) {
  * ⚠️ وإن لم يكن هناك موضعٌ داخليّ فإلى «دلوقتي» لا إلى خارج التطبيق.
  */
 export function back() {
-  if (depth > 0) {
-    depth -= 1;
+  /*
+   * ⚠️ ولا نرفع من الأثر هنا: الرفعُ يتمّ في `resolve` حين يصل
+   *    الـ`hashchange` فعلًا. رفعُه مرّتين — مرّةً هنا ومرّةً هناك —
+   *    كان يُفقد خطوةً من الأثر في كل رجوع.
+   */
+  if (trail.length) {
     window.history.back();
     return;
   }
@@ -125,7 +176,8 @@ async function resolve() {
       params[name] = decodeURIComponent(match[i + 1]);
     });
 
-    if (currentRoute && currentRoute.path !== path) depth += 1;
+    if (replacing) replacing = false;
+    else recordMove(currentRoute?.path, path);
     currentRoute = { pattern: entry.pattern, path, params };
     try {
       await entry.handler(params);

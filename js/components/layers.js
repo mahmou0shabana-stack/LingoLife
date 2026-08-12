@@ -49,6 +49,17 @@ let ignore = 0;
 let fromHistory = false;
 
 /**
+ * يُعلن أن المكدّس تغيّر.
+ *
+ * ⚠️ **حدثٌ لا نداءٌ مباشر**: القشرة تحتاج أن تعرف (فزرُّ الرجوع يصير
+ *    «اقفل» حين تُفتَح نافذة)، لكن استيراد `place.js` هنا يصنع دورةً —
+ *    هي تستورد `hasLayer` منّا. فنُطلق ويستمع مَن يعنيه.
+ */
+function announce() {
+  document.body?.dispatchEvent(new CustomEvent('layers:change'));
+}
+
+/**
  * يسجّل طبقةً مفتوحة.
  *
  * @param {() => void} close ما يُنفَّذ حين يطلب المستخدم إغلاقها
@@ -59,6 +70,7 @@ export function pushLayer(close, { id = 'layer' } = {}) {
   const layer = { id, close };
   stack.push(layer);
   window.history.pushState({ lingolifeLayer: id }, '');
+  announce();
   return layer;
 }
 
@@ -72,6 +84,7 @@ export function dropLayer(layer) {
   const index = stack.lastIndexOf(layer);
   if (index < 0) return;
   stack.splice(index, 1);
+  announce();
 
   if (fromHistory) return;
   ignore += 1;
@@ -110,6 +123,7 @@ export function startLayers() {
     if (!stack.length) return;
 
     const layer = stack.pop();
+    announce();
     fromHistory = true;
     try {
       layer.close();

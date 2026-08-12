@@ -33,26 +33,34 @@
   <a class="skip-link" href="#app-main">تخطَّ إلى المحتوى</a>
 
   <header class="app-header">
-    <button class="brand" onclick="location.hash='#/'">
-      <img class="brand-mark" src="./assets/icons/icon.svg" alt="" width="34" height="34">
-      <span class="brand-text">
-        <b>LingoLife</b>
-        <span>حياتك. لغتك. ذاكرتك.</span>
-      </span>
-    </button>
-
     <!--
-      ⚠️ رجوعٌ **واحدٌ في القشرة** لا زرٌّ منسوخٌ في كل شاشة. كان في
-         ستّ شاشاتٍ من ستّ عشرة، والعشر الباقية تصل إليها ولا تخرج
-         منها إلا بالتنقّل الرئيسي — وهو ليس رجوعًا.
+      ⚠️ **سطرا المكان.** كانا «LingoLife» و«حياتك. لغتك. ذاكرتك.» —
+         زينةً في أثبت مكانٍ على الشاشة، وبلاغُك «مش عارف فين بيودّي
+         على فين». فصار الأعلى **من أين** والأسفل **أين أنت**،
+         ويعودان شعارًا في «دلوقتي» وحدها لأنها البيت.
 
-         ومكانُه هنا يعني أن أي شاشةٍ تُضاف غدًا تجده جاهزًا.
+         ويكتبهما `components/place.js` — لا شاشةَ تلمسهما.
     -->
-    <button class="app-back" id="app-back" data-action="app-back"
-            title="رجوع" aria-label="رجوع للشاشة اللي قبلها" hidden>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg>
-      <span>رجوع</span>
-    </button>
+    <div class="brand">
+      <button class="brand-mark-btn" onclick="location.hash='#/'"
+              title="روح لدلوقتي" aria-label="روح لشاشة دلوقتي">
+        <img class="brand-mark" src="./assets/icons/icon.svg" alt="" width="34" height="34">
+      </button>
+      <span class="brand-text">
+        <!--
+          ⚠️ رجوعٌ **واحدٌ في القشرة** لا زرٌّ منسوخٌ في كل شاشة. كان
+             في ستّ شاشاتٍ من ستّ عشرة، والعشر الباقية تصل إليها ولا
+             تخرج منها إلا بالتنقّل الرئيسي — وهو ليس رجوعًا.
+        -->
+        <button class="app-back" id="app-back" data-action="app-back"
+                aria-label="رجوع للشاشة اللي قبلها" hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg>
+          <span id="place-back-text">رجوع</span>
+        </button>
+        <b id="place-brand">LingoLife</b>
+        <span id="place-now">حياتك. لغتك. ذاكرتك.</span>
+      </span>
+    </div>
 
     <nav class="app-nav" aria-label="التنقّل الرئيسي">
       <button class="nav-btn" data-nav="now" onclick="location.hash='#/'">

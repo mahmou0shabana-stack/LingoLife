@@ -128,6 +128,7 @@
       await import('./prompts.test.js');
       await import('./passport.test.js');
       await import('./layers.test.js');
+      await import('./places.test.js');
 
       const result = await run((event) => {
         if (event.type === 'suite') {
