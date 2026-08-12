@@ -37,6 +37,11 @@ import {
 } from '../js/services/dev/brief-service.js';
 import { attachShot, shotsOf, normalizeRegion, hasComparison, PHASE } from '../js/services/dev/shots.js';
 import { labOverview, statusBoard, developmentHistory, issueStory, MIN_SAMPLE } from '../js/services/dev/metrics.js';
+import {
+  collectBrief, collectIssues, briefMarkdown, briefJson, briefZip,
+  briefPrintHtml, regionWords, shotFilename, safeName,
+} from '../js/services/dev/export.js';
+import { openZip } from '../js/utils/zip.js';
 
 async function fresh() {
   await openDB();
@@ -795,5 +800,187 @@ describe('تاريخ تطويري', () => {
     expect(story.reopenCount).toBe(1);
     expect(typeof story.startedAt).toBe('number');
     expect(story.lastAt >= story.startedAt).toBe(true);
+  });
+});
+
+/* ================================================================== */
+
+describe('التصدير — ملفٌّ يُفهَم بلا شرح', () => {
+  /** Brief كامل بكل ما يجب أن يخرج. */
+  async function full() {
+    await fresh();
+    const brief = await createBrief({
+      title: 'تحسينات تجربة الظلّ',
+      description: 'الكتاب محتاج شغل',
+      acceptance: 'الزرّ 56px والكتاب أرفع',
+      doNotBreak: 'استئناف الموضع في الكتاب',
+    });
+
+    const a = await createIssue({
+      title: 'زرّ التشغيل صغير',
+      body: 'مش بلاقيه بسهولة',
+      routePattern: '/shadow/:id',
+      routePath: '/shadow/SHS_1',
+      priority: PRIORITY.HIGH,
+      acceptance: 'يبقى 56px ودايري',
+      build: '2026-08-12',
+    });
+    await attachShot(a.id, pngFile('before.png'), {
+      region: { x: 0.05, y: 0.75, w: 0.2, h: 0.15 }, caption: 'الزرّ هنا',
+    });
+
+    const b = await createIssue({ title: 'الكتاب تخين', routePattern: '/shadow/:id' });
+    await blockIssue(b.id, BLOCKED_REASON.PRODUCT, 'محتاج أعرف عايزه رفيع قد إيه');
+
+    const c = await createIssue({ title: 'الخطّ الروسي', routePattern: '/shadow/:id' });
+    await resolveIssue(c.id, 'غيّرت الخطّ وكبّرت المسافة');
+    await attachShot(c.id, pngFile('after.png'), { phase: PHASE.AFTER });
+
+    for (const row of [a, b, c]) await moveToBrief(row.id, brief.id);
+    return { brief, a, b, c };
+  }
+
+  it('يجمع كل شيءٍ بقراءةٍ واحدة', async () => {
+    const { brief } = await full();
+    const bundle = await collectBrief(brief.id, { build: '2026-08-12' });
+
+    expect(bundle.issues.length).toBe(3);
+    expect(bundle.brief.doNotBreak).toBe('استئناف الموضع في الكتاب');
+    // ⚠️ الصور والخطّ الزمنيّ يجيئان معها — لا قراءةً ثانيةً تفترق عنها.
+    expect(bundle.issues[0].shots.length).toBe(1);
+    expect(bundle.issues[0].events.length > 0).toBe(true);
+  });
+
+  it('⚠️ والـMarkdown يحمل «ممنوع يتكسر» — أثمن سطر فيه', async () => {
+    const { brief } = await full();
+    const text = briefMarkdown(await collectBrief(brief.id));
+    expect(text.includes('ممنوع يتكسر')).toBe(true);
+    expect(text.includes('استئناف الموضع في الكتاب')).toBe(true);
+  });
+
+  it('ويحمل سبب التوقّف ونصّه', async () => {
+    const { brief } = await full();
+    const text = briefMarkdown(await collectBrief(brief.id));
+    expect(text.includes('مستنية قرارك')).toBe(true);
+    expect(text.includes('محتاج أعرف عايزه رفيع قد إيه')).toBe(true);
+  });
+
+  it('ويحمل «اللي اتعمل» و«إمتى أعتبرها خلصت»', async () => {
+    const { brief } = await full();
+    const text = briefMarkdown(await collectBrief(brief.id));
+    expect(text.includes('غيّرت الخطّ وكبّرت المسافة')).toBe(true);
+    expect(text.includes('يبقى 56px ودايري')).toBe(true);
+  });
+
+  it('ويحمل الشاشة والمسار ونسخة التطبيق', async () => {
+    const { brief } = await full();
+    const text = briefMarkdown(await collectBrief(brief.id, { build: '2026-08-12' }));
+    expect(text.includes('/shadow/:id')).toBe(true);
+    expect(text.includes('الظلّ')).toBe(true);
+    expect(text.includes('2026-08-12')).toBe(true);
+  });
+
+  it('⚠️ ووصف المنطقة بالكلام — «يمين» بحساب RTL لا LTR', () => {
+    // x صغيرة = بداية السطر = **يمين** الشاشة في واجهةٍ عربيّة.
+    expect(regionWords({ x: 0.05, y: 0.8, w: 0.2, h: 0.1 }).includes('يمين')).toBe(true);
+    expect(regionWords({ x: 0.8, y: 0.05, w: 0.15, h: 0.1 }).includes('شمال')).toBe(true);
+    expect(regionWords(null)).toBe('');
+  });
+
+  it('الـJSON مُهيكَل ويحمل نفس الحقائق', async () => {
+    const { brief } = await full();
+    const json = briefJson(await collectBrief(brief.id, { build: 'X' }));
+
+    expect(json.format).toBe('lingolife.dev-brief');
+    expect(json.brief.doNotBreak).toBe('استئناف الموضع في الكتاب');
+    expect(json.issues.length).toBe(3);
+
+    const blocked = json.issues.find((row) => row.blocked);
+    expect(blocked.blocked.label).toBe('مستنية قرارك إنت');
+    const resolved = json.issues.find((row) => row.resolution);
+    expect(resolved.resolution.note).toBe('غيّرت الخطّ وكبّرت المسافة');
+  });
+
+  it('⚠️ والصور تُذكَر بأسمائها لا بروابط data:', async () => {
+    const { brief } = await full();
+    const bundle = await collectBrief(brief.id);
+    const text = briefMarkdown(bundle);
+    const json = briefJson(bundle);
+
+    expect(text.includes('data:image')).toBe(false);
+    expect(text.includes('shots/')).toBe(true);
+    // والاسم نفسه في الصيغتين — وإلّا لم تُطابَق الصورة بملفّها.
+    const first = json.issues.flatMap((row) => row.shots)[0];
+    expect(text.includes(first.file)).toBe(true);
+  });
+
+  it('⚠️ والحزمة فيها النصّ والـJSON والصور ملفّاتٍ حقيقيّة', async () => {
+    const { brief } = await full();
+    const bundle = await collectBrief(brief.id);
+    const blob = await briefZip(bundle);
+
+    const zip = await openZip(blob);
+    const names = [...zip.entries.keys()];
+    expect(names.includes('brief.md')).toBe(true);
+    expect(names.includes('brief.json')).toBe(true);
+    expect(names.some((name) => name.startsWith('shots/'))).toBe(true);
+    // وعدد الصور = عدد اللقطات فعلًا.
+    expect(names.filter((name) => name.startsWith('shots/')).length).toBe(2);
+  });
+
+  it('وصفحة الطباعة تحمل العربيّة والإشارة على الصورة', async () => {
+    const { brief } = await full();
+    const html = briefPrintHtml(await collectBrief(brief.id));
+    expect(html.includes('dir="rtl"')).toBe(true);
+    expect(html.includes('ممنوع يتكسر')).toBe(true);
+    // الإشارة تُطبَع مع الصورة — وإلّا ضاع «أنهي جزء».
+    expect(html.includes('class="mark"')).toBe(true);
+  });
+
+  it('⚠️ ولا تهريبَ مكسورًا في صفحة الطباعة', async () => {
+    await fresh();
+    const brief = await createBrief({ title: 'برييف' });
+    const row = await createIssue({ title: '<script>alert(1)</script>' });
+    await moveToBrief(row.id, brief.id);
+
+    const html = briefPrintHtml(await collectBrief(brief.id));
+    expect(html.includes('<script>alert(1)</script>')).toBe(false);
+    expect(html.includes('&lt;script&gt;')).toBe(true);
+  });
+
+  it('تصدير ملاحظاتٍ مختارة بلا Brief', async () => {
+    await fresh();
+    const a = await createIssue({ title: 'أ' });
+    const b = await createIssue({ title: 'ب' });
+    const bundle = await collectIssues([a, b], { title: 'جاهز للتطوير' });
+
+    expect(bundle.issues.length).toBe(2);
+    expect(briefMarkdown(bundle).includes('جاهز للتطوير')).toBe(true);
+  });
+
+  it('واسم الملفّ بلا محارف تكسر نظام الملفّات', () => {
+    expect(safeName('تحسينات: الظلّ / الكتاب')).toBe('تحسينات--الظلّ---الكتاب');
+    expect(safeName('   ')).toBe('brief');
+  });
+
+  it('Brief مش موجود يرمي برسالةٍ مفهومة', async () => {
+    await fresh();
+    let message = '';
+    try {
+      await collectBrief('DVB_مش-موجود');
+    } catch (err) {
+      message = err.message;
+    }
+    expect(message.includes('مش موجود')).toBe(true);
+  });
+
+  it('⚠️ والتصدير يقرأ ولا يكتب — مرّتان بلا أثر', async () => {
+    const { brief } = await full();
+    const before = (await devEvents.getAll()).length;
+
+    await briefZip(await collectBrief(brief.id));
+    await briefZip(await collectBrief(brief.id));
+
+    expect((await devEvents.getAll()).length).toBe(before);
   });
 });
