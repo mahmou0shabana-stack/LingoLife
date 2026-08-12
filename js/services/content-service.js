@@ -335,6 +335,19 @@ export async function expressionSceneCount(expressionId) {
    ============================================================ */
 
 /** يقرأ كتلة نصّية بنوعها، أو ينشئها. */
+/**
+ * يقرأ كتلةً **بلا أن يُنشئها** — أو `null`.
+ *
+ * ⚠️ و`getBlock` أدناه **تكتب**: تُنشئ الكتلة إن لم تكن موجودة، لأن
+ *    المحرِّر يحتاج معرّفًا يحفظ فيه. وهو سلوكٌ صحيحٌ هناك وخطأٌ في كل
+ *    قراءةٍ أخرى — فبانَ حين بنى الجوازُ نفسه صفًّا في القاعدة وهو
+ *    يُفترَض أنه لا يكتب (WS15). فمَن يقرأ ليعرض يستعمل هذه.
+ */
+export async function readBlock(sceneId, kind) {
+  const blocks = await contentBlocks.byIndex('sceneId', sceneId);
+  return blocks.find((row) => row.kind === kind) || null;
+}
+
 export async function getBlock(sceneId, kind) {
   const blocks = await contentBlocks.byIndex('sceneId', sceneId);
   const found = blocks.find((b) => b.kind === kind);

@@ -126,6 +126,7 @@
       await import('./analysis.test.js');
       await import('./analysis-request.test.js');
       await import('./prompts.test.js');
+      await import('./passport.test.js');
 
       const result = await run((event) => {
         if (event.type === 'suite') {
