@@ -48,6 +48,12 @@ export const PREFIX = Object.freeze({
   NATIVE_AUDIO: 'NAU',
   EVENT_TYPE: 'ETY',
   THREAD: 'THR',
+
+  /* مختبر التطوّر */
+  DEV_ISSUE: 'DVI',
+  DEV_BRIEF: 'DVB',
+  DEV_EVENT: 'DVE',
+  DEV_SHOT: 'DVS',
 });
 
 function encodeTime(ms, len = 10) {

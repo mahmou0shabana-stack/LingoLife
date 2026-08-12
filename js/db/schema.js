@@ -405,6 +405,76 @@ export const STORES = {
   projectContext: { indexes: [['createdAt', 'createdAt']] },
   promptVersions: { indexes: [['category', 'category'], ['createdAt', 'createdAt']] },
   backupHistory: { indexes: [['createdAt', 'createdAt']] },
+
+  /* ---------------------------------------------------------
+     مختبر التطوّر — إدارة تطوير التطبيق نفسه (v11)
+
+     ⚠️ **ولا فهرسَ بلا استعلامٍ يستعمله.** كل فهرسٍ هنا مقابلُ سؤالٍ
+        في الشاشة: العدّ بالحالة، والتجميع بالميزة، والخطّ الزمني
+        لملاحظةٍ بعينها. وفهرسٌ بلا قارئ كلفةُ كتابةٍ بلا مقابل.
+
+     ⚠️ **ولا حقلَ `briefId`.** عضويّة الملاحظة في الـBrief علاقةٌ في
+        `relationships` بنوع `brief:issue` — نفس اصطلاح `thread:scene`
+        و`scene:person` *(docs/03 §3.6.1)*.
+     --------------------------------------------------------- */
+
+  /** الملاحظة: «عايز أطوّر إيه، وفين، وحالتها إيه». */
+  devIssues: {
+    indexes: [
+      ['status', 'status'],
+      ['featureId', 'featureId'],
+      ['priority', 'priority'],
+      ['createdAt', 'createdAt'],
+      ['resolvedAt', 'resolvedAt'],
+      ['blockedReason', 'blockedReason'],
+      ['state', 'state'],
+      ['dirty', 'dirty'],
+    ],
+  },
+
+  /** الـBrief: تطويرٌ واحدٌ أكبر تحته ملاحظات. */
+  devBriefs: {
+    indexes: [
+      ['status', 'status'],
+      ['createdAt', 'createdAt'],
+      ['state', 'state'],
+      ['dirty', 'dirty'],
+    ],
+  },
+
+  /**
+   * الخطّ الزمني — سجلٌّ يُضاف إليه ولا يُعدَّل.
+   *
+   * ⚠️ هذا هو **الدليل** تحت كل رقمٍ في اللوحة. ولذلك لا يُكتب فيه
+   *    ضجيج: كل نوعٍ هنا يجيب عن سؤالٍ تسأله بعد شهور.
+   */
+  devEvents: {
+    indexes: [
+      ['issueId', 'issueId'],
+      ['at', 'at'],
+      ['kind', 'kind'],
+      ['state', 'state'],
+      ['dirty', 'dirty'],
+    ],
+  },
+
+  /**
+   * اللقطة المرفقة بملاحظة.
+   *
+   * ⚠️ **store مستقلٌّ لا علاقةٌ في `relationships`** — والفرق مقصود:
+   *    هذا ليس عضويّةً مجرّدة، بل رابطٌ **يحمل بياناتٍ خاصّةً به**:
+   *    قبل أم بعد، وأيُّ جزءٍ من الصورة تقصد. وحشرُ ذلك في صفّ علاقةٍ
+   *    عامّ يجعل `relationships` مستودعًا لكل شيء بلا شكل.
+   */
+  devShots: {
+    indexes: [
+      ['issueId', 'issueId'],
+      ['mediaId', 'mediaId'],
+      ['phase', 'phase'],
+      ['state', 'state'],
+      ['dirty', 'dirty'],
+    ],
+  },
 };
 
 /** أسماء كل الـ stores — يُستخدم في التصدير والإحصاءات. */

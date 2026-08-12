@@ -198,6 +198,39 @@ export async function addFilesToScene(sceneId, files, options = {}) {
   return result;
 }
 
+/**
+ * يخزّن صورةً **بلا مشهد** — للقطات مختبر التطوّر.
+ *
+ * ⚠️ نفس مسار `addFilesToScene` في كل ما يخصّ البايتات: الأصل بلا
+ *    إعادة ترميز، ومصغّرةٌ للعرض، والمقاسات. الفرق الوحيد أنه لا
+ *    يُنشئ رابطًا بمشهد — فاللقطة ليست ذكرى.
+ *
+ * ⚠️ وتُخزَّن في `media` لا في مستودعٍ جديد للصور: النسخة الاحتياطيّة
+ *    والسلّة وتحرير الروابط كلها تعرف هذا المكان بالفعل.
+ */
+export async function storeStandaloneImage(file, { kind = 'image' } = {}) {
+  const record = {
+    kind,
+    blob: file,
+    mime: file.type || 'image/png',
+    filename: file.name || `shot-${Date.now()}`,
+    bytes: file.size,
+    thumbBlob: null,
+    width: null,
+    height: null,
+    durationMs: null,
+    caption: '',
+    notes: '',
+  };
+
+  const [thumb, size] = await Promise.all([makeThumb(file), imageSize(file)]);
+  if (thumb) record.thumbBlob = thumb.blob;
+  record.width = size.width;
+  record.height = size.height;
+
+  return media.create(record);
+}
+
 /** يعيّن صورة كغلاف للمشهد. */
 export async function setCover(sceneId, mediaId) {
   await scenes.update(sceneId, { coverMediaId: mediaId });

@@ -38,6 +38,9 @@ import {
   expressionOccurrences,
   savedItems,
   sceneMediaLinks,
+  devIssues,
+  devBriefs,
+  devShots,
   media,
 } from '../db/repositories.js';
 import { scriptTypeLabel } from './content-service.js';
@@ -251,6 +254,62 @@ export const TRASHABLE = Object.freeze([
       };
     },
   },
+
+  {
+    /*
+     * ملاحظات مختبر التطوّر. ملاحظةٌ كُتبت بالغلط تُشال — لكنها تُشال
+     * **إلى السلّة** لا إلى العدم، لأن التاريخ هنا هو المنتَج نفسه.
+     */
+    store: 'devIssues',
+    repo: devIssues,
+    label: 'ملاحظات تطوير',
+    icon: 'edit',
+    order: 9,
+    async row(record) {
+      return {
+        title: record.title || 'ملاحظة بلا عنوان',
+        subtitle: record.body ? clip(record.body) : '',
+        sceneId: null,
+      };
+    },
+  },
+
+  {
+    store: 'devBriefs',
+    repo: devBriefs,
+    label: 'Briefs تطوير',
+    icon: 'note',
+    order: 10,
+    async row(record) {
+      return {
+        title: record.title || 'Brief بلا اسم',
+        subtitle: record.description ? clip(record.description) : '',
+        sceneId: null,
+      };
+    },
+  },
+
+  {
+    /*
+     * ⚠️ ما يُشال هو **إرفاق** اللقطة بالملاحظة، والملفّ يبقى في
+     *    `media` — نفس قاعدة `sceneMediaLinks` بالضبط.
+     */
+    store: 'devShots',
+    repo: devShots,
+    label: 'صور مشالة من ملاحظة',
+    icon: 'image',
+    order: 11,
+    async row(record) {
+      const file = await safeGet(media, record.mediaId);
+      return {
+        title: file?.filename || 'لقطة',
+        subtitle: record.phase === 'after' ? 'صورة بعد التنفيذ' : 'صورة قبل التنفيذ',
+        icon: 'image',
+        mediaId: record.mediaId,
+        sceneId: null,
+      };
+    },
+  },
 ]);
 
 /**
@@ -287,6 +346,7 @@ export const NOT_TRASHABLE = Object.freeze({
   projectContext: 'إعدادات لا محتوى',
   promptVersions: 'إعدادات لا محتوى',
   backupHistory: 'سجلّ النسخ — لا يُحذف',
+  devEvents: 'الخطّ الزمني للملاحظة — حذف حدثٍ منه تزويرٌ للتاريخ، وهو الدليل تحت كل رقم في المختبر',
 });
 
 /** يجد تعريف نوعٍ باسم الـ store. */

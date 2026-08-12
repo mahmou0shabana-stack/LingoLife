@@ -62,6 +62,12 @@ export const projectContext = createRepository('projectContext', PREFIX.CONTEXT)
 export const promptVersions = createRepository('promptVersions', PREFIX.PROMPT);
 export const backupHistory = createRepository('backupHistory', PREFIX.BACKUP);
 
+/* مختبر التطوّر — v11 */
+export const devIssues = createRepository('devIssues', PREFIX.DEV_ISSUE);
+export const devBriefs = createRepository('devBriefs', PREFIX.DEV_BRIEF);
+export const devEvents = createRepository('devEvents', PREFIX.DEV_EVENT);
+export const devShots = createRepository('devShots', PREFIX.DEV_SHOT);
+
 /**
  * الإعدادات — مفتاح/قيمة، بلا الحقول المشتركة.
  * أبسط من repository كامل ولا يحتاج rev ولا حالات.
@@ -130,4 +136,8 @@ export const ALL_REPOS = {
   projectContext,
   promptVersions,
   backupHistory,
+  devIssues,
+  devBriefs,
+  devEvents,
+  devShots,
 };
