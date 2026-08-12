@@ -199,6 +199,14 @@ function pasteStage() {
               placeholder="الصق محتوى الحزمة (JSON) هنا…"
               dir="ltr" spellcheck="false">${state.text}</textarea>
 
+    <div class="card imp-intro">
+      <p>
+        ⚠️ ومعندكش حزمة لسّه؟ <b>مكتبة الطلبات</b> بتعملك ملف السؤال —
+        من ذكرى عندك، أو من <b>مادّة خام</b> لسّه مالهاش ذكرى.
+      </p>
+      <a class="btn btn-ghost" href="#/prompts">افتح مكتبة الطلبات</a>
+    </div>
+
     <div class="imp-actions">
       <button class="btn btn-ghost" data-action="import-file">
         ${raw(icon('upload'))} اختار ملف

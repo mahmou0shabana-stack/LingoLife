@@ -98,6 +98,76 @@ export const REQUIRED = Object.freeze({
   expressions: ['text'],
 });
 
+/**
+ * كل حقلٍ يقرؤه `parse.js` فعلًا — بالاسم القانونيّ ومعه وصفٌ
+ * إنجليزيّ **موجَّهٌ للمحلِّل الخارجي**.
+ *
+ * ⚠️ **ولماذا يعيش هذا هنا لا في نصّ الطلب؟** (الملحق · H5)
+ *
+ * كان شكلُ الردّ مكتوبًا بيدٍ في `analysis/request.js`: نسخةٌ ثانيةٌ
+ * من العقد في ملفٍّ آخر. فأيُّ حقلٍ يُضاف هنا غدًا لا يعرفه الطلب،
+ * وأيُّ حقلٍ يُطلَب هناك لا يقرؤه المحلِّل — **والانحرافُ صامت**:
+ * المحلِّل يردّ بما طُلب منه، والقارئ يتجاهله، ولا أحدَ يشتكي.
+ *
+ * فصار الطلب **يُولَّد من هذا الجدول**، واختبارُ ذهابٍ وعودة يبني
+ * حزمةً من الشكل المولَّد ويطالب `parsePackage` بأن تقرأ كل حقلٍ فيها.
+ * فحقلٌ يُضاف هنا بلا قارئٍ — أو يُقرأ بلا أن يُذكَر — **يُسقط
+ * الاختبار**.
+ *
+ * `req` يعني مطلوبًا، وهو مشتقٌّ من `REQUIRED` ويُحرَس بأن يطابقها.
+ */
+export const FIELDS = Object.freeze({
+  scene: [
+    { name: 'title', req: true, hint: 'short Arabic title for the situation' },
+    { name: 'titleRu', hint: 'the same title in Russian, if natural' },
+    { name: 'date', hint: 'YYYY-MM-DD, only if the material states it' },
+    { name: 'placeName', hint: 'where it happened, as plain text' },
+    { name: 'eventType', hint: 'kind of situation: meeting, call, inspection…' },
+  ],
+  people: [
+    /*
+     * ⚠️ الاسم القانونيّ هنا `name` لا `speaker` — وإن كان القارئ يقبل
+     *    الاثنين. `REQUIRED.people` تقول `name`، واختلافُ الجدولين كان
+     *    يعني أن يُطلَب مفتاحٌ ويُعلَن غيرُه إلزاميًّا. أظهره اختبارُ
+     *    المطابقة بينهما.
+     */
+    { name: 'name', req: true, hint: 'the person name as it appears' },
+    { name: 'nameRu', hint: 'their name in Russian' },
+    { name: 'role', hint: 'their role in THIS situation, not their job title' },
+    { name: 'company', hint: 'organization, if mentioned' },
+    { name: 'isMe', hint: 'true only for the learner themselves' },
+  ],
+  eventThread: [
+    { name: 'title', req: true, hint: 'the ongoing story this belongs to' },
+    { name: 'description', hint: 'one line about the story' },
+    { name: 'status', hint: 'active | waiting | done' },
+  ],
+  scripts: [
+    { name: 'text', req: true, hint: 'Russian text the learner could rehearse' },
+    { name: 'title', hint: 'what this script is for' },
+    { name: 'translation', hint: 'Egyptian Arabic translation' },
+  ],
+  conversationParts: [
+    { name: 'text', req: true, hint: 'exactly what was said, in Russian' },
+    { name: 'speaker', hint: 'who said it' },
+    { name: 'translation', hint: 'Egyptian Arabic translation' },
+    { name: 'isMe', hint: 'true when the learner said it' },
+  ],
+  mistakes: [
+    { name: 'wrong', req: true, hint: 'what they actually said' },
+    { name: 'natural', req: true, hint: 'what a native would say instead' },
+    { name: 'mistakeType', hint: 'grammar | gender | case | word | natural | other' },
+    { name: 'note', hint: 'Egyptian Arabic explanation of the difference' },
+  ],
+  expressions: [
+    { name: 'text', req: true, hint: 'the Russian expression, exactly as used' },
+    { name: 'meaningAr', hint: 'what it means, in Egyptian Arabic' },
+    { name: 'register', hint: 'professional | technical | daily | formal | informal' },
+    { name: 'note', hint: 'when and why it is used' },
+    { name: 'example', hint: 'the Russian sentence it appeared in' },
+  ],
+});
+
 /** أسماء بديلة نقبلها للحقل الواحد — الكرم في القراءة وحدها. */
 export const FIELD_ALIASES = Object.freeze({
   title: ['title', 'titleAr', 'name', 'label'],
@@ -141,6 +211,14 @@ export function field(object, name, fallback = undefined) {
 export const KIND_NAMES = Object.freeze({
   scene: 'الذكرى',
   speakers: 'المتحدّثون',
+  /*
+   * ⚠️ `people` و`speakers` مفتاحان لشيءٍ واحد: المواصفة تسمّيه
+   *    `speakers` و`SUPPORTED` تسمّيه `people`. وكان الأوّل وحده
+   *    مترجَمًا، فظهرت كلمة `people` بالإنجليزيّة في شاشةٍ عربيّة —
+   *    كشفَها النظر في الشاشة لا الاختبار، فصار له اختبارٌ على
+   *    `SUPPORTED` لا على `SPEC_KINDS` وحدها.
+   */
+  people: 'الأشخاص',
   scripts: 'السكريبتات',
   translations: 'الترجمات',
   conversations: 'المحادثة',
