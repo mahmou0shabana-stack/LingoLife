@@ -4,6 +4,8 @@
  * يدعم Escape، النقر خارج النافذة، وحبس التركيز.
  */
 
+import { pushLayer, dropLayer } from './layers.js';
+
 /**
  * مكدّس النوافذ.
  *
@@ -60,11 +62,17 @@ export function showModal({
         </form>
       </div>`;
 
+    /*
+     * ⚠️ **الطبقة تُرفَع مع النافذة.** بدونها يبقى في التاريخ مدخلٌ
+     *    ميّتٌ لكل نافذةٍ فتحتَها، فتضغط رجوع فلا يحدث شيء.
+     */
+    let layer = null;
     const finish = (value) => {
       document.removeEventListener('keydown', onKey);
       overlay.remove();
       const index = stack.indexOf(overlay);
       if (index >= 0) stack.splice(index, 1);
+      if (layer) dropLayer(layer);
       resolve(value);
     };
 
@@ -104,6 +112,8 @@ export function showModal({
     });
 
     document.addEventListener('keydown', onKey);
+    /* زرُّ رجوع النظام يقفلها هي لا الصفحة اللي تحتها. */
+    layer = pushLayer(() => finish(null), { id: 'modal' });
     // كل طبقة أعلى من التي تحتها، وإلا اختفت خلفها.
     overlay.style.zIndex = `calc(var(--z-overlay) + ${stack.length})`;
     document.body.append(overlay);

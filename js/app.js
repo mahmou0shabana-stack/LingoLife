@@ -49,6 +49,7 @@ import { renderShadow, disposeShadow } from './views/shadow-view.js';
 import { renderTrash, handleTrashAction } from './views/trash-view.js';
 import { renderDuplicates, handleDuplicatesAction } from './views/duplicates-view.js';
 import { renderPrompts, handlePromptsAction } from './views/prompts-view.js';
+import { startLayers, closeTop, hasLayer } from './components/layers.js';
 import { renderThreads, renderThread } from './views/threads-view.js';
 import { openThreadLinkModal, openThreadEditModal } from './modals/thread-modals.js';
 import { renderSearch } from './views/search-view.js';
@@ -91,8 +92,25 @@ import {
 const main = $('#app-main');
 const LAST_ROUTE_KEY = 'ui.lastRoute';
 
+/**
+ * آخرُ مسارٍ رُسم — به نفرّق بين **تنقّلٍ** و**إعادة رسم**.
+ *
+ * ⚠️ بلاغُك بحرفه: «كل ما أضغط على مربّع علشان يتحدّد بيطلّع الصفحة
+ *    لأوّلها تاني». والسبب أن كل رسمةٍ كانت تقفز للأعلى — والرسمة
+ *    تحدث بعد **كل** ضغطة في المختبر والاستوديو والمكرَّر.
+ *
+ *    فشاشةٌ جديدة تبدأ من أعلاها، وشاشةٌ تُعاد **تبقى حيث أنت**.
+ */
+let lastRenderedPath = null;
+
 function view(renderFn, opts = {}) {
   return async (params) => {
+    /*
+     * ⚠️ يُقاس **قبل** مسح `main`: تفريغُه يُقصّر الصفحة فيصير
+     *    `scrollY` صفرًا قبل أن نقرأه.
+     */
+    const path = getCurrentRoute()?.path || null;
+    const keepAt = path && path === lastRenderedPath ? window.scrollY : 0;
     // مغادرة شاشة الظلّ لا بد أن توقف المحرّك، وإلا ظلّ الصوت شغّالًا
     // في الخلفية بعد الانتقال لشاشة أخرى.
     if (renderFn !== renderShadow) disposeShadow();
@@ -116,8 +134,17 @@ function view(renderFn, opts = {}) {
     try {
       // `opts.param` لأن ليس كل مسارٍ مفتاحه `id`: «اليوم» مفتاحه تاريخ.
       await renderFn(main, params?.[opts.param || 'id'], opts.passUi ? ui : undefined);
-      // شاشة جديدة تبدأ من أعلاها لا من موضع تمرير سابقتها.
-      window.scrollTo({ top: 0, behavior: 'instant' });
+      lastRenderedPath = getCurrentRoute()?.path || null;
+      /*
+       * شاشةٌ جديدة تبدأ من أعلاها، وإعادةُ رسمٍ تعود إلى موضعك.
+       * والانتظارُ إطارًا لأن المتصفّح لم يُخطِّط الارتفاع الجديد بعد،
+       * فالتمرير إلى موضعٍ أبعد من الارتفاع الحاليّ يُقصَّ إلى القاع.
+       */
+      if (keepAt) {
+        requestAnimationFrame(() => window.scrollTo({ top: keepAt, behavior: 'instant' }));
+      } else {
+        window.scrollTo({ top: 0, behavior: 'instant' });
+      }
       syncNavState();
       rememberRoute();
       refreshStorageCard();
@@ -172,7 +199,8 @@ function syncNavState() {
    *    أسوأ من زرٍّ لا يظهر.
    */
   const backBtn = $('#app-back');
-  if (backBtn) backBtn.hidden = path === '/' || !canGoBack();
+  // ومَن فوقه طبقةٌ مفتوحة يجد للرجوع ما يفعله ولو كان في البيت.
+  if (backBtn) backBtn.hidden = (path === '/' || !canGoBack()) && !hasLayer();
 }
 
 
@@ -397,7 +425,14 @@ function wireActions() {
       case 'add-expression': return openExpressionModal(sceneId);
       case 'edit-participants': return openParticipantsModal(sceneId);
       case 'improve': return openImproveModal();
-      case 'app-back': return back();
+      /*
+       * ⚠️ الرجوع يقفل **المفتوح** أوّلًا: نافذةٌ أو صورةٌ فوق الشاشة
+       *    أولى بالإغلاق من مغادرة الشاشة نفسها.
+       */
+      case 'app-back': {
+        if (closeTop()) return undefined;
+        return back();
+      }
 
       /* النصّ الأصلي — سابعُ حقلٍ ميّتٍ صار له شاشة *(A5)*. */
       case 'write-raw': return openRawTranscriptModal(sceneId || id);
@@ -679,6 +714,11 @@ async function boot() {
   // تحرير روابط الكائنات عند مغادرة الصفحة
   window.addEventListener('pagehide', releaseUrls);
 
+  /*
+   * ⚠️ **قبل الموجِّه**: مستمعُ `popstate` للطبقات يجب أن يُركَّب قبل
+   *    أي رسم، وإلا مرّت أوّلُ ضغطة رجوعٍ بلا حارس.
+   */
+  startLayers();
   await startRouter();
 }
 

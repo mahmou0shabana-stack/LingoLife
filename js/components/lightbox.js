@@ -32,6 +32,7 @@ import { reloadScene } from '../ui-state.js';
 import { openLinksModal } from '../modals/link-modal.js';
 import { openShadowFromImage } from '../services/shadow/shadow-entry.js';
 import { icon } from './icons.js';
+import { pushLayer, dropLayer } from './layers.js';
 
 /** مستويات التكبير — ثلاثةٌ تكفي لقراءة لافتة. */
 const ZOOMS = [1, 2, 3];
@@ -144,10 +145,20 @@ export async function openLightbox(mediaId, sceneId) {
       .catch(() => {});
   }
 
+  /*
+   * ⚠️ **زرُّ رجوع النظام يقفل الصورة لا الصفحة** — بلاغُك بحرفه:
+   *    «لما باجي أرجع لورا الصورة مبتتقفلش، بس الصفحة نفسها بترجع
+   *    لورا». الصورة طبقةٌ فوق الشاشة لا وجهةٌ تُغادَر إليها.
+   */
+  let layer = null;
   const close = async () => {
     await flushCaption();
     box.remove();
     document.removeEventListener('keydown', onKey);
+    if (layer) {
+      dropLayer(layer);
+      layer = null;
+    }
     // الوصف قد يكون تغيّر — الذكرى تُعيد رسم شبكتها.
     if (sceneId) reloadScene(sceneId);
   };
@@ -264,6 +275,7 @@ export async function openLightbox(mediaId, sceneId) {
   captionInput.addEventListener('blur', flushCaption);
 
   document.addEventListener('keydown', onKey);
+  layer = pushLayer(() => { close(); }, { id: 'lightbox' });
   document.body.append(box);
   await show(index);
 }
