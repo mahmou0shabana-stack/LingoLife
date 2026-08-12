@@ -47,6 +47,7 @@ import { renderScene } from './views/scene-view.js';
 import { renderSettings, handleSettingsAction } from './views/settings-view.js';
 import { renderShadow, disposeShadow } from './views/shadow-view.js';
 import { renderTrash, handleTrashAction } from './views/trash-view.js';
+import { renderDuplicates, handleDuplicatesAction } from './views/duplicates-view.js';
 import { renderThreads, renderThread } from './views/threads-view.js';
 import { openThreadLinkModal, openThreadEditModal } from './modals/thread-modals.js';
 import { renderSearch } from './views/search-view.js';
@@ -151,6 +152,7 @@ function syncNavState() {
     : path.startsWith('/studio') ? 'studio'
     : path.startsWith('/dev') ? 'dev'
     : path.startsWith('/trash') ? 'trash'
+    : path.startsWith('/duplicates') ? 'duplicates'
     : path.startsWith('/settings') ? 'settings'
     : null;
 
@@ -521,6 +523,7 @@ function wireActions() {
         // `target` لازم للسلة: مفتاح الصفّ فيه اسم الـ store مع المعرّف،
         // فالمعرّف وحده لا يكفي لمعرفة أي مستودع نستعيد منه.
         if (await handleTrashAction(action, id, target)) return;
+        if (await handleDuplicatesAction(action, id, target)) return;
         if (await handleImportAction(action, target)) return;
         if (await handleRiverAction(action, target)) return;
         if (await handleConstellationAction(action, target)) return;
@@ -628,6 +631,7 @@ async function boot() {
   route('/shadow/:id', view(renderShadow));
   route('/search', view(renderSearch));
   route('/trash', view(renderTrash));
+  route('/duplicates', view(renderDuplicates));
   route('/threads', view(renderThreads));
   route('/thread/:id', view(renderThread));
   route('/import', view(renderImport));

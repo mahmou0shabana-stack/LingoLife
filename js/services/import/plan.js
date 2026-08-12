@@ -29,7 +29,8 @@
  * سببه، ولا تُطالَب بالثقة في رقمٍ بلا مصدر (بند 89).
  */
 
-import { normalize, editDistance } from '../../utils/normalization.js';
+import { normalize } from '../../utils/normalization.js';
+import { compare, SIGNAL } from '../similarity/engine.js';
 import { listPeople } from '../person-service.js';
 import { listTypes } from '../type-service.js';
 import { listThreads } from '../thread-service.js';
@@ -71,30 +72,41 @@ function matchName(incoming, rows, namesOf) {
   const target = normalize(incoming || '');
   if (!target) return { exact: null, near: [] };
 
+  /*
+   * ⚠️ كانت هنا حلقةٌ بسياستها الخاصّة — أُولى ثلاثِ سياساتِ تشابهٍ في
+   *    المشروع. صارت مُعلَنةً في `similarity/engine.js` تحت اسم
+   *    `names`، ومعها أوّلُ اختلافٍ صار مكتوبًا بدل أن يكون مصادفة:
+   *
+   *      هنا  · احتواءُ اسمٍ لاسم → **سببٌ يُعرَض** (تخصيصٌ يحتاج قرارك)
+   *      الأنواع · نفس الاحتواء   → **ينقض الزوج** (تفريعٌ لا تكرار)
+   */
+  const incomingSubject = { names: [incoming] };
+
   const near = [];
   for (const row of rows) {
-    const names = namesOf(row).filter(Boolean).map(normalize).filter(Boolean);
+    const names = namesOf(row).filter(Boolean);
     if (!names.length) continue;
 
-    // الاسم الأوّل هو الاسم؛ ما بعده أسماء بديلة — والفرق يُقال للقارئ.
-    const hitIndex = names.indexOf(target);
-    if (hitIndex === 0) return { exact: row, why: 'نفس الاسم بالضبط', near: [] };
-    if (hitIndex > 0) return { exact: row, why: 'اسمٌ تاني للشخص/النوع ده عندك', near: [] };
+    const result = compare(incomingSubject, { names }, 'names');
+    const same = result.signals.find((signal) => signal.id === SIGNAL.SAME);
+    const alias = result.signals.find((signal) => signal.id === SIGNAL.ALIAS);
 
-    // المتقارب: نأخذ أقرب أسمائه لا أوّلها.
-    let best = NEAR + 1;
-    for (const name of names) {
-      const distance = editDistance(target, name, NEAR);
-      if (distance < best) best = distance;
-    }
-    // احتواءُ اسمٍ لآخر ليس تقاربًا مطبعيًّا بل تخصيصًا: «أحمد» و«أحمد
-    // صلاح». وهو أجدر بالعرض من فرق حرفين، فنعرضه بسببه الخاصّ.
-    const contains = names.some((n) => n.includes(target) || target.includes(n));
-    if (best <= NEAR) {
-      near.push({ row, distance: best, why: `الفرق ${best === 1 ? 'حرف واحد' : `${best} حروف`}` });
-    } else if (contains) {
-      near.push({ row, distance: NEAR + 1, why: 'الاسم ده جزءٌ من اسمٍ عندك' });
-    }
+    // الاسم الأوّل هو الاسم؛ ما بعده أسماء بديلة — والفرق يُقال للقارئ.
+    if (same) return { exact: row, why: 'نفس الاسم بالضبط', near: [] };
+    if (alias) return { exact: row, why: 'اسمٌ تاني للشخص/النوع ده عندك', near: [] };
+
+    if (!result.signals.length) continue;
+
+    /*
+     * ⚠️ الاحتواء يأتي بعد التقارب المطبعيّ في الترتيب عمدًا: فرقُ
+     *    حرفٍ أرجحُ أن يكون نفس الشيء من «أحمد» داخل «أحمد صلاح».
+     */
+    const typo = result.signals.find((signal) => signal.id === SIGNAL.TYPO);
+    near.push({
+      row,
+      distance: typo ? typo.distance : NEAR + 1,
+      why: result.why[0],
+    });
   }
 
   near.sort((a, b) => a.distance - b.distance);

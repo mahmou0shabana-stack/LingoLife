@@ -7,6 +7,7 @@
 
 import { getSceneFull } from '../services/scene-service.js';
 import { transcriptOf } from '../services/transcript-service.js';
+import { briefSimilar } from '../services/similarity/similar.js';
 import { listConversationParts, listSceneExpressions, getBlock, scriptTypeLabel, registerLabel, registerClass } from '../services/content-service.js';
 import { urlFor, releaseUrls, AUDIO_ROLE_LABEL } from '../services/media-service.js';
 import { html, raw, formatDuration } from '../utils/dom.js';
@@ -31,6 +32,11 @@ const SECTIONS = [
   { id: 'language', label: 'اللغة', count: 'expressions' },
   { id: 'recall', label: 'احكيها' },
   { id: 'notes', label: 'ملاحظاتي' },
+  /*
+   * ⚠️ و«شبيه بده» **ليس في الفهرس** عمدًا: قد لا يوجد شبيهٌ فلا يُرسَم
+   *    القسم أصلًا، وزرُّ فهرسٍ يقفز إلى قسمٍ غير موجود لا يفعل شيئًا —
+   *    وهو أسوأ من غيابه.
+   */
 ];
 
 /** خانة فاضية موحّدة الشكل. */
@@ -517,6 +523,35 @@ function sectionTranscript(scene, t) {
     </section>`;
 }
 
+/**
+ * ⚠️ **شبيهٌ بده — بجانب البحث لا بدلًا منه** (الملحق · K5).
+ *
+ * البحث يجيب عمّا تكتبه؛ وهذا يجيب عمّا تنظر إليه. ولذلك يعيش هنا
+ * داخل الذكرى لا في شاشة البحث.
+ *
+ * ⚠️ وبأدنى حكمٍ **«أغلب الظنّ»**: قسمٌ جانبيّ يعرض «يمكن» لكل شيء
+ *    يصير ضجيجًا فتتوقّف عن قراءته — وحينها لا نفعَ فيه أصلًا.
+ */
+function sectionSimilar(scene, similar) {
+  if (!similar || !similar.items.length) return '';
+
+  return html`
+    <section class="sec" id="sec-similar">
+      ${raw(head('search', 'شبيه بده', '', null))}
+      <div class="sim-list">
+        ${raw(similar.items.map((item) => html`
+          <a class="sim-row" href="#${item.href}">
+            <div class="sim-main">
+              <div class="sim-title">${item.label}</div>
+              ${raw(item.hint ? html`<div class="sim-hint">${item.hint}</div>` : '')}
+              <div class="sim-why">${item.reasons.join(' · ')}</div>
+            </div>
+            <span class="sim-verdict">${item.verdictLabel}</span>
+          </a>`).join(''))}
+      </div>
+    </section>`;
+}
+
 function sectionNotes(scene, notesText) {
   return html`
     <section class="sec" id="sec-notes">
@@ -579,7 +614,7 @@ export async function renderScene(main, sceneId, options = {}) {
   const images = mediaItems.filter((m) => m.kind === 'image');
   const audio = mediaItems.filter((m) => m.kind === 'audio');
 
-  const [parts, expressionList, notesBlock, threads, pivots, tree, transcript] = await Promise.all([
+  const [parts, expressionList, notesBlock, threads, pivots, tree, transcript, similar] = await Promise.all([
     listConversationParts(sceneId),
     listSceneExpressions(sceneId),
     getBlock(sceneId, 'notes'),
@@ -587,6 +622,8 @@ export async function renderScene(main, sceneId, options = {}) {
     pivotsFor(sceneId),
     facetTree(),
     transcriptOf(sceneId),
+    /* قراءةٌ واحدة على عالمٍ مقروءٍ مرّة — راجع services/similarity/similar.js */
+    briefSimilar('scene', sceneId),
   ]);
 
   /*
@@ -738,5 +775,6 @@ export async function renderScene(main, sceneId, options = {}) {
       ${raw(sectionLife(journeys))}
       ${raw(sectionRecall(scene, images.length > 0))}
       ${raw(sectionNotes(scene, notesBlock.text))}
+      ${raw(sectionSimilar(scene, similar))}
     </div>`;
 }

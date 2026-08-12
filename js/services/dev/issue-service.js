@@ -28,8 +28,9 @@
 
 import { devIssues, devEvents, relationships } from '../../db/repositories.js';
 import { STATE } from '../../db/schema.js';
-import { normalize, tokenize, editDistance } from '../../utils/normalization.js';
+import { normalize } from '../../utils/normalization.js';
 import { link, unlink, containersOf } from '../link-service.js';
+import { rank } from '../similarity/engine.js';
 import {
   STATUS, OPEN_STATUSES, CLOSED_STATUSES, PRIORITY,
   BLOCKED_REASON, BLOCKED_REASON_META, EVENT, BRIEF_ISSUE, featureOf,
@@ -374,41 +375,25 @@ export async function filterIssues({
  */
 export async function similarIssues({ title = '', featureId = '', excludeId = null } = {}) {
   const open = await filterIssues({ open: true });
-  const words = tokenize(String(title || ''));
-  const wordSet = new Set(words.filter((word) => word.length > 2));
 
-  const scored = [];
-  for (const issue of open) {
-    if (excludeId && issue.id === excludeId) continue;
+  /*
+   * ⚠️ كان هنا حسابُ درجةٍ يدويّ — ثالثُ ثلاثِ سياساتِ تشابهٍ متطابقةِ
+   *    الشكل مختلفةِ التفاصيل في المشروع. صارت السياسة مُعلَنةً في
+   *    `similarity/engine.js` تحت اسم `titles`، والأدلّةُ نفسها:
+   *    نفس الشاشة (`CONTEXT`)، وكلماتٌ مشتركة (`WORDS`)، وتقارُبٌ
+   *    إملائيّ على العنوان وعلى الكلمة (`TYPO`).
+   *
+   *    والمخرَج لم يتغيّر: `[{ issue, why }]` مرتَّبةً بالأقوى.
+   */
+  const target = { id: excludeId || '', title, featureId };
+  const ranked = rank(target, open, {
+    profile: 'titles',
+    shape: (row) => ({ names: [row.title].filter(Boolean), context: row.featureId || '' }),
+    idOf: (row) => row.id || '',
+    // عند التساوي: الأحدث أوّلًا — الملاحظة الطازجة أقربُ لما تكتبه الآن.
+    tie: (x, y) => (y.createdAt || 0) - (x.createdAt || 0),
+    limit: 6,
+  });
 
-    const why = [];
-    let score = 0;
-
-    if (featureId && issue.featureId === featureId) {
-      why.push('على نفس الشاشة');
-      score += 2;
-    }
-
-    const theirs = tokenize(issue.title);
-    const shared = theirs.filter((word) => wordSet.has(word));
-    if (shared.length) {
-      why.push(`كلمات مشتركة: ${[...new Set(shared)].slice(0, 3).join('، ')}`);
-      score += shared.length * 2;
-    } else if (wordSet.size && theirs.length) {
-      // تقارُبٌ إملائيّ — «الشادوينج» و«الشادوينچ».
-      const near = theirs.some((word) => [...wordSet]
-        .some((mine) => Math.abs(mine.length - word.length) <= 2 && editDistance(mine, word, 2) <= 2));
-      if (near) {
-        why.push('عنوان قريب');
-        score += 1;
-      }
-    }
-
-    if (score > 0) scored.push({ issue, why, score });
-  }
-
-  return scored
-    .sort((a, b) => b.score - a.score || b.issue.createdAt - a.issue.createdAt)
-    .slice(0, 6)
-    .map(({ issue, why }) => ({ issue, why }));
+  return ranked.map(({ item, why }) => ({ issue: item, why }));
 }

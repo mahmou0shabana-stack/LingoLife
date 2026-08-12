@@ -3204,3 +3204,111 @@ body.tr-focused .tr-text { font-size: var(--fs-md); line-height: 2.15; }
   }
   .app-back span { display: none; }
 }
+
+/* ------------------------------------------------------------
+   المكرَّر والشبيه (WS14 · الملحق G + K)
+
+   ⚠️ **لا زرَّ يفعل شيئًا للكلّ.** كل زوجٍ صندوقٌ بحاله وقرارٌ بحاله،
+      والشكلُ يقول ذلك: لا صفَّ اختيارٍ ولا مربّعَ تحديدٍ ولا فعلَ
+      جَماعيّ. الغلطة هنا تخلط كلام شخصين.
+   ------------------------------------------------------------ */
+
+.chip-row {
+  display: flex; flex-wrap: wrap; gap: var(--sp-2);
+  align-items: center; margin-block-end: var(--sp-4);
+}
+.chip-row .chip { cursor: pointer; font: inherit; font-size: var(--fs-xs); }
+.chip.is-on {
+  background: var(--accent); border-color: var(--accent);
+  color: #fff;
+}
+
+.dup-note {
+  font-size: var(--fs-xs); color: var(--ink-soft); line-height: 1.7;
+  margin: 0 0 var(--sp-4); padding-inline-start: var(--sp-3);
+  border-inline-start: 3px solid var(--line-strong);
+}
+
+.dup-clean {
+  display: flex; align-items: center; gap: var(--sp-2);
+  font-size: var(--fs-sm); color: var(--ink-soft);
+  padding: var(--sp-5); text-align: center; justify-content: center;
+}
+.dup-clean svg { inline-size: 16px; block-size: 16px; color: var(--green); }
+
+.dup-pair {
+  border: 1px solid var(--line); border-radius: var(--radius-lg);
+  background: var(--surface); padding: var(--sp-4);
+  margin-block-end: var(--sp-3);
+  position: relative;
+}
+.dup-pair.is-certain { border-color: var(--accent-line); }
+.dup-pair.is-dismissed { opacity: 0.62; }
+
+.dup-verdict {
+  position: absolute; inset-block-start: var(--sp-3); inset-inline-end: var(--sp-4);
+  font-size: var(--fs-2xs); color: var(--ink-faint);
+  border: 1px solid var(--line-soft); border-radius: var(--radius-pill);
+  padding: 2px 8px;
+}
+
+/* عمودان وفاصل — والفاصل «؟» لا «=»: السؤال مطروحٌ لا مُجاب. */
+.dup-sides {
+  display: grid; grid-template-columns: 1fr auto 1fr;
+  gap: var(--sp-3); align-items: stretch;
+  margin-block: var(--sp-5) var(--sp-3);
+}
+.dup-vs { align-self: center; }
+.dup-side {
+  display: grid; gap: 3px; min-inline-size: 0;
+  padding: var(--sp-3); border-radius: var(--radius-md);
+  background: var(--surface-soft); text-align: center;
+}
+.dup-name { font-size: var(--fs-sm); font-weight: 600; overflow-wrap: anywhere; }
+.dup-hint { font-size: var(--fs-2xs); color: var(--ink-faint); }
+.dup-vs { font-size: var(--fs-lg); color: var(--ink-faint); }
+
+.dup-why {
+  list-style: none; padding: 0; margin: 0 0 var(--sp-3);
+  display: grid; gap: 3px;
+}
+.dup-why li {
+  font-size: var(--fs-2xs); color: var(--ink-soft);
+  padding-inline-start: var(--sp-3);
+  border-inline-start: 2px solid var(--accent-line);
+}
+
+.dup-actions {
+  display: flex; gap: var(--sp-2); flex-wrap: wrap;
+  padding-block-start: var(--sp-3); border-block-start: 1px solid var(--line-soft);
+}
+.dup-toggle { margin-block: var(--sp-4); }
+
+.dup-limits { margin-block-start: var(--sp-6); }
+.dup-limits summary { cursor: pointer; font-size: var(--fs-sm); color: var(--ink-soft); }
+.dup-why-list { margin: var(--sp-4) 0 0; display: grid; gap: var(--sp-3); }
+.dup-why-list dt { font-size: var(--fs-sm); font-weight: 600; }
+.dup-why-list dd {
+  margin: 2px 0 0; font-size: var(--fs-xs); color: var(--ink-soft); line-height: 1.7;
+}
+
+/* ---- «شبيه بده» داخل الذكرى ---- */
+
+.sim-list { display: grid; gap: var(--sp-2); }
+.sim-row {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-3); text-decoration: none; color: inherit;
+  border: 1px solid var(--line-soft); border-radius: var(--radius-md);
+  background: var(--surface-soft);
+  transition: border-color var(--dur-fast) var(--ease);
+}
+.sim-row:hover { border-color: var(--accent-line); }
+.sim-main { flex: 1; min-inline-size: 0; display: grid; gap: 2px; }
+.sim-title { font-size: var(--fs-sm); font-weight: 600; }
+.sim-hint { font-size: var(--fs-2xs); color: var(--ink-faint); }
+.sim-why { font-size: var(--fs-2xs); color: var(--ink-soft); line-height: 1.6; }
+.sim-verdict {
+  flex: none; font-size: var(--fs-2xs); color: var(--ink-faint);
+  border: 1px solid var(--line-soft); border-radius: var(--radius-pill);
+  padding: 2px 8px;
+}

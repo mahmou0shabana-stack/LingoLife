@@ -30,8 +30,9 @@
 import { eventTypes, scenes, settings } from '../db/repositories.js';
 import { STATE } from '../db/schema.js';
 import { BUILT_IN_EVENT_TYPES } from '../db/seeds.js';
-import { normalize, editDistance } from '../utils/normalization.js';
+import { normalize } from '../utils/normalization.js';
 import { newId, PREFIX } from '../utils/ids.js';
+import { pairs, SIGNAL } from './similarity/engine.js';
 
 /**
  * ⚠️ الكتلة القديمة. تُقرأ عند الحاجة ولا تُكتب ولا تُحذف — شبكة
@@ -380,43 +381,43 @@ export async function renameImpact(id, nextLabel) {
  */
 export async function similarTypes({ maxDistance = 2 } = {}) {
   const all = await listTypes({ includeArchived: true });
-  const pairs = [];
 
-  for (let i = 0; i < all.length; i++) {
-    for (let j = i + 1; j < all.length; j++) {
-      const a = all[i];
-      const b = all[j];
-      // مستويان مختلفان ليسا تكرارًا: «داخلي» تحت «فحص» غير «داخلي»
-      // تحت «مكالمة» — وهو نفس منطق كشف التعارض.
-      if ((a.parentId || null) !== (b.parentId || null)) continue;
+  /*
+   * ⚠️ كان هنا حلقةٌ مزدوجة بسياستها الخاصّة — وهي الثانية من ثلاث
+   *    سياساتٍ متطابقةِ الشكل مختلفةِ التفاصيل (`import/plan.js`
+   *    و`dev/issue-service.js` هما الأخريان). الملحق في **K7** يطلب
+   *    محرّكًا واحدًا، فصارت السياسة **مُعلَنةً** في
+   *    `similarity/engine.js` تحت اسم `labels`:
+   *
+   *      · التطابق بعد التطبيع  → `SAME`
+   *      · الاسم البديل         → `ALIAS`  (جديد: لم يكن يُفحَص)
+   *      · الفرق حرفٌ أو حرفان  → `TYPO`
+   *      · واحتواءُ اسمٍ لآخر    → `reject` — تفريعٌ لا تكرار
+   *
+   *    والمخرَج لم يتغيّر: `{ a, b, distance, reason }` بنفس الترتيب.
+   */
+  const found = pairs(all, {
+    profile: 'labels',
+    shape: (row) => ({ names: [row.label, ...(row.aliases || [])].filter(Boolean) }),
+    // مستويان مختلفان ليسا تكرارًا: «داخلي» تحت «فحص» غير «داخلي»
+    // تحت «مكالمة» — وهو نفس منطق كشف التعارض.
+    accept: (a, b) => (a.parentId || null) === (b.parentId || null),
+  });
 
-      const na = normalize(a.label);
-      const nb = normalize(b.label);
-      if (na === nb) {
-        /*
-         * ⚠️ هذه الحالة **لا تنشأ من الواجهة**: `checkName` تمنع
-         *    المتطابق بعد التطبيع قبل الحفظ. فوجودها هنا يعني بياناتٍ
-         *    دخلت من طريقٍ آخر — الكتلة القديمة قبل ترقية v7، أو
-         *    استرجاع نسخة، أو استيراد. وهي أحقّ ما يُعرَض.
-         *
-         *    وهذا تقسيم العمل بين الاثنين: التعارض يمنع المتطابق،
-         *    والتشابه يقترح على المتقارب.
-         */
-        pairs.push({ a, b, distance: 0, reason: 'نفس الاسم بالضبط' });
-        continue;
-      }
-      // كلمةٌ داخل أخرى («فحص» و«فحص سريع») ليست تكرارًا بل تفريعًا،
-      // فنستثنيها: الاقتراح الصحيح لها «انقله تحته» لا «ادمجهما».
-      if (na.includes(nb) || nb.includes(na)) continue;
-
-      const distance = editDistance(na, nb, maxDistance);
-      if (distance <= maxDistance) {
-        pairs.push({ a, b, distance, reason: `الفرق ${distance} حرف` });
-      }
-    }
-  }
-
-  return pairs.sort((x, y) => x.distance - y.distance);
+  return found
+    .map((pair) => {
+      const typo = pair.signals.find((signal) => signal.id === SIGNAL.TYPO);
+      /*
+       * ⚠️ التطابقُ التامّ **لا ينشأ من الواجهة**: `checkName` تمنعه
+       *    قبل الحفظ. فوجودُه هنا يعني بياناتٍ دخلت من طريقٍ آخر —
+       *    الكتلة القديمة قبل ترقية v7، أو استرجاع نسخة، أو استيراد.
+       *    وهي أحقّ ما يُعرَض، فمسافتُها صفر وتتصدّر.
+       */
+      const distance = typo ? typo.distance : 0;
+      return { a: pair.a, b: pair.b, distance, reason: pair.why[0] || 'نفس الاسم بالضبط' };
+    })
+    .filter((pair) => pair.distance <= maxDistance)
+    .sort((x, y) => x.distance - y.distance);
 }
 
 /* ------------------------------------------------------------------ *

@@ -207,6 +207,72 @@ export async function removePersonAlias(id, alias) {
   });
 }
 
+/**
+ * يضمّ شخصًا إلى آخر — **بأمرك أنت وحدك** (الملحق · G3/G4).
+ *
+ * هذا نظير `mergeInto` في الأنواع بحرفه، ولنفس السبب: التخلّص من
+ * المكرَّر بلا فقدان بياناته.
+ *
+ * ما ينتقل:
+ *   1. **كلامه** — كل `conversationParts.personId`.
+ *   2. **حضوره** — روابط `scene:person`، بلا تكرارٍ لما هو موجود.
+ *   3. **اسمه** — يصير اسمًا بديلًا للباقي، ومعه أسماؤه البديلة.
+ *
+ * ⚠️ **والقديم يُؤرشَف لا يُحذَف.** لو كان الضمّ غلطًا فكلامه منسوبٌ
+ *    للباقي — لكن اسمه وأسماءه ما زالت موجودة، والصفّ قائمٌ يُستعاد.
+ *    حذفٌ حقيقيّ هنا يجعل الغلطة غير قابلةٍ للرجوع.
+ *
+ * ⚠️ ولا يُنادى تلقائيًّا من أي مكان. كاشف المكرَّر يقترح، وأنت تضغط.
+ *
+ * @returns {Promise<{parts:number, scenes:number, aliases:string[]}>}
+ */
+export async function mergePeople(fromId, toId) {
+  if (!fromId || !toId || fromId === toId) {
+    throw new Error('الضمّ محتاج شخصين مختلفين');
+  }
+  const [from, to] = await Promise.all([people.get(fromId), people.get(toId)]);
+  if (!from) throw new Error('الشخص اللي هيتضمّ مش موجود');
+  if (!to) throw new Error('الشخص اللي هيستقبل مش موجود');
+
+  /* ١ · كلامه */
+  const parts = (await conversationParts.byIndex('personId', fromId))
+    .filter((row) => row.state !== STATE.TRASHED);
+  await Promise.all(parts.map((row) => conversationParts.update(row.id, { personId: toId })));
+
+  /*
+   * ٢ · حضوره
+   *
+   * ⚠️ عبر خدمة المشاركين لا عبر `relationships` مباشرةً: العضويّة
+   *    علاقةٌ لا حقل (§3.6.1)، ومَن يعرف شكلها هو مالكُها.
+   */
+  const { addParticipant, removeParticipant, scenesOfParticipant } =
+    await import('./participant-service.js');
+  const mine = await scenesOfParticipant(fromId);
+  const theirs = new Set(await scenesOfParticipant(toId));
+  let moved = 0;
+  for (const sceneId of mine) {
+    await removeParticipant(sceneId, fromId);
+    if (theirs.has(sceneId)) continue;
+    await addParticipant(sceneId, toId);
+    moved += 1;
+  }
+
+  /* ٣ · اسمه */
+  const known = new Set((to.aliases || []).map((a) => normalize(a)));
+  known.add(normalize(to.name));
+  const added = [from.name, from.nameRu, from.nameAr, ...(from.aliases || [])]
+    .map((name) => (name || '').trim())
+    .filter((name) => name && !known.has(normalize(name)))
+    .filter((name, index, all) => all.findIndex((x) => normalize(x) === normalize(name)) === index);
+
+  if (added.length) {
+    await people.update(toId, { aliases: [...(to.aliases || []), ...added] });
+  }
+  await updatePerson(fromId, { archived: true });
+
+  return { parts: parts.length, scenes: moved, aliases: added };
+}
+
 /* ------------------------------------------------------------------ *
  * الربط بأجزاء المحادثة
  * ------------------------------------------------------------------ */
