@@ -18,7 +18,11 @@ import { showModal, confirmAction } from '../components/modal.js';
 import { navigate } from '../router.js';
 import { splitWords, splitSentences } from '../services/shadow/segmenter.js';
 import { openLightbox } from '../components/lightbox.js';
-import { openShadowForScript } from '../services/shadow/shadow-entry.js';
+import { openShadowForScript, openShadowFromDraft } from '../services/shadow/shadow-entry.js';
+import {
+  SUBJECT, readDraft, openDraft, saveDraftText,
+  addDraftImage, draftImages, ocrIntoDraft, draftSentences,
+} from '../services/study-draft.js';
 import { toEgyptian } from '../services/shadow/dialect.js';
 import {
   createPlaybackController,
@@ -59,7 +63,7 @@ import {
 } from '../services/shadow/fonts.js';
 import { LANGUAGES, languageByCode, translate, isEnabled as trEnabled, setEnabled as setTrEnabled } from '../services/shadow/translate.js';
 import { practiceStreak, recentPractice } from '../services/shadow/shadow-session-service.js';
-import { scripts, contentBlocks, scenes, sceneMediaLinks, media, shadowSegments } from '../db/repositories.js';
+import { scripts, contentBlocks, scenes, sceneMediaLinks, media, shadowSegments, studyDrafts } from '../db/repositories.js';
 import { urlFor, startRecording, canRecord, addFilesToScene, AUDIO_ROLE } from '../services/media-service.js';
 import { resolveLinks, LINK } from '../services/link-service.js';
 import {
@@ -376,6 +380,24 @@ async function resolveSource(session, segments) {
       if (block?.text) origin = { kind: 'text', text: block.text };
     } else if (session.sourceType === SOURCE_TYPE.MEDIA_TEXT) {
       resolved = { title: session.title };
+    } else if (session.sourceType === SOURCE_TYPE.STUDY_DRAFT) {
+      /*
+       * ⚠️ والأصلُ هنا **المسودّة كلُّها** لا الجمل المختارة: تسأل
+       *    وأنت تتدرّب «الشرح كان بيقول إيه عن دي؟» فتجده تحت يدك
+       *    بلا مغادرة. والمؤشَّرُ منها معلَّمٌ كما في المختارات.
+       */
+      const draft = await studyDrafts.get(session.sourceId);
+      resolved = draft ? { title: draft.subjectText || 'مسودّة' } : { missing: true };
+      if (draft?.text) {
+        const inSession = new Set(segments.map((s) => (s.sourceTextSnapshot || '').trim()));
+        const all = draftSentences(draft);
+        origin = {
+          kind: 'text',
+          text: draft.text,
+          sentences: all.map((line) => ({ text: line.text, picked: inSession.has(line.text.trim()) })),
+          total: all.length,
+        };
+      }
     }
   } catch {
     resolved = { missing: true };
@@ -384,15 +406,30 @@ async function resolveSource(session, segments) {
   return { ...describeSource(session, segments, resolved), origin };
 }
 
-/** بطاقة المصدر أعلى الصفحة اليسرى. */
-function sourceBadge(source) {
+/**
+ * بطاقة المصدر أعلى الصفحة اليسرى.
+ *
+ * ⚠️ **وتضيق حين تكون فوق صورة.** بلاغُك: «كبّر شوية المساحة اللي
+ *    بتاخدها، ممكن تصغّر الحاجات اللي فوقيها». والبطاقة كانت ثلاثة
+ *    أسطر — نوعٌ واسمٌ وملاحظة — فوق إطارٍ ارتفاعُه 200px في لوحٍ
+ *    سقفُه 250. أي: الوصفُ يأخذ رُبعَ ما للموصوف.
+ *
+ *    فحين توجد صورة تصير سطرًا واحدًا: الاسم وحده والأيقونة، وتسقط
+ *    الملاحظةُ لا لأنها بلا قيمة بل لأن قيمتها أقلُّ من البكسلات
+ *    التي تأكلها من الصورة. وحين لا توجد صورة تبقى كما هي — الضِّيقُ
+ *    ثمنٌ ندفعه لسببٍ قائم، لا عادةٌ نجرّها بعد زوال سببها.
+ *
+ * @param {object} source وصفُ المصدر.
+ * @param {boolean} tight هل فوق الصورة؟ فتضيق.
+ */
+function sourceBadge(source, tight) {
   return html`
-    <div class="sh-source">
+    <div class="sh-source${tight ? ' tight' : ''}">
       <span class="sh-source-icon" aria-hidden="true">${source.icon}</span>
       <span class="sh-source-body">
-        <b>${source.kind}</b>
+        ${raw(tight ? '' : html`<b>${source.kind}</b>`)}
         <span class="sh-source-name">${source.name}</span>
-        ${raw(source.note ? html`<small>${source.note}</small>` : '')}
+        ${raw(!tight && source.note ? html`<small>${source.note}</small>` : '')}
       </span>
       ${raw(
         source.href
@@ -557,7 +594,9 @@ export async function renderShadow(main, sessionId) {
     // تحصره فيما هو متاح فعلًا في هذه الجلسة.
     audioSource: effectiveAudioSource(session.audioSource, Boolean(humanAudioUrl)),
     nativeConsent: await nativeAudioConsent(),
-    coverHeight: session.coverHeight || 200,
+    /* ⚠️ 320 لا 200: الصورةُ صارت أوّلَ الورقة فسقفُ اللوح اتّسع لها.
+       ومَن سحب المقبض مرّةً يبقى على ارتفاعه — الافتراضُ لا يدهس اختيارًا. */
+    coverHeight: session.coverHeight || 320,
     coverZoom: session.coverZoom || 100,
     coverPinned: session.coverPinned ?? false,
     fontSize: session.fontSize ?? 1,
@@ -782,11 +821,18 @@ function shell() {
 
               <div class="sh-doc" data-doc>
                 <div class="sh-well-body" data-well-body hidden></div>
-                <div class="sh-sheet" data-doc-source>
-                  ${raw(sourceBadge(source))}
+              <!--
+                ⚠️ **والصورةُ أوّلًا حين توجد.** كانت آخرَ ما في الورقة:
+                   تحت البطاقةِ وتحت لوحةِ الأصل وتحت لافتةِ التقادم —
+                   فتبدأ من منتصف اللوح ويُقصّ نصفُها عند سقفه. وهي
+                   المنظورُ لا الموصوف؛ فالترتيبُ صار: الصورةُ فوق،
+                   وما يصفها تحتها.
+              -->
+                <div class="sh-sheet${cover ? ' has-cover' : ''}" data-doc-source>
+                  ${raw(cover ? coverPanel(cover) : '')}
+                  ${raw(sourceBadge(source, Boolean(cover)))}
                   ${raw(originPanel(source))}
                   ${raw(change.changed ? staleBanner(change) : '')}
-                  ${raw(cover ? coverPanel(cover) : '')}
                 </div>
               </div>
 
@@ -1450,6 +1496,12 @@ function syncSegment() {
   renderWords();
 
   renderMarks(segment);
+  /*
+   * ⚠️ **والمسودّة تتبع الجملة.** لوحةٌ مفتوحةٌ على مسودّة جملةٍ
+   *    غادرتَها منذ ثلاث جملٍ تعرض نصًّا يخصّ غيرَ ما أمامك — وهو
+   *    أسوأُ من ألّا تُعرَض، لأنك ستكتب فيه.
+   */
+  if (rail.open && rail.tool === 'draft') renderDraft().catch(() => {});
   savePosition(ctx.session.id, index).catch(() => {});
   // الترجمة الناقصة تُجلب في الخلفية إن فعّل المستخدم ذلك.
   fetchMissingTranslation(segment).catch(() => {});
@@ -1688,6 +1740,7 @@ const TOOLSETS = {
     { id: 'repeat', glyph: '↻', label: 'التكرار' },
     { id: 'voice', glyph: '◈', label: 'الصوت' },
     { id: 'mode', glyph: '⊞', label: 'PLAY MODE' },
+    { id: 'draft', glyph: '✎', label: 'مسودّة مذاكرة' },
     { id: 'sky', glyph: '✧', label: 'BACKDROP' },
   ],
   word: [
@@ -1695,6 +1748,7 @@ const TOOLSETS = {
     { id: 'save', glyph: '✦', label: 'احفظها' },
     { id: 'hard', glyph: '△', label: 'صعبة' },
     { id: 'meaning', glyph: '⌥', label: 'معناها' },
+    { id: 'draft', glyph: '✎', label: 'مسودّة مذاكرة' },
   ],
   source: [
     { id: 'doc-fit', glyph: '⤢', label: 'اضبط' },
@@ -1815,6 +1869,21 @@ function panelFor(id) {
          ${ctx.sky ? '<button data-sh="sky-clear">رجّع النجوم</button>' : ''}` }],
     };
   }
+  if (id === 'draft') {
+    /*
+     * ⚠️ **قشرةٌ الآن، ومحتوًى بعد قراءة.** `panelFor` متزامنة —
+     *    وكلُّ أدواتها تقرأ من `ctx` الحاضر. والمسودّة في القاعدة.
+     *    فتُرسَم القشرةُ فورًا (فلا تفتح اللوحةُ على بياض) ويملؤها
+     *    `renderDraft()` حين تصل. راجعه تحت.
+     */
+    const subject = draftSubject();
+    return {
+      title: 'مسودّة مذاكرة',
+      foot: subject.kind === SUBJECT.WORD ? 'مسودّة الكلمة دي' : 'مسودّة الجملة دي',
+      groups: [],
+      after: '<div class="sh-draft" data-draft>بنجيبها…</div>',
+    };
+  }
   if (id === 'meaning') {
     const w = currentWordText();
     return {
@@ -1873,6 +1942,10 @@ function renderRail() {
       <div class="sh-pgroup"><span>${esc(g.title)}</span>
         <div class="sh-pitems">${g.items}</div></div>`).join('') + (def.after || '');
   }
+
+  /* ⚠️ محتوًى من القاعدة يأتي بعد القشرة — ولا يُنتظَر هنا، فالرسمُ
+        متزامنٌ ولا يجوز أن تتأخّر السكّةُ كلُّها على قراءة. */
+  if (rail.tool === 'draft') renderDraft().catch(() => {});
 }
 
 /** يفتح السكّة على أداةٍ بعينها، أو يغلقها إن كانت مفتوحةً عليها. */
@@ -1913,6 +1986,169 @@ async function applySky() {
   skyUrl = URL.createObjectURL(blob);
   app.style.setProperty('--sky', `url("${skyUrl}")`);
   app.classList.add('has-sky');
+}
+
+/* ================================================================== */
+/* مسودّة المذاكرة — الحلقة تُقفَل داخل الظلّ (WS25)                    */
+/* ================================================================== */
+
+/**
+ * ⚠️ **طلبُك**: «الجملة باخدها أدخّلها على شات جيبتي يحلّلهالي — عايز
+ *    نتيجة التحليل يبقى فيها حاجة زي مسودة مذاكرة أضيف فيها الحاجات
+ *    دي، ويبقى فيه القدرة إني أعمل على جزء منها شادوينج، وممكن أضيف
+ *    صورة وأستخرج نصّها».
+ *
+ * والحلقةُ التي كنتَ تدور فيها: تنسخ الجملة يدويًّا، تخرج، تحلّل،
+ * تعود — ولا مكانَ يحفظ ما عدتَ به. فكانت النتيجةُ تعيش في نافذة
+ * ChatGPT وحدها، وتضيع بإغلاقها.
+ *
+ * فصارت الحلقةُ مقفولةً هنا بأربع خطوات في لوحةٍ واحدة:
+ *   ١. **انسخ** — الجملةُ إلى الحافظة بضغطة (وهي أوّلُ الخطوات وكانت
+ *      أشقَّها: تحديدُ نصٍّ بإصبعك على لوح).
+ *   ٢. **الصق** — صندوقٌ يحفظ وأنت تكتب.
+ *   ٣. **صورة** — تُضاف، ويُستخرَج نصُّها فيُلحَق بما تحته لا فوقه.
+ *   ٤. **تدرّب** — جملُ المسودّة تُقسَّم، وتختار منها ما تشاء.
+ *
+ * ⚠️ **ولا شبكةَ ولا مفتاح.** التطبيق لا يكلّم ChatGPT ولا يحمل مفتاحه
+ *    — أنت مَن يذهب ويعود. راجع `services/study-draft.js`.
+ */
+
+/** موضوعُ المسودّة الآن: الكلمةُ المختارة إن كانت، وإلّا الجملةُ الجارية. */
+function draftSubject() {
+  const word = rail.ctx === 'word' ? currentWordText() : '';
+  if (word) return { kind: SUBJECT.WORD, text: word };
+  /*
+   * ⚠️ **الموضعُ عند المحرّك لا عند `ctx`.** كتبتُها أوّلَ مرّةٍ
+   *    `ctx.index` — وهو حقلٌ لا وجودَ له، فكانت اللوحةُ تفتح على
+   *    «مفيش جملة مختارة» **دائمًا**، والاختباراتُ الـ915 كلُّها
+   *    خضراء. ما أمسكها إلا الضغطُ على الزرّ في متصفّحٍ حقيقيّ.
+   */
+  const seg = ctx.segments?.[player?.state?.index ?? 0];
+  return { kind: SUBJECT.SENTENCE, text: seg?.sourceTextSnapshot || '' };
+}
+
+/** المسودّةُ المعروضة الآن — تُمسَك لتعرف الأزرارُ على ماذا تعمل. */
+let openDraftId = null;
+
+/**
+ * يرسم جسمَ لوحة المسودّة.
+ *
+ * ⚠️ **ولا تُنشأ مسودّةٌ بمجرّد النظر.** `readDraft` تقرأ ولا تكتب،
+ *    فمرورُك على عشرين جملةً لا يترك عشرين صفًّا فارغًا في القاعدة.
+ *    الصفُّ يُكتَب عند أوّل حرفٍ تكتبه أو أوّل صورةٍ تضيفها — وهو
+ *    نفسُ درسِ `readBlock`/`getBlock` الذي كلّفنا صفوفًا في WS15.
+ */
+async function renderDraft() {
+  const host = $('[data-draft]');
+  if (!host) return;
+
+  const subject = draftSubject();
+  if (!subject.text) {
+    openDraftId = null;
+    host.innerHTML = '<p class="sh-draft-empty">مفيش جملة ولا كلمة مختارة دلوقتي.</p>';
+    return;
+  }
+
+  const draft = await readDraft(subject.kind, subject.text);
+  openDraftId = draft?.id || null;
+
+  const images = draft ? await draftImages(draft.id) : [];
+
+  host.innerHTML = `
+    <div class="sh-draft-subject">
+      <span class="${subject.kind === SUBJECT.WORD ? '' : 'sh-draft-sent'}"
+            dir="ltr" lang="ru">${esc(subject.text)}</span>
+      <button data-sh="draft-copy" title="انسخها عشان تحلّلها برّه">نسخ</button>
+    </div>
+
+    <textarea class="sh-draft-box" data-draft-box dir="auto" rows="7"
+      placeholder="الصق هنا تحليل الجملة أو الكلمة…">${esc(draft?.text || '')}</textarea>
+    <div class="sh-draft-state" data-draft-state></div>
+
+    <div class="sh-draft-row">
+      <button data-sh="draft-img">أضف صورة</button>
+      <span data-draft-derived></span>
+    </div>
+    <p class="sh-draft-count" data-draft-count></p>
+
+    ${images.length ? `<div class="sh-draft-imgs">${images.map((row) => `
+      <figure>
+        <button data-sh="draft-open" data-v="${row.id}">
+          <img src="${urlFor(row, { thumb: true })}" alt="" loading="lazy" />
+        </button>
+        <button data-sh="draft-ocr" data-v="${row.id}">استخرج نصّها</button>
+      </figure>`).join('')}</div>` : ''}`;
+
+  drawDerived(draft?.text || '');
+}
+
+/**
+ * ما يُشتقّ من نصّ المسودّة: عددُ جملها، وبابُ التدريب عليها.
+ *
+ * ⚠️ **ويُكتَب وحده لا مع اللوحة كلِّها.** كان يُرسَم داخل `renderDraft`
+ *    فقط، و`renderDraft` لا تُنادى وأنت تكتب — لأن إعادةَ رسم اللوحة
+ *    تبني `<textarea>` جديدةً فيقفز المؤشّرُ إلى أوّلها وتضيع الكتابة.
+ *    فكانت النتيجة: تلصق التحليل، فلا يظهر عدّادٌ ولا زرُّ تدريب،
+ *    حتى تنتقل إلى جملةٍ أخرى وتعود. **قِستُه في المتصفّح** — ٤ أسطر
+ *    في نافذة الاختيار وصفرٌ في اللوحة، في نفس اللحظة.
+ *
+ *    فصارا في حاويتين مستقلّتين تُكتَبان من النصّ مباشرةً بعد الحفظ،
+ *    والصندوقُ لا يُمَسّ.
+ */
+function drawDerived(text) {
+  const slot = $('[data-draft-derived]');
+  const count = $('[data-draft-count]');
+  if (!slot || !count) return;
+
+  const lines = draftSentences(text);
+  const ru = lines.filter((line) => line.ru).length;
+
+  slot.innerHTML = lines.length
+    ? '<button data-sh="draft-shadow">تدرّب على جزء منها</button>'
+    : '';
+  count.textContent = lines.length ? `${lines.length} جملة · ${ru} فيها روسي` : '';
+}
+
+/**
+ * يحفظ ما في الصندوق.
+ *
+ * ⚠️ **ويُنشئ المسودّة عند أوّل حرف** — لا قبله. ولذلك `openDraft`
+ *    هنا وحدها، ولا تُنادى من الرسم.
+ *
+ * ⚠️ **والمهلةُ 600ms** لأن الحفظ عند كل ضغطةِ حرفٍ يكتب في القاعدة
+ *    عشرات المرّات في الجملة الواحدة. والوعدُ مكتوبٌ تحت الصندوق
+ *    («اتحفظت») لا مُفترَض — صندوقٌ يحفظ بصمتٍ يجعلك تختبره بإغلاق
+ *    الصفحة، وهو اختبارٌ مكلف.
+ */
+let draftTimer = 0;
+function scheduleDraftSave(value) {
+  const state = $('[data-draft-state]');
+  if (state) state.textContent = 'بيتكتب…';
+
+  /* العدُّ وزرُّ التدريب يتبعان ما تكتبه فورًا — لا ينتظران القاعدة. */
+  drawDerived(value);
+
+  clearTimeout(draftTimer);
+  const subject = draftSubject();
+  draftTimer = setTimeout(async () => {
+    try {
+      if (!openDraftId) {
+        const born = await openDraft(subject.kind, subject.text, {
+          sessionId: ctx.session?.id || null,
+          sceneId: ctx.scene?.id || null,
+        });
+        openDraftId = born.id;
+      }
+      await saveDraftText(openDraftId, value);
+      const now = $('[data-draft-state]');
+      if (now) now.textContent = 'اتحفظت';
+    } catch (error) {
+      console.error(error);
+      const now = $('[data-draft-state]');
+      /* ⚠️ فشلُ الحفظ يُقال — الصمتُ هنا يعني ضياعَ ما كتبتَه بلا علمك. */
+      if (now) now.textContent = 'مااتحفظتش — جرّب تاني';
+    }
+  }, 600);
 }
 
 /* ================================================================== */
@@ -2738,6 +2974,11 @@ function wireInteractions(main) {
       ctx.fontSize = Number(event.target.value) / 100;
       applyFonts();
     }
+
+    /* صندوقُ المسودّة يحفظ نفسَه — راجع `scheduleDraftSave`. */
+    if (event.target.hasAttribute('data-draft-box')) {
+      scheduleDraftSave(event.target.value);
+    }
   });
 
   main.addEventListener('change', (event) => {
@@ -2934,6 +3175,65 @@ function wireInteractions(main) {
         document.querySelector('.shadow-app')?.classList.toggle('is-wordmode', mode === PRACTICE_MODE.WORD);
         toastOk(mode === PRACTICE_MODE.WORD ? 'بيقرا كلمة كلمة' : mode === PRACTICE_MODE.CONTINUOUS ? 'بيقرا متّصل' : 'بيقرا الجملة كاملة');
         return renderRail();
+      }
+
+      /* ---- مسودّة المذاكرة (WS25) ---- */
+
+      case 'draft-copy': {
+        const subject = draftSubject();
+        if (!subject.text) return toastError('مفيش جملة مختارة');
+        try {
+          await navigator.clipboard.writeText(subject.text);
+          toastOk('اتنسخت — روح حلّلها وارجع الصقها');
+        } catch {
+          /* ⚠️ الحافظةُ تُرفَض بلا HTTPS أو بلا إذن. فلا نصمت: نختار
+                النصَّ في الصندوق ليكون النسخُ اليدويُّ ضغطةً واحدة. */
+          toastError('المتصفّح مارضاش ينسخ — حدّد النصّ وانسخه بإيدك');
+        }
+        return undefined;
+      }
+
+      case 'draft-img': {
+        const [file] = await pickFiles({ accept: 'image/*', multiple: false });
+        if (!file) return undefined;
+        const subject = draftSubject();
+        if (!openDraftId) {
+          const born = await openDraft(subject.kind, subject.text, {
+            sessionId: ctx.session?.id || null,
+            sceneId: ctx.scene?.id || null,
+          });
+          openDraftId = born.id;
+        }
+        await addDraftImage(openDraftId, file);
+        toastOk('الصورة اتضافت للمسودّة');
+        return renderDraft();
+      }
+
+      case 'draft-open':
+        return openLightbox(btn.dataset.v, ctx.scene?.id);
+
+      case 'draft-ocr': {
+        if (!openDraftId) return undefined;
+        /*
+         * ⚠️ **والانتظارُ يُقال.** أوّلُ استخراجٍ يحمّل محرّكَ القراءة،
+         *    وهو ثقيلٌ ويأخذ دقائق على شبكةٍ بطيئة. زرٌّ صامتٌ دقيقتين
+         *    يقرأه المستخدمُ «مكسور» فيضغطه خمس مرّات.
+         */
+        const dismiss = toast('بنقرا الصورة… أوّل مرّة بتاخد وقت', { duration: 10 * 60 * 1000 });
+        try {
+          await ocrIntoDraft(openDraftId, btn.dataset.v);
+          dismiss();
+          toastOk('النصّ اتضاف تحت اللي في المسودّة');
+        } catch (error) {
+          dismiss();
+          toastError(error.message);
+        }
+        return renderDraft();
+      }
+
+      case 'draft-shadow': {
+        if (!openDraftId) return undefined;
+        return openShadowFromDraft(openDraftId);
       }
 
       case 'sky-pick': {

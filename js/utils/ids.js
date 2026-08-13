@@ -54,6 +54,9 @@ export const PREFIX = Object.freeze({
   DEV_BRIEF: 'DVB',
   DEV_EVENT: 'DVE',
   DEV_SHOT: 'DVS',
+
+  /** مسودّة المذاكرة (v12) */
+  STUDY_DRAFT: 'STD',
 });
 
 function encodeTime(ms, len = 10) {

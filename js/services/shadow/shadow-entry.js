@@ -179,6 +179,83 @@ export async function openShadowSelection(scriptId, sceneId) {
 }
 
 /**
+ * مسودّة مذاكرة ← ظلّ (WS25).
+ *
+ * > «ويبقى فيه القدرة إني أعمل على **جزء منها** شادوينج برضو — يعني
+ * >  الجمل اللي فيها تتقسم وكدا.»
+ *
+ * ⚠️ **والاقتراحُ الأوّل ليس «الكل».** المسودّة نصٌّ مختلط: تحليلٌ
+ *    عربيٌّ وأمثلةٌ روسيّة وعناوين. فلو فُتحت النافذةُ والكلُّ مؤشَّر
+ *    لبنيتَ جلسةً ينطق فيها المحرّكُ شرحًا عربيًّا بصوتٍ روسيّ. فالمؤشَّرُ
+ *    ابتداءً هو **ما فيه سيريليّة** وحده، والبقيّة معروضةٌ باهتةً
+ *    تؤشّرها إن أردت — لا محذوفة، فالقرارُ لك ومعك ما تقرّر عليه.
+ *
+ * ⚠️ **ولا يمرّ من `openShadowSelection`** رغم التشابه: تلك تقرأ
+ *    `scripts` وتربط الجلسة بالسكريبت لتُبقي كشفَ تغيّر المصدر عاملًا.
+ *    والمسودّة ليست سكريبتًا، وتزويرُ `sourceId` بمعرّفٍ من مستودعٍ
+ *    آخر يجعل كشفَ التغيّر يقرأ سجلًّا لا وجود له.
+ */
+export async function openShadowFromDraft(draftId) {
+  const { studyDrafts } = await import('../../db/repositories.js');
+  const { draftSentences } = await import('../study-draft.js');
+
+  const draft = await studyDrafts.get(draftId);
+  if (!draft) return toastError('المسودّة دي مش موجودة');
+
+  const lines = draftSentences(draft);
+  if (!lines.length) return toastError('المسودّة لسه فاضية — الصق فيها التحليل الأوّل');
+
+  const anyRu = lines.some((line) => line.ru);
+  if (!anyRu) return toastError('مفيش جمل روسي في المسودّة نتدرّب عليها');
+
+  let form = null;
+  await showModal({
+    title: 'اختار من المسودّة',
+    submitLabel: 'ابدأ بالمحدّد',
+    body: html`
+      <p class="text-soft text-sm" style="margin-bottom:var(--sp-3)">
+        أشّرنا على اللي فيه روسي. غيّر اللي عايزه.
+      </p>
+      ${raw(
+        lines
+          .map(
+            (line, i) => html`
+              <label class="pick-row${line.ru ? '' : ' is-dim'}">
+                <input type="checkbox" name="s${i}" value="${i}"
+                  ${line.ru ? 'checked' : ''} />
+                <span ${line.ru ? 'dir="ltr" lang="ru"' : ''}>${line.text}</span>
+              </label>`
+          )
+          .join('')
+      )}`,
+    onSubmit(data, close) {
+      form = data;
+      close();
+    },
+  });
+  if (!form) return;
+
+  const picked = Object.values(form)
+    .map((value) => lines[Number(value)]?.text)
+    .filter(Boolean);
+  if (!picked.length) return toastError('ماخترتش أي جملة');
+
+  try {
+    const { session, segments } = await createSession({
+      title: `مسودّة: ${draft.subjectText || 'مذاكرة'}`,
+      sourceType: SOURCE_TYPE.STUDY_DRAFT,
+      sourceId: draftId,
+      sceneId: draft.sceneId || null,
+      segments: picked.map((text) => ({ text })),
+    });
+    toastOk(`${segments.length} جملة جاهزة`);
+    navigate(`/shadow/${session.id}`);
+  } catch (error) {
+    toastError(error.message);
+  }
+}
+
+/**
  * صورة ← ظلّ.
  *
  * ⚠️ **الصورة لا تُمسّ إطلاقًا.** النصّ المستخرَج يُحفظ كمحتوى مشتقّ

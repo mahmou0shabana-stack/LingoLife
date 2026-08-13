@@ -28,6 +28,8 @@ export const SOURCE_TYPE = Object.freeze({
   SELECTION: 'selection',
   EXPRESSION: 'expression',
   MEDIA_TEXT: 'mediaText',
+  /** جملٌ اخترتَها من مسودّة مذاكرة (WS25). */
+  STUDY_DRAFT: 'studyDraft',
 });
 
 /** حالة الجلسة. */
@@ -374,6 +376,15 @@ export const SOURCE_LABEL = Object.freeze({
   [SOURCE_TYPE.CONTENT_BLOCK]: { icon: '🧩', kind: 'مقطع محتوى', unit: 'جملة', fallback: 'مقطع' },
   [SOURCE_TYPE.SCENE]: { icon: '🎬', kind: 'ذكرى', unit: 'مقطع', fallback: 'ذكرى' },
   [SOURCE_TYPE.EXPRESSION]: { icon: '💡', kind: 'تعبير', unit: 'مقطع', fallback: 'تعبير' },
+  /*
+   * ⚠️ **ولا نُخفي أن المادّة كتابتُك أنت.** المسودّة نصٌّ لصقتَه من
+   *    تحليلٍ خارجيّ أو استخرجتَه من صورة — أي أنه لم يمرّ على مصدرٍ
+   *    موثوقٍ في التطبيق. فالتحذيرُ مكتوب، كما في نصّ الصورة.
+   */
+  [SOURCE_TYPE.STUDY_DRAFT]: {
+    icon: '✎', kind: 'مسودّة مذاكرة', unit: 'جملة',
+    fallback: 'مسودّة', caution: 'نصٌّ لصقتَه بنفسك',
+  },
 });
 
 const UNKNOWN_SOURCE = { icon: '📄', kind: 'مصدر', unit: 'مقطع', fallback: '—' };

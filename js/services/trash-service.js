@@ -37,6 +37,7 @@ import {
   expressions,
   expressionOccurrences,
   savedItems,
+  studyDrafts,
   sceneMediaLinks,
   devIssues,
   devBriefs,
@@ -307,6 +308,29 @@ export const TRASHABLE = Object.freeze([
         icon: 'image',
         mediaId: record.mediaId,
         sceneId: null,
+      };
+    },
+  },
+
+  {
+    /*
+     * مسودّات المذاكرة (WS25).
+     *
+     * ⚠️ **وتدخل السلّة لا العدم** رغم أنها «مجرّد مسودّة»: ما فيها
+     *    تحليلٌ نسختَه من خارج التطبيق، وليس له نسخةٌ ثانيةٌ في مكان.
+     *    فمسودّةٌ تُمسح بالغلط تضيع نهائيًّا — وهذا بالضبط ما تمنعه
+     *    السلّة.
+     */
+    store: 'studyDrafts',
+    repo: studyDrafts,
+    label: 'مسودّات مذاكرة',
+    icon: 'note',
+    order: 12,
+    async row(record) {
+      return {
+        title: record.subjectText || 'مسودّة بلا موضوع',
+        subtitle: record.text ? clip(record.text) : 'مسودّة فاضية',
+        sceneId: record.sceneId || null,
       };
     },
   },

@@ -68,6 +68,9 @@ export const devBriefs = createRepository('devBriefs', PREFIX.DEV_BRIEF);
 export const devEvents = createRepository('devEvents', PREFIX.DEV_EVENT);
 export const devShots = createRepository('devShots', PREFIX.DEV_SHOT);
 
+/** مسودّة المذاكرة — ما تكتبه عن جملةٍ أو كلمة (v12). */
+export const studyDrafts = createRepository('studyDrafts', PREFIX.STUDY_DRAFT);
+
 /**
  * الإعدادات — مفتاح/قيمة، بلا الحقول المشتركة.
  * أبسط من repository كامل ولا يحتاج rev ولا حالات.
@@ -140,4 +143,5 @@ export const ALL_REPOS = {
   devBriefs,
   devEvents,
   devShots,
+  studyDrafts,
 };
