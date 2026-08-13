@@ -163,6 +163,14 @@ function stopParked() {
 
 export function disposeShadow() {
   /*
+   * ⚠️ **والتسجيلُ يقف مع مغادرة الشاشة — دائمًا.** وهو خارج شرط
+   *    «الجلسة تُبقى شغّالة»: ما يُبقى هو **نطقُ التدريب** لأنك
+   *    تسمعه وأنت تتنقّل؛ أمّا تسجيلٌ ضغطتَه من ورقة الذكرى فيصير —
+   *    إن بقي — صوتًا يخرج من شاشةٍ غادرتَها بلا زرٍّ يوقفه.
+   */
+  stopVoice();
+
+  /*
    * ⚠️ يُقرأ **قبل** أي تدمير: `running && !paused` تعني أن المحرّك
    *    ينطق الآن. وبعد `destroy()` تصير الحالةُ بلا معنى.
    */
@@ -756,7 +764,7 @@ function wireModalActions() {
  *    شرطُ ألّا يكون التصميمُ الجميل خسارةً في الوظيفة.
  */
 function shell() {
-  const { session, segments, scene, cover, change, source } = ctx;
+  const { session, segments, scene, cover, change, source, voices } = ctx;
   const idx = session.currentSegmentIndex || 0;
   const title = scene?.titleAr || scene?.titleRu || session.title || 'جلسة ظلّ';
 
@@ -933,6 +941,21 @@ function shell() {
               -->
               <div class="sh-chips" data-words></div>
               <div class="sh-hint sh-mono" data-hint>TAP A WORD TO HEAR · HOLD FOR ACTIONS</div>
+
+              <!--
+                ⚠️ جهازٌ بلا صوتٍ روسيّ يُقال، لا يُمثَّل عليه.
+                    الشرحُ كاملًا فوق تعريف sh-novoice في shadow.css —
+                    ⚠️ ولا يُكتَب هنا: أوّلُ backtick في تعليقٍ داخل
+                    قالب html ينهي القالبَ ويكسر الوحدةَ كلَّها، وهو
+                    فخٌّ موثَّقٌ في المشروع وقعتُ فيه مرّتين.
+              -->
+              ${raw(voices.russian.length ? '' : html`
+                <div class="sh-novoice" data-novoice>
+                  <b>مفيش صوت روسي على الجهاز ده</b>
+                  <span>عشان كده بتدوس تشغيل وماتسمعش حاجة. نزّل صوت روسي من
+                    إعدادات الجهاز ← اللغة والإدخال ← تحويل النص لكلام،
+                    وارجع افتح الصفحة تاني.</span>
+                </div>`)}
 
               <div class="sh-transport">
                 <button class="sh-nav-btn" data-sh="prev" aria-label="السابق">
@@ -2297,12 +2320,82 @@ const WELLS = {
       return rows.filter((row) => (row.mime || row.type || '').startsWith('audio'));
     },
     draw: (rows) => rows.map((row) => `
-      <div class="sh-well-row">
-        <button data-sh="well-play" data-v="${row.id}">▶</button>
+      <div class="sh-well-row" data-voice-row="${row.id}">
+        <button data-sh="well-play" data-v="${row.id}" aria-label="شغّل">▶</button>
         <span>${esc(row.caption || row.filename || 'تسجيل')}</span>
       </div>`).join(''),
   },
 };
+
+/* ------------------------------------------------------------------ */
+/* مشغّلُ التسجيلات — **واحدٌ لا واحدٌ لكلّ ضغطة**                      */
+/* ------------------------------------------------------------------ */
+
+/**
+ * ⚠️ **بلاغُك**: «لما باجي أشغّل واحد بيشتغل وبس مبيتقفلش، واللي بعده
+ *    وهكذا، وبيشتغلوا فوق بعض».
+ *
+ * وهو عيبي بحرفه. كتبتُها سطرًا واحدًا:
+ *
+ * ```js
+ * if (row?.blob) new Audio(urlFor(row)).play();
+ * ```
+ *
+ * وفيه ثلاثةُ أخطاء في سطر:
+ *  1. **عنصرُ صوتٍ جديدٌ لكلّ ضغطة** — فلا أحدَ يملك السابقَ ليوقفه،
+ *     وتتراكم الأصوات فوق بعضها كما وصفتَ بالضبط.
+ *  2. **ولا زرَّ إيقاف** — الزرُّ `▶` أبدًا، فما بدأ لا سبيلَ لإنهائه
+ *     إلا بمغادرة الشاشة.
+ *  3. **ولا `revokeObjectURL`** — كلُّ ضغطةٍ تحجز الملفَّ في الذاكرة
+ *     إلى أن تُغلق التبويب. تسجيلاتٌ طويلةٌ = ذاكرةٌ تُؤكَل بلا رجعة.
+ *
+ * فصار **مشغّلٌ واحدٌ للشاشة كلِّها**: يوقف ما قبله، ويحرّر رابطَه،
+ * ويقلب زرَّه إلى `■`، ويرجع `▶` عند الانتهاء.
+ */
+const voice = { audio: null, url: null, id: null };
+
+/** يوقف التسجيل الجاري ويحرّر رابطَه ويرجّع زرَّه. */
+function stopVoice() {
+  if (voice.audio) {
+    voice.audio.pause();
+    voice.audio.src = '';
+  }
+  if (voice.url) URL.revokeObjectURL(voice.url);
+  const btn = document.querySelector(`[data-sh="well-play"][data-v="${voice.id}"]`);
+  if (btn) { btn.textContent = '▶'; btn.setAttribute('aria-label', 'شغّل'); }
+  voice.audio = null;
+  voice.url = null;
+  voice.id = null;
+}
+
+/** يشغّل تسجيلًا — أو يوقفه إن كان هو الجاري. */
+async function playVoice(mediaId) {
+  /* ضغطةٌ ثانيةٌ على الجاري = إيقاف. وهو ما يجعل الزرَّ بابًا في اتّجاهين. */
+  const wasPlaying = voice.id === mediaId;
+  stopVoice();
+  if (wasPlaying) return;
+
+  const row = await media.get(mediaId);
+  if (!row?.blob) return toastError('التسجيل ده مش موجود');
+
+  voice.id = mediaId;
+  voice.url = URL.createObjectURL(row.blob);
+  voice.audio = new Audio(voice.url);
+
+  const btn = document.querySelector(`[data-sh="well-play"][data-v="${mediaId}"]`);
+  if (btn) { btn.textContent = '■'; btn.setAttribute('aria-label', 'وقّف'); }
+
+  voice.audio.addEventListener('ended', stopVoice);
+  /* ⚠️ وملفٌّ تالفٌ يُقال، لا يُترك زرًّا عالقًا على `■` إلى الأبد. */
+  voice.audio.addEventListener('error', () => { stopVoice(); toastError('مش قادر أشغّل التسجيل ده'); });
+
+  try {
+    await voice.audio.play();
+  } catch {
+    stopVoice();
+    toastError('المتصفّح مارضاش يشغّل — دوس تاني');
+  }
+}
 
 /** المنبعُ المفتوح الآن. */
 let well = 'source';
@@ -3247,11 +3340,8 @@ function wireInteractions(main) {
       case 'well-open':
         return openLightbox(btn.dataset.v, ctx.scene.id);
 
-      case 'well-play': {
-        const row = await media.get(btn.dataset.v);
-        if (row?.blob) new Audio(urlFor(row, { thumb: false })).play().catch(() => {});
-        return;
-      }
+      case 'well-play':
+        return playVoice(btn.dataset.v);
 
       case 'well-shadow': {
         const script = await scripts.get(btn.dataset.v);

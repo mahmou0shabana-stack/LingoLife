@@ -3667,3 +3667,48 @@ body.shadow-open { overflow: hidden; }
   max-inline-size: 52px; overflow: hidden; text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ══════════════════════════════════════════════════════════════
+   «مفيش صوت روسي على الجهاز ده»
+
+   بلاغُك: «بضغط مفيش حاجة بتشتغل». **والمحرّك سليم** — قِستُه في
+   متصفّحٍ حقيقيّ فنطق الجملة بعدد تكرارها كاملًا. لكن `resolveVoice`
+   في `tts-controller` ترجع `null` حين لا يكون على الجهاز صوتٌ روسيّ،
+   فيُنطَق بـ`lang: 'ru-RU'` وحده. وأندرويد في هذه الحال **يصمت بلا
+   خطأ**: لا `onerror` يُرمى، والوعدُ يُحلّ كأنّ كلَّ شيءٍ تمام.
+
+   فالنتيجةُ أسوأُ عطلٍ ممكن: الزرُّ يستجيب، والشريطُ يتحرّك،
+   والكلماتُ تُضيء — وأنت لا تسمع شيئًا ولا يقول لك أحدٌ لماذا.
+
+   ⚠️ **لافتةٌ لا إشعار.** الإشعارُ يمرّ في ثانيتين وهذه حالةٌ قائمةٌ
+      طول ما الصوت مش متنزّل — تظهر كلَّ مرّةٍ تفتح فيها الجلسة، وتقف
+      فوق زرّ التشغيل مباشرةً لأنها جوابُ الضغطة التي أنت مُقبِلٌ
+      عليها.
+
+   ⚠️ **ولا تُخفي الزرّ ولا تعطّله**: قد يكون على الجهاز صوتٌ يقرأ
+      السيريليّة بلغةٍ أخرى، أو تكون مربوطًا بتسجيلٍ بشريّ. فالتطبيق
+      يقول ما يعرف ولا يمنعك ممّا لا يعرفه.
+   ══════════════════════════════════════════════════════════════ */
+.sh-novoice {
+  display: flex; flex-direction: column; gap: 4px;
+  max-inline-size: 460px; margin: 0 auto 14px; padding: 11px 14px;
+  border: 1px solid rgba(217, 150, 90, .4); border-radius: 5px;
+  background: rgba(217, 150, 90, .09);
+  text-align: center; direction: rtl;
+}
+.sh-novoice b {
+  font-size: 13px; font-weight: 600; color: rgba(240, 196, 150, .95);
+}
+.sh-novoice span {
+  font-size: 11.5px; line-height: 1.75; color: rgba(239, 231, 216, .55);
+}
+
+/* وصفُّ التسجيل: الزرُّ يقلب ▶ إلى ■ وهو شغّال. */
+.sh-well-row { display: flex; align-items: center; gap: 9px; padding: 3px 0; }
+.sh-well-row > button {
+  flex: none; inline-size: 44px; min-block-size: 44px; cursor: pointer;
+  border: 1px solid rgba(101, 80, 48, .28); border-radius: 4px;
+  background: transparent; color: rgba(90, 72, 44, .85);
+  font-size: 12px; line-height: 1;
+}
+.sh-well-row > span { flex: 1; min-width: 0; font-size: 12px; overflow-wrap: anywhere; }
