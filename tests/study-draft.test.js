@@ -240,3 +240,66 @@ describe('مسودّة المذاكرة · هل فيها شيء', () => {
     await media.destroy(stored.id);
   });
 });
+
+/* ================================================================== *
+ * السكّة الجانبية (WS26) — تُقرأ من المصدر لا من نسخةٍ هنا
+ * ================================================================== *
+ *
+ * ⚠️ `shadow-view.js` وحدةُ شاشةٍ تمسّ الـDOM عند التحميل، فلا تُستورَد
+ *    في مجموعةٍ تعمل بلا شاشة. فالحارسُ يقرأ **مصدرها** — نفسُ ما
+ *    يفعله `places.test.js` مع `app.js`، ولنفس السبب: قائمةٌ منسوخةٌ
+ *    هنا تتقادم بصمت، وهي بالضبط ما يزعم الاختبار أنه يمنعه.
+ */
+describe('سكّة الأدوات · لا بابَ في اتّجاهٍ واحد', () => {
+  let source = '';
+
+  it('⚠️ الحارس: لا «سياق» يُكتَب في السكّة — القائمة تُشتَقّ من الحال', async () => {
+    source = await (await fetch('/js/views/shadow-view.js')).text();
+
+    /*
+     * كان `rail.ctx = 'word'` يُكتَب ولا يُمحى، فتضيع أدواتُ التشغيل
+     * إلى آخر الجلسة. **قِستُه في متصفّح.** فلا يعود حقلٌ بهذا المعنى.
+     */
+    /*
+     * ⚠️ **والتعليقاتُ تُنزَع قبل البحث.** أوّلُ مرّةٍ شغّلتُه سقط —
+     *    على **شرحي أنا** للعيب في رأس `TOOLS`. حارسٌ يقرأ النثرَ
+     *    كأنه كودٌ يمنعك من أن تكتب لماذا أصلحتَ الشيء.
+     */
+    const code = source
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/^\s*\/\/.*$/gm, '');
+
+    const writes = code.match(/rail\.ctx\s*=/g) || [];
+    expect(writes).toEqual([]);
+  });
+
+  it('وكلُّ أداةٍ في السجلّ لها رمزٌ ولافتة', () => {
+    const block = source.slice(source.indexOf('const TOOLS = ['));
+    const ids = [...block.slice(0, block.indexOf('\n];')).matchAll(/id: '([a-z-]+)'/g)]
+      .map((hit) => hit[1]);
+    expect(ids.length > 8).toBe(true);
+    /* لا معرّفَ مكرّرًا: زرّان بنفس المعرّف يفتحان نفس اللوحة مرّتين. */
+    expect(ids.length).toBe(new Set(ids).size);
+  });
+
+  it('⚠️ وأدواتُ الكلمة كلُّها مشروطةٌ بوجود كلمة — لا زرَّ يعمل على فراغ', () => {
+    const block = source.slice(source.indexOf('const TOOLS = ['));
+    const body = block.slice(0, block.indexOf('\n];'));
+    for (const id of ['hear', 'save', 'hard', 'meaning']) {
+      const line = body.split('\n').find((row) => row.includes(`id: '${id}'`));
+      expect(Boolean(line && line.includes('when:'))).toBe(true);
+    }
+  });
+
+  it('⚠️ وكلُّ مرفوضٍ من السكّة بسببٍ مكتوبٍ لا بحذفٍ صامت', () => {
+    const block = source.slice(source.indexOf('const NOT_IN_RAIL = '));
+    const body = block.slice(0, block.indexOf('});'));
+    const reasons = [...body.matchAll(/:\s*'([^']*)'/g)].map((hit) => hit[1]);
+    expect(reasons.length > 0).toBe(true);
+    expect(reasons.filter((why) => why.trim().length < 15)).toEqual([]);
+  });
+
+  it('ولا سجلَّ `TOOLSETS` بعد — القائمتان الميّتتان راحتا', () => {
+    expect(source.includes('const TOOLSETS')).toBe(false);
+  });
+});

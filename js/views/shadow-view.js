@@ -676,7 +676,6 @@ function wireChips(main) {
     timer = setTimeout(() => {
       long = true;
       rail.word = Number(chip.dataset.word);
-      rail.ctx = 'word';
       rail.tool = 'hear';
       rail.open = true;
       host.querySelectorAll('[data-word]').forEach((n) => n.classList.remove('picked'));
@@ -1501,6 +1500,14 @@ function syncSegment() {
    *    غادرتَها منذ ثلاث جملٍ تعرض نصًّا يخصّ غيرَ ما أمامك — وهو
    *    أسوأُ من ألّا تُعرَض، لأنك ستكتب فيه.
    */
+  /*
+   * ⚠️ **والسكّة تتبع الجملة.** كلمةٌ اخترتَها في الجملة السابقة ليست
+   *    أمامك الآن، فأدواتُها تختفي — و`renderRail` هي مَن يسأل
+   *    `hasPickedWord` من جديد. بلا هذا السطر تبقى الأزرارُ معروضةً
+   *    وهي تعمل على رقمٍ في جملةٍ غادرتَها.
+   */
+  rail.word = -1;
+  renderRail();
   if (rail.open && rail.tool === 'draft') renderDraft().catch(() => {});
   savePosition(ctx.session.id, index).catch(() => {});
   // الترجمة الناقصة تُجلب في الخلفية إن فعّل المستخدم ذلك.
@@ -1718,49 +1725,101 @@ function highlightWord(wordIndex) {
  * أسفل الشاشة، وستّةُ أزرارٍ في صفٍّ، ولوحةُ خطٍّ في الورقة. كلٌّ منها
  * صحيحٌ وحده، ومجموعُها هو الضجيج.
  *
- * فصار الكلُّ في **سكّةٍ واحدة على الحافّة**، وأدواتُها تتغيّر بما
- * لمستَه:
+ * فصار الكلُّ في **سكّةٍ واحدة على الحافّة**.
  *
- * ```
- * لمستَ الكون    ──▶  العرض · الخطّ · السرعة · التكرار · الصوت
- * لمستَ كلمة     ──▶  اسمعها · احفظها · صعبة · معناها
- * لمستَ الورقة   ──▶  المستند: اضبط · كامل · اطوِه
- * لمستَ النصّ     ──▶  تتبُّع · حجم الخطّ · السرعة
- * ```
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ وبلاغُك الثاني عنها: «محتواه محتاج ذكاء شوية في التجربة» (WS26)
+ * ═══════════════════════════════════════════════════════════════
  *
- * ⚠️ **والسِّجلّ سطرٌ لكلّ أداة.** أداةٌ تُضاف غدًا سطرٌ في `TOOLSETS`
- *    وسطرٌ في `PANELS` — ولا تُلمَس السكّةُ ولا اللوحة ولا الشاشة.
- *    وهو نفسُ نمط `ASPECTS` و`SCOPES` و`PROMPTS` و`SOURCES` في المشروع.
+ * وكان محقًّا. **قِستُ ثلاثةَ عيوبٍ في متصفّحٍ حقيقيّ**، وكلُّها من
+ * أصلٍ واحد: السكّة كانت ثلاثَ قوائمَ منفصلةٍ يُنتقَل بينها بـ«سياق»
+ * يُكتَب ولا يُمحى.
+ *
+ *  1. **بابٌ في اتّجاهٍ واحد.** ضغطةٌ مطوّلةٌ على كلمةٍ تكتب
+ *     `rail.ctx = 'word'`، **ولا سطرَ في الملفّ كلِّه يعيدها**. فتضيع
+ *     السرعةُ والتكرارُ والعرضُ و`PLAY MODE` **إلى آخر الجلسة**.
+ *     قِستُها: فتحتُ، ضغطتُ مطوّلًا، ثم نططتُ لجملةٍ وأغلقتُ السكّةَ
+ *     وفتحتُها — والقائمةُ ما زالت قائمةَ الكلمة.
+ *
+ *  2. **وأدواتُ كلمةٍ ليست أمامك.** السياق ينجو من الانتقال إلى جملةٍ
+ *     أخرى، والكلمةُ رقمٌ في جملةٍ غادرتَها. فـ«اسمعها» تنطق الكلمةَ
+ *     التي تحمل ذلك الرقمَ في الجملة الجديدة — وهذا أسوأُ من زرٍّ
+ *     ميت: زرٌّ **يكذب**.
+ *
+ *  3. **وقائمةٌ ثالثةٌ لا طريقَ إليها.** `source` كانت معرَّفةً بثلاثة
+ *     أزرار، ولا موضعَ في الكود يفتحها. كودٌ ميّتٌ يُقرأ كأنه ميزة.
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * فالسكّةُ صارت **قائمةً واحدةً تُشتَقّ من الحال**
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * لا «سياقَ» يُدخَل فيه ويُنسى الخروج. كلُّ أداةٍ تقول متى تصلح
+ * (`when`)، والقائمةُ تُبنى في كلّ رسمٍ ممّا يصلح **الآن**. فأدواتُ
+ * الكلمة تظهر حين تكون في يدك كلمة، وتختفي حين لا تكون — بلا زرِّ
+ * رجوعٍ يُنسى الضغطُ عليه.
+ *
+ * ⚠️ **وكلُّ أداةٍ تقول قيمتَها على السكّة.** ثمانيةُ رموزٍ مجرّدة لا
+ *    تخبرك بشيء: تفتح ثلاثَ لوحاتٍ لتعرف أنك على `1x` و`×3` وجملةٍ
+ *    كاملة. فصار الرمزُ ومعه القيمة — تقرأ حالَ جلستك كلَّها بنظرة.
+ *
+ * ⚠️ **والسِّجلّ سطرٌ لكلّ أداة.** أداةٌ تُضاف غدًا سطرٌ في `TOOLS`
+ *    وفرعٌ في `panelFor` — ولا تُلمَس السكّةُ ولا الشاشة. وهو نفسُ
+ *    نمط `ASPECTS` و`SCOPES` و`PROMPTS` و`WELLS` في المشروع.
  */
-const TOOLSETS = {
-  stage: [
-    { id: 'display', glyph: '◐', label: 'العرض' },
-    { id: 'text', glyph: 'Aa', label: 'الخطّ' },
-    { id: 'speed', glyph: '▹', label: 'السرعة' },
-    { id: 'repeat', glyph: '↻', label: 'التكرار' },
-    { id: 'voice', glyph: '◈', label: 'الصوت' },
-    { id: 'mode', glyph: '⊞', label: 'PLAY MODE' },
-    { id: 'draft', glyph: '✎', label: 'مسودّة مذاكرة' },
-    { id: 'sky', glyph: '✧', label: 'BACKDROP' },
-  ],
-  word: [
-    { id: 'hear', glyph: '♪', label: 'اسمعها' },
-    { id: 'save', glyph: '✦', label: 'احفظها' },
-    { id: 'hard', glyph: '△', label: 'صعبة' },
-    { id: 'meaning', glyph: '⌥', label: 'معناها' },
-    { id: 'draft', glyph: '✎', label: 'مسودّة مذاكرة' },
-  ],
-  source: [
-    { id: 'doc-fit', glyph: '⤢', label: 'اضبط' },
-    { id: 'doc-full', glyph: '▣', label: 'كامل' },
-    { id: 'doc-none', glyph: '◂', label: 'اطوِه' },
-  ],
-};
+const TOOLS = [
+  /* ---- أدواتُ الكلمة: أوّلًا حين تكون في يدك كلمة ---- */
+  { id: 'hear', glyph: '♪', label: 'اسمعها', when: hasPickedWord },
+  { id: 'save', glyph: '✦', label: 'احفظها', when: hasPickedWord },
+  { id: 'hard', glyph: '△', label: 'صعبة', when: hasPickedWord },
+  { id: 'meaning', glyph: '⌥', label: 'معناها', when: hasPickedWord },
+
+  /* ---- أدواتُ المسرح: دائمًا ---- */
+  { id: 'display', glyph: '◐', label: 'العرض', value: () => DISPLAY_SHORT[ctx.display] || '' },
+  { id: 'text', glyph: 'Aa', label: 'الخطّ', value: () => `${Math.round(ctx.fontSize * 100)}%` },
+  { id: 'speed', glyph: '▹', label: 'السرعة', value: () => `${ctx.session?.speed ?? 1}x` },
+  { id: 'repeat', glyph: '↻', label: 'التكرار', value: () => `×${ctx.session?.repeatCount ?? 1}` },
+  { id: 'voice', glyph: '◈', label: 'الصوت',
+    value: () => (ctx.audioSource === AUDIO_SOURCE.NATIVE ? 'أصليّ' : 'آليّ') },
+  { id: 'mode', glyph: '⊞', label: 'PLAY MODE',
+    value: () => MODE_SHORT[player?.state?.settings?.practiceMode] || 'جملة' },
+  { id: 'draft', glyph: '✎', label: 'مسودّة مذاكرة' },
+  { id: 'sky', glyph: '✧', label: 'الخلفيّة' },
+];
+
+/**
+ * ما لا يُوضَع في السكّة — **بسببٍ مكتوب**.
+ *
+ * ⚠️ وهذه ليست قائمةَ إهمال: `doc-fit` وأختاها كنّ في السكّة بلا
+ *    طريقٍ إليهنّ، وهنّ **موجوداتٌ مرّتين أصلًا** في الورقة — في
+ *    `.sh-pgbtns` أعلى المستند وفي `.sh-docsplit` تحته. فنسخةٌ ثالثةٌ
+ *    في السكّة زحمةٌ لا ميزة، وإزالتُها إزالةٌ لا نقص.
+ *
+ * @type {Record<string, string>}
+ */
+const NOT_IN_RAIL = Object.freeze({
+  'doc-fit': 'موجودة مرّتين في الورقة نفسها: فوق المستند وفي مقبض تقسيمه — والسكّة لا تكرّر',
+  'doc-full': 'موجودة مرّتين في الورقة نفسها: فوق المستند وفي مقبض تقسيمه — والسكّة لا تكرّر',
+  'doc-none': 'موجودة مرّتين في الورقة نفسها: فوق المستند وفي مقبض تقسيمه — والسكّة لا تكرّر',
+});
+
+/** اختصاراتٌ تُقرأ على السكّة — لا تسع اللافتةَ كاملةً. */
+const DISPLAY_SHORT = { ru: 'روسي', egy: 'مصري', hidden: 'مخفي' };
+const MODE_SHORT = { sentence: 'جملة', word: 'كلمة', continuous: 'متّصل' };
 
 /** حالةُ السكّة — خارج الـDOM كباقي حالات هذه الشاشة. */
-const rail = { open: false, ctx: 'stage', tool: 'display', word: -1 };
+const rail = { open: false, tool: 'display', word: -1 };
 
-const RAIL_CTX_LABEL = { stage: 'الظلّ', word: 'كلمة', source: 'المصدر' };
+/**
+ * هل في يدك كلمة؟
+ *
+ * ⚠️ **والسؤالُ عن الـDOM لا عن الرقم.** `rail.word = 3` تبقى ٣ بعد
+ *    الانتقال إلى جملةٍ أقصر ليس فيها كلمةٌ ثالثة. فالشرطُ أن تكون
+ *    الرقاقةُ **موجودةً الآن** — وهو ما يجعل الأدوات تختفي وحدَها
+ *    حين تنتقل، بلا سطرٍ يتذكّر أن يمسح.
+ */
+function hasPickedWord() {
+  return rail.word >= 0 && Boolean(document.querySelectorAll('[data-word]')[rail.word]);
+}
 
 /**
  * محتوى اللوحة لكل أداة.
@@ -1919,13 +1978,35 @@ function renderRail() {
   if (!app || !tools) return;
 
   app.classList.toggle('is-rail', rail.open);
-  const set = TOOLSETS[rail.ctx] || TOOLSETS.stage;
-  if (ctxLbl) ctxLbl.textContent = RAIL_CTX_LABEL[rail.ctx] || 'الظلّ';
 
-  tools.innerHTML = set.map((t) => `
+  /* القائمةُ تُشتَقّ من الحال في كلّ رسم — لا «سياقَ» يُدخَل ويُنسى. */
+  const set = TOOLS.filter((tool) => !tool.when || tool.when());
+
+  /*
+   * ⚠️ **واللافتةُ تقول على أيّ كلمةٍ أنت** — لا «كلمة» مجرّدة. كانت
+   *    تقول اسمَ السياق وحده، وهو خبرٌ تعرفه من الأزرار نفسها.
+   */
+  if (ctxLbl) ctxLbl.textContent = hasPickedWord() ? currentWordText() : 'الظلّ';
+
+  /*
+   * ⚠️ **وأداةٌ اختفت لا تبقى لوحتُها مفتوحة.** تضغط «معناها» على
+   *    كلمة، ثم تنتقل لجملةٍ أخرى فتختفي أدواتُ الكلمة — واللوحةُ
+   *    كانت ستبقى تعرض كلمةً لم تعد أمامك. فالرجوعُ إلى أوّل ما يصلح.
+   *    ويقع **قبل** رسم الأزرار ليصحّ وسمُ `on` من أوّل مرّة.
+   */
+  if (!set.some((tool) => tool.id === rail.tool)) {
+    rail.tool = set[0]?.id || 'display';
+  }
+
+  tools.innerHTML = set.map((t) => {
+    const value = t.value?.() || '';
+    return `
     <button data-sh="tool" data-v="${t.id}" title="${esc(t.label)}"
-            aria-label="${esc(t.label)}"
-            class="${rail.open && rail.tool === t.id ? 'on' : ''}">${t.glyph}</button>`).join('');
+            aria-label="${esc(t.label)}${value ? ` — ${esc(value)}` : ''}"
+            class="${rail.open && rail.tool === t.id ? 'on' : ''}">
+      <b>${t.glyph}</b>${value ? `<i>${esc(value)}</i>` : ''}
+    </button>`;
+  }).join('');
 
   const toggle = $('.sh-rail-toggle');
   if (toggle) toggle.textContent = rail.open ? '›' : '‹';
@@ -1954,7 +2035,6 @@ function pickTool(id) {
   if (id === 'hear') { if (rail.word >= 0) player.selectWord(rail.word); rail.open = false; return renderRail(); }
   if (id === 'save') { document.querySelector('[data-sh="save-item"]')?.click(); rail.open = false; return renderRail(); }
   if (id === 'hard') { document.querySelector('[data-sh="difficult"]')?.click(); rail.open = false; return renderRail(); }
-  if (id.startsWith('doc-')) { setDoc(id.slice(4)); rail.open = false; return renderRail(); }
 
   rail.open = !(rail.open && rail.tool === id);
   rail.tool = id;
@@ -2015,7 +2095,7 @@ async function applySky() {
 
 /** موضوعُ المسودّة الآن: الكلمةُ المختارة إن كانت، وإلّا الجملةُ الجارية. */
 function draftSubject() {
-  const word = rail.ctx === 'word' ? currentWordText() : '';
+  const word = hasPickedWord() ? currentWordText() : '';
   if (word) return { kind: SUBJECT.WORD, text: word };
   /*
    * ⚠️ **الموضعُ عند المحرّك لا عند `ctx`.** كتبتُها أوّلَ مرّةٍ
@@ -2471,6 +2551,18 @@ function setTuner(key, raw, { silent = false } = {}) {
 
   const quick = document.querySelector(`[data-dial="${key}"]`);
   if (quick) quick.textContent = spec.label(value);
+
+  /*
+   * ⚠️ **ونسخةُ الشاشة تتحدّث مع القاعدة.** كان الحفظ يكتب في
+   *    IndexedDB و`ctx.session` يبقى على قيمته الأولى إلى آخر الجلسة.
+   *    فكلُّ قارئٍ منه يقرأ ماضيًا: لوحةُ السرعة تُضيء `1x` وأنت على
+   *    `0.75`، والسكّةُ تقول رقمًا غيرَ الذي تسمعه.
+   *
+   *    ⚠️ وكان **موجودًا قبل السكّة**؛ ما كشفه إلا أن القيمة صارت
+   *       مكتوبةً حيث تُرى بلا فتح لوحة. عيبٌ صامتٌ سنتين ليس عيبًا
+   *       أصغر — هو عيبٌ لم يُقَس.
+   */
+  Object.assign(ctx.session, spec.persist(value));
 
   if (silent) return;
   return saveSessionSettings(ctx.session.id, spec.persist(value)).catch(() => {});

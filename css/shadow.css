@@ -3638,3 +3638,32 @@ body.shadow-open { overflow: hidden; }
 
 /* والسطرُ الباهت في نافذة الاختيار: لا روسيَّ فيه، فليس مادّةَ نطق. */
 .pick-row.is-dim > span { opacity: .5; }
+
+/* ══════════════════════════════════════════════════════════════
+   السكّة تقول حالَها (WS26)
+
+   ⚠️ **رمزٌ مجرّدٌ لا يخبرك بشيء.** ثمانيةُ رموزٍ في عمود: لتعرف أنك
+      على `1x` و`×3` وجملةٍ كاملة كنت تفتح ثلاثَ لوحاتٍ وتغلقها. فصار
+      تحت كلِّ رمزٍ **قيمتُه** — تقرأ حالَ الجلسة كلَّها بنظرة.
+
+   ⚠️ **والزرُّ يبقى 48px** رغم السطرين: الرمزُ يصغر قليلًا والقيمةُ
+      9px، ولا يكبر الصندوق. سكّةٌ تطول بسطرٍ ثانٍ تدفع أدواتِها خارج
+      الشاشة على الهاتف — وهو ثمنٌ أكبر مما تشتريه القيمة.
+   ══════════════════════════════════════════════════════════════ */
+.sh-rail-tools button {
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 1px; padding: 0;
+}
+.sh-rail-tools button > b { font-weight: 400; font-size: 15px; line-height: 1; }
+.sh-rail-tools button > i {
+  font-style: normal; font-size: 8.5px; line-height: 1;
+  letter-spacing: .04em; opacity: .72;
+  max-inline-size: 46px; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; direction: ltr; unicode-bidi: isolate;
+}
+
+/* واللافتةُ فوقها تحمل الكلمةَ نفسَها، فقد تطول. */
+.sh-rail-ctx {
+  max-inline-size: 52px; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap;
+}
