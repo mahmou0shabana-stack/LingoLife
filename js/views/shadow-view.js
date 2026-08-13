@@ -17,6 +17,8 @@ import { toast, toastOk, toastError } from '../components/toast.js';
 import { showModal, confirmAction } from '../components/modal.js';
 import { navigate } from '../router.js';
 import { splitWords, splitSentences } from '../services/shadow/segmenter.js';
+import { openLightbox } from '../components/lightbox.js';
+import { openShadowForScript } from '../services/shadow/shadow-entry.js';
 import { toEgyptian } from '../services/shadow/dialect.js';
 import {
   createPlaybackController,
@@ -610,6 +612,7 @@ export async function renderShadow(main, sessionId) {
   /* ارتفاعُ المستند المحفوظ، ثم السكّة في وضعها الابتدائي. */
   applyDoc(Number(await settings.get(DOC_KEY, 250)) || 0);
   await applySky();
+  await renderWells();
   renderRail();
   wireChips(main);
 }
@@ -774,8 +777,12 @@ function shell() {
                 لوحُ المستند: ارتفاعُه متغيّرٌ ويُسحَب بالمقبض تحته،
                 فتقرّر أنت كم ترى من الأصل وكم ترى من الجمل.
               -->
+              <!-- أشرطةُ المنابع: المصدر · صور · سكريبتات · أصوات -->
+              <div class="sh-well-tabs" data-well-tabs></div>
+
               <div class="sh-doc" data-doc>
-                <div class="sh-sheet">
+                <div class="sh-well-body" data-well-body hidden></div>
+                <div class="sh-sheet" data-doc-source>
                   ${raw(sourceBadge(source))}
                   ${raw(originPanel(source))}
                   ${raw(change.changed ? staleBanner(change) : '')}
@@ -1908,6 +1915,111 @@ async function applySky() {
   app.classList.add('has-sky');
 }
 
+/* ================================================================== */
+/* منابعُ الذكرى — الورقة تحمل ما في الذكرى كلِّه                       */
+/* ================================================================== */
+
+/**
+ * ⚠️ **طلبُك**: «أقلّب بين الصور والنصّ يتقسم لجمله تلقائي
+ *    والاسكريبتات والفويسات — صفحة الظلّ كأنها بتلود كل الذكرى فيها
+ *    بنظام كل حاجة في مكانها».
+ *
+ * وكانت الورقةُ تعرض **مصدرَ الجلسة وحده**: السكريبت الذي بُنيت منه،
+ * ولا شيء غيره. فلو كان في الذكرى صورةٌ أو تسجيلٌ أو سكريبتٌ ثانٍ
+ * تُغادر الظلَّ لتراه ثم تعود — وهو ما يكسر الجلسة في كل مرّة.
+ *
+ * فصارت لوحُ المستند **مُنتقِيًا**: أشرطةٌ فوقه، كلٌّ يقرأ نوعًا.
+ *
+ * ⚠️ **وسجلٌّ لا شروطٌ متفرّقة**: منبعٌ يُضاف غدًا سطرٌ هنا، ولا
+ *    تُلمَس الورقةُ ولا الأشرطة ولا الرسم — نفسُ نمط `SOURCES` في
+ *    الكوربوس و`ASPECTS` في الاستوديو.
+ *
+ * ⚠️ **وما لا شيءَ فيه لا يُعرَض شريطُه.** شريطٌ تضغطه فتجد فراغًا
+ *    يَعِدُ بما لا يملك — والقاعدةُ في المشروع أن العدّ يسبق العرض.
+ */
+const WELLS = {
+  images: {
+    label: 'صور',
+    read: async (sceneId) => {
+      const links = await sceneMediaLinks.byIndex('sceneId', sceneId);
+      const rows = (await media.getMany(links.map((l) => l.mediaId))).filter(Boolean);
+      return rows.filter((row) => (row.mime || row.type || '').startsWith('image'));
+    },
+    draw: (rows) => rows.map((row) => `
+      <button class="sh-well-img" data-sh="well-open" data-v="${row.id}">
+        <img src="${urlFor(row, { thumb: true })}" alt="" loading="lazy" />
+      </button>`).join(''),
+  },
+
+  scripts: {
+    label: 'سكريبتات',
+    read: (sceneId) => scripts.byIndex('sceneId', sceneId),
+    /*
+     * ⚠️ **والنصُّ يُقسَّم لجمله عند العرض لا عند الحفظ.** التقسيمُ
+     *    اشتقاقٌ من النصّ، فتخزينُه نسخةٌ ثانيةٌ تتقادم حين تُحرِّر
+     *    الأصل. و`splitSentences` هي نفسُها التي يبني بها المحرّك
+     *    جلستَه — فما تراه هنا هو ما ستتدرّب عليه بالضبط.
+     */
+    draw: (rows) => rows.map((row) => {
+      const lines = splitSentences(row.text || '');
+      return `<div class="sh-well-doc">
+        <div class="sh-well-head">
+          <b>${esc(row.title || 'سكريبت')}</b>
+          <span>${lines.length} جملة</span>
+          <button data-sh="well-shadow" data-v="${row.id}">تدرّب عليه</button>
+        </div>
+        ${lines.map((line, i) => `<p class="sh-well-line"><i>${i + 1}</i>${esc(line)}</p>`).join('')}
+      </div>`;
+    }).join(''),
+  },
+
+  voices: {
+    label: 'أصوات',
+    read: async (sceneId) => {
+      const links = await sceneMediaLinks.byIndex('sceneId', sceneId);
+      const rows = (await media.getMany(links.map((l) => l.mediaId))).filter(Boolean);
+      return rows.filter((row) => (row.mime || row.type || '').startsWith('audio'));
+    },
+    draw: (rows) => rows.map((row) => `
+      <div class="sh-well-row">
+        <button data-sh="well-play" data-v="${row.id}">▶</button>
+        <span>${esc(row.caption || row.filename || 'تسجيل')}</span>
+      </div>`).join(''),
+  },
+};
+
+/** المنبعُ المفتوح الآن. */
+let well = 'source';
+
+/** يرسم الأشرطة ومحتوى المنبع — ولا يعرض شريطًا لمنبعٍ فارغ. */
+async function renderWells() {
+  const tabs = $('[data-well-tabs]');
+  const body = $('[data-well-body]');
+  if (!tabs || !body || !ctx?.scene) return;
+
+  const counts = {};
+  await Promise.all(Object.entries(WELLS).map(async ([id, w]) => {
+    try { counts[id] = (await w.read(ctx.scene.id)) || []; }
+    catch { counts[id] = []; }
+  }));
+
+  const live = Object.entries(WELLS).filter(([id]) => counts[id].length);
+  tabs.innerHTML = [`<button class="${well === 'source' ? 'on' : ''}" data-sh="well" data-v="source">المصدر</button>`]
+    .concat(live.map(([id, w]) =>
+      `<button class="${well === id ? 'on' : ''}" data-sh="well" data-v="${id}">${w.label} ${counts[id].length}</button>`))
+    .join('');
+
+  if (well === 'source' || !WELLS[well] || !counts[well]?.length) {
+    body.innerHTML = '';
+    body.hidden = true;
+    $('[data-doc-source]')?.removeAttribute('hidden');
+    return;
+  }
+  $('[data-doc-source]')?.setAttribute('hidden', '');
+  body.hidden = false;
+  body.innerHTML = WELLS[well].draw(counts[well]);
+}
+
 /** يقفز إلى جملةٍ بعينها — من شرطةٍ أو من سطرٍ في الورقة. */
 function goSegment(index) {
   if (!Number.isFinite(index) || !ctx?.segments[index]) return;
@@ -1965,9 +2077,25 @@ function wirePinch(main) {
     return Math.hypot(a.x - b.x, a.y - b.y);
   };
 
+  /*
+   * ⚠️ **وإصبعٌ واحدة تسحب الصورة** — بلاغُك: «لما بقرّب الصورة
+   *    مبقدرش أحرّكها يمين وشمال».
+   *
+   *    والسببُ أنّي منعتُه بيدي: `touch-action: none` تأخذ اللمسَ من
+   *    المتصفّح لتصل الأحداثُ إلى القرص — وتأخذ معه **التمريرَ**
+   *    الذي كان يحرّك الصورة داخل إطارها. فما أخذتُه لزمني أن أردّه:
+   *    السحبُ يُكتَب هنا بدل أن يُترَك للمتصفّح.
+   */
+  let pan = null;
+
   box.addEventListener('pointerdown', (event) => {
     touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (touches.size === 1) {
+      pan = { x: event.clientX, y: event.clientY, left: box.scrollLeft, top: box.scrollTop };
+      box.setPointerCapture?.(event.pointerId);
+    }
     if (touches.size === 2) {
+      pan = null;
       pinch = { start: spread(), from: ctx.coverZoom };
       box.setPointerCapture?.(event.pointerId);
     }
@@ -1976,6 +2104,15 @@ function wirePinch(main) {
   box.addEventListener('pointermove', (event) => {
     if (!touches.has(event.pointerId)) return;
     touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+
+    /* إصبعٌ واحدة: سحبٌ داخل الإطار. */
+    if (touches.size === 1 && pan) {
+      event.preventDefault();
+      box.scrollLeft = pan.left - (event.clientX - pan.x);
+      box.scrollTop = pan.top - (event.clientY - pan.y);
+      return;
+    }
+
     if (touches.size !== 2 || !pinch) return;
     event.preventDefault();
     const now = spread();
@@ -1988,6 +2125,7 @@ function wirePinch(main) {
   const lift = (event) => {
     touches.delete(event.pointerId);
     if (touches.size < 2) pinch = null;
+    if (!touches.size) pan = null;
   };
   box.addEventListener('pointerup', lift);
   box.addEventListener('pointercancel', lift);
@@ -2767,6 +2905,27 @@ function wireInteractions(main) {
         ctx.audioSource = btn.dataset.v;
         toastOk('اتغيّر مصدر الصوت');
         return renderRail();
+
+      case 'well':
+        well = btn.dataset.v;
+        await renderWells();
+        return;
+
+      case 'well-open':
+        return openLightbox(btn.dataset.v, ctx.scene.id);
+
+      case 'well-play': {
+        const row = await media.get(btn.dataset.v);
+        if (row?.blob) new Audio(urlFor(row, { thumb: false })).play().catch(() => {});
+        return;
+      }
+
+      case 'well-shadow': {
+        const script = await scripts.get(btn.dataset.v);
+        if (!script?.text) return toastError('السكريبت فاضي');
+        /* ⚠️ يمرّ من نفس بابِ «سكريبت ← ظلّ» — لا مسارَ ثانٍ يتقادم. */
+        return openShadowForScript(script.id, ctx.scene.id);
+      }
 
       case 'mode-set': {
         const mode = btn.dataset.v;

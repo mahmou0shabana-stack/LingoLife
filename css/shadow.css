@@ -3457,3 +3457,61 @@ body.shadow-open { overflow: hidden; }
  * ضغطتُ الزرَّ في متصفّحٍ وقرأتُ اللوحةَ الفارغة — لا الاختبارات.
  * (هذا التعليق في CSS لأن مكانه في JS داخل كتلةٍ لا تُقرأ.)
  */
+
+/* ---------- منابعُ الذكرى في الورقة (طلبُك: كل حاجة في مكانها) ---------- */
+.sh-well-tabs {
+  display: flex; gap: 2px; flex: none; flex-wrap: wrap;
+  margin-bottom: 4px; padding-bottom: 4px;
+  border-bottom: 1px solid var(--sh-paper-line);
+}
+.sh-well-tabs button {
+  font-family: var(--sh-mono); font-size: 9.5px; letter-spacing: .14em;
+  min-height: 40px; padding: 0 11px; border: 0; border-radius: 3px;
+  background: none; color: rgba(90, 72, 44, .55); cursor: pointer;
+}
+.sh-well-tabs button.on {
+  background: rgba(217, 182, 114, .22); color: var(--sh-paper-gold); font-weight: 600;
+}
+
+.sh-well-body { overflow-y: auto; height: 100%; padding: 4px 0; }
+
+.sh-well-img {
+  border: 0; padding: 0; margin: 0 4px 4px 0; cursor: pointer;
+  background: none; inline-size: 74px; block-size: 74px;
+}
+.sh-well-img img { width: 100%; height: 100%; object-fit: cover; border-radius: 3px; }
+
+.sh-well-doc { margin-bottom: 12px; }
+.sh-well-head {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding-bottom: 6px; font-size: 12px; color: var(--sh-paper-ink);
+}
+.sh-well-head span { font-family: var(--sh-mono); font-size: 9.5px; color: rgba(90, 72, 44, .55); }
+.sh-well-head button {
+  margin-inline-start: auto; min-height: 36px; padding: 0 10px; cursor: pointer;
+  border: 1px solid rgba(122, 95, 44, .35); border-radius: 3px;
+  background: none; color: var(--sh-paper-gold);
+  font-family: var(--sh-mono); font-size: 9.5px; letter-spacing: .12em;
+}
+.sh-well-line {
+  display: flex; gap: 8px; direction: ltr; text-align: start;
+  font-size: 13px; line-height: 1.55; color: var(--sh-paper-ink-2);
+  padding: 4px 0; border-bottom: 1px solid rgba(101, 80, 48, .08);
+}
+.sh-well-line i {
+  font-style: normal; font-family: var(--sh-mono); font-size: 9.5px;
+  color: rgba(90, 72, 44, .45); padding-top: 3px; flex: none; min-width: 16px;
+}
+
+.sh-well-row {
+  display: flex; align-items: center; gap: 9px; padding: 5px 0;
+  font-size: 12px; color: var(--sh-paper-ink-2);
+}
+.sh-well-row button {
+  inline-size: 36px; block-size: 36px; border-radius: 50%; cursor: pointer;
+  border: 1px solid rgba(122, 95, 44, .35); background: none;
+  color: var(--sh-paper-gold);
+}
+
+/* والمصدرُ يفسح: ما فوق الصورة سطرٌ لا لوحة. */
+.sh-sheet .sh-src-badge, .sh-sheet .sh-origin { font-size: 11px; }
