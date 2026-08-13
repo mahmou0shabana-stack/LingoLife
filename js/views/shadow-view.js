@@ -647,6 +647,10 @@ function wireChips(main) {
     clearTimeout(timer);
     const chip = event.target.closest?.('[data-word]');
     if (!chip || long) return;
+    /*
+     * ⚠️ نقرةٌ تُسمعك الكلمة — **ولا تغيّر الوضع**. تبديلُ ما يُنطَق
+     *    فعلٌ تختاره من `PLAY MODE`، لا أثرٌ جانبيّ لنقرةٍ على كلمة.
+     */
     player.selectWord(Number(chip.dataset.word));
   };
   host.addEventListener('pointerup', end);
@@ -1427,8 +1431,16 @@ function syncSegment() {
     if (isCurrent) node.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
   });
 
-  const words = $('[data-words]');
-  if (words && !words.hidden) renderWords();
+  /*
+   * ⚠️ **الرقائق تُرسَم دائمًا** — كانت `if (!words.hidden)`.
+   *
+   * في التخطيط القديم كانت لوحةً تُفتح بزرّ، فيصحّ ألّا تُرسَم وهي
+   * مطويّة. وفي v5 صارت **جزءًا من المسرح** تحت الجملة. فبقي الشرطُ
+   * حارسًا لبابٍ لم يعد موجودًا: أوّلُ ضغطةٍ على الزرّ القديم تُخفيها،
+   * ثم لا تُرسَم أبدًا — «الكلمات المقسّمة مش ظاهرة»، ولا تتبدّل مع
+   * الجملة — «مفيش سلاسة في الانتقال».
+   */
+  renderWords();
 
   renderMarks(segment);
   savePosition(ctx.session.id, index).catch(() => {});
@@ -2787,17 +2799,29 @@ function wireInteractions(main) {
         return undefined;
       }
 
+      /*
+       * ⚠️ **وهذا الزرُّ كان يقلب وضعَ التشغيل في السرّ.**
+       *
+       * كان يُخفي الرقائقَ **ويبدّل** `practiceMode` بين الجملة
+       * والكلمة في الحركة نفسها. فتضغط ظانًّا أنك تُظهر شيئًا، فيتغيّر
+       * **ما يُنطَق** — «التحكّم في التشغيل بيبوظ معرفش امتى». وأنت لم
+       * تطلب تغييرَ الوضع، ولم يقل لك أحدٌ إنه تغيّر.
+       *
+       * فصار الزرُّ طريقًا **مُعلَنًا** إلى وضع الكلمة، يقول ما فعل،
+       * ويمرّ من نفس باب `PLAY MODE` في الدرج — بابٌ واحدٌ للفعل
+       * الواحد، فلا ينازع اثنان على قيمةٍ واحدة.
+       */
       case 'words': {
-        const host = $('[data-words]');
-        host.hidden = !host.hidden;
-        // زرّان يفتحان الكلمات (الشريط السفلي والصفّ الجانبي) — نُبقي
-        // إضاءتهما متطابقة مهما ضُغط أيّهما.
+        const now = player.state.settings.practiceMode;
+        const next = now === PRACTICE_MODE.WORD ? PRACTICE_MODE.SENTENCE : PRACTICE_MODE.WORD;
+        player.updateSettings({ practiceMode: next });
+        await saveSessionSettings(ctx.session.id, { practiceMode: next });
         document
           .querySelectorAll('[data-sh="words"]')
-          .forEach((node) => node.classList.toggle('on', !host.hidden));
-        if (!host.hidden) host.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-        if (host.hidden) player.updateSettings({ practiceMode: PRACTICE_MODE.SENTENCE });
-        else renderWords();
+          .forEach((node) => node.classList.toggle('on', next === PRACTICE_MODE.WORD));
+        renderWords();
+        renderRail();
+        toastOk(next === PRACTICE_MODE.WORD ? 'بيقرا كلمة كلمة' : 'بيقرا الجملة كاملة');
         return;
       }
 
