@@ -2908,10 +2908,28 @@ function wireSpine(main) {
 
   const apply = (event) => {
     const horizontal = window.matchMedia('(min-width: 900px)').matches;
-    const rect = book.querySelector('.sh-pages').getBoundingClientRect();
-    const ratio = horizontal
+    const pages = book.querySelector('.sh-pages');
+    const rect = pages.getBoundingClientRect();
+    let ratio = horizontal
       ? (event.clientX - rect.left) / rect.width
       : (event.clientY - rect.top) / rect.height;
+
+    /*
+     * ⚠️ **والاتّجاه يُقاس لا يُفترَض.**
+     *
+     * `--split` عرضُ **الورقة**، والقياسُ من الحافّة اليسرى. فإن كانت
+     * الورقةُ يمينَ الكون — وهو ما يحدث حين يُعكَس ترتيب الصفّ — صار
+     * السحبُ يمينًا يوسّع ما على اليسار: «اجي يمين يروح شمال».
+     *
+     * فنسأل الصفحتين أين هما فعلًا بدل أن نفترض من `dir` أو من
+     * `flex-direction` — فيصحّ في الحالتين وفي أيّ ترتيبٍ يأتي غدًا.
+     */
+    if (horizontal) {
+      const paper = pages.querySelector('.sh-left').getBoundingClientRect();
+      const space = pages.querySelector('.sh-right').getBoundingClientRect();
+      if (paper.left > space.left) ratio = 1 - ratio;
+    }
+
     // الحدّان يمنعان اختفاء صفحة تمامًا.
     const clamped = Math.max(0.25, Math.min(0.78, ratio));
     savedSplit = Number((clamped * 100).toFixed(1));
