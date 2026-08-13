@@ -11,6 +11,8 @@
 
 import { html, raw, esc } from '../utils/dom.js';
 import { icon } from '../components/icons.js';
+import { formatDate } from '../utils/dates.js';
+import { counted } from '../utils/plural.js';
 import { toast, toastOk, toastError } from '../components/toast.js';
 import { showModal, confirmAction } from '../components/modal.js';
 import { navigate } from '../router.js';
@@ -512,11 +514,62 @@ export async function renderShadow(main, sessionId) {
 
   player.goTo(session.currentSegmentIndex || 0);
   syncSegment();
+  /*
+   * ⚠️ الرقائق تُرسَم عند الإقلاع لا عند الطلب (WS24): صارت جزءًا من
+   *    المسرح لا لوحةً تُفتَح، فلو انتظرت ضغطةً لبقي تحت الجملة فراغ.
+   */
+  renderWords();
   wireSpine(main);
+  wireDocSplit(main);
   wireCoverResize(main);
   wireOriginPanel(main);
   wireInteractions(main);
   wireModalActions();
+
+  /* ارتفاعُ المستند المحفوظ، ثم السكّة في وضعها الابتدائي. */
+  applyDoc(Number(await settings.get(DOC_KEY, 250)) || 0);
+  renderRail();
+  wireChips(main);
+}
+
+/**
+ * ضغطةٌ تسمع الكلمة، وضغطةٌ مطوّلة تفتح أدواتها (WS24).
+ *
+ * ⚠️ **على `Pointer Events` لا `Touch`** — كالقرص في العارض: إصبعٌ
+ *    وفأرةٌ وقلمٌ بمستمعٍ واحد.
+ */
+function wireChips(main) {
+  const host = main.querySelector('[data-words]');
+  if (!host) return;
+  let timer = null;
+  let long = false;
+
+  host.addEventListener('pointerdown', (event) => {
+    const chip = event.target.closest('[data-word]');
+    if (!chip) return;
+    long = false;
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      long = true;
+      rail.word = Number(chip.dataset.word);
+      rail.ctx = 'word';
+      rail.tool = 'hear';
+      rail.open = true;
+      host.querySelectorAll('[data-word]').forEach((n) => n.classList.remove('picked'));
+      chip.classList.add('picked');
+      renderRail();
+    }, 420);
+  });
+
+  const end = (event) => {
+    clearTimeout(timer);
+    const chip = event.target.closest?.('[data-word]');
+    if (!chip || long) return;
+    player.selectWord(Number(chip.dataset.word));
+  };
+  host.addEventListener('pointerup', end);
+  host.addEventListener('pointercancel', () => clearTimeout(timer));
+  host.addEventListener('pointerleave', () => clearTimeout(timer));
 }
 
 /**
@@ -548,203 +601,268 @@ function wireModalActions() {
   document.addEventListener('click', modalClickHandler);
 }
 
+/**
+ * ⚠️ **بنيةُ التصميم الذي سلّمتَه — لا ألوانُه وحدها** (WS24 · مرحلة ٢).
+ *
+ * أوّلُ محاولةٍ بدّلت الألوان وأبقت التخطيط، وقلتَها بحقّ: «عايزها طبق
+ * الأصل». فهذه البنية بحرفها:
+ *
+ * ```
+ *  ┌──────────────────────────────────────────────────────────┐
+ *  │ ◆ LingoLife │ زيارة المصنع · 29 مايو · كتاب الظلّ   🔥 12 │
+ *  ├──┬───────────────────────────────┬───────────────────────┤
+ *  │س │  ورقة                     ‖   │  كون            ┃ سكّة│
+ *  │كّ│  ┌─ المستند ─┐             ‖   │   01 / 08  ▏▏▎▏  ┃ أدو│
+ *  │ة │  └───────────┘             ‖   │                 ┃ ات │
+ *  │ال│  ═══ مقبض السحب ═══        ‖   │   الجملة كبيرة  ┃    │
+ *  │تن│  ─ النصّ · 8 جمل ─         ‖   │   والعربيّة تحتها┃    │
+ *  │قّ│  ▎ 01 В ходе проверки…     ‖   │                 ┃    │
+ *  │ل │  ▎ 02 Прошу рассмотреть…   ‖   │  [رقائق الكلمات]┃    │
+ *  │  │  النصّ · ملاحظات · أشخاص   ‖   │   ◀  ▶  ▶▶      ┃    │
+ *  ├──┴───────────────────────────────┴───────────────────────┤
+ *  │ [لقطة] служебная записка        8 جمل · 12:45 · 125 كلمة │
+ *  └──────────────────────────────────────────────────────────┘
+ * ```
+ *
+ * ⚠️ **وكلُّ `data-sh` القديم باقٍ بحرفه.** التخطيط تغيّر والأسلاك لا:
+ *    `wireInteractions` لم تُلمَس، فما كان يعمل أمس يعمل اليوم — وهذا
+ *    شرطُ ألّا يكون التصميمُ الجميل خسارةً في الوظيفة.
+ */
 function shell() {
-  const { session, segments, scene, cover, change, voices, source } = ctx;
+  const { session, segments, scene, cover, change, source } = ctx;
   const idx = session.currentSegmentIndex || 0;
+  const title = scene?.titleAr || scene?.titleRu || session.title || 'جلسة ظلّ';
 
   return html`
     <div class="shadow-app">
-      <div class="sh-appbar">
-        <div class="sh-brand">Lingo<b>Life</b> <i>✦</i></div>
-        <nav class="sh-navpills">
-          <button data-sh="go" data-to="/">الرئيسية</button>
+
+      <!-- ══════════ الشريط العلوي ══════════ -->
+      <header class="sh-topbar">
+        <div class="sh-brand"><i class="sh-diamond"></i> LingoLife</div>
+        <span class="sh-vrule"></span>
+        <div class="sh-crumb">
+          <b>${title}</b>
+          <span class="sh-mono">${scene?.date ? formatDate(scene.date) : ''}</span>
+          <span class="sh-slash">/</span>
+          <span class="sh-mono sh-gold">كتاب الظلّ</span>
+        </div>
+        <div class="sh-grow"></div>
+        <!--
+          ⚠️ العدّاد **يُقرأ من قاعدتك**. التصميم يكتب «12 DAY STREAK»
+             ثابتةً، والبند 89 يمنع رقمًا بلا مصدر. فقد يكون صفرًا،
+             ويُقال صفرًا.
+        -->
+        <div class="sh-streak" title="أيام متتالية فيها تدريب حقيقي">
+          <i></i><b data-streak>—</b> يوم متتالي
+        </div>
+        <button class="sh-exit" data-sh="exit">${raw(icon('back', 14))} المكتبة</button>
+      </header>
+
+      <div class="sh-body">
+
+        <!-- ══════════ سكّة التنقّل الرأسيّة ══════════ -->
+        <nav class="sh-railnav" aria-label="تنقّل">
+          <button data-sh="go" data-to="/">دلوقتي</button>
           <button data-sh="go" data-to="/life">المكتبة</button>
+          <button class="on" aria-current="page">الظلّ</button>
           <button data-sh="go" data-to="/language">لغتي</button>
-          <button class="on">Shadowing</button>
+          <button data-sh="go" data-to="/analysis">تحليل</button>
         </nav>
-        <div class="sh-streak" title="أيام متتالية فيها تدريب حقيقي">🔥 <b data-streak>—</b></div>
-      </div>
 
-      <div class="sh-top">
-        <button class="sh-pill" data-sh="exit">${raw(icon('back', 15))} رجوع للمكتبة</button>
-        <div class="sh-top-title"><span>Shadowing Book · كتاب الظلّ</span></div>
-        <button class="sh-pill" data-sh="tips">${raw(icon('info', 15))} نصائح</button>
-      </div>
+        <!-- ══════════ الكتاب ══════════ -->
+        <div class="sh-book">
+          <div class="sh-pages">
 
-      <div class="sh-book">
-        <div class="sh-pages">
-          <!-- ─── الصفحة اليسرى: مِمَّ أتعلّم ─── -->
-          <div class="sh-page sh-left">
-            <div class="sh-page-head">
-              <span class="sh-tag">RU 🇷🇺</span>
-              <span class="t">المشهد والنصّ الأصلي</span>
-            </div>
+            <!-- ─────── الورقة ─────── -->
+            <div class="sh-page sh-left">
 
-            ${raw(sourceBadge(source))}
-            ${raw(originPanel(source))}
-            ${raw(change.changed ? staleBanner(change) : '')}
-            ${raw(cover ? coverPanel(cover) : '')}
-            ${raw(
-              scene
-                ? html`<div class="sh-scene-title">🎬 <b>${scene.titleRu || scene.titleAr}</b>
-                    ${raw(scene.titleRu && scene.titleAr ? html`<span>(${scene.titleAr})</span>` : '')}
-                  </div>`
-                : ''
-            )}
-
-            <!--
-              شريط التحديد (بند 21): يظهر عند طلبه فقط. التدريب على
-              سبعٍ من ثمانيَ عشرة لا يحتاج مغادرة الجلسة ولا إعادة
-              بنائها — الفهارس تبقى كما هي والمحرّك يدور في المحدَّد.
-            -->
-            <div class="sh-select-bar" data-select-bar hidden>
-              <span class="sh-select-count"><b data-select-count>0</b> / ${segments.length}</span>
-              <div class="sh-select-actions">
-                <button data-sh="sel" data-pick="all">الكل</button>
-                <button data-sh="sel" data-pick="none">مسح</button>
-                <button data-sh="sel" data-pick="difficult">صعبة</button>
-                <button data-sh="sel" data-pick="unpracticed">لسه</button>
-              </div>
-              <button class="sh-select-go" data-sh="sel-apply">تدرّب على المحدَّد</button>
-            </div>
-
-            <div data-lines class="${''}">
-              ${raw(segments.map((s, i) => lineHtml(s, i, i === idx)).join(''))}
-            </div>
-
-            ${raw(fontPanel())}
-
-            <div class="sh-left-foot">
-              <button class="sh-pill" data-sh="toggle-tr">📖 عرض الترجمة <span class="caret">▾</span></button>
-              <button class="sh-pill" data-sh="lang" data-lang="${ctx.lang}">
-                <span data-lang-flag>${languageByCode(ctx.lang).flag}</span>
-                <span data-lang-label>${languageByCode(ctx.lang).label}</span>
-              </button>
-              <button class="sh-pill" data-sh="font">✍️ <span data-font-label>الخطّ</span></button>
-              <button class="sh-pill" data-sh="stress">◌́ النبر</button>
-            </div>
-          </div>
-
-          <div class="sh-spine" data-spine role="separator" aria-label="اسحب لتغيير حجم الصفحتين"></div>
-
-          <!-- ─── الصفحة اليمنى: كيف أجعله لي ─── -->
-          <div class="sh-page sh-right">
-            <div class="sh-page-head">
-              <span class="t">✦ محرّك الظلّ</span>
-              <span class="sh-tag live" data-status>جاهز</span>
-            </div>
-
-            <div>
-              <div class="sh-progress-row">
-                <span>جملة <b data-pos>${idx + 1}</b> / ${segments.length}</span>
-                <span data-counter>—</span>
-              </div>
-              <div class="sh-bar" data-bar><span></span></div>
-            </div>
-
-            <div class="sh-current-card" data-card>
-              <div class="sh-current-head">
-                <span class="sh-current-lbl" data-current-lbl>الجملة الحالية</span>
-                <span class="sh-current-tools">
-                  <button data-sh="scratch-open" title="اكتب كلمة أو جملة من برّه">✎</button>
-                  <button data-sh="scratch-clear" title="امسح النصّ من مربع القراءة" hidden
-                    data-scratch-clear>✕</button>
+              <div class="sh-sec-head">
+                <span class="sh-mono">المصدر · ${source?.label || 'نصّ'}</span>
+                <span class="sh-pgbtns">
+                  <button data-sh="doc" data-fit="fit">اضبط</button>
+                  <button data-sh="doc" data-fit="full">كامل</button>
                 </span>
               </div>
-              <div class="sh-current-text" data-text></div>
-              <div class="sh-current-tr" data-tr></div>
-              <div class="sh-marks" data-marks></div>
-              <div class="sh-wave">${raw('<i></i>'.repeat(21))}</div>
+
+              <!--
+                لوحُ المستند: ارتفاعُه متغيّرٌ ويُسحَب بالمقبض تحته،
+                فتقرّر أنت كم ترى من الأصل وكم ترى من الجمل.
+              -->
+              <div class="sh-doc" data-doc>
+                <div class="sh-sheet">
+                  ${raw(sourceBadge(source))}
+                  ${raw(originPanel(source))}
+                  ${raw(change.changed ? staleBanner(change) : '')}
+                  ${raw(cover ? coverPanel(cover) : '')}
+                </div>
+              </div>
+
+              <!-- ⚠️ مقبضٌ ثانٍ غيرُ كعب الكتاب: هذا يقسم **الورقة**. -->
+              <div class="sh-docsplit" data-docsplit role="separator"
+                   aria-label="اسحب لتغيير حجم المستند">
+                <button data-sh="doc" data-fit="none">◂ اطوِ المصدر</button>
+                <span class="sh-grip"></span>
+                <button data-sh="doc" data-fit="full">وسّع النصّ ▸</button>
+              </div>
+
+              <div class="sh-sec-head">
+                <span class="sh-mono">النصّ · ${counted(segments.length, 'جملة', 'جملتين', 'جملة')}</span>
+                <span class="sh-mono sh-dim">RU ← AR</span>
+              </div>
+
+              <div class="sh-select-bar" data-select-bar hidden>
+                <span class="sh-select-count"><b data-select-count>0</b> / ${segments.length}</span>
+                <div class="sh-select-actions">
+                  <button data-sh="sel" data-pick="all">الكل</button>
+                  <button data-sh="sel" data-pick="none">مسح</button>
+                  <button data-sh="sel" data-pick="difficult">صعبة</button>
+                  <button data-sh="sel" data-pick="unpracticed">لسه</button>
+                </div>
+                <button class="sh-select-go" data-sh="sel-apply">تدرّب على المحدَّد</button>
+              </div>
+
+              <div class="sh-lines" data-lines>
+                ${raw(segments.map((seg, i) => lineHtml(seg, i, i === idx)).join(''))}
+              </div>
+
+              ${raw(fontPanel())}
+
+              <div class="sh-foot-tabs">
+                <button class="on">النصّ</button>
+                <button data-sh="scratch-open">مربّع الكتابة</button>
+                <button data-sh="toggle-tr">الترجمة</button>
+                <button data-sh="stress">النبر</button>
+              </div>
             </div>
 
-            <!--
-              مربع النصّ الخارجي: كلمة أو جملة من خارج المصدر تُقرأ
-              هنا بنفس المحرّك — بنفس السرعة والتكرار والصوت — بلا أن
-              تُضاف إلى الجلسة ولا تُحسب ممارسةً على نصٍّ لم تتدرّب
-              عليه.
-            -->
-            <form class="sh-scratch" data-scratch hidden>
-              <input type="text" name="scratch" dir="ltr" lang="ru" data-scratch-input
-                placeholder="اكتب كلمة أو جملة روسية…" autocomplete="off" />
-              <button type="submit" class="sh-pill">اقرأها</button>
-              <button type="button" class="sh-pill" data-sh="scratch-close">✕</button>
-            </form>
+            <div class="sh-spine" data-spine role="separator"
+                 aria-label="اسحب لتغيير حجم الصفحتين"></div>
 
-            <!--
-              وجهات الحفظ (بند 19): النصّ الذي كتبته الآن لا يضيع بمجرّد
-              مسحه. يظهر الصفّ حين يكون هناك نصٌّ يُقرأ فعلًا.
-            -->
-            <div class="sh-scratch-save" data-scratch-save hidden>
-              <span>احفظها في:</span>
-              <button data-sh="scratch-to" data-to="saved">🔖 المحفوظات</button>
-              <button data-sh="scratch-to" data-to="expression">✦ تعبير</button>
-              <button data-sh="scratch-to" data-to="script">📄 سكريبت في الذكرى</button>
-            </div>
+            <!-- ─────── الكون ─────── -->
+            <div class="sh-page sh-right">
 
-            <!--
-              شريط القراءة السريعة: القيم الثلاث الحيّة في سطر واحد،
-              والنقر على أيّها يفتح الدرج عندها. كانت هذه القيم ثلاث
-              بطاقات تأكل نصف الصفحة، وأنت لا تغيّرها كل جملة —
-              تقرأها كثيرًا وتضبطها قليلًا.
-            -->
-            <button class="sh-quick" data-sh="drawer">
-              <span><i>🎚</i><b data-dial="speed">${session.speed}x</b></span>
-              <span><i>🔁</i><b data-dial="repeat">×${session.repeatCount}</b></span>
-              <span><i>⏳</i><b data-dial="pause">${intervalLabel(session)}</b></span>
-              <span class="sh-quick-more">⚙︎ اضبط</span>
-            </button>
+              <div class="sh-stage-top">
+                <div class="sh-mono sh-count">
+                  <b data-pos>${idx + 1}</b> / ${segments.length} جملة
+                  <span data-status class="sh-dim">جاهز</span>
+                </div>
+                <!--
+                  ⚠️ **شُرَطٌ لا شريطُ تقدّم.** الشريط يقول «كم قطعتَ»؛
+                     والشُّرَط تقول ذلك **وتُنقَر**: كل شرطةٍ جملة، تضغطها
+                     فتقفز إليها. رقمٌ صار قائمة — كقاعدة المختبر.
+                -->
+                <div class="sh-ticks" data-ticks>
+                  ${raw(segments.map((_, i) => html`
+                    <button class="sh-tick${i === idx ? ' on' : ''}${i < idx ? ' past' : ''}"
+                            data-sh="tick" data-i="${i}"
+                            aria-label="الجملة ${i + 1}"><i></i></button>`).join(''))}
+                </div>
+                <div class="sh-bar" data-bar><span></span></div>
+                <span data-counter hidden></span>
+              </div>
 
-            <div class="sh-transport">
-              <button class="sh-nav-btn" data-sh="prev">⏮ السابق</button>
-              <button class="sh-play" data-sh="play" aria-label="تشغيل">▶</button>
-              <button class="sh-nav-btn" data-sh="next">التالي ⏭</button>
-            </div>
+              <div class="sh-hero" data-card>
+                <span class="sh-current-lbl" data-current-lbl hidden></span>
+                <div class="sh-current-text" data-text></div>
+                <div class="sh-current-tr" data-tr></div>
+                <div class="sh-marks" data-marks></div>
+              </div>
 
-            <div class="sh-seg">
-              <button data-sh="words">✦ الكلمات</button>
-              <button data-sh="difficult">صعبة</button>
-              <button data-sh="save-item">🔖 احفظها</button>
-              <button data-sh="select-mode">☑︎ حدّد</button>
-              ${raw(
-                segments.some((seg) => seg.isMine)
-                  ? html`<button data-sh="my-role">🎭 دوري</button>`
-                  : html`<button data-sh="audio-source"
-                      class="${ctx.audioSource === AUDIO_SOURCE.TTS ? '' : 'on'}"
-                      title="اضغط لتبديل مصدر الصوت">
-                      ${AUDIO_LABEL[ctx.audioSource]}
-                    </button>`
-              )}
-            </div>
+              <!--
+                رقائقُ الكلمات: ضغطةٌ تسمعها، وضغطةٌ مطوّلة تفتح أدواتها
+                في السكّة. والشريطُ تحت كلِّ رقاقةٍ يمتلئ وهي تُنطَق.
+              -->
+              <div class="sh-chips" data-words></div>
+              <div class="sh-hint sh-mono" data-hint>دوس على كلمة تسمعها · طوّل الضغطة للأدوات</div>
 
-            <div class="sh-words" data-words hidden></div>
+              <div class="sh-transport">
+                <button class="sh-nav-btn" data-sh="prev" aria-label="السابق">
+                  <i class="sh-ico-prev"></i>
+                </button>
+                <button class="sh-play" data-sh="play" aria-label="تشغيل">
+                  <i class="sh-ico-play"></i>
+                </button>
+                <button class="sh-nav-btn" data-sh="next" aria-label="التالي">
+                  <i class="sh-ico-next"></i>
+                </button>
+              </div>
 
-            <button class="sh-record" data-sh="record">
-              🎙 سجّل الآن
-            </button>
-            <button class="sh-record ghost" data-sh="tell">
-              🗣 احكيها الآن
-            </button>
-            <div class="sh-hint" data-hint>
-              سجّل بصوتك وقارن نفسك بالنطق الأصلي
+              <div class="sh-quickpills">
+                <button data-sh="drawer" data-dial="speed">${session.speed}x</button>
+                <button data-sh="drawer" data-dial="repeat">×${session.repeatCount}</button>
+                <button data-sh="drawer" data-dial="pause">${intervalLabel(session)}</button>
+                <button data-sh="toggle-tr">العربيّة</button>
+              </div>
+
+              <!-- الحجاب: ضغطةٌ خارج السكّة تغلقها. -->
+              <div class="sh-scrim" data-sh="rail-close"></div>
+
+              <!-- ══════════ سكّة الأدوات ══════════ -->
+              <div class="sh-toolrail" data-toolrail>
+                <span class="sh-rail-ctx sh-mono" data-rail-ctx>الظلّ</span>
+                <div class="sh-rail-tools" data-rail-tools></div>
+                <div class="sh-grow"></div>
+                <button class="sh-rail-toggle" data-sh="rail" aria-label="افتح الأدوات">‹</button>
+              </div>
+
+              <aside class="sh-panel" data-panel-host>
+                <div class="sh-panel-head">
+                  <span class="sh-mono" data-panel-title></span>
+                  <button data-sh="rail-close" aria-label="اقفل">✕</button>
+                </div>
+                <div class="sh-panel-rule"></div>
+                <div class="sh-panel-body" data-panel-body></div>
+                <div class="sh-panel-foot sh-mono" data-panel-foot></div>
+              </aside>
             </div>
           </div>
         </div>
       </div>
 
-      <!--
-        الشريط السفلي بشكل التصميم — وكل زرّ فيه يفعل شيئًا حقيقيًا.
-        لا «تحديات» ولا «تقارير» مفبركة: التقارير أرقام الجلسة الفعلية،
-        والمفضّلة هي الجمل التي علّمتها صعبة، والسجلّ ممارستك المسجّلة.
-      -->
-      <div class="sh-bottom">
-        <button class="sh-tab" data-sh="panel" data-panel="settings">⚙️<span>الإعدادات</span></button>
-        <button class="sh-tab" data-sh="panel" data-panel="report">📊<span>التقرير</span></button>
-        <button class="sh-core" data-sh="words" aria-label="تقسيم الكلمات">✦</button>
-        <button class="sh-tab" data-sh="panel" data-panel="difficult">♡<span>الصعبة</span></button>
-        <button class="sh-tab" data-sh="panel" data-panel="history">🕘<span>السجلّ</span></button>
-      </div>
+      <!-- ══════════ الشريط السفلي ══════════ -->
+      <footer class="sh-bottom">
+        <!--
+          ⚠️ **ولا مربّعَ يقول «لقطة» وهو فارغ.** التصميم يضع مستطيلًا
+             مخطَّطًا مكانَ صورةٍ لا وجودَ لها. وواجهةٌ تعرض إطارًا
+             لشيءٍ غير موجود تَعِد بما لا تملك — فإن كان للذكرى غلافٌ
+             ظهر، وإلّا فلا شيء.
+        -->
+        ${raw(cover ? html`<div class="sh-still"><img src="${cover}" alt="" /></div>` : '')}
+        <div class="sh-bottom-title">
+          <b>${session.title || title}</b>
+          <span class="sh-mono sh-dim">${source?.label || 'نصّ'}</span>
+        </div>
+        <div class="sh-grow"></div>
+        <!--
+          ⚠️ **ثلاثةُ أرقامٍ لا أربعة.** التصميم يعرض «85% ACCURACY»
+             رابعًا، والتطبيق **لا يسمعك** — فلا سبيل إلى قياس دقّة
+             نطقك بلا تعرّفٍ على الكلام. ورقمٌ لا مصدر له لا يُعرَض
+             (بند 89)، ولا يُستبدَل بتقديرٍ يبدو علمًا.
+        -->
+        <div class="sh-stats">
+          <div><b>${segments.length}</b><span class="sh-mono">جملة</span></div>
+          <div><b>${segments.reduce((n, seg) => n + splitWords(seg.sourceTextSnapshot).length, 0)}</b><span class="sh-mono">كلمة</span></div>
+          <div><b>${session.totalRepetitions || 0}</b><span class="sh-mono">تكرار</span></div>
+        </div>
+        <button class="sh-overview" data-sh="panel" data-panel="report">ملخّص الجلسة</button>
+      </footer>
 
       ${raw(settingsDrawer())}
+
+      <!-- مربّع النصّ الخارجي ووجهات حفظه — يظهران بالطلب. -->
+      <form class="sh-scratch" data-scratch hidden>
+        <input type="text" name="scratch" dir="ltr" lang="ru" data-scratch-input
+          placeholder="اكتب كلمة أو جملة روسية…" autocomplete="off" />
+        <button type="submit" class="sh-pill">اقرأها</button>
+        <button type="button" class="sh-pill" data-sh="scratch-close">✕</button>
+      </form>
+      <div class="sh-scratch-save" data-scratch-save hidden>
+        <span>احفظها في:</span>
+        <button data-sh="scratch-to" data-to="saved">المحفوظات</button>
+        <button data-sh="scratch-to" data-to="expression">تعبير</button>
+        <button data-sh="scratch-to" data-to="script">سكريبت في الذكرى</button>
+        <button data-sh="scratch-clear" data-scratch-clear hidden>✕</button>
+      </div>
     </div>`;
 }
 
@@ -1042,22 +1160,28 @@ function handleEvent(event) {
   const status = $('[data-status]');
 
   switch (event.type) {
+    /*
+     * ⚠️ زرُّ التشغيل صار **شكلًا** لا حرفًا (WS24): مثلّثٌ يصير
+     *    عمودين بالـCSS. فلا يُكتَب فيه نصٌّ يمحو الأيقونة — يُبدَّل
+     *    صنفُه وحده.
+     */
     case 'start':
     case 'resume':
-      if (play) play.textContent = '⏸';
+      play?.classList.add('on');
       if (status) status.textContent = 'بيشتغل';
       break;
 
     case 'pause':
-      if (play) play.textContent = '▶';
+      play?.classList.remove('on');
       if (status) status.textContent = 'متوقّف';
       card?.classList.remove('speaking');
       break;
 
     case 'stop':
-      if (play) play.textContent = '▶';
+      play?.classList.remove('on');
       if (status) status.textContent = 'جاهز';
       card?.classList.remove('speaking');
+      highlightWord(-1);
       break;
 
     case 'repeat': {
@@ -1354,6 +1478,17 @@ async function tellItNow(button) {
   }
 }
 
+/**
+ * رقائقُ الكلمات (WS24).
+ *
+ * ⚠️ كانت أزرارًا تظهر بالطلب وتختفي؛ وصارت **حاضرةً دائمًا تحت
+ *    الجملة**، لكلٍّ شريطٌ يمتلئ وهي تُنطَق. والفرق ليس زينةً: الشريط
+ *    يقول **أين أنت داخل الكلمة**، وهو ما يحتاجه من يظلّ نطقًا — أمّا
+ *    زرٌّ يضيء ويطفئ فيقول «الآن» ولا يقول «كم بقي».
+ *
+ * ⚠️ **وضغطةٌ تسمع، وضغطةٌ مطوّلة تفتح الأدوات.** الفعلان على نفس
+ *    الهدف عمدًا: السماع هو التسعون بالمئة، فيأخذ الضغطة القصيرة.
+ */
 function renderWords() {
   const host = $('[data-words]');
   if (!host) return;
@@ -1361,16 +1496,284 @@ function renderWords() {
   const words = splitWords(segment.sourceTextSnapshot);
   player.setWords(words);
   host.innerHTML = words
-    .map((w, i) => `<button class="sh-word" data-word="${i}">${esc(w.display)}</button>`)
+    .map((w, i) => `<button class="sh-chip" data-word="${i}">
+        <span class="sh-chip-w">${esc(w.display)}</span>
+        <span class="sh-chip-bar"><i></i></span>
+      </button>`)
     .join('');
 }
 
 function highlightWord(wordIndex) {
   const host = $('[data-words]');
-  if (!host || host.hidden) return;
+  if (!host) return;
   host.querySelectorAll('[data-word]').forEach((node, i) => {
     node.classList.toggle('speaking', i === wordIndex);
+    /* وما مضى يبقى ممتلئًا: تقرأ من الشرائط كم قطعتَ من الجملة. */
+    node.classList.toggle('past', wordIndex >= 0 && i < wordIndex);
   });
+}
+
+/* ================================================================== */
+/* سكّة الأدوات الواعية بالسياق (WS24)                                 */
+/* ================================================================== */
+
+/**
+ * ⚠️ **هذا هو جوابُ «الصفحات دوشة» في كتاب الظلّ.**
+ *
+ * كان التحكّم منثورًا: شريطٌ سريع، ودرجٌ للإعدادات، وأربعةُ تبويباتٍ
+ * أسفل الشاشة، وستّةُ أزرارٍ في صفٍّ، ولوحةُ خطٍّ في الورقة. كلٌّ منها
+ * صحيحٌ وحده، ومجموعُها هو الضجيج.
+ *
+ * فصار الكلُّ في **سكّةٍ واحدة على الحافّة**، وأدواتُها تتغيّر بما
+ * لمستَه:
+ *
+ * ```
+ * لمستَ الكون    ──▶  العرض · الخطّ · السرعة · التكرار · الصوت
+ * لمستَ كلمة     ──▶  اسمعها · احفظها · صعبة · معناها
+ * لمستَ الورقة   ──▶  المستند: اضبط · كامل · اطوِه
+ * لمستَ النصّ     ──▶  تتبُّع · حجم الخطّ · السرعة
+ * ```
+ *
+ * ⚠️ **والسِّجلّ سطرٌ لكلّ أداة.** أداةٌ تُضاف غدًا سطرٌ في `TOOLSETS`
+ *    وسطرٌ في `PANELS` — ولا تُلمَس السكّةُ ولا اللوحة ولا الشاشة.
+ *    وهو نفسُ نمط `ASPECTS` و`SCOPES` و`PROMPTS` و`SOURCES` في المشروع.
+ */
+const TOOLSETS = {
+  stage: [
+    { id: 'display', glyph: '◐', label: 'العرض' },
+    { id: 'text', glyph: 'Aa', label: 'الخطّ' },
+    { id: 'speed', glyph: '▹', label: 'السرعة' },
+    { id: 'repeat', glyph: '↻', label: 'التكرار' },
+    { id: 'voice', glyph: '◈', label: 'الصوت' },
+  ],
+  word: [
+    { id: 'hear', glyph: '♪', label: 'اسمعها' },
+    { id: 'save', glyph: '✦', label: 'احفظها' },
+    { id: 'hard', glyph: '△', label: 'صعبة' },
+    { id: 'meaning', glyph: '⌥', label: 'معناها' },
+  ],
+  source: [
+    { id: 'doc-fit', glyph: '⤢', label: 'اضبط' },
+    { id: 'doc-full', glyph: '▣', label: 'كامل' },
+    { id: 'doc-none', glyph: '◂', label: 'اطوِه' },
+  ],
+};
+
+/** حالةُ السكّة — خارج الـDOM كباقي حالات هذه الشاشة. */
+const rail = { open: false, ctx: 'stage', tool: 'display', word: -1 };
+
+const RAIL_CTX_LABEL = { stage: 'الظلّ', word: 'كلمة', source: 'المصدر' };
+
+/**
+ * محتوى اللوحة لكل أداة.
+ *
+ * ⚠️ **ولا يُخترَع تحكّمٌ جديد هنا.** كل زرٍّ ينادي ما كان يعمل أمس:
+ *    `setTuner` و`ctx.display` و`applyFonts`… فالسكّة **بابٌ** لا
+ *    محرّك، والوظيفةُ لم تُنقَل بل جُمِعَت.
+ */
+function panelFor(id) {
+  const s = ctx.session;
+  const on = (a, b) => (a === b ? ' on' : '');
+  const pick = (act, val, text, isOn) =>
+    `<button data-sh="${act}" data-v="${val}" class="${isOn ? 'on' : ''}">${esc(text)}</button>`;
+
+  if (id === 'display') {
+    return {
+      title: 'العرض',
+      foot: 'يغيّر ما تراه لا ما يُنطَق',
+      groups: [
+        { title: 'الترجمة', items:
+          `${pick('mode', 'ru', 'روسي فقط', ctx.display === DISPLAY.RU)}
+           ${pick('mode', 'egy', 'مصري', ctx.display === DISPLAY.EGY)}
+           ${pick('mode', 'hidden', 'مخفي', ctx.display === DISPLAY.HIDDEN)}` },
+        { title: 'النبر', items:
+          `${pick('stress', '1', 'ظاهر', Boolean(ctx.stress))}
+           ${pick('stress', '0', 'مخفي', !ctx.stress)}` },
+      ],
+    };
+  }
+  if (id === 'text') {
+    return {
+      title: 'الخطّ',
+      foot: 'يخصّ النصّ الروسي وحده',
+      groups: [{ title: 'المقاس', items:
+        [0.85, 1, 1.2, 1.45].map((v) =>
+          pick('fsize', String(v), `${Math.round(v * 100)}%`, Number(ctx.fontSize || 1) === v)).join('') },
+      ],
+      after: fontPanelBody(),
+    };
+  }
+  if (id === 'speed') {
+    return {
+      title: 'السرعة',
+      foot: 'طبقةُ الصوت لا تتغيّر',
+      groups: [{ title: 'سرعة القراءة', items:
+        [0.5, 0.75, 0.85, 1, 1.25].map((v) =>
+          pick('tune', `speed:${v}`, `${v}x`, Number(s.speed) === v)).join('') }],
+    };
+  }
+  if (id === 'repeat') {
+    return {
+      title: 'التكرار',
+      foot: 'يخصّ الجملة الجارية',
+      groups: [
+        { title: 'كم مرّة', items: [1, 2, 3, 5, 7].map((v) =>
+          pick('tune', `repeat:${v}`, `×${v}`, Number(s.repeatCount) === v)).join('') },
+        { title: 'الوقفة بينها', items: [0, 500, 1000, 2000].map((v) =>
+          pick('tune', `pause:${v}`, v ? `${v / 1000}ث` : 'بلا', Number(s.intervalMs) === v)).join('') },
+      ],
+    };
+  }
+  if (id === 'voice') {
+    return {
+      title: 'الصوت',
+      foot: 'أصواتُ جهازك — لا شيء يُحمَّل',
+      groups: [{ title: 'المصدر', items:
+        `${pick('audio-src', AUDIO_SOURCE.TTS, 'آليّ', ctx.audioSource === AUDIO_SOURCE.TTS)}
+         ${pick('audio-src', AUDIO_SOURCE.NATIVE, 'أصليّ', ctx.audioSource === AUDIO_SOURCE.NATIVE)}` }],
+      after: `<div class="sh-pgroup"><span>صوت الجهاز</span>${voiceOptions(ctx.voices, s.voiceURI)}</div>`,
+    };
+  }
+  if (id === 'meaning') {
+    const w = currentWordText();
+    return {
+      title: w || 'كلمة',
+      foot: 'المعنى يُقرأ من تعبيراتك ومحفوظاتك',
+      groups: [{ title: 'ابحث عنها', items:
+        `<button data-sh="word-go" data-v="${esc(w)}">افتح صفحة الكلمة</button>` }],
+    };
+  }
+  return { title: 'الأدوات', foot: '', groups: [] };
+}
+
+/** نصُّ الكلمة المختارة — أو فراغ. */
+function currentWordText() {
+  const node = document.querySelectorAll('[data-word]')[rail.word];
+  return node ? node.textContent.trim() : '';
+}
+
+/** جسمُ لوحة الخطّ — يُعاد استعمالُه داخل اللوحة بدل لوحةٍ ثانية. */
+function fontPanelBody() {
+  return `<div class="sh-pgroup"><span>شكل الحروف</span>
+    <div class="sh-pitems">${FONTS.map((f) => `
+      <button data-sh="font-pick" data-font="${f.id}" class="${ctx.font === f.id ? 'on' : ''}"
+              style="font-family:${f.stack};font-style:${f.style}" lang="ru">${esc(f.label)}</button>`).join('')}
+    </div></div>`;
+}
+
+/** يرسم السكّة واللوحة من السجلّ — لا من شرطٍ متفرّق. */
+function renderRail() {
+  const app = document.querySelector('.shadow-app');
+  const tools = $('[data-rail-tools]');
+  const ctxLbl = $('[data-rail-ctx]');
+  if (!app || !tools) return;
+
+  app.classList.toggle('is-rail', rail.open);
+  const set = TOOLSETS[rail.ctx] || TOOLSETS.stage;
+  if (ctxLbl) ctxLbl.textContent = RAIL_CTX_LABEL[rail.ctx] || 'الظلّ';
+
+  tools.innerHTML = set.map((t) => `
+    <button data-sh="tool" data-v="${t.id}" title="${esc(t.label)}"
+            aria-label="${esc(t.label)}"
+            class="${rail.open && rail.tool === t.id ? 'on' : ''}">${t.glyph}</button>`).join('');
+
+  const toggle = $('.sh-rail-toggle');
+  if (toggle) toggle.textContent = rail.open ? '›' : '‹';
+
+  if (!rail.open) return;
+  const def = panelFor(rail.tool);
+  const title = $('[data-panel-title]');
+  const body = $('[data-panel-body]');
+  const foot = $('[data-panel-foot]');
+  if (title) title.textContent = def.title;
+  if (foot) foot.textContent = def.foot || '';
+  if (body) {
+    body.innerHTML = def.groups.map((g) => `
+      <div class="sh-pgroup"><span>${esc(g.title)}</span>
+        <div class="sh-pitems">${g.items}</div></div>`).join('') + (def.after || '');
+  }
+}
+
+/** يفتح السكّة على أداةٍ بعينها، أو يغلقها إن كانت مفتوحةً عليها. */
+function pickTool(id) {
+  /* أفعالٌ فوريّة لا لوحةَ لها: تُنفَّذ وتُغلق. */
+  if (id === 'hear') { if (rail.word >= 0) player.selectWord(rail.word); rail.open = false; return renderRail(); }
+  if (id === 'save') { document.querySelector('[data-sh="save-item"]')?.click(); rail.open = false; return renderRail(); }
+  if (id === 'hard') { document.querySelector('[data-sh="difficult"]')?.click(); rail.open = false; return renderRail(); }
+  if (id.startsWith('doc-')) { setDoc(id.slice(4)); rail.open = false; return renderRail(); }
+
+  rail.open = !(rail.open && rail.tool === id);
+  rail.tool = id;
+  renderRail();
+}
+
+/** يقفز إلى جملةٍ بعينها — من شرطةٍ أو من سطرٍ في الورقة. */
+function goSegment(index) {
+  if (!Number.isFinite(index) || !ctx?.segments[index]) return;
+  player.goTo(index);
+  syncSegment();
+  syncTicks();
+  renderWords();
+}
+
+/** يحدّث الشُّرَط بعد كل قفزة. */
+function syncTicks() {
+  const idx = player?.state?.index ?? 0;
+  document.querySelectorAll('.sh-tick').forEach((node, i) => {
+    node.classList.toggle('on', i === idx);
+    node.classList.toggle('past', i < idx);
+  });
+}
+
+/**
+ * ارتفاعُ لوح المستند في الورقة.
+ *
+ * ⚠️ **ويُحفَظ**، كما حُفظ شقُّ الكتاب. ضبطٌ يضيع بأوّل إعادة رسمٍ
+ *    أسوأ من ألّا يوجد: تضبطه كل مرّةٍ فتكفّ عن ضبطه.
+ */
+const DOC_KEY = 'shadow.doc';
+const DOC_MAX = 470;
+let docSize = 250;
+
+function setDoc(mode) {
+  const next = mode === 'none' ? 0 : mode === 'full' ? DOC_MAX : 250;
+  applyDoc(next);
+  settings.set(DOC_KEY, next).catch(() => {});
+}
+
+function applyDoc(px) {
+  docSize = Math.max(0, Math.min(DOC_MAX, px));
+  document.querySelector('.shadow-app')?.style.setProperty('--doc', `${docSize}px`);
+}
+
+/** يركّب سحبَ مقبض الورقة — بنفس منطق كعب الكتاب. */
+function wireDocSplit(main) {
+  const handle = main.querySelector('[data-docsplit]');
+  const app = main.querySelector('.shadow-app');
+  if (!handle || !app) return;
+
+  let from = null;
+  handle.addEventListener('pointerdown', (event) => {
+    /* الأزرارُ داخل المقبض تعمل، فلا نبتلع ضغطتها. */
+    if (event.target.closest('button')) return;
+    from = { y: event.clientY, base: docSize };
+    app.classList.add('is-docdrag');
+    handle.setPointerCapture?.(event.pointerId);
+  });
+
+  handle.addEventListener('pointermove', (event) => {
+    if (!from) return;
+    applyDoc(from.base + (event.clientY - from.y));
+  });
+
+  const release = () => {
+    if (!from) return;
+    from = null;
+    app.classList.remove('is-docdrag');
+    settings.set(DOC_KEY, docSize).catch(() => {});
+  };
+  handle.addEventListener('pointerup', release);
+  handle.addEventListener('pointercancel', release);
 }
 
 /* ------------------------------------------------------------------ *
@@ -2074,6 +2477,51 @@ function wireInteractions(main) {
         player.updateSettings({ repeatMode: mode });
         setSegActive('[data-repeat-seg]', btn.dataset.val);
         return saveSessionSettings(ctx.session.id, { repeatMode: mode });
+      }
+
+      /* ---------- WS24 · أفعال البنية الجديدة ---------- */
+
+      /* شرطةٌ في أعلى المسرح — نقرةٌ تقفز إلى جملتها. */
+      case 'tick':
+        return goSegment(Number(target.dataset.i));
+
+      /* مقبضُ الورقة — أزرارُه الثلاثة ومقاساتُها. */
+      case 'doc':
+        return setDoc(target.dataset.fit);
+
+      case 'rail':
+        rail.open = !rail.open;
+        return renderRail();
+
+      case 'rail-close':
+        rail.open = false;
+        return renderRail();
+
+      case 'tool':
+        return pickTool(target.dataset.v);
+
+      /* أزرارُ اللوحة — كلٌّ ينادي ما كان يعمل أصلًا. */
+      case 'tune': {
+        const [key, value] = String(target.dataset.v).split(':');
+        setTuner(key, Number(value));
+        return renderRail();
+      }
+
+      case 'fsize': {
+        ctx.fontSize = Number(target.dataset.v);
+        document.querySelector('.shadow-app')?.style.setProperty('--sh-font-size', ctx.fontSize);
+        return renderRail();
+      }
+
+      case 'audio-src':
+        ctx.audioSource = target.dataset.v;
+        toastOk('اتغيّر مصدر الصوت');
+        return renderRail();
+
+      case 'word-go': {
+        const word = target.dataset.v;
+        if (word) navigate(`/word/${encodeURIComponent(word)}`);
+        return undefined;
       }
 
       case 'words': {

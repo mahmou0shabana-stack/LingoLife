@@ -2400,3 +2400,421 @@ body.shadow-open { overflow: hidden; }
 .sh-left .sh-origin-grip {
   background: linear-gradient(180deg, transparent, rgba(165, 98, 43, .16));
 }
+
+/* ══════════════════════════════════════════════════════════════
+   WS24 · مرحلة ٢ — بنيةُ التصميم كما سُلِّمَت
+
+   أوّلُ محاولةٍ بدّلت الألوان وأبقت التخطيط. وهذا القسم يبني التخطيط
+   نفسه: شريطٌ علويّ، وسكّةُ تنقّلٍ رأسيّة، وورقةٌ فيها مستندٌ ومقبضٌ
+   ونصّ، وكونٌ فيه شُرَطٌ وجملةٌ ورقائقُ ونقلٌ، وسكّةُ أدواتٍ ولوحة،
+   وشريطٌ سفليٌّ بالأرقام.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ---------- مفرداتٌ مشتركة ---------- */
+.sh-mono { font-family: var(--sh-mono); font-size: 10.5px; letter-spacing: .18em; }
+.sh-dim  { color: var(--sh-faint); }
+.sh-gold { color: rgba(216, 182, 114, .8); }
+.sh-grow { flex: 1; }
+.sh-vrule { width: 1px; height: 22px; background: rgba(255, 255, 255, .09); flex: none; }
+.sh-slash { color: rgba(255, 255, 255, .16); }
+
+/* ---------- الشريط العلوي ---------- */
+.sh-topbar {
+  position: relative; z-index: 3; flex: 0 0 auto;
+  display: flex; align-items: center; gap: 18px;
+  min-height: 62px; padding: 0 20px;
+}
+
+.sh-diamond {
+  width: 7px; height: 7px; background: var(--sh-accent);
+  transform: rotate(45deg); display: inline-block;
+  box-shadow: 0 0 12px rgba(217, 182, 114, .75);
+}
+
+.sh-crumb { display: flex; align-items: baseline; gap: 12px; min-width: 0; }
+.sh-crumb b {
+  font-size: 15px; font-weight: 400; color: rgba(244, 237, 223, .82);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 34vw;
+}
+
+.sh-streak i {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--sh-accent);
+  display: inline-block; box-shadow: 0 0 10px rgba(217, 182, 114, .6);
+}
+
+.sh-exit {
+  display: inline-flex; align-items: center; gap: 7px;
+  min-height: 44px; padding: 0 16px; border-radius: 3px;
+  border: 1px solid var(--sh-line-soft); background: transparent;
+  color: var(--sh-mute); font-family: var(--sh-mono); font-size: 10.5px;
+  letter-spacing: .16em; cursor: pointer; flex: none;
+}
+.sh-exit:hover { border-color: var(--sh-line); color: var(--sh-ink); }
+
+/* ---------- الجسم وسكّة التنقّل ---------- */
+.sh-body { flex: 1; min-height: 0; display: flex; }
+
+.sh-railnav {
+  flex: 0 0 auto; width: 62px; display: flex; flex-direction: column;
+  align-items: stretch; padding-top: 10px;
+}
+
+.sh-railnav button {
+  writing-mode: vertical-rl;
+  font-family: var(--sh-mono); font-size: 10.5px; letter-spacing: .26em;
+  padding: 18px 0; width: 100%; min-height: 44px; text-align: center;
+  background: none; border: 0; cursor: pointer; margin-bottom: 6px;
+  color: var(--sh-faint); border-inline-start: 1px solid transparent;
+  transition: color .3s ease, border-color .3s ease;
+}
+.sh-railnav button:hover { color: var(--sh-mute); }
+.sh-railnav button.on {
+  color: rgba(232, 207, 154, .95);
+  border-inline-start-color: var(--sh-accent);
+}
+
+/* ---------- الورقة: المستند والمقبض والنصّ ---------- */
+.sh-sec-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; min-height: 30px; flex: none; color: var(--sh-paper-gold);
+}
+
+.sh-pgbtns { display: flex; gap: 2px; }
+.sh-pgbtns button {
+  font-family: var(--sh-mono); font-size: 9.5px; letter-spacing: .16em;
+  padding: 9px 11px; border-radius: 3px; border: 0; background: none;
+  color: rgba(122, 95, 44, .6); cursor: pointer;
+}
+.sh-pgbtns button:hover { background: rgba(122, 95, 44, .09); }
+
+.sh-doc {
+  flex: none; overflow: hidden; margin-top: 4px;
+  block-size: var(--doc, 250px);
+  transition: block-size .38s cubic-bezier(.2, .7, .2, 1);
+}
+.shadow-app.is-docdrag .sh-doc { transition: none; }
+
+/* ورقةٌ فوق الورقة — مائلةٌ قليلًا كورقةٍ مُلقاة. */
+.sh-sheet {
+  position: relative; margin: 2px 4px 0; padding: 14px 16px;
+  background: #fdfaf1; transform: rotate(-.25deg);
+  box-shadow: 0 1px 0 rgba(255, 255, 255, .9) inset,
+              0 16px 30px -16px rgba(52, 38, 16, .4),
+              0 2px 4px rgba(52, 38, 16, .13);
+}
+
+/*
+ * ⚠️ **مقبضٌ ثانٍ، وهو غيرُ كعب الكتاب.** الكعب يقسم الصفحتين؛ وهذا
+ *    يقسم **الورقة نفسها**: كم ترى من المستند وكم ترى من الجمل. و44px
+ *    حدُّ اللمس هنا أيضًا — نفسُ الدرس الذي كلّفنا جولةً في الكعب.
+ */
+.sh-docsplit {
+  flex: none; display: flex; align-items: center; justify-content: center;
+  gap: 14px; min-block-size: 44px; margin: 4px 0 2px;
+  cursor: row-resize; touch-action: none; border-radius: 3px;
+  transition: background .25s ease;
+}
+.shadow-app.is-docdrag .sh-docsplit { background: rgba(101, 80, 48, .08); }
+
+.sh-docsplit button {
+  font-family: var(--sh-mono); font-size: 9.5px; letter-spacing: .18em;
+  padding: 10px 6px; border: 0; background: none;
+  color: rgba(122, 95, 44, .55); cursor: pointer;
+}
+
+.sh-grip {
+  width: 56px; height: 3px; border-radius: 2px;
+  background: rgba(122, 95, 44, .32); transition: background .25s ease;
+}
+.shadow-app.is-docdrag .sh-grip { background: rgba(122, 95, 44, .75); }
+
+.sh-lines { flex: 1; min-height: 0; overflow-y: auto; margin-top: 4px; }
+
+.sh-foot-tabs {
+  display: flex; gap: 20px; flex: none; margin-top: 8px; padding-top: 12px;
+  border-top: 1px solid var(--sh-paper-line);
+}
+.sh-foot-tabs button {
+  font-family: var(--sh-mono); font-size: 10.5px; letter-spacing: .15em;
+  border: 0; background: none; padding: 8px 0; cursor: pointer;
+  color: rgba(90, 72, 44, .5);
+}
+.sh-foot-tabs button.on { color: var(--sh-paper-gold); }
+
+/* الورقة عمودٌ لا كتلةٌ تُمرَّر: المستند والنصّ يقتسمانها. */
+.sh-left { display: flex; flex-direction: column; overflow: hidden; }
+
+/* ---------- الكون: أعلى المسرح ---------- */
+.sh-right { padding: 22px 20px 18px; gap: 0; }
+
+.sh-stage-top { flex: none; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.sh-count { color: var(--sh-faint); display: flex; align-items: baseline; gap: 8px; }
+.sh-count b { color: rgba(224, 196, 138, .9); font-weight: 400; }
+
+.sh-ticks { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; }
+.sh-tick {
+  width: 26px; height: 44px; display: grid; place-items: center;
+  border: 0; background: none; cursor: pointer; padding: 0;
+}
+.sh-tick i {
+  width: 1px; height: 9px; display: block;
+  background: rgba(239, 231, 216, .18); transition: all .35s ease;
+}
+.sh-tick.past i { background: rgba(217, 182, 114, .45); }
+.sh-tick.on i {
+  height: 18px; background: #f0dcb0;
+  box-shadow: 0 0 14px rgba(217, 182, 114, .9);
+}
+
+/* شريطُ تقدّمِ الجملة الجارية — رفيعٌ تحت الشُّرَط. */
+.sh-stage-top .sh-bar { width: min(420px, 80%); height: 2px; margin-top: 2px; }
+
+/* ---------- الجملة ---------- */
+.sh-hero {
+  flex: 1 1 auto; min-height: 0;
+  display: flex; flex-direction: column; justify-content: center;
+  text-align: center; padding: 8px 0;
+}
+
+/* ---------- رقائق الكلمات ---------- */
+/*
+ * ⚠️ **`direction: ltr` على الحاوية لا على الكلمة.** التطبيق عربيٌّ
+ *    فالصفُّ يُرتَّب من اليمين، فظهرت جملةٌ روسيّةٌ مقلوبةَ الترتيب:
+ *    «необходимо которые … В». والكلمةُ وحدها لا تكفي — الترتيبُ صفةُ
+ *    الحاوية.
+ */
+.sh-chips {
+  direction: ltr;
+  flex: none; display: flex; flex-wrap: wrap; justify-content: center;
+  align-items: flex-start; gap: 4px 6px;
+  max-width: 860px; margin: 18px auto 0;
+  max-height: 30vh; overflow-y: auto;
+}
+
+.sh-chip {
+  display: flex; flex-direction: column; gap: 9px; align-items: stretch;
+  cursor: pointer; padding: 11px 11px 10px; border-radius: 4px;
+  min-width: 54px; min-height: 44px; touch-action: none;
+  border: 1px solid transparent; background: none;
+  font: inherit; transition: background .35s ease, border-color .35s ease;
+}
+.sh-chip-w {
+  font-size: 17px; line-height: 1; text-align: center; white-space: nowrap;
+  direction: ltr; color: rgba(239, 231, 216, .38); transition: color .35s ease;
+}
+.sh-chip-bar {
+  height: 2px; border-radius: 1px; overflow: hidden;
+  background: rgba(239, 231, 216, .07);
+}
+.sh-chip-bar i {
+  display: block; height: 100%; width: 0;
+  background: rgba(217, 182, 114, .32); transition: width .4s ease;
+}
+.sh-chip.past .sh-chip-w { color: rgba(239, 231, 216, .6); }
+.sh-chip.past .sh-chip-bar i { width: 100%; }
+.sh-chip.speaking {
+  border-color: rgba(217, 182, 114, .5); background: rgba(217, 182, 114, .09);
+}
+.sh-chip.speaking .sh-chip-w {
+  color: #f5e4bd; text-shadow: 0 0 22px rgba(217, 182, 114, .4);
+}
+.sh-chip.speaking .sh-chip-bar i {
+  width: 100%; background: linear-gradient(90deg, rgba(217, 182, 114, .5), #e8cf9a);
+  transition: width .1s linear;
+}
+.sh-chip.picked { border-color: rgba(217, 182, 114, .5); background: rgba(255, 255, 255, .05); }
+
+.sh-hint {
+  flex: none; text-align: center; margin-top: 10px;
+  color: rgba(239, 231, 216, .22); letter-spacing: .2em;
+}
+
+/* ---------- النقل ---------- */
+/*
+ * ⚠️ **أسهمُ التشغيل لا تنقلب مع اللغة.**
+ *
+ * كتبتُها أوّلًا بـ`border-inline-*` و`margin-inline-start`، فانقلبت
+ * في العربيّة: زرُّ «شغّل» صار ◀ و«التالي» صار ◀ أيضًا. ورأيتُها في
+ * اللقطة.
+ *
+ * والسببُ أن ▶ ليست اتّجاهَ قراءةٍ بل **اصطلاحَ شريطٍ**: تعرفه من
+ * المسجّل ومن يوتيوب ومن كلّ مشغّل، ولا يتغيّر بلغة الواجهة. فالنقلُ
+ * كلُّه `direction: ltr` والحدود فيزيائيّة لا منطقيّة.
+ */
+.sh-transport { margin-top: 14px; direction: ltr; }
+.sh-ico-play, .sh-ico-prev, .sh-ico-next { display: block; }
+.sh-ico-play {
+  width: 0; height: 0; margin-left: 5px;
+  border-style: solid; border-width: 11px 0 11px 18px;
+  border-color: transparent transparent transparent #f0dcb0;
+}
+.sh-play.on .sh-ico-play {
+  width: 14px; height: 21px; border: 0;
+  border-left: 3px solid #f0dcb0; border-right: 3px solid #f0dcb0;
+  margin: 0;
+}
+.sh-ico-prev, .sh-ico-next {
+  width: 0; height: 0; border-style: solid;
+  border-width: 6px 9px 6px 0;
+  border-color: transparent rgba(239, 231, 216, .8) transparent transparent;
+}
+.sh-ico-next { transform: scaleX(-1); }
+
+.sh-quickpills { flex: none; display: flex; justify-content: center; gap: 2px; margin-top: 8px; }
+.sh-quickpills button {
+  font-family: var(--sh-mono); font-size: 10.5px; letter-spacing: .14em;
+  min-height: 44px; padding: 0 15px; border-radius: 3px; cursor: pointer;
+  border: 0; background: none; color: var(--sh-faint);
+  direction: ltr; unicode-bidi: isolate;
+}
+.sh-quickpills button:hover { background: rgba(217, 182, 114, .09); color: rgba(232, 207, 154, .95); }
+
+/* ---------- الحجاب وسكّة الأدوات واللوحة ---------- */
+.sh-scrim {
+  position: absolute; inset: 0; z-index: 7; opacity: 0; pointer-events: none;
+  background: linear-gradient(270deg, transparent 40%, rgba(4, 7, 14, .35));
+  transition: opacity .4s ease;
+}
+.shadow-app.is-rail .sh-scrim { opacity: 1; pointer-events: auto; }
+
+.sh-toolrail {
+  position: absolute; inset-inline-end: 0; inset-block: 0; z-index: 9;
+  width: 56px; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; padding: 14px 4px; pointer-events: none;
+}
+.sh-toolrail > * { pointer-events: auto; }
+
+.sh-rail-ctx {
+  writing-mode: vertical-rl; font-size: 8px; letter-spacing: .2em;
+  color: rgba(224, 196, 138, .55); padding-bottom: 12px;
+}
+
+.sh-rail-tools { display: flex; flex-direction: column; align-items: center; }
+
+.sh-rail-tools button {
+  width: 48px; height: 48px; display: grid; place-items: center;
+  position: relative; cursor: pointer; border: 0; border-radius: 4px;
+  margin-bottom: 4px; background: transparent;
+  color: rgba(239, 231, 216, .42); font-size: 17px; line-height: 1;
+  font-family: var(--sh-mono); transition: background .25s ease, color .25s ease;
+}
+.sh-rail-tools button:hover { color: var(--sh-ink); }
+.sh-rail-tools button.on { background: rgba(217, 182, 114, .1); color: rgba(240, 220, 176, .95); }
+
+.sh-rail-toggle {
+  width: 36px; height: 56px; display: grid; place-items: center;
+  cursor: pointer; font-family: var(--sh-mono); font-size: 15px;
+  border-radius: 20px; margin-top: 10px;
+  border: 1px solid rgba(217, 182, 114, .34);
+  background: rgba(217, 182, 114, .06);
+  box-shadow: 0 0 18px rgba(217, 182, 114, .14);
+  color: rgba(240, 220, 176, .85); transition: all .25s ease;
+}
+.shadow-app.is-rail .sh-rail-toggle {
+  border-color: rgba(217, 182, 114, .5); background: rgba(217, 182, 114, .12); box-shadow: none;
+}
+
+.sh-panel {
+  position: absolute; inset-inline-end: 56px; top: 10%; bottom: 10%;
+  width: 268px; z-index: 9; display: flex; flex-direction: column;
+  border-radius: 6px; border: 1px solid rgba(217, 182, 114, .16);
+  background: linear-gradient(180deg, rgba(10, 15, 26, .92), rgba(6, 10, 18, .96));
+  backdrop-filter: blur(14px);
+  box-shadow: 0 30px 70px -26px rgba(0, 0, 0, .9);
+  opacity: 0; pointer-events: none; transform: translateX(-18px);
+  transition: opacity .35s ease, transform .4s cubic-bezier(.2, .7, .2, 1);
+}
+.shadow-app.is-rail .sh-panel { opacity: 1; pointer-events: auto; transform: translateX(0); }
+
+.sh-panel-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 18px 12px; color: rgba(224, 196, 138, .85);
+}
+.sh-panel-head button {
+  width: 44px; height: 44px; margin-inline-end: -12px; border: 0;
+  background: none; color: var(--sh-faint); font-size: 13px; cursor: pointer;
+}
+.sh-panel-rule { height: 1px; background: linear-gradient(90deg, transparent, rgba(217, 182, 114, .22), transparent); }
+.sh-panel-body { flex: 1; overflow-y: auto; padding: 6px 8px 16px; }
+
+.sh-pgroup { padding: 12px 12px 4px; }
+.sh-pgroup > span {
+  display: block; font-family: var(--sh-mono); font-size: 9.5px;
+  letter-spacing: .22em; color: rgba(239, 231, 216, .3); padding-bottom: 10px;
+}
+.sh-pitems { display: flex; flex-wrap: wrap; gap: 6px; }
+.sh-pitems button {
+  font-family: var(--sh-mono); font-size: 10.5px; letter-spacing: .14em;
+  min-height: 44px; padding: 0 14px; border-radius: 3px; cursor: pointer;
+  border: 1px solid rgba(239, 231, 216, .1); background: transparent;
+  color: rgba(239, 231, 216, .45); transition: all .25s ease;
+  direction: ltr; unicode-bidi: isolate;
+}
+.sh-pitems button.on {
+  border-color: rgba(217, 182, 114, .5); background: rgba(217, 182, 114, .1);
+  color: rgba(240, 220, 176, .95);
+}
+
+.sh-panel-foot {
+  padding: 12px 18px 14px; color: rgba(239, 231, 216, .24);
+  border-top: 1px solid rgba(255, 255, 255, .05); letter-spacing: .16em;
+}
+
+/* ---------- الشريط السفلي ---------- */
+.sh-bottom {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 18px;
+  min-height: 72px; padding: 0 20px; flex-wrap: nowrap;
+}
+
+.sh-still {
+  width: 84px; height: 46px; flex: none; display: flex; align-items: flex-end;
+  padding: 6px; border: 1px solid rgba(200, 164, 92, .18);
+  background-image: repeating-linear-gradient(58deg, rgba(200, 164, 92, .12) 0 2px, transparent 2px 9px);
+  color: rgba(239, 231, 216, .4);
+}
+
+.sh-bottom-title { min-width: 0; line-height: 1.4; }
+.sh-bottom-title b {
+  display: block; font-size: 14px; font-weight: 400;
+  color: rgba(244, 237, 223, .88);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 30vw;
+}
+
+.sh-stats { display: flex; gap: 32px; text-align: center; flex: none; }
+.sh-stats b {
+  display: block; font-size: 20px; font-weight: 300;
+  font-variant-numeric: tabular-nums; direction: ltr;
+}
+.sh-stats span { display: block; color: rgba(239, 231, 216, .3); margin-top: 3px; }
+
+.sh-overview {
+  min-height: 44px; padding: 0 20px; flex: none; cursor: pointer;
+  border: 1px solid rgba(200, 164, 92, .26); background: transparent;
+  color: rgba(224, 196, 138, .9);
+  font-family: var(--sh-mono); font-size: 10.5px; letter-spacing: .18em;
+}
+.sh-overview:hover { background: rgba(200, 164, 92, .1); border-color: rgba(200, 164, 92, .5); }
+
+/* ══════════════ الهاتف ══════════════
+   ⚠️ التصميم مقاسُه 1600×1000 أفقيّ، وجهازُك الثاني 412 رأسيّ. فلا
+      يُصغَّر المسرح بـ`scale` كما في العرض التوضيحيّ — يُعاد ترتيبه:
+      سكّةُ التنقّل تختفي (التنقّل من زرّ المكتبة)، والأرقام تختصر،
+      والصفحتان تعودان فوق/تحت كما كانتا. */
+@media (max-width: 899px) {
+  .sh-railnav { display: none; }
+  .sh-topbar { gap: 10px; padding: 0 12px; min-height: 54px; }
+  .sh-vrule, .sh-slash, .sh-crumb .sh-mono { display: none; }
+  .sh-crumb b { max-width: 46vw; }
+  .sh-streak { display: none; }
+  .sh-right { padding: 14px 12px 12px; }
+  .sh-toolrail { width: 48px; }
+  .sh-panel { inset-inline-end: 48px; width: min(260px, 66vw); top: 6%; bottom: 6%; }
+  .sh-bottom { min-height: 60px; padding: 0 12px; gap: 10px; }
+  .sh-still, .sh-overview { display: none; }
+  .sh-stats { gap: 18px; }
+  .sh-stats b { font-size: 16px; }
+  .sh-chips { max-height: 22vh; }
+}
+
+.sh-still img { width: 100%; height: 100%; object-fit: cover; }
+.sh-still { padding: 0; overflow: hidden; }
