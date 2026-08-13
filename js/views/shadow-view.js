@@ -726,7 +726,7 @@ function shell() {
           <b>${title}</b>
           <span class="sh-mono">${scene?.date ? formatDate(scene.date) : ''}</span>
           <span class="sh-slash">/</span>
-          <span class="sh-mono sh-gold">كتاب الظلّ</span>
+          <span class="sh-mono sh-gold">SHADOWING</span>
         </div>
         <div class="sh-grow"></div>
         <!--
@@ -735,20 +735,20 @@ function shell() {
              ويُقال صفرًا.
         -->
         <div class="sh-streak" title="أيام متتالية فيها تدريب حقيقي">
-          <i></i><b data-streak>—</b> يوم متتالي
+          <i></i><b data-streak>—</b> DAY STREAK
         </div>
-        <button class="sh-exit" data-sh="exit">${raw(icon('back', 14))} المكتبة</button>
+        <button class="sh-exit" data-sh="exit">${raw(icon('back', 14))} LIBRARY</button>
       </header>
 
       <div class="sh-body">
 
         <!-- ══════════ سكّة التنقّل الرأسيّة ══════════ -->
         <nav class="sh-railnav" aria-label="تنقّل">
-          <button data-sh="go" data-to="/">دلوقتي</button>
-          <button data-sh="go" data-to="/life">المكتبة</button>
-          <button class="on" aria-current="page">الظلّ</button>
-          <button data-sh="go" data-to="/language">لغتي</button>
-          <button data-sh="go" data-to="/analysis">تحليل</button>
+          <button data-sh="go" data-to="/">NOW</button>
+          <button data-sh="go" data-to="/life">LIBRARY</button>
+          <button class="on" aria-current="page">SHADOWING</button>
+          <button data-sh="go" data-to="/language">VOCABULARY</button>
+          <button data-sh="go" data-to="/analysis">REPORTS</button>
         </nav>
 
         <!-- ══════════ الكتاب ══════════ -->
@@ -759,10 +759,10 @@ function shell() {
             <div class="sh-page sh-left">
 
               <div class="sh-sec-head">
-                <span class="sh-mono">المصدر · ${source?.label || 'نصّ'}</span>
+                <span class="sh-mono">SOURCE · ${source?.label || 'TEXT'}</span>
                 <span class="sh-pgbtns">
-                  <button data-sh="doc" data-fit="fit">اضبط</button>
-                  <button data-sh="doc" data-fit="full">كامل</button>
+                  <button data-sh="doc" data-fit="fit">FIT</button>
+                  <button data-sh="doc" data-fit="full">FULL</button>
                 </span>
               </div>
 
@@ -782,14 +782,14 @@ function shell() {
               <!-- ⚠️ مقبضٌ ثانٍ غيرُ كعب الكتاب: هذا يقسم **الورقة**. -->
               <div class="sh-docsplit" data-docsplit role="separator"
                    aria-label="اسحب لتغيير حجم المستند">
-                <button data-sh="doc" data-fit="none">◂ اطوِ المصدر</button>
+                <button data-sh="doc" data-fit="none">◂ SOURCE</button>
                 <span class="sh-grip"></span>
-                <button data-sh="doc" data-fit="full">وسّع النصّ ▸</button>
+                <button data-sh="doc" data-fit="full">TRANSCRIPT ▸</button>
               </div>
 
               <div class="sh-sec-head">
-                <span class="sh-mono">النصّ · ${counted(segments.length, 'جملة', 'جملتين', 'جملة')}</span>
-                <span class="sh-mono sh-dim">RU ← AR</span>
+                <span class="sh-mono">TRANSCRIPT · ${segments.length} SENTENCES</span>
+                <span class="sh-mono sh-dim">RU → AR</span>
               </div>
 
               <div class="sh-select-bar" data-select-bar hidden>
@@ -810,10 +810,10 @@ function shell() {
               ${raw(fontPanel())}
 
               <div class="sh-foot-tabs">
-                <button class="on">النصّ</button>
-                <button data-sh="scratch-open">مربّع الكتابة</button>
-                <button data-sh="toggle-tr">الترجمة</button>
-                <button data-sh="stress">النبر</button>
+                <button class="on">TRANSCRIPT</button>
+                <button data-sh="scratch-open">NOTES</button>
+                <button data-sh="toggle-tr">DICTIONARY</button>
+                <button data-sh="stress">STRESS</button>
               </div>
             </div>
 
@@ -823,14 +823,14 @@ function shell() {
             <!-- ─────── الكون ─────── -->
             <div class="sh-page sh-right">
               <!-- طبقاتُ الفضاء — داخل الصفحة لا خلف الكتاب. -->
-              <div class="sh-sky" aria-hidden="true"></div>
+              <div class="sh-plate" aria-hidden="true"></div>
               <div class="sh-stars-far" aria-hidden="true"></div>
               <div class="sh-stars-near" aria-hidden="true"></div>
               <div class="sh-spill" aria-hidden="true"></div>
 
               <div class="sh-stage-top">
                 <div class="sh-mono sh-count">
-                  <b data-pos>${idx + 1}</b> / ${segments.length} جملة
+                  <b data-pos>${idx + 1}</b> / ${String(segments.length).padStart(2, '0')} SENTENCES
                   <span data-status class="sh-dim">جاهز</span>
                 </div>
                 <!--
@@ -845,7 +845,7 @@ function shell() {
               <div class="sh-hero" data-card>
                 <span class="sh-current-lbl" data-current-lbl hidden></span>
                 <div class="sh-current-text" data-text></div>
-                <div class="sh-current-tr" data-tr></div>
+                <div class="sh-current-tr" dir="rtl" data-tr></div>
                 <div class="sh-marks" data-marks></div>
 
                 <!--
@@ -876,7 +876,7 @@ function shell() {
                 في السكّة. والشريطُ تحت كلِّ رقاقةٍ يمتلئ وهي تُنطَق.
               -->
               <div class="sh-chips" data-words></div>
-              <div class="sh-hint sh-mono" data-hint>دوس على كلمة تسمعها · طوّل الضغطة للأدوات</div>
+              <div class="sh-hint sh-mono" data-hint>TAP A WORD TO HEAR · HOLD FOR ACTIONS</div>
 
               <div class="sh-transport">
                 <button class="sh-nav-btn" data-sh="prev" aria-label="السابق">
@@ -894,8 +894,8 @@ function shell() {
                 <button data-sh="drawer" data-dial="speed">${session.speed}x</button>
                 <button data-sh="drawer" data-dial="repeat">×${session.repeatCount}</button>
                 <button data-sh="drawer" data-dial="pause">${intervalLabel(session)}</button>
-                <button data-sh="toggle-tr">العربيّة</button>
-                <button data-sh="scratch-open">✎ نصّ من عندك</button>
+                <button data-sh="toggle-tr">ARABIC</button>
+                <button data-sh="scratch-open">✎ TEXT</button>
               </div>
 
               <!-- الحجاب: ضغطةٌ خارج السكّة تغلقها. -->
@@ -944,11 +944,11 @@ function shell() {
              (بند 89)، ولا يُستبدَل بتقديرٍ يبدو علمًا.
         -->
         <div class="sh-stats">
-          <div><b>${segments.length}</b><span class="sh-mono">جملة</span></div>
-          <div><b>${segments.reduce((n, seg) => n + splitWords(seg.sourceTextSnapshot).length, 0)}</b><span class="sh-mono">كلمة</span></div>
-          <div><b>${session.totalRepetitions || 0}</b><span class="sh-mono">تكرار</span></div>
+          <div><b>${segments.length}</b><span class="sh-mono">SENTENCES</span></div>
+          <div><b>${segments.reduce((n, seg) => n + splitWords(seg.sourceTextSnapshot).length, 0)}</b><span class="sh-mono">WORDS</span></div>
+          <div><b>${session.totalRepetitions || 0}</b><span class="sh-mono">REPS</span></div>
         </div>
-        <button class="sh-overview" data-sh="panel" data-panel="report">ملخّص الجلسة</button>
+        <button class="sh-overview" data-sh="panel" data-panel="report">SESSION OVERVIEW</button>
       </footer>
 
       ${raw(settingsDrawer())}
@@ -1281,6 +1281,14 @@ function handleEvent(event) {
      */
     case 'start':
     case 'resume':
+      /*
+       * ⚠️ **`is-live` هي ما يُشغّل شفافيّات §١٩٫٢.** قبل التشغيل
+       *    الكلماتُ كلُّها `.94` — كتلةٌ واحدة تُقرأ. وحين ينطق تنقسم:
+       *    الحاليّةُ `1`، وما مضى `.44`، وما بقي `.24`. فتصير الجملةُ
+       *    خطًّا زمنيًّا. ولا يصحّ أن تُقسَّم وهي صامتة: ما معنى «مضى»
+       *    قبل أن يبدأ شيء؟
+       */
+      document.querySelector('.shadow-app')?.classList.add('is-live');
       play?.classList.add('on');
       if (status) status.textContent = 'بيشتغل';
       break;
@@ -1292,6 +1300,7 @@ function handleEvent(event) {
       break;
 
     case 'stop':
+      document.querySelector('.shadow-app')?.classList.remove('is-live');
       play?.classList.remove('on');
       if (status) status.textContent = 'جاهز';
       card?.classList.remove('speaking');
@@ -1711,9 +1720,9 @@ function panelFor(id) {
     return {
       title: 'الخطّ',
       foot: 'يخصّ النصّ الروسي وحده',
-      groups: [{ title: 'المقاس', items:
-        [0.85, 1, 1.2, 1.45].map((v) =>
-          pick('fsize', String(v), `${Math.round(v * 100)}%`, Number(ctx.fontSize || 1) === v)).join('') },
+      groups: [{ title: 'SENTENCE SIZE', items:
+        [['36', 'S'], ['41', 'M'], ['48', 'L']].map(([px, label]) =>
+          pick('fsize', px, label, Number(ctx.fontSize || 41) === Number(px))).join('') },
       ],
       after: fontPanelBody(),
     };
@@ -2714,8 +2723,10 @@ function wireInteractions(main) {
       }
 
       case 'fsize': {
-        ctx.fontSize = Number(target.dataset.v);
-        document.querySelector('.shadow-app')?.style.setProperty('--sh-font-size', ctx.fontSize);
+        /* §١٩٫٢ — ثلاث درجات لا منزلق: 36 · 41 · 48. */
+        const px = Number(target.dataset.v);
+        ctx.fontSize = px;
+        document.querySelector('.shadow-app')?.style.setProperty('--sh-size', `${px}px`);
         return renderRail();
       }
 

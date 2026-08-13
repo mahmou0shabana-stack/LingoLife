@@ -35,7 +35,7 @@
   /* توكِنات الوضع الغامر — لا تتسرّب خارج هذه الشاشة */
   --sh-bg: #04060a;
   --sh-bg-2: #0a0e18;
-  --sh-page: #070b14;
+  --sh-page: #04070e;      /* §19.2 — الصفحة اليمنى */
   --sh-page-2: #0b1120;
   --sh-line: rgba(217, 182, 114, .18);
   --sh-line-soft: rgba(217, 182, 114, .09);
@@ -43,7 +43,9 @@
   --sh-mute: rgba(239, 231, 216, .55);
   --sh-faint: rgba(239, 231, 216, .32);
   --sh-accent: #d9b672;
-  --sh-accent-2: #f0dcb0;
+  --sh-accent-2: #e0c48a;  /* §19.2 — الذهب الفاتح */
+  --sh-link: #c8a45c;
+  --sh-ar: #c9b184;        /* §19.2 — الترجمة العربيّة */
   --sh-glow: rgba(217, 182, 114, .45);
 
   /* ---- الورقة: ألوانُها مستقلّةٌ عن الكون، فلا يُقرأ عليها بلونه ---- */
@@ -2837,19 +2839,15 @@ body.shadow-open { overflow: hidden; }
    فيها الموضع — ويبقى كلُّ نصٍّ عربيّ يُقرأ من اليمين كما يجب.
    ══════════════════════════════════════════════════════════════ */
 
-/* الشريط العلوي: الشعار يسارًا، والعدّاد والخروج يمينًا. */
-.sh-topbar { flex-direction: row-reverse; }
-
-/* الجسم: سكّةُ التنقّل أقصى اليسار، والكتاب بجوارها. */
-.sh-body { flex-direction: row-reverse; }
-
-/* ⚠️ **وهذا هو السطر الذي طلبتَه**: الورقة يسارًا والكون يمينًا. */
-@media (min-width: 900px) {
-  .sh-pages { flex-direction: row-reverse; }
-}
-
-/* الشريط السفلي: اللقطة والعنوان يسارًا، والأرقام يمينًا. */
-.sh-bottom { flex-direction: row-reverse; }
+/*
+ * ⚠️ **حُذف قلبُ الصفوف الأربعة** (§19.6).
+ *
+ * كانت أربعُ `row-reverse` تصارع اتّجاهَ التطبيق لتضع الورقةَ يسارًا.
+ * وقد صار الظلُّ `dir="ltr"` على `.shadow-app` وحدها — فالترتيبُ
+ * الطبيعيّ **هو** ترتيبُ النموذج، ولا شيءَ يُعكَس.
+ *
+ * وهذا أنظف: صراعُ اتّجاهين ينكسر عند أوّل عنصرٍ تنسى قلبَه.
+ */
 
 /* ---- والكعبُ يتبع الاتّجاه الجديد: ورقٌ يسارًا ← ظلمةٌ يمينًا ---- */
 @media (min-width: 900px) {
@@ -3286,3 +3284,126 @@ body.shadow-open { overflow: hidden; }
  */
 .sh-hero .sh-scratch,
 .sh-hero .sh-scratch-save { flex: 0 0 auto; }
+
+/* ══════════════════════════════════════════════════════════════
+   ١٩ · v5 — الهندسة واللوحة كما سُلِّمت
+
+   المرجع: design/shadowing-v5/LingoLife Shadowing v5.dc.html
+   والوثيقة: docs/19-shadowing-v5.md §١٩٫٢ و§١٩٫٣ و§١٩٫٦
+
+   ⚠️ **الاتّجاه `ltr` على `.shadow-app` وحدها** (§١٩٫٦): الورق يسارًا
+      والفضاء يمينًا واللافتات إنجليزيّة كما صُمّمت. والخروجُ من الظلّ
+      يعيدك إلى تطبيقٍ عربيٍّ يمين←يسار بلا سطرٍ واحدٍ يتغيّر في
+      `layout.css`. وسطرُ الترجمة العربيّة يبقى `rtl` داخل هذا الإطار.
+   ══════════════════════════════════════════════════════════════ */
+
+.shadow-app { direction: ltr; }
+
+/* والعربيّةُ لا تُقلَب لأن إطارَها لم يُقلَب. */
+.shadow-app [dir='rtl'] { direction: rtl; text-align: center; }
+
+/* ---------- الهندسة · §١٩٫٣ ---------- */
+@media (min-width: 900px) {
+  .sh-topbar  { min-height: 62px; padding: 0 26px; }
+  .sh-bottom  { min-height: 78px; padding: 0 26px; }
+  .sh-railnav { width: 86px; }
+  .sh-book    { margin: 8px 24px 6px 0; }
+
+  /* الصفحة اليسرى **ثابتة** 614px — لا نسبة (§١٩٫٣). */
+  .sh-left  { flex: 0 0 var(--split, 614px); padding: 24px 56px 20px; }
+  .sh-right { flex: 1 1 0; }
+  .sh-spine { min-inline-size: 24px; }
+
+  .sh-toolrail { width: 58px; }
+  .sh-panel    { right: 58px; width: 272px; }
+}
+
+/* زرّ التشغيل 76 · الجانبيّان 60 · بينهما 36 (§١٩٫٣). */
+.sh-transport { gap: 36px; }
+.sh-play    { width: 76px; height: 76px; }
+.sh-nav-btn { min-width: 60px; min-height: 60px; }
+
+/* ══════════════════════════════════════════════════════════════
+   ⚠️ الدرجُ **يُزيح** الصفحة ولا يغطّيها (§١٩٫٣)
+
+   «الجملة تبقى في المنتصف البصريّ دائمًا — وهذا هو الفرق بين درجٍ
+   يخدم وآخر يحجب.» فالحشوةُ تقفز 54px ← 318px بانتقال النموذج نفسه.
+   ══════════════════════════════════════════════════════════════ */
+@media (min-width: 900px) {
+  .sh-right {
+    padding: 22px 54px 18px 34px;
+    transition: padding .45s cubic-bezier(.2, .7, .2, 1);
+  }
+  .shadow-app.is-rail .sh-right { padding-right: 318px; }
+}
+
+/* ---------- الجملة · §١٩٫٢ ---------- */
+.sh-current-text {
+  font-weight: 300;
+  letter-spacing: -.004em;
+  line-height: 1.5;
+  color: #fdf7ea;
+}
+
+/* ⚠️ وتصغر × .8 حين يُفتح الدرج — فلا تُقطع كلماتُها في العمود الأضيق. */
+.shadow-app.is-rail .sh-current-text { font-size: calc(var(--sh-size, 41px) * .8); }
+.shadow-app:not(.is-rail) .sh-current-text { font-size: var(--sh-size, 41px); }
+
+.sh-current-tr { color: var(--sh-ar); }
+
+/*
+ * ⚠️ **الشفافيّة تحمل الحالة** (§١٩٫٢) — وهي ما يجعل الجملة تُقرأ
+ *    كخطٍّ زمنيّ لا ككتلة: الحاليّة 1 · ما قبلها .44 · ما بعدها .24 ·
+ *    وقبل التشغيل كلّها .94.
+ */
+.sh-chip-w { opacity: .94; transition: opacity .5s ease, color .5s ease; }
+.shadow-app.is-live .sh-chip-w { opacity: .24; }
+.shadow-app.is-live .sh-chip.past .sh-chip-w { opacity: .44; }
+.shadow-app.is-live .sh-chip.speaking .sh-chip-w { opacity: 1; color: #fdf7ea; }
+
+/* ══════════════════════════════════════════════════════════════
+   الغلاف الجوّيّ · §١٩٫٣ — خمس طبقات، كلّها زينة وبلا التقاط ضغط
+   ══════════════════════════════════════════════════════════════ */
+.sh-plate {
+  position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background-image: url('../assets/shadow/cosmos.png');
+  background-size: cover; background-position: 53% 44%;
+  background-repeat: no-repeat;
+  animation: ll-breathe 260s ease-in-out infinite;
+  transform-origin: 52% 46%;
+}
+
+/* وصورتُك المرفوعة تحلّ محلّ اللوحة إن وُجدت. */
+.shadow-app.has-sky .sh-plate { background-image: var(--sky); }
+
+@keyframes ll-breathe {
+  0%   { transform: scale(1.005) translate3d(0, 0, 0); }
+  50%  { transform: scale(1.035) translate3d(-1.1%, .7%, 0); }
+  100% { transform: scale(1.005) translate3d(0, 0, 0); }
+}
+@keyframes ll-far  { from { transform: translate3d(0,0,0); } to { transform: translate3d(-260px,-150px,0); } }
+@keyframes ll-twinkle { 0%,100% { opacity: .34; } 50% { opacity: .72; } }
+
+.sh-right .sh-stars-far  { animation: ll-far 560s linear infinite; }
+.sh-right .sh-stars-near { animation: ll-twinkle 38s ease-in-out infinite; }
+
+/* ⚠️ وكلُّها تُطفأ بالاستعلام الإعلاميّ (§١٩٫٣) — النموذج يطفئها
+      بخاصّية، والتطبيق بالاستعلام لأنه يخدم شخصًا لا عرضًا. */
+@media (prefers-reduced-motion: reduce) {
+  .sh-plate, .sh-right .sh-stars-far, .sh-right .sh-stars-near { animation: none; }
+}
+
+/*
+ * ⚠️ **لوحةُ الفضاء فيها كتابةٌ مطبوعة.**
+ *
+ * `lingolife-cosmos.png` مصدَّرةٌ من **الصفحة اليمنى مرسومةً**، لا من
+ *    السديم وحده: فيها «08 / 08 SENTENCES» أعلى و«TAP A WORD TO HEAR»
+ *    أسفل، محروقتين في البكسل. فظهر كلُّ سطرٍ مرّتين — مرّةً حيًّا
+ *    ومرّةً مطبوعًا — وبدا كأن الشاشة تكرّر نفسها.
+ *
+ *    ولا تُصلَح بالكود إلّا بقصّ: العنصر يمتدّ خارج الصفحة بنسبةٍ
+ *    تُخرج الشريطين من نافذة العرض (الصفحة `overflow: hidden`)،
+ *    فيبقى السديمُ وحده. والحلُّ الأنظف تصديرُ اللوحة بلا نصّ — وهو
+ *    عند مَن صدّرها لا عندي.
+ */
+.sh-plate { inset: -17% -9%; }

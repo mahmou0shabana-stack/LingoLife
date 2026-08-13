@@ -1,0 +1,719 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,600&family=PT+Mono&family=Noto+Naskh+Arabic:wght@400;500&display=swap" rel="stylesheet"><style>
+body{margin:0;background:#04060a;-webkit-font-smoothing:antialiased}
+a{color:#c8a45c;text-decoration:none}a:hover{color:#e2c489}
+::-webkit-scrollbar{width:9px}::-webkit-scrollbar-thumb{background:rgba(120,96,56,.3);border-radius:5px}::-webkit-scrollbar-track{background:transparent}
+@keyframes ll-breathe{0%{transform:scale(1.005) translate3d(0,0,0)}50%{transform:scale(1.035) translate3d(-1.1%,.7%,0)}100%{transform:scale(1.005) translate3d(0,0,0)}}
+@keyframes ll-far{from{transform:translate3d(0,0,0)}to{transform:translate3d(-260px,-150px,0)}}
+@keyframes ll-twinkle{0%,100%{opacity:.34}50%{opacity:.72}}
+@keyframes ll-haze{0%,100%{opacity:.16;transform:translate3d(0,0,0) scale(1)}50%{opacity:.3;transform:translate3d(-22px,12px,0) scale(1.05)}}
+</style></helmet>
+<div style="width:100vw;height:100vh;overflow:hidden;background:#04060a;display:flex;align-items:center;justify-content:center">
+<div style="{{ stage }}">
+<div style="position:relative;width:1600px;height:1000px;overflow:hidden;background:radial-gradient(130% 100% at 50% 42%,#0a0e18,#04060a 72%);color:#efe7d8;font-family:'Source Serif 4',Georgia,serif;user-select:none">
+
+  <div style="position:relative;z-index:9;display:flex;align-items:center;gap:26px;height:62px;padding:0 26px">
+    <div style="display:flex;align-items:baseline;gap:10px">
+      <div style="width:7px;height:7px;background:#d9b672;transform:rotate(45deg);box-shadow:0 0 12px rgba(217,182,114,.75)"></div>
+      <div style="font-size:19px;letter-spacing:.06em;color:#f4eddf">LingoLife</div>
+    </div>
+    <div style="width:1px;height:22px;background:rgba(255,255,255,.09)"></div>
+    <div style="display:flex;align-items:baseline;gap:12px;font-size:15px;color:rgba(244,237,223,.82)">
+      <span>Factory Visit</span>
+      <span style="font-family:'PT Mono',monospace;font-size:11px;color:rgba(239,231,216,.35)">29 MAY 2026</span>
+      <span style="color:rgba(255,255,255,.16)">/</span>
+      <span style="font-family:'PT Mono',monospace;font-size:11px;letter-spacing:.15em;color:rgba(216,182,114,.7)">SCENE 3 · SHADOWING</span>
+    </div>
+    <div style="flex:1"></div>
+    <div style="display:flex;align-items:center;gap:9px;font-family:'PT Mono',monospace;font-size:11px;letter-spacing:.11em;color:rgba(239,231,216,.4)">
+      <span style="width:6px;height:6px;border-radius:50%;background:#d9b672;display:inline-block;box-shadow:0 0 10px rgba(217,182,114,.6)"></span>12 DAY STREAK
+    </div>
+    <div style="display:flex;align-items:center;gap:11px;padding-left:20px;margin-left:6px;border-left:1px solid rgba(255,255,255,.08)">
+      <div style="width:34px;height:34px;border-radius:50%;background:linear-gradient(150deg,#27324b,#1a2233);border:1px solid rgba(200,164,92,.35);display:flex;align-items:center;justify-content:center;font-size:14px;color:#e0c48a">A</div>
+      <div style="line-height:1.2"><div style="font-size:14px">Alexey</div><div style="font-family:'PT Mono',monospace;font-size:9.5px;letter-spacing:.17em;color:rgba(216,182,114,.6)">PREMIUM</div></div>
+    </div>
+  </div>
+
+  <div style="position:absolute;left:0;top:62px;width:86px;bottom:78px;z-index:9;display:flex;flex-direction:column;align-items:center;padding-top:16px">
+    <sc-for list="{{ nav }}" as="n" hint-placeholder-count="5">
+      <div onClick="{{ n.pick }}" style="{{ n.style }}">{{ n.label }}</div>
+    </sc-for>
+  </div>
+
+  <div onMouseMove="{{ onMove }}" style="position:absolute;left:96px;right:34px;top:74px;bottom:92px;z-index:5">
+
+    <div style="{{ bookShadow }}"></div>
+
+    <div style="position:absolute;inset:0;border-radius:13px;background:linear-gradient(168deg,#2a1e14 0%,#1d140d 34%,#150e09 68%,#0e0906 100%);box-shadow:0 46px 100px -36px rgba(0,0,0,.92),0 1px 0 rgba(255,255,255,.055) inset,0 -1px 0 rgba(0,0,0,.6) inset"></div>
+    <div style="position:absolute;inset:0;border-radius:13px;pointer-events:none;opacity:.5;background-image:radial-gradient(1px 1px at 12% 22%,rgba(255,232,190,.10),transparent),radial-gradient(1px 1px at 63% 71%,rgba(255,232,190,.08),transparent),radial-gradient(1.5px 1.5px at 38% 86%,rgba(0,0,0,.35),transparent);background-size:120px 120px"></div>
+    <div style="position:absolute;inset:7px;border-radius:9px;border:1px solid rgba(198,160,90,.3);pointer-events:none;box-shadow:0 0 14px rgba(198,160,90,.07) inset"></div>
+    <div style="position:absolute;inset:11px;border-radius:7px;border-top:1px solid rgba(198,160,90,.12);border-bottom:1px solid rgba(198,160,90,.12);pointer-events:none"></div>
+
+    <div style="position:absolute;left:11px;top:15px;bottom:15px;width:38px;overflow:hidden;border-radius:5px 0 0 5px">
+      <div style="position:absolute;left:0;top:12px;bottom:8px;width:4px;border-radius:4px;background:linear-gradient(90deg,#c9b691,#efe3ca 55%,#ddcfad);box-shadow:1px 0 2px rgba(74,56,26,.45)"></div>
+      <div style="position:absolute;left:3px;top:10.6px;bottom:7px;width:4px;border-radius:4px;background:linear-gradient(90deg,#e6d9bc,#faf3e3 58%,#d8c9a5);box-shadow:1px 0 2px rgba(74,56,26,.4)"></div>
+      <div style="position:absolute;left:6px;top:9.3px;bottom:6.1px;width:4px;border-radius:4px;background:linear-gradient(90deg,#dccfaf,#f5eddb 58%,#d3c39d);box-shadow:1px 0 2px rgba(74,56,26,.44)"></div>
+      <div style="position:absolute;left:9px;top:8.1px;bottom:5.3px;width:4px;border-radius:4px;background:linear-gradient(90deg,#e9dec5,#fdf7e9 58%,#dacba7);box-shadow:1px 0 2px rgba(74,56,26,.36)"></div>
+      <div style="position:absolute;left:12px;top:7px;bottom:4.6px;width:4px;border-radius:4px;background:linear-gradient(90deg,#e0d3b4,#f7f0de 58%,#d4c49e);box-shadow:1px 0 2px rgba(74,56,26,.42)"></div>
+      <div style="position:absolute;left:15px;top:6px;bottom:3.9px;width:4px;border-radius:4px;background:linear-gradient(90deg,#ece2cb,#fdf9ec 58%,#ded0aa);box-shadow:1px 0 2px rgba(74,56,26,.34)"></div>
+      <div style="position:absolute;left:18px;top:5.1px;bottom:3.3px;width:4px;border-radius:3px;background:linear-gradient(90deg,#e4d8bb,#f9f2e2 58%,#d7c8a2);box-shadow:1px 0 2px rgba(74,56,26,.4)"></div>
+      <div style="position:absolute;left:21px;top:4.3px;bottom:2.8px;width:4px;border-radius:3px;background:linear-gradient(90deg,#efe6d0,#fefaee 58%,#e0d2ae);box-shadow:1px 0 2px rgba(74,56,26,.32)"></div>
+      <div style="position:absolute;left:24px;top:3.6px;bottom:2.3px;width:4px;border-radius:3px;background:linear-gradient(90deg,#e2d6b9,#f8f1e0 58%,#d5c5a0);box-shadow:1px 0 2px rgba(74,56,26,.38)"></div>
+      <div style="position:absolute;left:27px;top:2.9px;bottom:1.9px;width:4px;border-radius:3px;background:linear-gradient(90deg,#eee5ce,#fefbf0 58%,#ded0ab);box-shadow:1px 0 2px rgba(74,56,26,.3)"></div>
+      <div style="position:absolute;left:30px;top:2.3px;bottom:1.5px;width:4px;border-radius:3px;background:linear-gradient(90deg,#e5d9be,#faf4e5 58%,#d8c9a4);box-shadow:1px 0 3px rgba(74,56,26,.36)"></div>
+      <div style="position:absolute;left:33px;top:1.8px;bottom:1.2px;width:5px;border-radius:3px 0 0 3px;background:linear-gradient(90deg,#eee4cb,#fdf8ec 62%,#cec09a);box-shadow:1px 0 4px rgba(74,56,26,.42)"></div>
+      <div style="position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(46,32,12,.42),rgba(46,32,12,.05) 22%,rgba(255,252,244,.26) 56%,rgba(70,50,22,.2))"></div>
+      <div style="position:absolute;left:0;right:0;top:0;height:26px;pointer-events:none;background:linear-gradient(180deg,rgba(40,28,10,.5),transparent)"></div>
+      <div style="position:absolute;left:0;right:0;bottom:0;height:22px;pointer-events:none;background:linear-gradient(0deg,rgba(40,28,10,.45),transparent)"></div>
+    </div>
+    <div style="position:absolute;right:11px;top:15px;bottom:15px;width:38px;overflow:hidden;border-radius:0 5px 5px 0">
+      <div style="position:absolute;right:0;top:12px;bottom:8px;width:4px;border-radius:4px;background:linear-gradient(270deg,#bcaa85,#e7dcc4 55%,#d5c7a5);box-shadow:-1px 0 2px rgba(74,56,26,.45)"></div>
+      <div style="position:absolute;right:3px;top:10.6px;bottom:7px;width:4px;border-radius:4px;background:linear-gradient(270deg,#dbcfb1,#f4edda 58%,#cfc099);box-shadow:-1px 0 2px rgba(74,56,26,.42)"></div>
+      <div style="position:absolute;right:6px;top:9.3px;bottom:6.1px;width:4px;border-radius:4px;background:linear-gradient(270deg,#d3c6a6,#eee6d2 58%,#c9b992);box-shadow:-1px 0 2px rgba(74,56,26,.46)"></div>
+      <div style="position:absolute;right:9px;top:8.1px;bottom:5.3px;width:4px;border-radius:4px;background:linear-gradient(270deg,#e0d5bb,#f8f2e2 58%,#d2c29c);box-shadow:-1px 0 2px rgba(74,56,26,.38)"></div>
+      <div style="position:absolute;right:12px;top:7px;bottom:4.6px;width:4px;border-radius:4px;background:linear-gradient(270deg,#d7caaa,#f1e9d5 58%,#cbbb95);box-shadow:-1px 0 2px rgba(74,56,26,.44)"></div>
+      <div style="position:absolute;right:15px;top:6px;bottom:3.9px;width:4px;border-radius:4px;background:linear-gradient(270deg,#e4dac1,#faf4e5 58%,#d5c6a0);box-shadow:-1px 0 2px rgba(74,56,26,.36)"></div>
+      <div style="position:absolute;right:18px;top:5.1px;bottom:3.3px;width:4px;border-radius:3px;background:linear-gradient(270deg,#dacdad,#f2ebd8 58%,#cdbe97);box-shadow:-1px 0 2px rgba(74,56,26,.42)"></div>
+      <div style="position:absolute;right:21px;top:4.3px;bottom:2.8px;width:4px;border-radius:3px;background:linear-gradient(270deg,#e7ddc6,#fcf7ea 58%,#d8c9a3);box-shadow:-1px 0 2px rgba(74,56,26,.34)"></div>
+      <div style="position:absolute;right:24px;top:3.6px;bottom:2.3px;width:4px;border-radius:3px;background:linear-gradient(270deg,#ddd1b2,#f5eeda 58%,#d0c199);box-shadow:-1px 0 2px rgba(74,56,26,.4)"></div>
+      <div style="position:absolute;right:27px;top:2.9px;bottom:1.9px;width:4px;border-radius:3px;background:linear-gradient(270deg,#eae1ca,#fdf9ee 58%,#dbcda7);box-shadow:-1px 0 2px rgba(74,56,26,.32)"></div>
+      <div style="position:absolute;right:30px;top:2.3px;bottom:1.5px;width:4px;border-radius:3px;background:linear-gradient(270deg,#e0d5b9,#f7f0e0 58%,#d3c49e);box-shadow:-1px 0 3px rgba(74,56,26,.38)"></div>
+      <div style="position:absolute;right:33px;top:1.8px;bottom:1.2px;width:5px;border-radius:0 3px 3px 0;background:linear-gradient(270deg,#e9dfc6,#fbf6e8 62%,#c8ba94);box-shadow:-1px 0 4px rgba(74,56,26,.44)"></div>
+      <div style="position:absolute;inset:0;pointer-events:none;background:linear-gradient(270deg,rgba(46,32,12,.46),rgba(46,32,12,.07) 22%,rgba(255,252,244,.2) 56%,rgba(70,50,22,.26))"></div>
+      <div style="position:absolute;left:0;right:0;top:0;height:26px;pointer-events:none;background:linear-gradient(180deg,rgba(40,28,10,.52),transparent)"></div>
+      <div style="position:absolute;left:0;right:0;bottom:0;height:22px;pointer-events:none;background:linear-gradient(0deg,rgba(40,28,10,.48),transparent)"></div>
+    </div>
+    <div style="position:absolute;left:4px;top:15px;bottom:15px;width:1px;pointer-events:none;background:linear-gradient(180deg,transparent,rgba(214,180,112,.3) 14%,rgba(214,180,112,.14) 50%,rgba(214,180,112,.3) 86%,transparent)"></div>
+    <div style="position:absolute;right:4px;top:15px;bottom:15px;width:1px;pointer-events:none;background:linear-gradient(180deg,transparent,rgba(214,180,112,.26) 14%,rgba(214,180,112,.12) 50%,rgba(214,180,112,.26) 86%,transparent)"></div>
+
+    <div style="position:absolute;left:50px;right:50px;top:22px;bottom:22px;display:flex">
+
+      <div onClick="{{ pickSource }}" style="position:relative;width:580px;flex:none;overflow:hidden;border-radius:4px 1px 1px 4px;background:linear-gradient(101deg,#f8f1de 0%,#f9f3e4 22%,#f4ecd9 56%,#ecdfc6 84%,#dbcaa6 100%);box-shadow:0 1px 0 rgba(255,255,255,.8) inset,-8px 0 22px -14px rgba(0,0,0,.7)">
+        <div style="position:absolute;inset:0;pointer-events:none;opacity:.5;background-image:repeating-linear-gradient(93deg,rgba(120,96,54,.045) 0 1px,transparent 1px 4px),radial-gradient(1px 1px at 20% 30%,rgba(120,96,54,.2),transparent),radial-gradient(1px 1px at 70% 62%,rgba(120,96,54,.15),transparent),radial-gradient(1px 1px at 44% 84%,rgba(120,96,54,.13),transparent);background-size:auto,170px 170px,170px 170px,170px 170px"></div>
+        <div style="position:absolute;inset:0;pointer-events:none;background:linear-gradient(90deg,rgba(96,74,40,.14) 0,rgba(96,74,40,0) 5%,rgba(255,255,255,.16) 40%,rgba(148,120,74,.06) 66%,rgba(140,112,68,.16) 80%,rgba(116,88,50,.3) 89%,rgba(86,62,32,.52) 95%,rgba(58,40,20,.72) 100%)"></div>
+        <div style="position:absolute;left:0;right:0;top:0;height:34px;pointer-events:none;background:linear-gradient(180deg,rgba(74,54,26,.16),transparent)"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:30px;pointer-events:none;background:linear-gradient(0deg,rgba(74,54,26,.14),transparent)"></div>
+        <div style="position:absolute;left:30px;top:0;bottom:0;width:1px;background:rgba(140,64,52,.12)"></div>
+        <div style="position:absolute;left:12px;top:10px;width:26px;height:26px;pointer-events:none">
+          <div style="position:absolute;inset:0;border-top:1px solid rgba(168,130,60,.45);border-left:1px solid rgba(168,130,60,.45);border-radius:5px 0 0 0"></div>
+          <div style="position:absolute;left:6px;top:6px;width:13px;height:13px;border-top:1px solid rgba(168,130,60,.28);border-left:1px solid rgba(168,130,60,.28);border-radius:9px 0 0 0"></div>
+          <div style="position:absolute;left:2px;top:2px;width:4px;height:4px;background:rgba(168,130,60,.4);transform:rotate(45deg)"></div>
+        </div>
+        <div style="position:absolute;left:12px;bottom:10px;width:26px;height:26px;pointer-events:none">
+          <div style="position:absolute;inset:0;border-bottom:1px solid rgba(168,130,60,.45);border-left:1px solid rgba(168,130,60,.45);border-radius:0 0 0 5px"></div>
+          <div style="position:absolute;left:6px;bottom:6px;width:13px;height:13px;border-bottom:1px solid rgba(168,130,60,.28);border-left:1px solid rgba(168,130,60,.28);border-radius:0 0 0 9px"></div>
+          <div style="position:absolute;left:2px;bottom:2px;width:4px;height:4px;background:rgba(168,130,60,.4);transform:rotate(45deg)"></div>
+        </div>
+
+        <div style="position:absolute;inset:0;box-sizing:border-box;display:flex;flex-direction:column;padding:22px 62px 16px 40px;color:#2b241b">
+          <div style="display:flex;align-items:center;justify-content:space-between;height:32px;flex:none">
+            <div style="font-family:'PT Mono',monospace;font-size:10.5px;letter-spacing:.2em;color:#6b5432">SOURCE · СЛУЖЕБНАЯ ЗАПИСКА</div>
+            <div style="display:flex;gap:2px">
+              <div onClick="{{ fitSrc }}" style="{{ pgBtn }}">FIT</div>
+              <div onClick="{{ maxSrc }}" style="{{ pgBtn }}">FULL</div>
+            </div>
+          </div>
+
+          <div style="{{ srcPane }}">
+            <div style="{{ srcSheet }}">
+              <div style="text-align:center;font-size:12.5px;letter-spacing:.17em;padding-bottom:14px;color:#241f18">СЛУЖЕБНАЯ ЗАПИСКА</div>
+              <div style="display:grid;grid-template-columns:66px 1fr;row-gap:6px;font-size:12px;line-height:1.5;color:#4a4133">
+                <div>Кому:</div><div>Руководителю отдела проектов</div>
+                <div>От:</div><div>Менеджера по работе с клиентами</div>
+                <div>Тема:</div><div>План устранения замечаний по проекту</div>
+              </div>
+              <div style="margin-top:14px;font-size:12px;line-height:1.85;color:#332c22">В ходе проверки документа были выявлены замечания, которые необходимо устранить. Прошу рассмотреть предложенный план и согласовать дальнейшие действия.</div>
+              <div style="margin-top:12px;font-size:12px;line-height:1.85;color:#332c22">После утверждения плана мы приступим к его реализации. Ответственные лица будут назначены отдельным распоряжением.</div>
+              <div style="margin-top:12px;font-size:12px;line-height:1.85;color:#332c22">План должен включать конкретные шаги и сроки исполнения. О результатах прошу доложить до конца недели.</div>
+              <div style="display:flex;justify-content:space-between;align-items:flex-end;margin-top:18px;font-size:11.5px;color:#5f5648"><span>Дата: 20.05.2024</span><span>Подпись: <span style="display:inline-block;width:78px;border-bottom:1px solid rgba(90,72,44,.5)"></span></span></div>
+              <div style="position:absolute;left:-6px;top:16px;width:4px;height:46px;background:linear-gradient(180deg,#e0c48a,#8f7132);box-shadow:1px 0 4px rgba(52,38,16,.3)"></div>
+            </div>
+          </div>
+
+          <div onPointerDown="{{ dragStart }}" style="{{ divider }}">
+            <div style="display:flex;align-items:center;gap:16px">
+              <div onClick="{{ collapseSrc }}" style="{{ divBtn }}">◂ SOURCE</div>
+              <div style="{{ grip }}"></div>
+              <div onClick="{{ expandTr }}" style="{{ divBtn }}">TRANSCRIPT ▸</div>
+            </div>
+          </div>
+
+          <div onClick="{{ pickTranscript }}" style="display:flex;align-items:center;justify-content:space-between;height:26px;flex:none;cursor:pointer">
+            <div style="font-family:'PT Mono',monospace;font-size:10.5px;letter-spacing:.2em;color:#6b5432">TRANSCRIPT · 8 SENTENCES</div>
+            <div style="font-family:'PT Mono',monospace;font-size:10.5px;letter-spacing:.1em;color:rgba(90,72,44,.5)">RU → AR</div>
+          </div>
+          <div style="flex:1;min-height:0;overflow:auto;margin-top:4px;padding-right:6px">
+            <sc-for list="{{ rows }}" as="r" hint-placeholder-count="8">
+              <div onClick="{{ r.pick }}" style="{{ r.style }}">
+                <div style="{{ r.numStyle }}">{{ r.num }}</div>
+                <div style="{{ r.textStyle }}">{{ r.text }}</div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="display:flex;gap:22px;margin-top:8px;padding-top:12px;flex:none;border-top:1px solid rgba(101,80,48,.22);font-family:'PT Mono',monospace;font-size:10.5px;letter-spacing:.15em;color:rgba(90,72,44,.5)">
+            <span style="color:#7a5f2c">TRANSCRIPT</span><span>NOTES</span><span>PEOPLE</span><span>DICTIONARY</span>
+          </div>
+        </div>
+      </div>
+
+      <div style="position:relative;width:11px;flex:none;z-index:6;background:linear-gradient(90deg,rgba(72,52,28,.9) 0%,rgba(42,29,16,.95) 26%,rgba(22,16,12,.97) 50%,rgba(14,14,22,.95) 70%,rgba(12,18,34,.86) 100%)">
+        <div style="position:absolute;inset:0;box-shadow:inset 2px 0 6px -2px rgba(120,88,40,.35),inset -3px 0 9px -3px rgba(4,8,18,.7)"></div>
+        <div style="position:absolute;left:0;right:0;top:0;height:16px;background:linear-gradient(180deg,rgba(190,152,86,.5),rgba(96,72,36,.2) 55%,transparent)"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:16px;background:linear-gradient(0deg,rgba(190,152,86,.45),rgba(96,72,36,.18) 55%,transparent)"></div>
+        <div style="{{ pulse }}"></div>
+      </div>
+
+      <div style="position:relative;flex:1;overflow:hidden;border-radius:1px 4px 4px 1px;background:#04070e;box-shadow:0 1px 0 rgba(255,255,255,.05) inset,8px 0 22px -14px rgba(0,0,0,.7)">
+        <div style="{{ artWrap }}">
+          <div style="{{ artPar }}">
+            <div style="position:absolute;inset:0;background-image:url('lingolife-cosmos.png');background-repeat:no-repeat;background-size:cover;background-position:53% 44%;animation:ll-breathe 260s ease-in-out infinite;transform-origin:52% 46%"></div>
+          </div>
+          <div style="{{ starFar }}"></div>
+          <div style="{{ starNear }}"></div>
+          <div style="{{ hazeDrift }}"></div>
+        </div>
+        <div style="{{ heroVeil }}"></div>
+        <div style="{{ spineSpill }}"></div>
+        <div style="position:absolute;inset:0;pointer-events:none;box-shadow:inset 26px 0 66px -30px rgba(0,0,0,.6),inset -20px 0 54px -26px rgba(0,0,0,.62),inset 0 22px 54px -32px rgba(0,0,0,.5),inset 0 -22px 54px -32px rgba(0,0,0,.5)"></div>
+        <div style="position:absolute;left:0;right:0;top:0;height:13%;pointer-events:none;background:linear-gradient(180deg,rgba(3,6,12,.5),rgba(3,6,12,0))"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0;height:28%;pointer-events:none;background:linear-gradient(0deg,rgba(3,6,12,.55),rgba(3,6,12,.12) 52%,rgba(3,6,12,0))"></div>
+        <div style="position:absolute;inset:0;pointer-events:none;border-radius:1px 4px 4px 1px;box-shadow:inset 0 0 0 1px rgba(160,186,236,.07)"></div>
+
+        <div style="{{ contentWrap }}">
+          <div style="{{ topWrap }}">
+            <div style="display:flex;align-items:baseline;gap:10px;font-family:'PT Mono',monospace;font-size:11px;letter-spacing:.22em;color:rgba(239,231,216,.42)">
+              <span style="color:rgba(232,204,148,.95)">{{ curNum }}</span><span>/ 08 SENTENCES</span>
+            </div>
+            <div style="display:flex;align-items:center;height:44px">
+              <sc-for list="{{ ticks }}" as="t" hint-placeholder-count="8">
+                <div onClick="{{ t.pick }}" style="width:44px;height:44px;display:flex;align-items:center;justify-content:center;cursor:pointer"><div style="{{ t.style }}"></div></div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="{{ heroWrap }}">
+            <div style="max-width:700px;text-align:center;font-size:inherit;line-height:1.5;font-weight:300;letter-spacing:-.004em;text-wrap:pretty">
+              <sc-for list="{{ words }}" as="w" hint-placeholder-count="10">
+                <span onClick="{{ w.pick }}" style="display:inline-block;margin-right:.3em;cursor:pointer"><span style="{{ w.style }}">{{ w.text }}</span></span>
+              </sc-for>
+            </div>
+            <div style="{{ arWrap }}">
+              <div dir="rtl" style="max-width:640px;font-family:'Noto Naskh Arabic',serif;font-size:23px;line-height:1.9;font-weight:400;color:#d3bd92;text-shadow:0 2px 20px rgba(3,6,12,.95)">{{ arabic }}</div>
+            </div>
+          </div>
+
+          <div style="{{ segWrap }}">
+            <div style="display:flex;flex-wrap:wrap;justify-content:center;align-items:flex-start;gap:5px 6px">
+              <sc-for list="{{ chips }}" as="c" hint-placeholder-count="12">
+                <div onPointerDown="{{ c.down }}" onPointerUp="{{ c.up }}" onPointerLeave="{{ c.cancel }}" style="{{ c.wrap }}">
+                  <div style="{{ c.text }}">{{ c.word }}</div>
+                  <div style="{{ c.bar }}"><div style="{{ c.fill }}"></div></div>
+                </div>
+              </sc-for>
+            </div>
+            <div style="{{ hintStyle }}">{{ hintText }}</div>
+          </div>
+
+          <div style="{{ transportWrap }}">
+            <div style="display:flex;align-items:center;gap:36px">
+              <div onClick="{{ prev }}" style="{{ sideBtn }}">
+                <div style="width:1px;height:13px;background:rgba(244,238,226,.85)"></div>
+                <div style="width:0;height:0;border-style:solid;border-width:6px 9px 6px 0;border-color:transparent rgba(244,238,226,.85) transparent transparent"></div>
+              </div>
+              <div onClick="{{ toggle }}" style="{{ playStyle }}">
+                <div style="{{ playGlyph }}"></div>
+                <div style="{{ pauseGlyph }}"></div>
+              </div>
+              <div onClick="{{ next }}" style="{{ sideBtn }}">
+                <div style="width:0;height:0;border-style:solid;border-width:6px 0 6px 9px;border-color:transparent transparent transparent rgba(244,238,226,.85)"></div>
+                <div style="width:1px;height:13px;background:rgba(244,238,226,.85)"></div>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:2px;margin-top:6px">
+              <div onClick="{{ cycleSpeed }}" style="{{ speedStyle }}">{{ speedLabel }}</div>
+              <div onClick="{{ toggleRepeat }}" style="{{ repeatStyle }}">LOOP</div>
+              <div onClick="{{ toggleAr }}" style="{{ arStyle }}">ARABIC</div>
+            </div>
+          </div>
+        </div>
+
+        <div onClick="{{ closeRail }}" style="{{ scrim }}"></div>
+
+        <div style="{{ railWrap }}">
+          <div style="{{ railCol }}">
+            <div style="{{ railCtx }}">{{ railCtxLabel }}</div>
+            <sc-for list="{{ tools }}" as="t" hint-placeholder-count="4">
+              <div onClick="{{ t.pick }}" style="{{ t.style }}">
+                <div style="{{ t.glyphStyle }}">{{ t.glyph }}</div>
+                <div style="{{ t.dot }}"></div>
+              </div>
+            </sc-for>
+            <div style="flex:1"></div>
+            <div onClick="{{ toggleRail }}" style="{{ railToggle }}">{{ railToggleGlyph }}</div>
+          </div>
+        </div>
+
+        <div style="{{ panel }}">
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:22px 24px 14px">
+            <div style="font-family:'PT Mono',monospace;font-size:10.5px;letter-spacing:.22em;color:rgba(232,204,148,.9)">{{ panelTitle }}</div>
+            <div onClick="{{ closeRail }}" style="{{ closeBtn }}">✕</div>
+          </div>
+          <div style="height:1px;background:linear-gradient(90deg,transparent,rgba(217,182,114,.22),transparent)"></div>
+          <div style="flex:1;overflow:auto;padding:6px 10px 18px">
+            <sc-for list="{{ panelGroups }}" as="g" hint-placeholder-count="3">
+              <div style="padding:14px 14px 6px">
+                <div style="font-family:'PT Mono',monospace;font-size:9.5px;letter-spacing:.22em;color:rgba(239,231,216,.34);padding-bottom:10px">{{ g.title }}</div>
+                <div style="display:flex;flex-wrap:wrap;gap:6px">
+                  <sc-for list="{{ g.items }}" as="it" hint-placeholder-count="3">
+                    <div onClick="{{ it.pick }}" style="{{ it.style }}">{{ it.label }}</div>
+                  </sc-for>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+          <div style="{{ panelFoot }}">{{ panelFootText }}</div>
+        </div>
+      </div>
+    </div>
+
+    <div style="position:absolute;left:52px;right:52px;bottom:9px;height:11px;z-index:5;border-radius:0 0 3px 3px;background:linear-gradient(180deg,#f6efdc,#e8dcc0 42%,#c9b894 78%,#9d8a63);box-shadow:0 2px 5px rgba(20,12,4,.6),inset 0 1px 0 rgba(255,255,255,.6)"></div>
+    <div style="position:absolute;left:52px;right:52px;bottom:9px;height:11px;z-index:5;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(96,74,40,.16) 0 1px,transparent 1px 3px),linear-gradient(90deg,rgba(40,28,10,.4),transparent 8%,transparent 92%,rgba(40,28,10,.4))"></div>
+    <div style="position:absolute;left:0;right:0;bottom:0;height:11px;z-index:5;pointer-events:none;background:linear-gradient(180deg,rgba(126,98,52,.35),rgba(18,12,6,.9))"></div>
+    <div style="position:absolute;left:50%;bottom:-34px;width:30px;margin-left:-9px;height:62px;z-index:6;transform:rotate(6deg);transform-origin:top center;background:linear-gradient(100deg,#16213c,#25355c 46%,#131d34);clip-path:polygon(0 0,100% 0,100% 84%,50% 100%,0 84%);box-shadow:0 10px 20px -8px rgba(0,0,0,.85),inset 1px 0 0 rgba(150,175,225,.16)"></div>
+  </div>
+
+  <div style="position:absolute;left:0;right:0;bottom:0;z-index:9;display:flex;align-items:center;gap:22px;height:78px;padding:0 26px">
+    <div style="position:relative;width:94px;height:50px;flex:none;overflow:hidden;border:1px solid rgba(200,164,92,.18);background-image:repeating-linear-gradient(58deg,rgba(200,164,92,.12) 0 2px,transparent 2px 9px);display:flex;align-items:flex-end;padding:6px">
+      <span style="font-family:'PT Mono',monospace;font-size:8px;letter-spacing:.13em;color:rgba(239,231,216,.4)">SCENE STILL</span>
+    </div>
+    <div style="line-height:1.4">
+      <div style="font-size:15px;color:rgba(244,237,223,.88)">Служебная записка · план устранения замечаний</div>
+      <div style="font-family:'PT Mono',monospace;font-size:10px;letter-spacing:.13em;color:rgba(239,231,216,.34);margin-top:5px">PDF · 2 PAGES · LINKED TO 3 PEOPLE · 12 EXPRESSIONS</div>
+    </div>
+    <div style="flex:1"></div>
+    <div style="display:flex;gap:40px;text-align:right">
+      <div><div style="font-size:20px;font-weight:300">08</div><div style="font-family:'PT Mono',monospace;font-size:9px;letter-spacing:.17em;color:rgba(239,231,216,.3);margin-top:4px">SENTENCES</div></div>
+      <div><div style="font-size:20px;font-weight:300">12:45</div><div style="font-family:'PT Mono',monospace;font-size:9px;letter-spacing:.17em;color:rgba(239,231,216,.3);margin-top:4px">TIME</div></div>
+      <div><div style="font-size:20px;font-weight:300;color:#e0c48a">85%</div><div style="font-family:'PT Mono',monospace;font-size:9px;letter-spacing:.17em;color:rgba(239,231,216,.3);margin-top:4px">ACCURACY</div></div>
+      <div><div style="font-size:20px;font-weight:300">125</div><div style="font-family:'PT Mono',monospace;font-size:9px;letter-spacing:.17em;color:rgba(239,231,216,.3);margin-top:4px">WORDS</div></div>
+    </div>
+    <div style="margin-left:28px;padding:15px 22px;border:1px solid rgba(200,164,92,.26);font-family:'PT Mono',monospace;font-size:10.5px;letter-spacing:.18em;color:rgba(224,196,138,.9);cursor:pointer" style-hover="background:rgba(200,164,92,.1);border-color:rgba(200,164,92,.5)">SESSION OVERVIEW</div>
+  </div>
+</div>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:1600,&quot;height&quot;:1000},&quot;demoState&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;A — Resting&quot;,&quot;B — Tool rail expanded&quot;,&quot;C — Word selected&quot;,&quot;D — Active playback&quot;],&quot;default&quot;:&quot;A — Resting&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;States&quot;},&quot;pageBalance&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Balanced&quot;,&quot;Source focus&quot;,&quot;Transcript focus&quot;],&quot;default&quot;:&quot;Balanced&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;States&quot;},&quot;arabic&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Learning&quot;},&quot;wordEmphasis&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;Luminance&quot;,&quot;Underline&quot;,&quot;None&quot;],&quot;default&quot;:&quot;Luminance&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Learning&quot;},&quot;autoAdvance&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Learning&quot;},&quot;textVeil&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;min&quot;:0,&quot;max&quot;:1,&quot;step&quot;:0.02,&quot;default&quot;:0.62,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Environment&quot;},&quot;ambientMotion&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Environment&quot;},&quot;spaceLight&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;min&quot;:0.25,&quot;max&quot;:1.5,&quot;step&quot;:0.05,&quot;default&quot;:1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Environment&quot;},&quot;bookDepth&quot;:{&quot;editor&quot;:&quot;range&quot;,&quot;min&quot;:0,&quot;max&quot;:1.6,&quot;step&quot;:0.1,&quot;default&quot;:1,&quot;tsType&quot;:&quot;number&quot;,&quot;section&quot;:&quot;Environment&quot;},&quot;parallax&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:true,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Environment&quot;}}">
+class Component extends DCLogic {
+  S = [
+    {ru:"В ходе проверки документа были выявлены замечания, которые необходимо устранить.", ar:"خلال مراجعة المستند ظهرت ملاحظات لازم نتعامل معاها."},
+    {ru:"Прошу рассмотреть предложенный план и согласовать дальнейшие действия.", ar:"أرجو دراسة الخطة المقترحة والموافقة على الخطوات القادمة."},
+    {ru:"Прошу ознакомится и сообщить о решении.", ar:"أرجو الاطلاع وإبلاغي بالقرار."},
+    {ru:"После того как документ все подпишут, мне необходимо подготовить план устранения замечаний.", ar:"بعد ما كل الناس توقّع على المستند، لازم أُجهّز خطة لمعالجة الملاحظات."},
+    {ru:"План должен включать конкретные шаги и сроки исполнения.", ar:"الخطة لازم تتضمن خطوات محددة ومواعيد للتنفيذ."},
+    {ru:"После утверждения плана мы приступим к его реализации.", ar:"بعد الموافقة على الخطة هنبدأ في تنفيذها."},
+    {ru:"Ответственные лица будут назначены отдельным распоряжением.", ar:"المسؤولين هيتم تحديدهم بقرار منفصل."},
+    {ru:"О результатах прошу доложить до конца недели.", ar:"أرجو تقديم تقرير بالنتائج قبل نهاية الأسبوع."}
+  ];
+  NAV = ["Shadowing","Library","Vocabulary","Atlas","Reports"];
+  MAXSRC = 486;
+  FITSRC = 250;
+  state = {i:3, playing:false, t:0, speed:1, repeat:2, repeatOn:false, gap:1, nav:0, ar:null, seg:true, fade:0,
+    scale:1, px:0, py:0, pulse:0, bloom:0, sel:-1, saved:{}, hard:{}, src:250, dragging:false,
+    ctx:"general", rail:0, tool:"display", size:"M", voice:"Native F"};
+  cache = {};
+
+  componentDidMount(){
+    this.timer = setInterval(() => {
+      if(!this.state.playing) return;
+      this.setState(s => {
+        const tot = this.total(s.i), t = s.t + 40 * s.speed;
+        if(t >= tot){
+          if(s.repeatOn) return {t:0};
+          if(this.props.autoAdvance !== false && s.i < this.S.length - 1){ this.jump(s.i + 1, true); return {t:tot}; }
+          return {t:tot, playing:false};
+        }
+        return {t};
+      });
+    }, 40);
+    this.onKey = e => {
+      if(e.code === "Space"){ e.preventDefault(); this.toggle(); }
+      else if(e.code === "ArrowRight"){ e.preventDefault(); this.step(1); }
+      else if(e.code === "ArrowLeft"){ e.preventDefault(); this.step(-1); }
+      else if(e.code === "Escape"){ this.setState({rail:0}); }
+    };
+    window.addEventListener("keydown", this.onKey);
+    this.fit = () => this.setState({scale: Math.max(.3, Math.min(window.innerWidth / 1600, window.innerHeight / 1000, 1.3))});
+    this.fit();
+    window.addEventListener("resize", this.fit);
+    this.onUpWin = () => { if(this.drag){ this.drag = null; this.setState({dragging:false}); } };
+    this.onMoveWin = e => {
+      if(!this.drag) return;
+      const d = (e.clientY - this.drag.y) / (this.state.scale || 1);
+      this.setState({src: Math.max(0, Math.min(this.MAXSRC, this.drag.base + d))});
+    };
+    window.addEventListener("pointermove", this.onMoveWin);
+    window.addEventListener("pointerup", this.onUpWin);
+    const bal = this.props.pageBalance;
+    if(bal === "Source focus") this.setState({src:this.MAXSRC});
+    else if(bal === "Transcript focus") this.setState({src:0});
+    const demo = this.props.demoState;
+    if(demo === "B — Tool rail expanded") this.setState({rail:1, ctx:"general"});
+    else if(demo === "C — Word selected") this.setState({sel:2, ctx:"word", rail:1, t:0});
+    else if(demo === "D — Active playback") this.setState({playing:true});
+    this.firePulse();
+  }
+  componentWillUnmount(){
+    clearInterval(this.timer); clearTimeout(this.ft); clearTimeout(this.pt); clearTimeout(this.lp);
+    window.removeEventListener("keydown", this.onKey); window.removeEventListener("resize", this.fit);
+    window.removeEventListener("pointermove", this.onMoveWin); window.removeEventListener("pointerup", this.onUpWin);
+  }
+
+  segs(i){
+    if(this.cache[i]) return this.cache[i];
+    let acc = 0;
+    const out = this.S[i].ru.split(" ").map(w => {
+      const len = w.replace(/[^A-Za-zА-Яа-яЁё]/g, "").length;
+      const o = {text:w, start:acc, dur:250 + 48 * len};
+      acc += o.dur; return o;
+    });
+    this.cache[i] = out; return out;
+  }
+  total(i){ const s = this.segs(i); return s[s.length - 1].start + s[s.length - 1].dur; }
+  toggle(){ this.setState(s => ({playing: !s.playing, sel:-1, ctx: s.ctx === "word" ? "general" : s.ctx, t: s.t >= this.total(s.i) ? 0 : s.t})); }
+  firePulse(){
+    clearTimeout(this.pt);
+    this.setState({pulse:0, bloom:0});
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      this.setState({pulse:1});
+      setTimeout(() => this.setState({bloom:1}), 400);
+      this.pt = setTimeout(() => this.setState({pulse:0, bloom:0}), 1150);
+    }));
+  }
+  jump(i, keepPlaying){
+    if(i < 0 || i >= this.S.length) return;
+    this.setState({fade:1, sel:-1});
+    this.firePulse();
+    clearTimeout(this.ft);
+    this.ft = setTimeout(() => this.setState(s => ({i, t:0, fade:0, ctx: s.ctx === "word" ? "general" : s.ctx,
+      playing: keepPlaying === undefined ? s.playing : keepPlaying})), 230);
+  }
+  step(d){ this.jump(this.state.i + d); }
+
+  renderVals(){
+    const s = this.state, segs = this.segs(s.i), tot = this.total(s.i);
+    const gold = "#d9b672";
+    const live = s.playing || s.t > 0;
+    let act = -1;
+    if(live) for(let k = 0; k < segs.length; k++){ if(s.t >= segs[k].start && s.t < segs[k].start + segs[k].dur){ act = k; break; } }
+    if(live && act === -1 && s.t >= tot) act = segs.length - 1;
+    const emph = this.props.wordEmphasis || "Luminance";
+    const showAr = s.ar === null ? (this.props.arabic !== false) : s.ar;
+    const par = this.props.parallax === false ? 0 : 1;
+    const motion = this.props.ambientMotion !== false;
+    const light = Math.max(.25, Math.min(1.5, this.props.spaceLight ?? 1));
+    const depth = Math.max(0, Math.min(1.6, this.props.bookDepth ?? 1));
+    const veilAmt = Math.max(0, Math.min(1, this.props.textVeil ?? .62));
+    const selW = s.sel >= 0 && segs[s.sel] ? segs[s.sel] : null;
+    const anim = (name, dur) => motion ? name + " " + dur + " ease-in-out infinite" : "none";
+    const animL = (name, dur) => motion ? name + " " + dur + " linear infinite" : "none";
+    const sizeBase = s.size === "S" ? 35 : s.size === "L" ? 46 : 40;
+    const sizePx = s.rail ? Math.round(sizeBase * .78) : sizeBase;
+    const baseShadow = "0 1px 3px rgba(2,5,12,.8), 0 0 30px rgba(2,6,14,.9)";
+
+    const words = segs.map((w, k) => {
+      const st = {transition:"color .5s ease, text-shadow .5s ease", color:"#f4ecdc", textShadow:baseShadow};
+      if(k === act){
+        st.color = "#fceeca";
+        if(emph === "Luminance") st.textShadow = "0 1px 3px rgba(2,5,12,.85), 0 0 26px rgba(226,190,120,.5), 0 0 74px rgba(150,180,240,.22)";
+        if(emph === "Underline") st.borderBottom = "1px solid rgba(226,190,120,.85)";
+      } else if(act > -1) st.color = k < act ? "rgba(238,230,214,.55)" : "rgba(240,233,219,.72)";
+      return {text:w.text, style:st, pick:() => this.setState({t:w.start + 4, playing:true, sel:-1, ctx:"general"})};
+    });
+
+    const playWord = k => this.setState({t:segs[k].start + 4, playing:true, sel:-1, ctx:"general"});
+    const chips = segs.map((w, k) => {
+      const past = act > -1 && k < act, on = k === act, selq = k === s.sel;
+      const prog = on ? Math.max(0, Math.min(1, (s.t - w.start) / w.dur)) : (past ? 1 : 0);
+      return {
+        word:w.text,
+        down:() => { this.longFired = false; clearTimeout(this.lp);
+          this.lp = setTimeout(() => { this.longFired = true; this.setState({sel:k, playing:false, ctx:"word", rail:1}); }, 420); },
+        up:() => { clearTimeout(this.lp); if(!this.longFired) playWord(k); },
+        cancel:() => clearTimeout(this.lp),
+        wrap:{display:"flex", flexDirection:"column", gap:"9px", alignItems:"stretch", cursor:"pointer",
+          padding:"13px 12px 12px", borderRadius:"4px", minWidth:"54px", minHeight:"48px", boxSizing:"border-box",
+          touchAction:"none", transition:"all .35s ease",
+          border:"1px solid " + (on ? "rgba(226,190,120,.55)" : selq ? "rgba(226,190,120,.5)" : "rgba(255,255,255,.05)"),
+          background: on ? "rgba(226,190,120,.1)" : selq ? "rgba(255,255,255,.06)" : "rgba(4,8,16,.26)"},
+        text:{fontSize:"17px", lineHeight:1, textAlign:"center", whiteSpace:"nowrap", transition:"color .35s ease",
+          color: on ? "#f8e8c2" : past ? "rgba(239,231,216,.55)" : "rgba(243,236,222,.78)",
+          textShadow: on ? "0 0 20px rgba(226,190,120,.42)" : "0 1px 2px rgba(2,5,12,.7)"},
+        bar:{height:"2px", borderRadius:"1px", overflow:"hidden", background:"rgba(239,231,216,.14)"},
+        fill:{height:"100%", width:(prog * 100) + "%", background: on ? "linear-gradient(90deg,rgba(226,190,120,.5),#f0d9a4)" : "rgba(226,190,120,.34)",
+          transition: on ? "width .1s linear" : "width .4s ease"}
+      };
+    });
+
+    const rows = this.S.map((x, k) => ({
+      num:String(k + 1).padStart(2, "0"), text:x.ru,
+      pick:() => { this.setState({ctx:"transcript"}); this.jump(k); },
+      style:{display:"flex", gap:"14px", padding:"13px 12px", cursor:"pointer", borderRadius:"3px",
+        borderLeft:"3px solid " + (k === s.i ? gold : "transparent"),
+        background: k === s.i ? "linear-gradient(90deg,rgba(217,182,114,.3),rgba(217,182,114,.04))" : "transparent",
+        boxShadow: k === s.i ? "0 1px 0 rgba(255,255,255,.55) inset" : "none", transition:"background .35s ease"},
+      numStyle:{fontFamily:"'PT Mono',monospace", fontSize:"10.5px", paddingTop:"5px", flex:"none",
+        color: k === s.i ? "#7a5f2c" : "rgba(90,72,44,.5)"},
+      textStyle:{fontSize:"15px", lineHeight:"1.56", color: k === s.i ? "#241f18" : "#4c4335",
+        fontWeight: k === s.i ? 400 : 300}
+    }));
+
+    const ticks = this.S.map((x, k) => ({
+      pick:() => this.jump(k),
+      style:{width:"1px", height: k === s.i ? "18px" : "9px", transition:"all .35s ease",
+        background: k === s.i ? "#f4e3ba" : (k < s.i ? "rgba(226,190,120,.5)" : "rgba(239,231,216,.24)"),
+        boxShadow: k === s.i ? "0 0 14px rgba(226,190,120,.9)" : "none"}
+    }));
+
+    const btn = on => ({fontFamily:"'PT Mono',monospace", fontSize:"11px", letterSpacing:".17em", cursor:"pointer",
+      padding:"14px 15px", borderRadius:"3px", transition:"color .25s ease, background .25s ease",
+      background: on ? "rgba(226,190,120,.1)" : "transparent",
+      color: on ? "rgba(240,220,176,.95)" : "rgba(239,231,216,.38)"});
+    const pill = on => ({fontFamily:"'PT Mono',monospace", fontSize:"10.5px", letterSpacing:".14em", cursor:"pointer",
+      padding:"13px 15px", borderRadius:"3px", transition:"all .25s ease",
+      border:"1px solid " + (on ? "rgba(226,190,120,.5)" : "rgba(239,231,216,.12)"),
+      background: on ? "rgba(226,190,120,.1)" : "transparent",
+      color: on ? "rgba(244,226,186,.95)" : "rgba(239,231,216,.5)"});
+
+    const TOOLSETS = {
+      general:[{id:"display", g:"◐", label:"Display"}, {id:"text", g:"Aa", label:"Text"},
+        {id:"speed", g:"▹", label:"Speed"}, {id:"repeat", g:"↻", label:"Repeat"}, {id:"voice", g:"◈", label:"Voice"}],
+      word:[{id:"hear", g:"♪", label:"Hear"}, {id:"meaning", g:"⌥", label:"Meaning"},
+        {id:"save", g:"✦", label:"Save"}, {id:"hard", g:"△", label:"Difficult"}, {id:"notes", g:"✎", label:"Notes"}],
+      source:[{id:"fit", g:"⤢", label:"Fit"}, {id:"full", g:"▣", label:"Full"}, {id:"hide", g:"◂", label:"Collapse"}],
+      transcript:[{id:"tfollow", g:"⇅", label:"Follow"}, {id:"text", g:"Aa", label:"Text"}, {id:"speed", g:"▹", label:"Speed"}]
+    };
+    const set = TOOLSETS[s.ctx] || TOOLSETS.general;
+    const doTool = id => {
+      if(id === "hear" && selW) return this.setState({t:selW.start + 4, playing:true, sel:-1, ctx:"general", rail:0});
+      if(id === "save" && selW) return this.setState(p => ({saved:Object.assign({}, p.saved, {[selW.text]: !p.saved[selW.text]})}));
+      if(id === "hard" && selW) return this.setState(p => ({hard:Object.assign({}, p.hard, {[selW.text]: !p.hard[selW.text]})}));
+      if(id === "fit") return this.setState({src:this.FITSRC});
+      if(id === "full") return this.setState({src:this.MAXSRC});
+      if(id === "hide") return this.setState({src:0});
+      this.setState(p => ({tool:id, rail: p.rail && p.tool === id ? 0 : 1}));
+    };
+    const tools = set.map(t => ({
+      glyph:t.g, pick:() => doTool(t.id),
+      style:{width:"52px", height:"52px", display:"flex", alignItems:"center", justifyContent:"center",
+        position:"relative", cursor:"pointer", borderRadius:"4px", marginBottom:"4px", transition:"background .25s ease",
+        background: s.rail && s.tool === t.id ? "rgba(226,190,120,.1)" : "transparent"},
+      glyphStyle:{fontSize: t.g === "Aa" ? "15px" : "17px", lineHeight:1, transition:"color .25s ease",
+        fontFamily: t.g === "Aa" ? "'Source Serif 4',serif" : "'PT Mono',monospace",
+        color: s.rail && s.tool === t.id ? "rgba(244,226,186,.95)" : "rgba(239,231,216,.46)"},
+      dot:{position:"absolute", right:"7px", top:"14px", width:"3px", height:"3px", borderRadius:"50%",
+        background:"rgba(226,190,120,.85)",
+        opacity:(t.id === "save" && selW && s.saved[selW.text]) || (t.id === "hard" && selW && s.hard[selW.text]) ? 1 : 0,
+        transition:"opacity .25s ease"}
+    }));
+
+    const G = {
+      display:{title:"DISPLAY", groups:[
+        {title:"TRANSLATION", items:[{label:"ARABIC ON", on:showAr, pick:() => this.setState({ar:true})},
+          {label:"OFF", on:!showAr, pick:() => this.setState({ar:false})}]},
+        {title:"WORD SEGMENTATION", items:[{label:"SHOW", on:s.seg, pick:() => this.setState({seg:true})},
+          {label:"HIDE", on:!s.seg, pick:() => this.setState({seg:false})}]},
+        {title:"CURRENT WORD", items:["Luminance","Underline","None"].map(v => ({label:v.toUpperCase(), on:emph === v, pick:() => this.setState({})}))}
+      ], foot:"Highlight style is bound to the design prop"},
+      text:{title:"TEXT", groups:[
+        {title:"SENTENCE SIZE", items:["S","M","L"].map(v => ({label:v, on:s.size === v, pick:() => this.setState({size:v})}))}
+      ], foot:"Affects the Russian sentence only"},
+      speed:{title:"SPEED", groups:[
+        {title:"PLAYBACK RATE", items:[0.5,0.75,1,1.25].map(v => ({label:v + "×", on:s.speed === v, pick:() => this.setState({speed:v})}))}
+      ], foot:"Pitch preserved"},
+      repeat:{title:"REPEAT", groups:[
+        {title:"MODE", items:[{label:"LOOP ON", on:s.repeatOn, pick:() => this.setState({repeatOn:true})},
+          {label:"OFF", on:!s.repeatOn, pick:() => this.setState({repeatOn:false})}]},
+        {title:"REPEAT COUNT", items:[2,3,5].map(v => ({label:"×" + v, on:s.repeat === v, pick:() => this.setState({repeat:v})}))},
+        {title:"PAUSE BETWEEN", items:[0,1,2].map(v => ({label:v + "s", on:s.gap === v, pick:() => this.setState({gap:v})}))}
+      ], foot:"Applies to the current sentence"},
+      voice:{title:"VOICE", groups:[
+        {title:"PRONUNCIATION", items:["Native F","Native M","AI"].map(v => ({label:v.toUpperCase(), on:s.voice === v, pick:() => this.setState({voice:v})}))}
+      ], foot:"More voices arrive with AI pronunciation"},
+      meaning:{title:"MEANING", groups:[
+        {title:selW ? selW.text.toUpperCase() : "WORD", items:[{label:"DICTIONARY", on:false, pick:() => this.setState({})},
+          {label:"IN CONTEXT", on:true, pick:() => this.setState({})}]}
+      ], foot:"Definitions load from the session dictionary"},
+      notes:{title:"NOTES", groups:[
+        {title:selW ? selW.text.toUpperCase() : "WORD", items:[{label:"ADD NOTE", on:false, pick:() => this.setState({})}]}
+      ], foot:"Notes stay attached to this scene"},
+      tfollow:{title:"TRANSCRIPT", groups:[
+        {title:"FOLLOW PLAYBACK", items:[{label:"ON", on:true, pick:() => this.setState({})},{label:"OFF", on:false, pick:() => this.setState({})}]}
+      ], foot:"Auto-scrolls the left page"}
+    };
+    const panelDef = G[s.tool] || G.display;
+    const panelGroups = panelDef.groups.map(g => ({title:g.title, items:g.items.map(it => ({label:it.label, pick:it.pick, style:pill(it.on)}))}));
+
+    return {
+      stage:{width:"1600px", height:"1000px", flex:"none", transform:"scale(" + s.scale + ")", transformOrigin:"center center"},
+      nav:this.NAV.map((label, k) => ({label, pick:() => this.setState({nav:k}),
+        style:{writingMode:"vertical-rl", fontFamily:"'PT Mono',monospace", fontSize:"10.5px", letterSpacing:".26em",
+          textTransform:"uppercase", cursor:"pointer", padding:"18px 0", width:"100%", textAlign:"center",
+          boxSizing:"border-box", marginBottom:"8px", transition:"color .3s ease",
+          color: k === s.nav ? "rgba(232,207,154,.95)" : "rgba(239,231,216,.3)",
+          borderRight: k === s.nav ? "1px solid " + gold : "1px solid transparent"}})),
+      onMove:e => {
+        if(!par) return;
+        const r = e.currentTarget.getBoundingClientRect();
+        this.setState({px:(e.clientX - r.left) / r.width - .5, py:(e.clientY - r.top) / r.height - .5});
+      },
+      bookShadow:{position:"absolute", left:"40px", right:"40px", bottom:"-26px", height:"52px",
+        background:"radial-gradient(closest-side,rgba(0,0,0,.78),transparent 76%)", filter:"blur(16px)",
+        opacity:.45 + depth * .35},
+
+      srcPane:{flex:"none", height: s.src + "px", overflowY:"auto", overflowX:"hidden", marginTop:"4px",
+        transition: s.dragging ? "none" : "height .38s cubic-bezier(.2,.7,.2,1)"},
+      srcSheet:{position:"relative", margin:"2px 4px 6px 4px", padding:"20px 22px 16px", background:"#fdfaf1",
+        boxShadow:"0 1px 0 rgba(255,255,255,.9) inset,0 16px 30px -16px rgba(52,38,16,.4),0 2px 4px rgba(52,38,16,.13)",
+        transform:"rotate(-.25deg)", fontFamily:"'PT Mono',monospace", color:"#2f2820"},
+      divider:{flex:"none", height:"32px", display:"flex", alignItems:"center", justifyContent:"center",
+        cursor:"row-resize", touchAction:"none", margin:"6px 0 2px", borderRadius:"3px",
+        background: s.dragging ? "rgba(101,80,48,.08)" : "transparent", transition:"background .25s ease"},
+      grip:{width:"56px", height:"3px", borderRadius:"2px",
+        background: s.dragging ? "rgba(122,95,44,.75)" : "rgba(122,95,44,.32)", transition:"background .25s ease"},
+      divBtn:{fontFamily:"'PT Mono',monospace", fontSize:"9.5px", letterSpacing:".18em", cursor:"pointer",
+        padding:"10px 6px", color:"rgba(122,95,44,.55)"},
+      pgBtn:{fontFamily:"'PT Mono',monospace", fontSize:"9.5px", letterSpacing:".16em", cursor:"pointer",
+        padding:"9px 11px", borderRadius:"3px", color:"rgba(122,95,44,.6)"},
+      dragStart:e => { this.drag = {y:e.clientY, base:this.state.src}; this.setState({dragging:true}); },
+      collapseSrc:() => this.setState({src:0}),
+      expandTr:() => this.setState({src:0}),
+      fitSrc:() => this.setState({src:this.FITSRC}),
+      maxSrc:() => this.setState({src:this.MAXSRC}),
+      pickSource:() => this.setState(p => ({ctx: p.ctx === "word" ? p.ctx : "source"})),
+      pickTranscript:() => this.setState({ctx:"transcript"}),
+
+      artWrap:{position:"absolute", inset:0, overflow:"hidden", opacity:light, transition:"opacity .6s ease"},
+      artPar:{position:"absolute", inset:"-13%", willChange:"transform",
+        transition:"transform 1.6s cubic-bezier(.2,.7,.2,1)",
+        transform:"translate3d(" + (-s.px * 13) + "px," + (-s.py * 9) + "px,0)"},
+      starFar:{position:"absolute", inset:"-280px", opacity:.3, pointerEvents:"none",
+        animation:animL("ll-far", "560s"), backgroundRepeat:"repeat", backgroundSize:"520px 460px",
+        backgroundImage:"radial-gradient(1px 1px at 22% 28%,rgba(255,255,255,.7),transparent),radial-gradient(.8px .8px at 64% 12%,rgba(206,224,255,.5),transparent),radial-gradient(1px 1px at 84% 62%,rgba(255,255,255,.45),transparent),radial-gradient(.8px .8px at 38% 80%,rgba(255,246,225,.4),transparent)"},
+      starNear:{position:"absolute", inset:"-240px", pointerEvents:"none", opacity:.85,
+        animation:anim("ll-twinkle", "38s"), backgroundRepeat:"repeat", backgroundSize:"440px 390px",
+        transition:"transform 1.6s cubic-bezier(.2,.7,.2,1)",
+        transform:"translate3d(" + (-s.px * 32) + "px," + (-s.py * 21) + "px,0)",
+        backgroundImage:"radial-gradient(1.7px 1.7px at 30% 34%,rgba(255,255,255,.8),rgba(190,216,255,.22) 45%,transparent 72%),radial-gradient(1.5px 1.5px at 74% 60%,rgba(226,238,255,.62),transparent 70%),radial-gradient(2px 2px at 52% 84%,rgba(255,246,226,.5),transparent 72%)"},
+      hazeDrift:{position:"absolute", left:"-14%", top:"4%", width:"128%", height:"74%", pointerEvents:"none",
+        filter:"blur(62px)", animation:anim("ll-haze", "200s"),
+        background:"radial-gradient(36% 30% at 28% 40%,rgba(108,158,232,.5),transparent 74%),radial-gradient(28% 24% at 76% 64%,rgba(74,120,202,.42),transparent 76%)"},
+      heroVeil:{position:"absolute", top:"25%", height:"44%", pointerEvents:"none", filter:"blur(46px)",
+        left: s.rail ? "2%" : "7%", right: s.rail ? "40%" : "7%",
+        opacity: veilAmt, transition:"left .45s cubic-bezier(.2,.7,.2,1), right .45s cubic-bezier(.2,.7,.2,1), opacity .6s ease",
+        background:"radial-gradient(closest-side,rgba(2,6,14,.92),rgba(2,6,14,.4) 58%,transparent 82%),radial-gradient(closest-side at 50% 44%,rgba(226,200,148,.05),transparent 64%)"},
+      spineSpill:{position:"absolute", left:0, top:0, bottom:0, width:"56px", pointerEvents:"none",
+        background:"linear-gradient(90deg,rgba(3,5,12,.78),rgba(3,6,14,.42) 34%,rgba(4,8,18,.14) 66%,transparent 96%)"},
+      pulse:{position:"absolute", left:"-1px", width:"4px", height:"20%", borderRadius:"3px",
+        background:"linear-gradient(180deg,rgba(226,190,120,0),rgba(246,226,186,.8),rgba(226,190,120,0))",
+        filter:"blur(2.5px)", opacity: s.pulse ? .8 : 0,
+        top: s.pulse ? "84%" : "-24%",
+        transition: s.pulse ? "top 1s cubic-bezier(.35,.05,.25,1), opacity .3s ease" : "none"},
+
+      contentWrap:{position:"absolute", inset:0, display:"flex", flexDirection:"column", alignItems:"center",
+        justifyContent:"center", boxSizing:"border-box",
+        padding: s.rail ? "98px 318px 172px 46px" : "98px 52px 172px 46px",
+        transition:"padding .45s cubic-bezier(.2,.7,.2,1)"},
+      topWrap:{position:"absolute", top:"24px", left:"30px", right: s.rail ? "300px" : "24px", display:"flex",
+        flexDirection:"column", alignItems:"center", gap:"4px", transition:"right .45s cubic-bezier(.2,.7,.2,1)"},
+      transportWrap:{position:"absolute", left:"30px", right: s.rail ? "300px" : "24px", bottom:"22px", display:"flex",
+        flexDirection:"column", alignItems:"center", transition:"right .45s cubic-bezier(.2,.7,.2,1)"},
+      rows, ticks, words, chips,
+      arabic:this.S[s.i].ar,
+      curNum:String(s.i + 1).padStart(2, "0"),
+      heroWrap:{display:"flex", flexDirection:"column", alignItems:"center", gap:"20px", flex:"none",
+        fontSize: sizePx + "px",
+        opacity: s.fade ? 0 : 1, transform: s.fade ? "translateY(12px) scale(.99)" : "translateY(0) scale(1)",
+        transition: s.fade ? "opacity .22s ease, transform .22s ease" : "opacity .75s ease .12s, transform .75s cubic-bezier(.2,.7,.2,1) .12s"},
+      arWrap:{maxHeight: showAr ? "120px" : "0px", overflow:"hidden", opacity: showAr ? 1 : 0, transition:"all .45s ease", textAlign:"center"},
+      segWrap:{width:"100%", maxWidth:"720px", marginTop:"24px", flex:"none",
+        maxHeight: s.seg ? "250px" : "0px", overflow:"hidden", opacity: s.seg ? 1 : 0, transition:"all .45s ease"},
+      hintStyle:{textAlign:"center", marginTop:"10px", fontFamily:"'PT Mono',monospace", fontSize:"9.5px",
+        letterSpacing:".2em", color:"rgba(239,231,216,.28)", transition:"opacity .3s ease"},
+      hintText: selW ? selW.text.toUpperCase() + " · ACTIONS IN THE RAIL" : "TAP A WORD TO HEAR · HOLD FOR ACTIONS",
+
+      scrim:{position:"absolute", inset:0, zIndex:7, cursor:"default",
+        opacity: s.rail ? 1 : 0, pointerEvents: s.rail ? "auto" : "none",
+        background:"linear-gradient(90deg,transparent 40%,rgba(4,7,14,.35))", transition:"opacity .4s ease"},
+      railWrap:{position:"absolute", right:0, top:0, bottom:0, zIndex:9, width:"58px",
+        display:"flex", alignItems:"center", justifyContent:"center", pointerEvents:"none"},
+      railCol:{display:"flex", flexDirection:"column", alignItems:"center", pointerEvents:"auto",
+        padding:"14px 5px", borderRadius:"6px 0 0 6px", maxHeight:"78%",
+        borderLeft:"1px solid rgba(226,190,120,.3)", borderTop:"1px solid rgba(255,255,255,.06)",
+        borderBottom:"1px solid rgba(255,255,255,.06)",
+        boxShadow:"-14px 0 34px -18px rgba(0,0,0,.9), inset 1px 0 0 rgba(226,190,120,.08)",
+        background:"linear-gradient(180deg,rgba(9,14,24,.58),rgba(6,10,18,.72))", backdropFilter:"blur(6px)"},
+      railCtx:{fontFamily:"'PT Mono',monospace", fontSize:"8px", letterSpacing:".2em", writingMode:"vertical-rl",
+        color:"rgba(232,204,148,.6)", paddingBottom:"12px", transition:"color .3s ease"},
+      railCtxLabel: s.ctx === "word" ? "WORD" : s.ctx === "source" ? "SOURCE" : s.ctx === "transcript" ? "TRANSCRIPT" : "SHADOWING",
+      tools,
+      railToggle:{width:"40px", height:"64px", display:"flex", alignItems:"center", justifyContent:"center",
+        cursor:"pointer", fontFamily:"'PT Mono',monospace", fontSize:"15px", marginTop:"10px", borderRadius:"20px",
+        border:"1px solid " + (s.rail ? "rgba(226,190,120,.5)" : "rgba(226,190,120,.34)"),
+        background: s.rail ? "rgba(226,190,120,.12)" : "rgba(226,190,120,.06)",
+        boxShadow: s.rail ? "none" : "0 0 18px rgba(226,190,120,.14)",
+        color:"rgba(244,226,186,.88)", transition:"all .25s ease"},
+      railToggleGlyph: s.rail ? "›" : "‹",
+      toggleRail:() => this.setState(p => ({rail: p.rail ? 0 : 1})),
+      closeRail:() => this.setState({rail:0}),
+
+      panel:{position:"absolute", right:"58px", top:"12%", bottom:"12%", width:"272px", zIndex:9,
+        display:"flex", flexDirection:"column", borderRadius:"6px",
+        border:"1px solid rgba(226,190,120,.16)", background:"linear-gradient(180deg,rgba(10,15,26,.9),rgba(6,10,18,.94))",
+        backdropFilter:"blur(14px)", boxShadow:"0 30px 70px -26px rgba(0,0,0,.9)",
+        opacity: s.rail ? 1 : 0, pointerEvents: s.rail ? "auto" : "none",
+        transform: s.rail ? "translateX(0)" : "translateX(18px)",
+        transition:"opacity .35s ease, transform .4s cubic-bezier(.2,.7,.2,1)"},
+      panelTitle:panelDef.title,
+      panelGroups,
+      panelFoot:{padding:"14px 24px 18px", fontFamily:"'PT Mono',monospace", fontSize:"9px", letterSpacing:".16em",
+        color:"rgba(239,231,216,.26)", borderTop:"1px solid rgba(255,255,255,.05)"},
+      panelFootText:panelDef.foot.toUpperCase(),
+      closeBtn:{width:"40px", height:"40px", display:"flex", alignItems:"center", justifyContent:"center",
+        marginRight:"-10px", cursor:"pointer", fontSize:"13px", color:"rgba(239,231,216,.35)"},
+
+      replayWord:() => { if(selW) this.setState({t:selW.start + 4, playing:true, sel:-1}); },
+      prev:() => this.step(-1), next:() => this.step(1), toggle:() => this.toggle(),
+      sideBtn:{width:"60px", height:"60px", borderRadius:"50%", border:"1px solid rgba(244,238,226,.22)",
+        display:"flex", alignItems:"center", justifyContent:"center", gap:"3px", cursor:"pointer",
+        background:"rgba(4,8,16,.34)"},
+      playStyle:{width:"76px", height:"76px", borderRadius:"50%", cursor:"pointer", display:"flex",
+        alignItems:"center", justifyContent:"center", position:"relative",
+        border:"1px solid " + (s.playing ? "rgba(244,226,186,.9)" : "rgba(226,190,120,.6)"),
+        background: s.playing ? "radial-gradient(circle,rgba(226,190,120,.2),rgba(4,8,16,.3))" : "rgba(4,8,16,.32)",
+        boxShadow: s.playing ? "0 0 56px rgba(226,190,120,.3)" : "0 0 30px rgba(226,190,120,.12)",
+        transition:"all .35s ease"},
+      playGlyph:{position:"absolute", width:0, height:0, marginLeft:"5px", borderStyle:"solid",
+        borderWidth:"11px 0 11px 18px", borderColor:"transparent transparent transparent #f4e3ba",
+        opacity: s.playing ? 0 : 1, transition:"opacity .25s ease"},
+      pauseGlyph:{position:"absolute", width:"14px", height:"21px", borderLeft:"3px solid #f4e3ba",
+        borderRight:"3px solid #f4e3ba", opacity: s.playing ? 1 : 0, transition:"opacity .25s ease"},
+      speedLabel:s.speed.toFixed(2).replace(/0$/, "") + "×",
+      speedStyle:btn(s.speed !== 1),
+      cycleSpeed:() => this.setState(p => ({speed: p.speed === 1 ? 0.75 : p.speed === 0.75 ? 0.5 : p.speed === 0.5 ? 1.25 : 1})),
+      repeatStyle:btn(s.repeatOn), toggleRepeat:() => this.setState(p => ({repeatOn: !p.repeatOn})),
+      arStyle:btn(showAr), toggleAr:() => this.setState({ar: !showAr})
+    };
+  }
+}
+</script>
+</body>
+</html>
