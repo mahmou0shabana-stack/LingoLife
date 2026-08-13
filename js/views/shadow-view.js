@@ -740,6 +740,10 @@ function shell() {
 
             <!-- ─────── الكون ─────── -->
             <div class="sh-page sh-right">
+              <!-- طبقاتُ الفضاء — داخل الصفحة لا خلف الكتاب. -->
+              <div class="sh-stars-far" aria-hidden="true"></div>
+              <div class="sh-stars-near" aria-hidden="true"></div>
+              <div class="sh-spill" aria-hidden="true"></div>
 
               <div class="sh-stage-top">
                 <div class="sh-mono sh-count">

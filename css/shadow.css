@@ -2818,3 +2818,207 @@ body.shadow-open { overflow: hidden; }
 
 .sh-still img { width: 100%; height: 100%; object-fit: cover; }
 .sh-still { padding: 0; overflow: hidden; }
+
+/* ══════════════════════════════════════════════════════════════
+   WS24 · مرحلة ٣ — الكتابُ في اتّجاه النموذج
+
+   ⚠️ **هذا هو الفرقُ الذي رأيتَه ولم أَرَه.**
+
+   التطبيق كلُّه `dir="rtl"`، فكلُّ صفٍّ يُرتَّب من اليمين تلقائيًّا.
+   والنموذج مرسومٌ من اليسار: الورقةُ يسارًا والكونُ يمينًا، وسكّةُ
+   التنقّل أقصى اليسار وسكّةُ الأدوات أقصى اليمين.
+
+   فحين بنيتُ البنيةَ صحيحةً، **قلبها الاتجاهُ كلَّها** — فبدت لك
+   شيئًا آخر وإن كانت قطعُها هي هي. وهذا ليس عذرًا: النتيجةُ على
+   الشاشة هي الحكم، لا صحّةُ الشجرة في الكود.
+
+   والحلُّ **ليس** `direction: ltr` على الشاشة كلّها: ذلك يكسر محاذاة
+   كلّ نصٍّ عربيّ فيها. بل **عكسُ ترتيب الصفوف الأربعة** التي يهمّ
+   فيها الموضع — ويبقى كلُّ نصٍّ عربيّ يُقرأ من اليمين كما يجب.
+   ══════════════════════════════════════════════════════════════ */
+
+/* الشريط العلوي: الشعار يسارًا، والعدّاد والخروج يمينًا. */
+.sh-topbar { flex-direction: row-reverse; }
+
+/* الجسم: سكّةُ التنقّل أقصى اليسار، والكتاب بجوارها. */
+.sh-body { flex-direction: row-reverse; }
+
+/* ⚠️ **وهذا هو السطر الذي طلبتَه**: الورقة يسارًا والكون يمينًا. */
+@media (min-width: 900px) {
+  .sh-pages { flex-direction: row-reverse; }
+}
+
+/* الشريط السفلي: اللقطة والعنوان يسارًا، والأرقام يمينًا. */
+.sh-bottom { flex-direction: row-reverse; }
+
+/* ---- والكعبُ يتبع الاتّجاه الجديد: ورقٌ يسارًا ← ظلمةٌ يمينًا ---- */
+@media (min-width: 900px) {
+  .sh-spine {
+    background: linear-gradient(90deg,
+      #d0bc92 0%, rgba(214, 180, 116, .92) 13%, rgba(152, 118, 62, .9) 33%,
+      rgba(46, 44, 46, .95) 57%, rgba(11, 16, 26, 1) 79%, #070b14 100%);
+    box-shadow: inset 5px 0 12px -4px rgba(58, 40, 14, .5),
+                inset -6px 0 16px -4px rgba(0, 0, 0, .9);
+  }
+}
+
+/*
+ * ⚠️ سكّةُ الأدوات **يمينًا فيزيائيًّا** لا منطقيًّا.
+ *
+ * `inset-inline-end` تتبع اللغة، فكانت تقع يسارًا. وموضعُها في
+ * النموذج هو الحافّة الخارجيّة لصفحة الكون — وقد صارت اليمين. فهذه
+ * المواضعُ الثلاثة تُكتَب `right`/`left` صراحةً: هي **مواضعُ رسمٍ**
+ * لا اتّجاهُ قراءة.
+ */
+.sh-toolrail { inset-inline: auto; right: 0; left: auto; }
+.sh-panel { inset-inline: auto; right: 56px; left: auto; }
+.sh-scrim { background: linear-gradient(90deg, transparent 40%, rgba(4, 7, 14, .35)); }
+.sh-railnav button { border-inline-start: 0; border-right: 1px solid transparent; }
+.sh-railnav button.on { border-right-color: var(--sh-accent); }
+
+/* ---- المقاسات كما في النموذج (1600×1000) ---- */
+@media (min-width: 900px) {
+  /*
+   * ⚠️ النموذج يثبّت الورقة على `614px` من `1490px` — أي ٤١٪ لا نصفًا.
+   *    والسببُ معماريّ لا جماليّ: الجملةُ في الكون تحتاج عرضًا لتبقى
+   *    في سطرين، والورقةُ تحتاج عرضًا يكفي سطرَ نصٍّ روسيٍّ بلا كسر.
+   *    فالنسبةُ ٤١٪ هي الافتراض، **وسحبُك للكعب يبقى فوقها**.
+   */
+  .sh-railnav { width: 86px; }
+  .sh-spine { min-inline-size: 24px; }
+  .sh-book { margin: 0 24px 14px; }
+  .sh-topbar { min-height: 62px; padding: 0 26px; }
+  .sh-bottom { min-height: 78px; padding: 0 26px; }
+  .sh-toolrail { width: 58px; }
+  .sh-panel { right: 58px; width: 272px; top: 12%; bottom: 12%; }
+}
+
+/* وعلى الهاتف تبقى الصفحتان فوق/تحت — والنموذج أفقيٌّ لا يصلح رأسيًّا. */
+@media (max-width: 899px) {
+  .sh-body { flex-direction: column; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   WS24 · المقاسات — من عرض **العمود** لا من عرض الشاشة
+
+   ⚠️ **هذا هو عيبُ المقاسات الذي رأيتَه.**
+
+   قِيسَ في المتصفّح: صفحةُ الكون `438px`، والجملةُ فيها `27px` —
+   لأن `clamp(24px, 3.9vw, 41px)` تقرأ **الشاشة** (1280) لا العمود.
+   فالجملةُ تُقاس بمسطرةٍ لا علاقةَ لها بالمكان الذي ستُكتَب فيه:
+   تسحب الكعبَ فيضيق العمود ويبقى الخطُّ كما هو، فتنكسر الكلمات.
+
+   والنموذجُ نسبتُه ثابتة: `41px` في مسرحٍ عرضُه `876px` — أي
+   **٤٫٧٪ من العمود**. فتُكتَب كذلك بـ`cqw`، فتصحّ عند كل سحبةِ كعب
+   وعلى كل جهاز، بلا جدول مقاسات.
+
+   ⚠️ ويبقى `vw` احتياطًا لمتصفّحٍ لا يعرف `cqw` — فلا يسقط النصّ إلى
+      حجمٍ افتراضيٍّ صغير.
+   ══════════════════════════════════════════════════════════════ */
+
+.sh-right { container-type: inline-size; }
+
+@supports (font-size: 1cqw) {
+  .sh-current-text {
+    font-size: calc(clamp(18px, 4.7cqw, 41px) * var(--sh-font-size, 1) * var(--font-scale, 1));
+  }
+  .sh-current-tr { font-size: clamp(14px, 2.6cqw, 23px); }
+  .sh-chip-w { font-size: clamp(13px, 1.95cqw, 17px); }
+}
+
+/* والنسبةُ الافتراضيّة للصفحتين كنسبة النموذج: 614 من 1490. */
+@media (min-width: 900px) {
+  .sh-left { flex: 1 1 var(--split, 41%); }
+}
+
+/* ومسافاتُ المسرح تتنفّس مع العمود كذلك. */
+.sh-chips { margin-top: clamp(10px, 2cqw, 26px); gap: 4px 6px; }
+.sh-hero  { padding: 4px 0; }
+.sh-current-tr { margin-top: clamp(12px, 2.5cqw, 22px); }
+
+/* ══════════════════════════════════════════════════════════════
+   WS24 · الكون **داخل** الصفحة لا خلف الكتاب
+
+   ⚠️ النجوم كانت على `.shadow-app::before` — أي **خلف** الكتاب، وهو
+      مُعتِمٌ فوقها. فبدت الصفحةُ اليمنى ضبابًا لبنيًّا لا فضاءً.
+
+   والنموذج يضع الطبقات **داخل** الصفحة نفسها: صورةُ سديمٍ، ثم نجومٌ
+   بعيدةٌ تسبح ببطء، ثم نجومٌ قريبةٌ تلمع. فهذه الثلاث هنا — بلا صورة.
+   ══════════════════════════════════════════════════════════════ */
+
+.sh-right {
+  /* أعمقُ ممّا كان: قاعُ الفضاء لا رماديُّ لوحة. */
+  background:
+    radial-gradient(120% 90% at 62% 38%, #0b1220 0%, #060a12 46%, #04070e 100%);
+}
+
+/* نجومٌ بعيدة — تنجرف انجرافًا لا يكاد يُرى. */
+.sh-right .sh-stars-far,
+.sh-right .sh-stars-near {
+  position: absolute; inset: -160px; pointer-events: none; z-index: 0;
+  background-repeat: repeat;
+}
+
+.sh-right .sh-stars-far {
+  opacity: .34; background-size: 520px 460px;
+  animation: shFar 560s linear infinite;
+  background-image:
+    radial-gradient(1px 1px at 22% 28%, rgba(255,255,255,.7), transparent),
+    radial-gradient(.8px .8px at 64% 12%, rgba(206,224,255,.5), transparent),
+    radial-gradient(1px 1px at 84% 62%, rgba(255,255,255,.45), transparent),
+    radial-gradient(.8px .8px at 38% 80%, rgba(255,246,225,.4), transparent);
+}
+
+.sh-right .sh-stars-near {
+  opacity: .85; background-size: 440px 390px;
+  animation: shTwinkle 38s ease-in-out infinite;
+  background-image:
+    radial-gradient(1.7px 1.7px at 30% 34%, rgba(255,255,255,.8), rgba(190,216,255,.22) 45%, transparent 72%),
+    radial-gradient(1.5px 1.5px at 74% 60%, rgba(226,238,255,.62), transparent 70%),
+    radial-gradient(2px 2px at 52% 84%, rgba(255,246,226,.5), transparent 72%);
+}
+
+@keyframes shFar { from { transform: translate3d(0,0,0); } to { transform: translate3d(-260px,-150px,0); } }
+@keyframes shTwinkle { 0%,100% { opacity: .34; } 50% { opacity: .72; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .sh-right .sh-stars-far, .sh-right .sh-stars-near { animation: none; }
+}
+
+/* والسديمُ أخفتُ الآن — النجومُ هي التي تحمل العمق، لا الضباب. */
+@keyframes shHaze {
+  0%, 100% { opacity: .10; transform: translate3d(0,0,0) scale(1); }
+  50%      { opacity: .20; transform: translate3d(-22px,12px,0) scale(1.05); }
+}
+
+/* وضوءُ الكعب ينسكب على أوّل الصفحة — كما في النموذج. */
+.sh-spill {
+  position: absolute; inset-block: 3%; left: 0; width: 150px;
+  pointer-events: none; z-index: 0; filter: blur(7px);
+  background: linear-gradient(90deg, rgba(224,196,138,.16), rgba(96,132,196,.07) 40%, transparent 86%);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   WS24 · ما كشفته اللقطتان بعد الطبقات
+
+   ⚠️ **١ · سكّةُ الأدوات كانت تركب فوق المحتوى.** هي `absolute` على
+      الحافّة، والمسرحُ يمتدّ تحتها — فآخرُ رقاقةٍ تختفي خلفها. حشوةٌ
+      بعرضها تُصلح ذلك؛ ولا تكفي على الحافّة وحدها لأن اللوحة تُفتَح
+      فوقها أيضًا.
+
+   ⚠️ **٢ · وعلى الهاتف تراكبت العربيّةُ على الروسيّة.** `flex: 1` مع
+      `min-height: 0` يسمح للصندوق بأن يصير أقصرَ من محتواه فيفيض.
+      والمسرحُ رأسيًّا لا يحتمل «كلٌّ في مكانه» — فيصير عمودًا يُمرَّر.
+   ══════════════════════════════════════════════════════════════ */
+
+.sh-right { padding-inline-end: 62px; }
+.sh-chips { max-width: min(860px, 100%); }
+
+@media (max-width: 899px) {
+  /* الصفحة عمودٌ يُمرَّر: المحتوى يأخذ حقّه ولا يتراكب. */
+  .sh-right { overflow-y: auto; padding-inline-end: 52px; }
+  .sh-hero { flex: 0 0 auto; min-height: auto; padding: 10px 0 4px; }
+  .sh-chips { max-height: none; margin-top: 14px; }
+  .sh-transport { margin-top: 18px; }
+  .sh-stage-top { position: sticky; top: 0; z-index: 2; }
+}
