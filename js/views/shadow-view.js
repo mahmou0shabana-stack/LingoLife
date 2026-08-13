@@ -104,7 +104,75 @@ let picked = new Set();
 const DISPLAY = Object.freeze({ RU: 'ru', EGY: 'egy', HIDDEN: 'hidden' });
 
 /** يُنادى عند مغادرة الشاشة — بدونه يظلّ الصوت شغّالًا. */
+/**
+ * الشريطُ العائم — الظلُّ يكمل بعد مغادرة صفحته (WS24).
+ *
+ * ⚠️ **بلاغُك**: «لما باخرج من الصفحة عايز الصوت يفضل شغّال ويبقى فيه
+ *    شريط عايم أوقف بيه الصوت».
+ *
+ * وكان العكسُ مقصودًا: `disposeShadow` تقتل المحرّك عند كلّ تنقّل، حتى
+ * لا يبقى صوتٌ لا تعرف من أين يأتي. والقرارُ نصفُ صحيح: **الصوتُ
+ * المجهولُ مصدرُه** هو المشكلة، لا الصوتُ المستمرّ. فالحلُّ أن يبقى
+ * ويقول من أين يأتي — لا أن يموت.
+ *
+ * ⚠️ **ولا يبقى إلّا وهو يعمل فعلًا.** جلسةٌ متوقّفةٌ تُغادرها تُغلَق
+ *    كما كانت، فلا يتراكم في الذاكرة محرّكٌ صامتٌ لكلّ جلسةٍ فتحتَها.
+ */
+let parkedBar = null;
+
+function parkShadow() {
+  const title = ctx?.session?.title || 'جلسة ظلّ';
+  const sessionId = ctx?.session?.id;
+  document.body.classList.remove('shadow-open');
+
+  parkedBar?.remove();
+  const bar = document.createElement('div');
+  bar.className = 'sh-floating';
+  bar.innerHTML = `
+    <button class="shf-open" data-shf="open" title="ارجع للجلسة">
+      <i class="shf-pulse"></i><b></b>
+    </button>
+    <button class="shf-stop" data-shf="stop" aria-label="وقّف الصوت">◼</button>`;
+  bar.querySelector('b').textContent = title;
+  bar.addEventListener('click', (event) => {
+    const act = event.target.closest('[data-shf]')?.dataset.shf;
+    if (act === 'stop') return stopParked();
+    if (act === 'open' && sessionId) navigate(`/shadow/${sessionId}`);
+    return undefined;
+  });
+  document.body.append(bar);
+  parkedBar = bar;
+}
+
+/** يوقف الجلسة المُبقاة ويرفع شريطها. */
+function stopParked() {
+  player?.destroy();
+  player = null;
+  parkedBar?.remove();
+  parkedBar = null;
+}
+
 export function disposeShadow() {
+  /*
+   * ⚠️ يُقرأ **قبل** أي تدمير: `running && !paused` تعني أن المحرّك
+   *    ينطق الآن. وبعد `destroy()` تصير الحالةُ بلا معنى.
+   */
+  const speaking = Boolean(player?.state?.running && !player.state.paused);
+  if (speaking && ctx?.session?.id) {
+    const keep = player;
+    parkShadow();
+    player = keep;
+    ctx = null;
+    scratchPlayer?.destroy();
+    scratchPlayer = null;
+    recorder?.cancel?.();
+    recorder = null;
+    clearExpressionIndex();
+    return;
+  }
+
+  parkedBar?.remove();
+  parkedBar = null;
   player?.destroy();
   player = null;
   scratchPlayer?.destroy();
@@ -414,6 +482,9 @@ async function coverImage(sceneId) {
  * ------------------------------------------------------------------ */
 
 export async function renderShadow(main, sessionId) {
+  /* العودةُ إلى الجلسة ترفع شريطَها العائم — لا شريطان لشيءٍ واحد. */
+  parkedBar?.remove();
+  parkedBar = null;
   disposeShadow();
 
   const loaded = await loadSession(sessionId);
@@ -528,6 +599,7 @@ export async function renderShadow(main, sessionId) {
 
   /* ارتفاعُ المستند المحفوظ، ثم السكّة في وضعها الابتدائي. */
   applyDoc(Number(await settings.get(DOC_KEY, 250)) || 0);
+  await applySky();
   renderRail();
   wireChips(main);
 }
@@ -741,6 +813,7 @@ function shell() {
             <!-- ─────── الكون ─────── -->
             <div class="sh-page sh-right">
               <!-- طبقاتُ الفضاء — داخل الصفحة لا خلف الكتاب. -->
+              <div class="sh-sky" aria-hidden="true"></div>
               <div class="sh-stars-far" aria-hidden="true"></div>
               <div class="sh-stars-near" aria-hidden="true"></div>
               <div class="sh-spill" aria-hidden="true"></div>
@@ -1549,6 +1622,7 @@ const TOOLSETS = {
     { id: 'speed', glyph: '▹', label: 'السرعة' },
     { id: 'repeat', glyph: '↻', label: 'التكرار' },
     { id: 'voice', glyph: '◈', label: 'الصوت' },
+    { id: 'sky', glyph: '✧', label: 'الخلفيّة' },
   ],
   word: [
     { id: 'hear', glyph: '♪', label: 'اسمعها' },
@@ -1638,6 +1712,23 @@ function panelFor(id) {
       after: `<div class="sh-pgroup"><span>صوت الجهاز</span>${voiceOptions(ctx.voices, s.voiceURI)}</div>`,
     };
   }
+  if (id === 'sky') {
+    /*
+     * ⚠️ **الخلفيّةُ صورتُك أنت، لا صورةٌ في المستودع.**
+     *
+     * النموذجُ يضع `cosmos.png` ملفًّا في الحزمة. وضمُّ صورةٍ بحجم
+     * فضاءٍ حقيقيّ إلى تطبيقٍ يُحمَّل على الهاتف ثمنٌ يدفعه كلُّ فتحةٍ
+     * بلا أن يختار أحد. فالصورةُ تُرفَع من جهازك مرّةً وتُخزَّن في
+     * القاعدة — تعمل بلا شبكة، وتغيّرها متى شئت، ولا تثقل الحزمة.
+     */
+    return {
+      title: 'الخلفيّة',
+      foot: 'الصورة تُخزَّن على جهازك — بلا إنترنت',
+      groups: [{ title: 'سماء الجلسة', items:
+        `<button data-sh="sky-pick">ارفع صورة…</button>
+         ${ctx.sky ? '<button data-sh="sky-clear">رجّع النجوم</button>' : ''}` }],
+    };
+  }
   if (id === 'meaning') {
     const w = currentWordText();
     return {
@@ -1709,6 +1800,33 @@ function pickTool(id) {
   rail.open = !(rail.open && rail.tool === id);
   rail.tool = id;
   renderRail();
+}
+
+/**
+ * سماءُ الجلسة — صورةٌ رفعتَها أنت، أو النجومُ المرسومة.
+ *
+ * ⚠️ ورابطُ الكائن يُحرَّر عند التبديل: كلُّ `createObjectURL` بلا
+ *    `revoke` يحجز الصورةَ في الذاكرة إلى أن تُغلق التبويب.
+ */
+const SKY_KEY = 'shadow.sky';
+let skyUrl = null;
+
+async function applySky() {
+  const app = document.querySelector('.shadow-app');
+  if (skyUrl) { URL.revokeObjectURL(skyUrl); skyUrl = null; }
+
+  const blob = await settings.get(SKY_KEY, null).catch(() => null);
+  if (ctx) ctx.sky = Boolean(blob);
+  if (!app) return;
+
+  if (!blob) {
+    app.style.removeProperty('--sky');
+    app.classList.remove('has-sky');
+    return;
+  }
+  skyUrl = URL.createObjectURL(blob);
+  app.style.setProperty('--sky', `url("${skyUrl}")`);
+  app.classList.add('has-sky');
 }
 
 /** يقفز إلى جملةٍ بعينها — من شرطةٍ أو من سطرٍ في الورقة. */
@@ -2520,6 +2638,22 @@ function wireInteractions(main) {
       case 'audio-src':
         ctx.audioSource = target.dataset.v;
         toastOk('اتغيّر مصدر الصوت');
+        return renderRail();
+
+      case 'sky-pick': {
+        const [file] = await pickFiles({ accept: 'image/*', multiple: false });
+        if (!file) return undefined;
+        const blob = new Blob([await file.arrayBuffer()], { type: file.type });
+        await settings.set(SKY_KEY, blob);
+        await applySky();
+        toastOk('اتغيّرت خلفيّة الجلسة');
+        return renderRail();
+      }
+
+      case 'sky-clear':
+        await settings.remove(SKY_KEY);
+        await applySky();
+        toast('رجعت النجوم');
         return renderRail();
 
       case 'word-go': {

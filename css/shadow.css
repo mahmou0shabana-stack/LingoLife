@@ -3053,3 +3053,119 @@ body.shadow-open { overflow: hidden; }
 .sh-left .sh-line .tr { overflow-wrap: anywhere; }
 .sh-sheet { overflow: hidden; }
 .sh-sheet * { overflow-wrap: anywhere; }
+
+/* ---------- الشريط العائم: الظلُّ يكمل خارج صفحته (WS24) ---------- */
+.sh-floating {
+  position: fixed; z-index: var(--z-toast);
+  inset-block-end: calc(var(--nav-h) + 10px + env(safe-area-inset-bottom, 0px));
+  inset-inline: 12px auto;
+  display: flex; align-items: stretch; gap: 1px;
+  border-radius: 999px; overflow: hidden;
+  border: 1px solid rgba(217, 182, 114, .4);
+  background: linear-gradient(180deg, rgba(12, 18, 30, .96), rgba(6, 10, 18, .98));
+  box-shadow: 0 14px 34px -12px rgba(0, 0, 0, .8);
+  max-inline-size: min(340px, calc(100vw - 24px));
+}
+
+.sh-floating button {
+  border: 0; background: none; cursor: pointer; color: #efe7d8;
+  font: inherit; min-block-size: 44px; padding: 0 14px;
+}
+
+.shf-open { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.shf-open b {
+  font-weight: 400; font-size: 13px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.shf-pulse {
+  inline-size: 7px; block-size: 7px; border-radius: 50%; flex: none;
+  background: #d9b672; box-shadow: 0 0 10px rgba(217, 182, 114, .8);
+  animation: shfPulse 1.6s ease-in-out infinite;
+}
+@keyframes shfPulse { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .shf-pulse { animation: none; } }
+
+.shf-stop {
+  border-inline-start: 1px solid rgba(217, 182, 114, .25) !important;
+  color: rgba(240, 220, 176, .9); font-size: 12px; padding: 0 16px;
+}
+.shf-stop:hover { background: rgba(217, 182, 114, .12); }
+
+/* وعلى الشاشة العريضة يبتعد عن الشريط الجانبي. */
+@media (min-width: 768px) {
+  .sh-floating { inset-block-end: 16px; inset-inline-start: calc(var(--sidebar-w) + 16px); }
+}
+
+/* ---------- سماءُ الجلسة: صورتُك مكان النجوم المرسومة ---------- */
+.sh-sky {
+  position: absolute; inset: 0; z-index: 0; pointer-events: none;
+  background-image: var(--sky, none);
+  background-size: cover; background-position: 53% 44%;
+  background-repeat: no-repeat;
+  opacity: 0; transition: opacity .6s ease;
+  animation: shBreathe 260s ease-in-out infinite;
+  transform-origin: 52% 46%;
+}
+.shadow-app.has-sky .sh-sky { opacity: 1; }
+
+/* والنجومُ المرسومة تنسحب حين تأتي صورةٌ حقيقيّة — لا تتراكبان. */
+.shadow-app.has-sky .sh-stars-far,
+.shadow-app.has-sky .sh-stars-near { opacity: 0; }
+.shadow-app.has-sky .sh-right::before { opacity: 0; animation: none; }
+
+@keyframes shBreathe {
+  0%   { transform: scale(1.005) translate3d(0, 0, 0); }
+  50%  { transform: scale(1.035) translate3d(-1.1%, .7%, 0); }
+  100% { transform: scale(1.005) translate3d(0, 0, 0); }
+}
+@media (prefers-reduced-motion: reduce) { .sh-sky { animation: none; } }
+
+/* ══════════════════════════════════════════════════════════════
+   WS24 · تفاصيلُ الجملة كما في الصورة المرجعيّة
+
+   ⚠️ في الصورة التي بعثتَها لكلِّ كلمةٍ **خطٌّ ذهبيٌّ رفيعٌ تحتها**،
+      والكلمةُ الجارية **داخل إطار** لا وهجٍ وحده. والفرقُ ليس زينةً:
+      الخطُّ يقول «هذه وحدةٌ تُضغَط»، والإطارُ يقول «هنا أنت الآن».
+      فبلا الخطّ لا يبدو أن الكلمات تُنقَر أصلًا.
+   ══════════════════════════════════════════════════════════════ */
+
+.sh-chip { padding: 10px 12px 8px; border-radius: 3px; }
+
+/* الخطُّ الرفيع تحت كلِّ كلمة — وهو نفسُه شريطُ التقدّم. */
+.sh-chip-bar {
+  height: 1px; border-radius: 0;
+  background: rgba(217, 182, 114, .22);
+}
+.sh-chip-bar i { background: rgba(217, 182, 114, .55); }
+.sh-chip.past .sh-chip-bar { background: rgba(217, 182, 114, .3); }
+
+/* والكلمةُ الجارية في إطارٍ كامل. */
+.sh-chip.speaking {
+  border-color: rgba(217, 182, 114, .65);
+  background: rgba(217, 182, 114, .07);
+  box-shadow: 0 0 26px -6px rgba(217, 182, 114, .35);
+}
+.sh-chip.speaking .sh-chip-bar {
+  background: rgba(217, 182, 114, .5);
+}
+
+/* وأوراقُ المستند تُشبه المذكّرة: صفوفُ «إلى / من / الموضوع». */
+.sh-sheet { font-family: var(--sh-mono); font-size: 11.5px; line-height: 1.6; }
+.sh-sheet .sh-scene-title,
+.sh-sheet b { font-family: var(--font-ar, inherit); }
+
+/*
+ * ⚠️ **والحشوةُ فيزيائيّةٌ كالسكّة.** كتبتُها `padding-inline-end`،
+ *    وهي في العربيّة **اليسار** — والسكّةُ على اليمين. فبقيت الجملة
+ *    مقصوصةً تحتها وزادت فراغًا على الجهة الأخرى. المواضعُ الثابتة
+ *    تُكتَب `right`/`left`، والنصُّ وحده يتبع اللغة.
+ */
+.sh-right { padding: 22px 62px 18px 20px; }
+
+@media (max-width: 899px) {
+  .sh-right { padding: 14px 52px 12px 12px; }
+}
+
+/* والرقائقُ تحت العربيّة بمسافةٍ لا تلتصق — قِيسَ التلاصقُ لا خُمِّن. */
+.sh-current-tr { margin-bottom: clamp(6px, 1.4cqw, 14px); }
+.sh-chips { margin-top: clamp(14px, 2.4cqw, 28px); }
