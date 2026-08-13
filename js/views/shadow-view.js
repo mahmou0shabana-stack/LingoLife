@@ -859,7 +859,7 @@ function shell() {
                 -->
                 <form class="sh-scratch" data-scratch hidden>
                   <input type="text" name="scratch" dir="ltr" lang="ru" data-scratch-input
-                    placeholder="الصق جملة روسية…" autocomplete="off" />
+                    placeholder="الصق جملتك هنا — هتحلّ محلّ اللي فوق" autocomplete="off" />
                   <button type="submit">اقرأها</button>
                   <button type="button" data-sh="scratch-close" aria-label="اقفل">✕</button>
                 </form>
@@ -867,7 +867,7 @@ function shell() {
                   <span>احفظها في:</span>
                   <button data-sh="scratch-to" data-to="saved">المحفوظات</button>
                   <button data-sh="scratch-to" data-to="expression">تعبير</button>
-                  <button data-sh="scratch-clear" data-scratch-clear hidden>↩ رجّع الجلسة</button>
+                  <button data-sh="scratch-clear" data-scratch-clear hidden>↩ رجّع جملة الجلسة</button>
                 </div>
               </div>
 
@@ -895,7 +895,7 @@ function shell() {
                 <button data-sh="drawer" data-dial="repeat">×${session.repeatCount}</button>
                 <button data-sh="drawer" data-dial="pause">${intervalLabel(session)}</button>
                 <button data-sh="toggle-tr">ARABIC</button>
-                <button data-sh="scratch-open">✎ TEXT</button>
+                <button data-sh="scratch-open">✎ MY TEXT</button>
               </div>
 
               <!-- الحجاب: ضغطةٌ خارج السكّة تغلقها. -->
@@ -1668,7 +1668,8 @@ const TOOLSETS = {
     { id: 'speed', glyph: '▹', label: 'السرعة' },
     { id: 'repeat', glyph: '↻', label: 'التكرار' },
     { id: 'voice', glyph: '◈', label: 'الصوت' },
-    { id: 'sky', glyph: '✧', label: 'الخلفيّة' },
+    { id: 'mode', glyph: '⊞', label: 'PLAY MODE' },
+    { id: 'sky', glyph: '✧', label: 'BACKDROP' },
   ],
   word: [
     { id: 'hear', glyph: '♪', label: 'اسمعها' },
@@ -1756,6 +1757,26 @@ function panelFor(id) {
         `${pick('audio-src', AUDIO_SOURCE.TTS, 'آليّ', ctx.audioSource === AUDIO_SOURCE.TTS)}
          ${pick('audio-src', AUDIO_SOURCE.NATIVE, 'أصليّ', ctx.audioSource === AUDIO_SOURCE.NATIVE)}` }],
       after: `<div class="sh-pgroup"><span>صوت الجهاز</span>${voiceOptions(ctx.voices, s.voiceURI)}</div>`,
+    };
+  }
+  if (id === 'mode') {
+    /*
+     * ⚠️ **الفرقُ بين قراءة الجملة وقراءة الكلمة كان موجودًا ومخفيًّا.**
+     *
+     * المحرّك يعرف `PRACTICE_MODE` منذ اليوم الأوّل — جملةً وكلمةً
+     * ومتّصلًا — ولم يكن له زرّ. فكان الوضعُ يتبدّل ضمنًا حين تضغط
+     * كلمةً، ولا تعرف أنت في أيّهما أنت. وهذا هو «مفيش تناسق».
+     *
+     * فصار وضعًا **مُعلَنًا تختاره**، ويقول أيُّه مُختار.
+     */
+    const now = player?.state?.settings?.practiceMode || PRACTICE_MODE.SENTENCE;
+    return {
+      title: 'PLAY MODE',
+      foot: 'الوضعُ يقرّر ما يتكرّر: الجملة أم الكلمة',
+      groups: [{ title: 'ما الذي يُقرأ', items:
+        `${pick('mode-set', PRACTICE_MODE.SENTENCE, 'جملة كاملة', now === PRACTICE_MODE.SENTENCE)}
+         ${pick('mode-set', PRACTICE_MODE.WORD, 'كلمة كلمة', now === PRACTICE_MODE.WORD)}
+         ${pick('mode-set', PRACTICE_MODE.CONTINUOUS, 'متّصل بلا تكرار', now === PRACTICE_MODE.CONTINUOUS)}` }],
     };
   }
   if (id === 'sky') {
@@ -2698,11 +2719,11 @@ function wireInteractions(main) {
 
       /* شرطةٌ في أعلى المسرح — نقرةٌ تقفز إلى جملتها. */
       case 'tick':
-        return goSegment(Number(target.dataset.i));
+        return goSegment(Number(btn.dataset.i));
 
       /* مقبضُ الورقة — أزرارُه الثلاثة ومقاساتُها. */
       case 'doc':
-        return setDoc(target.dataset.fit);
+        return setDoc(btn.dataset.fit);
 
       case 'rail':
         rail.open = !rail.open;
@@ -2713,27 +2734,36 @@ function wireInteractions(main) {
         return renderRail();
 
       case 'tool':
-        return pickTool(target.dataset.v);
+        return pickTool(btn.dataset.v);
 
       /* أزرارُ اللوحة — كلٌّ ينادي ما كان يعمل أصلًا. */
       case 'tune': {
-        const [key, value] = String(target.dataset.v).split(':');
+        const [key, value] = String(btn.dataset.v).split(':');
         setTuner(key, Number(value));
         return renderRail();
       }
 
       case 'fsize': {
         /* §١٩٫٢ — ثلاث درجات لا منزلق: 36 · 41 · 48. */
-        const px = Number(target.dataset.v);
+        const px = Number(btn.dataset.v);
         ctx.fontSize = px;
         document.querySelector('.shadow-app')?.style.setProperty('--sh-size', `${px}px`);
         return renderRail();
       }
 
       case 'audio-src':
-        ctx.audioSource = target.dataset.v;
+        ctx.audioSource = btn.dataset.v;
         toastOk('اتغيّر مصدر الصوت');
         return renderRail();
+
+      case 'mode-set': {
+        const mode = btn.dataset.v;
+        player.updateSettings({ practiceMode: mode });
+        await saveSessionSettings(ctx.session.id, { practiceMode: mode });
+        document.querySelector('.shadow-app')?.classList.toggle('is-wordmode', mode === PRACTICE_MODE.WORD);
+        toastOk(mode === PRACTICE_MODE.WORD ? 'بيقرا كلمة كلمة' : mode === PRACTICE_MODE.CONTINUOUS ? 'بيقرا متّصل' : 'بيقرا الجملة كاملة');
+        return renderRail();
+      }
 
       case 'sky-pick': {
         const [file] = await pickFiles({ accept: 'image/*', multiple: false });
@@ -2752,7 +2782,7 @@ function wireInteractions(main) {
         return renderRail();
 
       case 'word-go': {
-        const word = target.dataset.v;
+        const word = btn.dataset.v;
         if (word) navigate(`/word/${encodeURIComponent(word)}`);
         return undefined;
       }
