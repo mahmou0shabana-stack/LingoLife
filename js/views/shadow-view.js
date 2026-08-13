@@ -592,6 +592,7 @@ export async function renderShadow(main, sessionId) {
   renderWords();
   wireSpine(main);
   wireDocSplit(main);
+  wirePinch(main);
   wireCoverResize(main);
   wireOriginPanel(main);
   wireInteractions(main);
@@ -828,12 +829,6 @@ function shell() {
                      والشُّرَط تقول ذلك **وتُنقَر**: كل شرطةٍ جملة، تضغطها
                      فتقفز إليها. رقمٌ صار قائمة — كقاعدة المختبر.
                 -->
-                <div class="sh-ticks" data-ticks>
-                  ${raw(segments.map((_, i) => html`
-                    <button class="sh-tick${i === idx ? ' on' : ''}${i < idx ? ' past' : ''}"
-                            data-sh="tick" data-i="${i}"
-                            aria-label="الجملة ${i + 1}"><i></i></button>`).join(''))}
-                </div>
                 <div class="sh-bar" data-bar><span></span></div>
                 <span data-counter hidden></span>
               </div>
@@ -1078,7 +1073,14 @@ function coverPanel(url) {
   return html`
     <div class="sh-cover-box${coverPinned ? ' pinned' : ''}" data-cover-box
       style="--cover-h:${coverHeight}px;--cover-zoom:${coverZoom}%">
-      <div class="sh-cover-scroll" data-cover-scroll>
+      <!--
+        ⚠️ **والقرصُ بإصبعين هنا لا في العارض وحده.**
+           بلاغُك: «الصورة مبتكبرش بالإيد». وكانت أزرارُ (+) و(−)
+           وحدَها؛ وهي ثاني طريقٍ لا أوّله — الإصبعان ما تمدّه أوّلًا.
+           ⚠️ (ولاحظ: لا علامةَ اقتباسٍ خلفيّة في هذا التعليق. وسمُ
+              html ينتهي عندها ولو كانت داخل تعليق — وقد أوقعتني.)
+      -->
+      <div class="sh-cover-scroll" data-cover-scroll data-pinch>
         <img class="sh-cover" src="${url}" alt="الصورة اللي بتتدرّب على نصّها" />
       </div>
       <div class="sh-cover-tools">
@@ -1866,6 +1868,53 @@ function setDoc(mode) {
 function applyDoc(px) {
   docSize = Math.max(0, Math.min(DOC_MAX, px));
   document.querySelector('.shadow-app')?.style.setProperty('--doc', `${docSize}px`);
+}
+
+/**
+ * قرصٌ بإصبعين على صورة المستند (WS24).
+ *
+ * ⚠️ **على `Pointer Events`** كقرص العارض: إصبعٌ وفأرةٌ وقلمٌ بمستمعٍ
+ *    واحد. ولا يُلمَس تكبيرُ الأزرار — القرصُ يكتب في نفس القيمة
+ *    (`coverZoom`)، فيتّفق الطريقان على رقمٍ واحدٍ لا رقمين.
+ */
+function wirePinch(main) {
+  const box = main.querySelector('[data-pinch]');
+  if (!box) return;
+
+  const touches = new Map();
+  let pinch = null;
+  const spread = () => {
+    const [a, b] = [...touches.values()];
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  };
+
+  box.addEventListener('pointerdown', (event) => {
+    touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (touches.size === 2) {
+      pinch = { start: spread(), from: ctx.coverZoom };
+      box.setPointerCapture?.(event.pointerId);
+    }
+  });
+
+  box.addEventListener('pointermove', (event) => {
+    if (!touches.has(event.pointerId)) return;
+    touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    if (touches.size !== 2 || !pinch) return;
+    event.preventDefault();
+    const now = spread();
+    if (!pinch.start) return;
+    /* نفسُ حدَّي الأزرار — فلا يخرج القرصُ عمّا يقدر عليه الزرّ. */
+    ctx.coverZoom = Math.round(Math.max(40, Math.min(400, pinch.from * (now / pinch.start))));
+    applyCover();
+  });
+
+  const lift = (event) => {
+    touches.delete(event.pointerId);
+    if (touches.size < 2) pinch = null;
+  };
+  box.addEventListener('pointerup', lift);
+  box.addEventListener('pointercancel', lift);
+  box.addEventListener('pointerleave', lift);
 }
 
 /** يركّب سحبَ مقبض الورقة — بنفس منطق كعب الكتاب. */
