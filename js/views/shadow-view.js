@@ -119,8 +119,10 @@ const DISPLAY = Object.freeze({ RU: 'ru', EGY: 'egy', HIDDEN: 'hidden' });
  *    كما كانت، فلا يتراكم في الذاكرة محرّكٌ صامتٌ لكلّ جلسةٍ فتحتَها.
  */
 let parkedBar = null;
+let parked = false;
 
 function parkShadow() {
+  parked = true;
   const title = ctx?.session?.title || 'جلسة ظلّ';
   const sessionId = ctx?.session?.id;
   document.body.classList.remove('shadow-open');
@@ -146,6 +148,7 @@ function parkShadow() {
 
 /** يوقف الجلسة المُبقاة ويرفع شريطها. */
 function stopParked() {
+  parked = false;
   player?.destroy();
   player = null;
   parkedBar?.remove();
@@ -482,9 +485,15 @@ async function coverImage(sceneId) {
  * ------------------------------------------------------------------ */
 
 export async function renderShadow(main, sessionId) {
-  /* العودةُ إلى الجلسة ترفع شريطَها العائم — لا شريطان لشيءٍ واحد. */
+  /*
+   * العودةُ إلى الجلسة تُنهي الترك تمامًا: شريطٌ يُرفَع، ومحرّكٌ
+   * قديمٌ يُدمَّر قبل أن يُبنى الجديد. ولا يُترَك واحدٌ حيًّا مع آخر.
+   */
+  parked = false;
   parkedBar?.remove();
   parkedBar = null;
+  player?.destroy();
+  player = null;
   disposeShadow();
 
   const loaded = await loadSession(sessionId);
@@ -838,6 +847,28 @@ function shell() {
                 <div class="sh-current-text" data-text></div>
                 <div class="sh-current-tr" data-tr></div>
                 <div class="sh-marks" data-marks></div>
+
+                <!--
+                  ⚠️ **مربّعُ النصّ الخارجيّ في مكان الجملة نفسه.**
+                     طلبُك: «أجيب نصّ خارجي وأدخله في نفس المكان اللي
+                     عارض الجملة، وأشيله وأنسخ التانية، ولما أخلص أرجع
+                     أكمّل». وكان في أسفل الشاشة مطويًّا — أي في مكانٍ
+                     غيرِ الذي يُقرأ منه. فصار **هنا**: النصُّ يحلّ محلّ
+                     الجملة ويُقرأ بنفس المحرّك والسرعة والتكرار، ثم
+                     يُشال فتعود الجلسةُ من حيث وقفت.
+                -->
+                <form class="sh-scratch" data-scratch hidden>
+                  <input type="text" name="scratch" dir="ltr" lang="ru" data-scratch-input
+                    placeholder="الصق جملة روسية…" autocomplete="off" />
+                  <button type="submit">اقرأها</button>
+                  <button type="button" data-sh="scratch-close" aria-label="اقفل">✕</button>
+                </form>
+                <div class="sh-scratch-save" data-scratch-save hidden>
+                  <span>احفظها في:</span>
+                  <button data-sh="scratch-to" data-to="saved">المحفوظات</button>
+                  <button data-sh="scratch-to" data-to="expression">تعبير</button>
+                  <button data-sh="scratch-clear" data-scratch-clear hidden>↩ رجّع الجلسة</button>
+                </div>
               </div>
 
               <!--
@@ -864,6 +895,7 @@ function shell() {
                 <button data-sh="drawer" data-dial="repeat">×${session.repeatCount}</button>
                 <button data-sh="drawer" data-dial="pause">${intervalLabel(session)}</button>
                 <button data-sh="toggle-tr">العربيّة</button>
+                <button data-sh="scratch-open">✎ نصّ من عندك</button>
               </div>
 
               <!-- الحجاب: ضغطةٌ خارج السكّة تغلقها. -->
@@ -922,19 +954,6 @@ function shell() {
       ${raw(settingsDrawer())}
 
       <!-- مربّع النصّ الخارجي ووجهات حفظه — يظهران بالطلب. -->
-      <form class="sh-scratch" data-scratch hidden>
-        <input type="text" name="scratch" dir="ltr" lang="ru" data-scratch-input
-          placeholder="اكتب كلمة أو جملة روسية…" autocomplete="off" />
-        <button type="submit" class="sh-pill">اقرأها</button>
-        <button type="button" class="sh-pill" data-sh="scratch-close">✕</button>
-      </form>
-      <div class="sh-scratch-save" data-scratch-save hidden>
-        <span>احفظها في:</span>
-        <button data-sh="scratch-to" data-to="saved">المحفوظات</button>
-        <button data-sh="scratch-to" data-to="expression">تعبير</button>
-        <button data-sh="scratch-to" data-to="script">سكريبت في الذكرى</button>
-        <button data-sh="scratch-clear" data-scratch-clear hidden>✕</button>
-      </div>
     </div>`;
 }
 
@@ -1234,6 +1253,22 @@ function staleBanner(change) {
 const $ = (sel) => document.querySelector(sel);
 
 function handleEvent(event) {
+  /*
+   * ⚠️ **المحرّكُ المتروك لا يكتب في شاشةٍ ليست شاشتَه.**
+   *
+   * حين يكمل الصوتُ بعد مغادرتك، يبقى المحرّكُ حيًّا ويطلق أحداثَه.
+   * وهذه الدالّة تكتب في `[data-text]` و`[data-card]` — فإن دخلتَ
+   * جلسةً أخرى وجد عناصرَها فكتب فيها: جملةٌ تتبدّل وحدها، وإطارٌ
+   * يضيء بلا سبب، و«التشغيل بيبوظ». وهو عطبٌ أدخلتُه أنا مع الشريط
+   * العائم.
+   *
+   * فالمتروكُ يشتغل ولا يُخبر أحدًا — إلّا حين ينتهي، فيرفع شريطَه.
+   */
+  if (parked) {
+    if (event.type === 'done' || event.type === 'stop') stopParked();
+    return;
+  }
+
   const card = $('[data-card]');
   const play = $('[data-sh="play"]');
   const status = $('[data-status]');

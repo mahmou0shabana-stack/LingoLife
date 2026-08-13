@@ -3227,3 +3227,62 @@ body.shadow-open { overflow: hidden; }
 
 /* الإصبعان يعملان فقط إن لم يبتلع المتصفّحُ الحركةَ تمريرًا. */
 .sh-cover-scroll[data-pinch] { touch-action: pinch-zoom pan-y; }
+
+/* ---------- مربّعُ النصّ الخارجيّ — في مكان الجملة (WS24) ---------- */
+.sh-hero .sh-scratch {
+  display: none; gap: 6px; align-items: stretch;
+  max-width: 700px; margin: 14px auto 0; width: 100%;
+}
+.sh-hero .sh-scratch:not([hidden]) { display: flex; }
+
+.sh-hero .sh-scratch input {
+  flex: 1; min-width: 0; min-height: 46px; padding: 0 14px;
+  border-radius: 3px; border: 1px solid rgba(217, 182, 114, .35);
+  background: rgba(255, 255, 255, .04); color: #fdf7ea;
+  font-family: var(--sh-serif); font-size: 17px;
+}
+.sh-hero .sh-scratch input:focus {
+  outline: none; border-color: rgba(217, 182, 114, .75);
+  background: rgba(217, 182, 114, .07);
+}
+
+.sh-hero .sh-scratch button {
+  min-height: 46px; padding: 0 16px; cursor: pointer; flex: none;
+  border: 1px solid rgba(217, 182, 114, .35); border-radius: 3px;
+  background: transparent; color: rgba(240, 220, 176, .95);
+  font-family: var(--sh-mono); font-size: 10.5px; letter-spacing: .14em;
+}
+.sh-hero .sh-scratch button:hover { background: rgba(217, 182, 114, .12); }
+
+.sh-hero .sh-scratch-save {
+  display: none; gap: 6px; align-items: center; justify-content: center;
+  flex-wrap: wrap; margin-top: 10px;
+  font-family: var(--sh-mono); font-size: 10px; letter-spacing: .14em;
+  color: var(--sh-faint);
+}
+.sh-hero .sh-scratch-save:not([hidden]) { display: flex; }
+.sh-hero .sh-scratch-save button {
+  min-height: 44px; padding: 0 13px; cursor: pointer;
+  border: 1px solid rgba(239, 231, 216, .12); border-radius: 3px;
+  background: none; color: rgba(239, 231, 216, .6);
+  font: inherit;
+}
+.sh-hero .sh-scratch-save button:hover {
+  border-color: rgba(217, 182, 114, .5); color: rgba(240, 220, 176, .95);
+}
+
+/* والنصُّ الخارجيُّ يُعلَن بلافتةٍ فوقه، فلا تظنّه جملةَ الجلسة. */
+.sh-current-lbl:not([hidden]) {
+  display: block; margin-bottom: 10px;
+  font-family: var(--sh-mono); font-size: 10px; letter-spacing: .2em;
+  color: rgba(224, 196, 138, .8);
+}
+
+/*
+ * ⚠️ **والمربّعُ لا يُعصَر.** المسرحُ `flex` رأسيّ، والافتراضُ أن كلَّ
+ *    ابنٍ يقبل الانكماش. فحين تطول الجملةُ فوقه ينكمش هو إلى صفر —
+ *    يفتحه المستخدم فلا يرى شيئًا. كشفَه الفحصُ بقياس ارتفاعه بعد
+ *    الفتح، لا بالنظر إليه.
+ */
+.sh-hero .sh-scratch,
+.sh-hero .sh-scratch-save { flex: 0 0 auto; }
