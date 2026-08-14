@@ -114,6 +114,54 @@ export async function hasDraft(kind, text) {
   return (await draftImages(draft.id)).length > 0;
 }
 
+/**
+ * أيُّ هذه النصوص له مسودّة؟ — **سؤالٌ واحدٌ لا سؤالٌ لكلّ جملة** (WS34).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ بلاغُك: «خلّي اللي أضيفه في المسودّة يبقى متلينك مع الجملة،
+ *    ووقت ما أجي أعملها شادوينج في أيّ وقت يقول لي إن ليها مسودّة»
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * والربطُ كان موجودًا من أوّل يوم — المسودّةُ مفتاحُها نصُّ الجملة
+ * مُطبَّعًا، فهي تتبع الجملةَ عبر الجلسات كلِّها. **الناقصُ أن تراه**:
+ * كتبتَ `hasDraft` لأجل «النقطة على الجملة» ثم لم تُرسَم النقطةُ قطّ،
+ * فصار الربطُ حقيقةً في القاعدة وغيبًا على الشاشة. ومَن لا يرى أثرَ
+ * ما كتبه يظنّه ضاع.
+ *
+ * ⚠️ **ولا تُنادى `hasDraft` لكلّ جملة**: جلسةٌ فيها ستّون جملةً تعني
+ *    ستّين رحلةً إلى القاعدة عند كلّ رسم. فمرورٌ واحدٌ يبني المجموعة.
+ *
+ * @param {string} kind من `SUBJECT`
+ * @param {string[]} texts نصوصُ الجمل كما تُعرَض
+ * @returns {Promise<Set<string>>} مفاتيحُ ما له مسودّة (من `subjectKey`)
+ */
+export async function draftedKeys(kind, texts) {
+  const wanted = new Set((texts || []).map(subjectKey).filter(Boolean));
+  const found = new Set();
+  if (!wanted.size) return found;
+
+  /* الحقلان `subjectKind` و`subject` — لا `kind` ولا `subjectKey`. */
+  const rows = (await studyDrafts.byIndex('subjectKind', kind)).filter(
+    (row) => row.state === STATE.ACTIVE && wanted.has(row.subject)
+  );
+
+  /*
+   * ⚠️ **ومسودّةٌ فارغةٌ ليست مسودّة.** الصفُّ يُنشأ عند أوّل صورةٍ
+   *    تُضاف حتى قبل أن تكتب حرفًا، فلو عدّدنا الصفوفَ وحدها لظهرت
+   *    النقطةُ على جملةٍ لا شيء فيها — وهو كذبٌ صغيرٌ يُفقد النقطةَ
+   *    معناها كلَّه.
+   */
+  for (const row of rows) {
+    if (row.text?.trim()) {
+      found.add(row.subject);
+      continue;
+    }
+    if ((await draftImages(row.id)).length) found.add(row.subject);
+  }
+
+  return found;
+}
+
 /** كلُّ مسودّات جلسةٍ — الأحدثُ أوّلًا. */
 export async function draftsOfSession(sessionId) {
   const rows = await studyDrafts.byIndex('sessionId', sessionId);

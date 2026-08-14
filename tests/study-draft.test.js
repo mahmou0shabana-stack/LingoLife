@@ -879,3 +879,125 @@ describe('الصوت · المصادر تُرسَم من سجلّها', () => {
     expect(block.includes('DISPLAY.RU')).toBe(true);
   });
 });
+
+/* ================================================================== */
+/* WS34 — أثرُ عملِك ظاهرٌ، والربطُ بالنظر                              */
+/* ================================================================== */
+
+describe('المسودّة · متلينكة بالجملة وبتبان عليها', () => {
+  let code = '';
+  let svc = '';
+
+  it('⚠️ الحارس: العلامةُ تُقرأ بمرورٍ واحدٍ لا بسؤالٍ لكلّ جملة', async () => {
+    svc = codeOnly(await (await fetch('/js/services/study-draft.js')).text());
+    expect(svc.includes('export async function draftedKeys')).toBe(true);
+
+    /*
+     * جلسةٌ فيها ستّون جملةً تعني ستّين رحلةً إلى القاعدة عند كلّ رسم
+     * لو نُوديت `hasDraft` في الحلقة. فالحارس يمنع عودتَها إلى `lineHtml`.
+     */
+    code = codeOnly(await (await fetch('/js/views/shadow-view.js')).text());
+    const at = code.indexOf('function lineHtml');
+    const block = code.slice(at, code.indexOf('\n}', at));
+    expect(block.includes('hasDraftedText')).toBe(true);
+    expect(block.includes('hasDraft(')).toBe(false);
+  });
+
+  it('⚠️ ومسودّةٌ فارغةٌ لا تُعلَّم — الصفُّ يُولَد قبل أن تكتب فيه', () => {
+    const at = svc.indexOf('export async function draftedKeys');
+    const block = svc.slice(at, svc.indexOf('\n}\n', at));
+    /* لا يكفي وجودُ الصفّ: لا بدّ من نصٍّ أو صورة. */
+    expect(block.includes('row.text?.trim()')).toBe(true);
+    expect(block.includes('draftImages(row.id)')).toBe(true);
+  });
+
+  it('⚠️ والعلامةُ تُقرأ قبل رسم السطور لا بعده', () => {
+    const read = code.indexOf('await readDrafted()');
+    const draw = code.indexOf('main.innerHTML = shell()');
+    expect(read > 0 && draw > 0).toBe(true);
+    /* وميضُ «سطورٌ بلا علامة ثم علاماتٌ تقفز» يجعلك تشكّ فيما تراه. */
+    expect(read < draw).toBe(true);
+  });
+
+  it('⚠️ وتحديثُ العلامة لا يُعيد رسم اللوحة وأنت تكتب فيها', () => {
+    const at = code.indexOf('async function refreshDrafted');
+    const block = code.slice(at, code.indexOf('\n}', at));
+    /*
+     * `renderRail()` تُعيد بناء جسم اللوحة، فتمحو «اتحفظت» بعد سطرٍ
+     * من كتابتها وتقفز بمؤشّرك إلى آخر الصندوق كلَّ ثانية.
+     * **قِيس**: النصُّ المقروء بعدها `""`.
+     */
+    expect(block.includes('renderRail()')).toBe(false);
+    expect(block.includes('paintToolValue')).toBe(true);
+  });
+
+  it('⚠️ وعلاماتُ جلسةٍ لا تُورَّث لجلسةٍ بعدها', () => {
+    const at = code.indexOf('export function disposeShadow');
+    const block = code.slice(at, code.indexOf('\n}\n', at));
+    expect(block.includes('drafted = new Set()')).toBe(true);
+  });
+});
+
+describe('الظلّ · الحبلُ يُقطَع ولو بقي الصوت', () => {
+  it('⚠️ الحارس: فرعُ «تكمل وأنت خارجها» يقطع الحبلَ أيضًا', async () => {
+    const code = codeOnly(await (await fetch('/js/views/shadow-view.js')).text());
+    const at = code.indexOf('export function disposeShadow');
+    const end = code.indexOf('\n}\n', at);
+    /*
+     * الفرعُ يعود مبكّرًا ليُبقي النطقَ شغّالًا، فكان يقفز فوق قطع
+     * الحبل في آخر الدالّة — فيبقى موزّعُ كتاب الظلّ معلّقًا على
+     * `#app-main` **وأنت في شاشةٍ أخرى**، يقرأ `ctx` وقد صار `null`.
+     */
+    const park = code.indexOf('parkShadow();', at);
+    const ret = code.indexOf('return;', park);
+    expect(park > at && ret > park && ret < end).toBe(true);
+    expect(code.slice(park, ret).includes('wires?.abort()')).toBe(true);
+  });
+});
+
+describe('الذكرى · الربطُ بالنظر، والأصواتُ بدَورها', () => {
+  let lm = '';
+
+  it('⚠️ الحارس: منتقي الوسائط يعرض صورةً لا اسمَ ملفّ', async () => {
+    lm = codeOnly(await (await fetch('/js/modals/link-modal.js')).text());
+    const at = lm.indexOf('function mediaPicker');
+    expect(at > 0).toBe(true);
+    const block = lm.slice(at, lm.indexOf('\n}\n', at));
+    expect(block.includes('urlFor(')).toBe(true);
+    /*
+     * `IMG_20260514_093311.jpg` اسمٌ لا يدلّ على شيء: تعرف صورتَك
+     * حين تراها لا حين تقرأ رقمَ عدّاد الكاميرا.
+     */
+    expect(block.includes('m.filename')).toBe(false);
+  });
+
+  it('⚠️ والاختيارُ يبان لحظتَه — المربّعُ مُخفًى بصريًّا', () => {
+    expect(lm.includes('onMount(modal)')).toBe(true);
+    const at = lm.indexOf('onMount(modal)');
+    expect(lm.slice(at, at + 320).includes("classList.toggle('on'")).toBe(true);
+  });
+
+  it('⚠️ ودَورُ التسجيل يصل إلى الشاشة — كان يُحفَظ ولا يُرى', async () => {
+    const sv = codeOnly(await (await fetch('/js/services/scene-service.js')).text());
+    /*
+     * الدَّورُ يُكتَب على `sceneMediaLinks.roles`، والشاشةُ كانت تقرأ
+     * `m.role` من سجلّ الوسيط — حقلٌ لا يُكتَب أبدًا. فكان كلُّ تسجيلٍ
+     * «تسجيل» مهما اخترتَ له. وهو أسوأ من ألّا يُحفَظ: تظنّ أنك صنّفت.
+     */
+    expect(sv.includes('roleOf')).toBe(true);
+    expect(sv.includes('l.roles?.[0]')).toBe(true);
+    /* وعلى نسخةٍ لا على السجلّ: حقلٌ محسوبٌ لا يتسرّب إلى القاعدة. */
+    expect(sv.includes('...m, role:')).toBe(true);
+  });
+
+  it('⚠️ وعتبةُ «النصّ طويل» تتبع الحدَّ البصريّ', async () => {
+    const scene = codeOnly(await (await fetch('/js/views/scene-view.js')).text());
+    const css = await (await fetch('/css/components.css')).text();
+    /*
+     * لمّا صار الحدُّ أربعةَ أسطر، صار نصٌّ من 300 حرفٍ **مقصوصًا بلا
+     * زرٍّ يفتحه**: يُقصّ بالـCSS ولا يُعَدّ طويلًا في JS.
+     */
+    expect(css.includes('max-block-size: 4lh')).toBe(true);
+    expect(scene.includes('t.rawText.length > 240')).toBe(true);
+  });
+});

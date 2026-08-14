@@ -695,6 +695,21 @@
 .sh-line.practiced:not(.current) { border-color: var(--sh-line-soft); }
 .sh-line.difficult:not(.current) { border-inline-start: 3px solid #FBBF24; }
 
+/*
+ * ✎ — «الجملة دي ليها مسودّة مذاكرة» (WS34)
+ *
+ * ⚠️ **مخفيّةٌ بحجزِ مكانها لا بحذفه**: `display:none` كان يجعل السطرَ
+ *    يزحف بضعةَ بكسلات لحظةَ ظهور العلامة، فيهتزّ العمودُ كلُّه وأنت
+ *    تكتب. `visibility` تُبقي المكانَ محجوزًا فلا يتحرّك شيء.
+ */
+.sh-line-draft {
+  visibility: hidden;
+  margin-inline-end: 4px;
+  color: var(--sh-accent-2);
+}
+.sh-line.has-draft .sh-line-draft { visibility: visible; }
+.sh-line.has-draft:not(.current) { border-inline-end: 3px solid var(--sh-accent-2); }
+
 /* ترجمة تحت الجملة في صفحة المصدر */
 .sh-line .tr {
   display: block;

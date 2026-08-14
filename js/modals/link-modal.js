@@ -14,6 +14,49 @@ import { toastOk, toastError } from '../components/toast.js';
 import { reloadScene } from '../ui-state.js';
 
 /**
+ * منتقي الطرف المقابل — **بالنظر لا بالاسم** (WS34).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ بلاغُك: «ربط الفويسات بالصور اتفقنا نعملها بشكل بصريّ بدل
+ *    العناوين علشان نسهّل الربط»
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * وكان السطر `m.caption || m.filename` — أي `IMG_20260514_093311.jpg`.
+ * وهو اسمٌ **لا يدلّ على شيء**: تعرف صورتَك حين تراها لا حين تقرأ
+ * رقمَ عدّادِ الكاميرا. فكان الربطُ تخمينًا، ولذلك لم يُستعمَل.
+ *
+ * فالصورةُ تُعرَض صورةً، والتسجيلُ يُعرَض بدَورِه ومدّته — لأن
+ * التسجيلَ لا صورةَ له، ودَورُه («نطق»، «إعادة سرد») هو أقربُ ما
+ * يميّزه.
+ *
+ * ⚠️ **ومربّعُ الاختيار يبقى.** جرّبتُ إخفاءه والاكتفاءَ بإطارٍ
+ *    مضيء، فصار على المستعمِل أن يستنتج أنه اختار — والاستنتاجُ
+ *    ليس تأكيدًا. فالإطارُ **مع** العلامة.
+ */
+function mediaPicker(rows, linkedIds, isAudio) {
+  return html`<div class="pair-grid">
+    ${raw(
+      rows
+        .map((m) => {
+          const on = linkedIds.has(m.id);
+          const face = m.kind === 'image'
+            ? html`<img src="${urlFor(m, { thumb: true })}" alt="" loading="lazy" />`
+            : html`<span class="pair-audio">♪</span>`;
+          const name = m.caption || (m.kind === 'image' ? 'صورة' : 'تسجيل');
+          return html`<label class="pair-cell${on ? ' on' : ''}">
+            <input type="checkbox" name="media:${m.id}" ${on ? 'checked' : ''} />
+            <span class="pair-face">${raw(face)}<b class="pair-tick">✓</b></span>
+            <span class="pair-name">${name}</span>
+          </label>`;
+        })
+        .join('')
+    )}
+  </div>${raw(
+    isAudio ? '<p class="field-hint">دوس على الصورة اللي التسجيل ده بتاعها.</p>' : ''
+  )}`;
+}
+
+/**
  * ربط وسيط بالنصوص وبالوسائط الأخرى، وتصنيفه.
  *
  * الذكرى ليست أكوامًا منفصلة: **هذه الصورة** لها **هذا السكريبت**
@@ -91,19 +134,22 @@ export async function openLinksModal(mediaId, sceneId) {
         others.length
           ? html`<div class="field">
               <label>${isAudio ? 'التسجيل ده بتاع أنهي صورة؟' : 'أنهي تسجيل صوت الصورة دي؟'}</label>
-              ${raw(
-                others
-                  .map(
-                    (m) => html`<label class="pick-row">
-                      <input type="checkbox" name="media:${m.id}" ${linkedIds.has(m.id) ? 'checked' : ''} />
-                      <span>${m.caption || m.filename}</span>
-                    </label>`
-                  )
-                  .join('')
-              )}
+              ${raw(mediaPicker(others, linkedIds, isAudio))}
             </div>`
           : ''
       )}`,
+    /*
+     * ⚠️ **الإطارُ يتبع المربّعَ لحظةَ الضغط لا لحظةَ الرسم.**
+     *    بدونها تختار صورةً فلا يتغيّر شيءٌ تراه — والمربّعُ مُخفًى
+     *    بصريًّا، فتظنّ أن ضغطتَك لم تصل وتضغط ثانيةً فتُلغيها.
+     */
+    onMount(modal) {
+      for (const box of modal.querySelectorAll('.pair-cell input')) {
+        box.addEventListener('change', () => {
+          box.closest('.pair-cell')?.classList.toggle('on', box.checked);
+        });
+      }
+    },
     onSubmit(data, close) {
       form = data;
       close();

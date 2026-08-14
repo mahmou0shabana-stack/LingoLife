@@ -9,7 +9,7 @@ import { getSceneFull } from '../services/scene-service.js';
 import { transcriptOf } from '../services/transcript-service.js';
 import { briefSimilar } from '../services/similarity/similar.js';
 import { listConversationParts, listSceneExpressions, getBlock, scriptTypeLabel, registerLabel, registerClass } from '../services/content-service.js';
-import { urlFor, releaseUrls, AUDIO_ROLE_LABEL } from '../services/media-service.js';
+import { urlFor, releaseUrls, AUDIO_ROLE_LABEL, AUDIO_ROLE } from '../services/media-service.js';
 import { html, raw, formatDuration } from '../utils/dom.js';
 import { formatDate } from '../utils/dates.js';
 import { typeLabel } from '../services/type-service.js';
@@ -126,11 +126,34 @@ function sectionImages(scene, images, coverId) {
     </section>`;
 }
 
+/**
+ * الأصوات — **مجموعةً بدَورها، لا كومةً واحدة** (WS34).
+ *
+ * ⚠️ بلاغُك: «وكذلك الفويسات» — أي أنها تطول كما طال النصُّ الأصلي.
+ *    وذكرى فيها اثنا عشر تسجيلًا كانت صفًّا واحدًا طويلًا لا تجد فيه
+ *    «التسجيل الأصلي» إلّا بالتمرير.
+ *
+ * ⚠️ **والمجموعةُ الأولى وحدها مفتوحة.** الدَّورُ الأوّل هو ما تسمعه
+ *    غالبًا (الأصلي)، والباقي مرجعٌ يُفتَح عند الحاجة. وعددُ كلّ
+ *    مجموعةٍ مكتوبٌ على رأسها فلا يختفي شيءٌ بلا أن يُعلَن.
+ */
+function voiceGroups(audio) {
+  const order = Object.values(AUDIO_ROLE);
+  const byRole = new Map();
+  for (const m of audio) {
+    /* ⚠️ بلا دَورٍ = «تسجيل» — لا «ملاحظة صوتية». التخمينُ يُصنّف خطأً. */
+    const role = m.role || '';
+    if (!byRole.has(role)) byRole.set(role, []);
+    byRole.get(role).push(m);
+  }
+  /* الأدوارُ بترتيبها المعروف أوّلًا، ثم أيُّ دورٍ طارئ لا نعرفه. */
+  const known = order.filter((role) => byRole.has(role));
+  const rest = [...byRole.keys()].filter((role) => !order.includes(role));
+  return [...known, ...rest].map((role) => [role, byRole.get(role)]);
+}
+
 function sectionVoices(scene, audio) {
-  const body = audio.length
-    ? audio
-        .map(
-          (m, i) => html`
+  const rowHtml = (m, i) => html`
             <div class="voice-row">
               <button class="play-btn" data-action="play-audio" data-id="${m.id}" aria-label="تشغيل">
                 ${raw(icon('play'))}
@@ -148,11 +171,28 @@ function sectionVoices(scene, audio) {
               </div>
               ${raw(wave(i + 1))}
               <span class="dur">${formatDuration(m.durationMs)}</span>
+              <button class="row-link" data-action="links" data-id="${m.id}"
+                data-scene="${scene.id}" aria-label="اربطه وصنّفه">
+                ${raw(icon('link', 16))}
+              </button>
               <button class="row-del" data-action="delete-audio" data-id="${m.id}"
                 data-scene="${scene.id}" aria-label="حذف التسجيل">
                 ${raw(icon('trash', 16))}
               </button>
-            </div>`
+            </div>`;
+
+  const groups = voiceGroups(audio);
+  const body = audio.length
+    ? groups
+        .map(
+          ([role, rows], gi) => html`
+            <details class="voice-group" ${gi === 0 ? 'open' : ''}>
+              <summary>
+                <span>${AUDIO_ROLE_LABEL[role] || 'تسجيل'}</span>
+                <b>${rows.length}</b>
+              </summary>
+              ${raw(rows.map((m, i) => rowHtml(m, i)).join(''))}
+            </details>`
         )
         .join('')
     : slot('add-audio', scene.id, 'mic', 'أضف صوت أو سجّل', 'التسجيل الأصلي، صوتك، أو أجزاء المحادثة');
@@ -470,7 +510,13 @@ function sectionRecall(scene, hasImage) {
  *    بين ما قلتَه وما كان ينبغي — وعليه يقوم نصفُ التطبيق.
  */
 function sectionTranscript(scene, t) {
-  const long = t.rawText.length > 600;
+  /*
+   * ⚠️ **العتبةُ تتبع الحدَّ البصريَّ لا العكس.** كانت 600 حرفًا والحدُّ
+   *    220px؛ فلمّا صار الحدُّ أربعةَ أسطر (بلاغُك: «بيبقى كبير جدًّا»)
+   *    صار نصٌّ من 300 حرفٍ **مقصوصًا بلا زرٍّ يفتحه** — يُقصّ بالـCSS
+   *    ولا يُعَدّ طويلًا في JS. فالرقمان يتحرّكان معًا أو لا يتحرّكان.
+   */
+  const long = t.rawText.length > 240;
 
   if (!t.hasRaw) {
     return html`

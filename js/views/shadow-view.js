@@ -21,7 +21,7 @@ import { openLightbox } from '../components/lightbox.js';
 import { openShadowForScript, openShadowFromDraft } from '../services/shadow/shadow-entry.js';
 import {
   SUBJECT, readDraft, openDraft, saveDraftText,
-  addDraftImage, draftImages, ocrIntoDraft, draftSentences,
+  addDraftImage, draftImages, ocrIntoDraft, draftSentences, draftedKeys, subjectKey,
 } from '../services/study-draft.js';
 import { toEgyptian } from '../services/shadow/dialect.js';
 import {
@@ -285,6 +285,19 @@ export function disposeShadow() {
     const keep = player;
     parkShadow();
     player = keep;
+    /*
+     * ⚠️ **والحبلُ يُقطَع هنا أيضًا — وكان لا يُقطَع.**
+     *
+     * الفرعُ يعود مبكّرًا ليُبقي الصوتَ شغّالًا، فكان يقفز فوق قطع
+     * الحبل في آخر الدالّة. فيبقى مستمعو كتابِ الظلّ معلّقين على
+     * `#app-main` **وأنت في شاشةٍ أخرى**: ضغطةٌ هناك تمرّ على موزّعٍ
+     * يقرأ `ctx` وقد صار `null`.
+     *
+     * ⚠️ ولا يمسّ ذلك الشريطَ العائم: مستمعُه على الشريط نفسِه بلا
+     *    إشارةِ قطع — لأنه ليس من مستمعي الشاشة، بل ما يبقى بعدها.
+     */
+    wires?.abort();
+    wires = null;
     ctx = null;
     scratchPlayer?.destroy();
     scratchPlayer = null;
@@ -302,6 +315,8 @@ export function disposeShadow() {
   scratchPlayer = null;
   selecting = false;
   picked = new Set();
+  /* ⚠️ علاماتُ جلسةٍ لا تُورَّث لجلسةٍ بعدها. */
+  drafted = new Set();
   nativeMissSaid.clear();
   ctx = null;
   recorder?.cancel?.();
@@ -763,6 +778,13 @@ export async function renderShadow(main, sessionId) {
     originOpen: session.originOpen ?? false,
     originHeight: session.originHeight || 160,
   };
+
+  /*
+   * ⚠️ **قبل الرسم لا بعده**: العلامةُ تُولد مع السطر. ولو قُرئت بعده
+   *    لظهرت السطورُ بلا علامةٍ ثم قفزت العلاماتُ فوقها — ووميضٌ كهذا
+   *    يجعلك تشكّ فيما تراه.
+   */
+  await readDrafted();
 
   main.innerHTML = shell();
   document.body.classList.add('shadow-open');
@@ -1473,6 +1495,8 @@ function lineHtml(segment, index, isCurrent) {
     isCurrent ? 'current' : '',
     done ? 'practiced' : '',
     segment.practiceStatus === 'difficult' ? 'difficult' : '',
+    /* ✎ — الجملةُ دي ليها مسودّة مذاكرة (WS34) */
+    hasDraftedText(segment.sourceTextSnapshot) ? 'has-draft' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -1492,6 +1516,7 @@ function lineHtml(segment, index, isCurrent) {
     )}</span>
     <span class="meta">
       ${raw(done ? html`<span class="reps">×${segment.repetitionsCompleted}</span>` : '')}
+      <span class="sh-line-draft" title="ليها مسودّة مذاكرة">✎</span>
       <span class="ts">${stamp(index)}</span>
       <span class="spk">🔊</span>
     </span>
@@ -2070,7 +2095,13 @@ const TOOLS = [
     value: () => AUDIO_SHORT[ctx.audioSource] || 'آليّ' },
   { id: 'mode', glyph: '⊞', label: 'PLAY MODE',
     value: () => MODE_SHORT[player?.state?.settings?.practiceMode] || 'جملة' },
-  { id: 'draft', glyph: '✎', label: 'مسودّة مذاكرة' },
+  /*
+   * ⚠️ والقيمةُ تقول إن للجملة الجارية مسودّةً — فلا تُفتَح اللوحةُ لتسأل.
+   *    وعلى **الجملة** وحدها: `drafted` مجموعةُ جملٍ، وسؤالُها عن كلمةٍ
+   *    مختارةٍ يعطي «لا» دائمًا فيبدو كأن مسودّةَ الكلمة ضاعت.
+   */
+  { id: 'draft', glyph: '✎', label: 'مسودّة مذاكرة',
+    value: () => (hasDraftedText(currentSentenceText()) ? 'فيها' : '') },
   { id: 'sky', glyph: '✧', label: 'الخلفيّة' },
 ];
 
@@ -2541,6 +2572,76 @@ function draftSubject() {
 let openDraftId = null;
 
 /**
+ * مفاتيحُ الجمل التي لها مسودّة — أثرُ عملك ظاهرًا على السطر (WS34).
+ *
+ * ⚠️ **تُقرأ مرّةً عند الفتح وتُحدَّث عند الكتابة** لا عند كل رسم:
+ *    الرسمُ يحدث مع كل جملةٍ تمرّ، وسؤالُ القاعدة فيه يجعل التنقّلَ
+ *    ثقيلًا بلا سبب.
+ */
+let drafted = new Set();
+
+/**
+ * يقرأ «مَن له مسودّة» — **بلا لمس الشاشة**.
+ *
+ * ⚠️ منفصلةٌ عن الرسم عمدًا: تُنادى مرّةً **قبل** أن تُرسَم السطور
+ *    (فتولد عليها العلامة) ومرّةً بعد الحفظ (فتُنعَش). ودالّةٌ واحدة
+ *    تفعل الاثنين تلمس DOM لم يُبنَ بعد.
+ */
+async function readDrafted() {
+  if (!ctx?.segments) return;
+  try {
+    drafted = await draftedKeys(
+      SUBJECT.SENTENCE,
+      ctx.segments.map((s) => s.sourceTextSnapshot || '')
+    );
+  } catch {
+    /* غيابُ العلامة أهونُ من سقوط الشاشة */
+  }
+}
+
+/** يعيد القراءة ثم يُنعش السطور — بلا إعادة رسم اللوحة. */
+async function refreshDrafted() {
+  if (!ctx?.segments) return;
+  await readDrafted();
+  for (const el of document.querySelectorAll('[data-line]')) {
+    const seg = ctx.segments[Number(el.dataset.line)];
+    el.classList.toggle('has-draft', hasDraftedText(seg?.sourceTextSnapshot));
+  }
+  paintToolValue('draft');
+}
+
+/**
+ * يُحدّث قيمةَ أداةٍ واحدةٍ في السكّة — **بلا إعادة رسم اللوحة**.
+ *
+ * ⚠️ ناديتُ `renderRail()` أوّلَ مرّة، وهي تعيد بناء جسم اللوحة كلِّه.
+ *    فكانت تُمسح `[data-draft-state]` بعد سطرٍ من كتابة «اتحفظت» —
+ *    **قِستُه**: النصُّ المقروء بعدها `""`. وأسوأُ من ذلك أنها تُعيد
+ *    بناء الصندوق وأنت تكتب فيه، فيقفز مؤشّرُك إلى آخره كلَّ ثانية.
+ */
+function paintToolValue(id) {
+  const tool = TOOLS.find((t) => t.id === id);
+  const btn = $(`[data-sh="tool"][data-v="${id}"]`);
+  if (!tool || !btn) return;
+  const value = tool.value?.() || '';
+  const slot = btn.querySelector('i');
+  if (value && slot) slot.textContent = value;
+  else if (value) btn.insertAdjacentHTML('beforeend', `<i>${esc(value)}</i>`);
+  else slot?.remove();
+  btn.setAttribute('aria-label', `${tool.label}${value ? ` — ${value}` : ''}`);
+}
+
+/** هل لهذا النصّ مسودّةٌ محفوظة؟ — سؤالٌ على المجموعة لا على القاعدة. */
+function hasDraftedText(text) {
+  const key = subjectKey(text || '');
+  return Boolean(key) && drafted.has(key);
+}
+
+/** نصُّ الجملة الجارية — بلا الكلمة المختارة، وبلا سقوطٍ إن غاب السياق. */
+function currentSentenceText() {
+  return ctx?.segments?.[player?.state?.index ?? 0]?.sourceTextSnapshot || '';
+}
+
+/**
  * يرسم جسمَ لوحة المسودّة.
  *
  * ⚠️ **ولا تُنشأ مسودّةٌ بمجرّد النظر.** `readDraft` تقرأ ولا تكتب،
@@ -2652,6 +2753,8 @@ function scheduleDraftSave(value) {
       await saveDraftText(openDraftId, value);
       const now = $('[data-draft-state]');
       if (now) now.textContent = 'اتحفظت';
+      /* العلامةُ على السطر تظهر مع أوّل حرفٍ يُحفَظ — لا عند إعادة الفتح. */
+      await refreshDrafted();
     } catch (error) {
       console.error(error);
       const now = $('[data-draft-state]');

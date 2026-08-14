@@ -109,8 +109,26 @@ export async function getSceneFull(id) {
     .filter((l) => l.state === STATE.ACTIVE)
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
+  /*
+   * ⚠️ **الدَّورُ على الرابط لا على الملفّ — وكان لا يصل إلى الشاشة.**
+   *
+   * `addFilesToScene` تكتب `roles: [role]` على `sceneMediaLinks`، لأن
+   * التسجيلَ الواحد قد يكون «الأصلي» في ذكرى و«مرجعًا» في أخرى: الدَّورُ
+   * صفةُ العلاقة لا صفةُ الملفّ. وهذا صحيح.
+   *
+   * ولكنّ الشاشة كانت تقرأ `m.role` من سجلّ الوسيط — وهو حقلٌ لا يُكتَب
+   * أبدًا — فكان كلُّ تسجيلٍ يُعرَض «تسجيل» مهما اخترتَ له عند التسجيل.
+   * أي أن التصنيف كان يُحفَظ ولا يُرى، وهو أسوأ من ألّا يُحفَظ: تظنّ
+   * أنك صنّفت.
+   *
+   * فيُلحَق هنا **على نسخةٍ** لا على السجلّ نفسِه: الكتابةُ على المُعاد
+   * من `getMany` تسرّب حقلًا محسوبًا إلى أوّل `update` يمرّ عليه.
+   */
+  const roleOf = new Map(activeLinks.map((l) => [l.mediaId, l.roles?.[0] || null]));
   const mediaItems = activeLinks.length
-    ? (await media.getMany(activeLinks.map((l) => l.mediaId))).filter(Boolean)
+    ? (await media.getMany(activeLinks.map((l) => l.mediaId)))
+        .filter(Boolean)
+        .map((m) => ({ ...m, role: roleOf.get(m.id) || null }))
     : [];
 
   return {
