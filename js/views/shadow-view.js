@@ -36,6 +36,7 @@ import {
   INTERVAL_MAX_MS,
 } from '../services/shadow/playback-controller.js';
 import { listVoices, loadVoices, RATE_MIN, RATE_MAX, speak as speakOnce } from '../services/shadow/tts-controller.js';
+import { claimAudio, releaseAudio, ownsAudio } from '../services/shadow/audio-bus.js';
 import {
   completeSession,
   detectSourceChange,
@@ -127,6 +128,32 @@ const DISPLAY = Object.freeze({ RU: 'ru', EGY: 'egy', HIDDEN: 'hidden' });
 let parkedBar = null;
 let parked = false;
 
+/**
+ * الشريطُ العائم — الجلسة تكمل وأنت خارجها (WS29).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ طلبُك، مؤكَّدًا مرّتين
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * > «أوّل ما أخرج من البرنامج الصوت يفضل شغّال… أو أفلت التابلت،
+ * >  ويبقى فيه شريط خارجي أقفله منه أو أتنقّل للجملة اللي بعدها أو
+ * >  قبلها.»
+ *
+ * وكان الشريطُ زرّين: «ارجع» و«◼». فإن أردتَ الجملةَ التالية وأنت
+ * ماشٍ — وهذا هو الاستعمالُ الذي وُجد له الشريطُ أصلًا — لزمك أن
+ * تفتح الشاشةَ كلَّها. أي أن الشريطَ يحلّ نصفَ المشكلة ويعيدك في
+ * نصفها الثاني.
+ *
+ * فصار **مُشغّلًا كاملًا**: ‹ · تشغيل/إيقاف · › · إغلاق. وعليه اسمُ
+ * الجلسة، وضغطتُه تعيدك إليها.
+ *
+ * ⚠️ **وزرُّ «⏸» غيرُ زرّ «✕»**: الأوّل يوقف الصوتَ ويُبقي الشريطَ
+ *    والموضعَ، والثاني ينهي الجلسةَ المُبقاة. خلطُهما كان يعني أن
+ *    إيقافًا مؤقّتًا يكلّفك مكانَك.
+ *
+ * ⚠️ **ولا يظهر الشريطُ إلّا إن كان هناك ما يُسمَع.** شريطٌ يقول
+ *    «شغّال» وهو صامتٌ أسوأُ من لا شريط.
+ */
 function parkShadow() {
   parked = true;
   const title = ctx?.session?.title || 'جلسة ظلّ';
@@ -137,19 +164,51 @@ function parkShadow() {
   const bar = document.createElement('div');
   bar.className = 'sh-floating';
   bar.innerHTML = `
+    <button class="shf-nav" data-shf="prev" aria-label="الجملة اللي قبلها">‹</button>
+    <button class="shf-play" data-shf="play" aria-label="وقّف">⏸</button>
+    <button class="shf-nav" data-shf="next" aria-label="الجملة اللي بعدها">›</button>
     <button class="shf-open" data-shf="open" title="ارجع للجلسة">
       <i class="shf-pulse"></i><b></b>
     </button>
-    <button class="shf-stop" data-shf="stop" aria-label="وقّف الصوت">◼</button>`;
+    <button class="shf-stop" data-shf="stop" aria-label="اقفل الجلسة">✕</button>`;
   bar.querySelector('b').textContent = title;
+
   bar.addEventListener('click', (event) => {
     const act = event.target.closest('[data-shf]')?.dataset.shf;
     if (act === 'stop') return stopParked();
-    if (act === 'open' && sessionId) navigate(`/shadow/${sessionId}`);
+    if (act === 'open' && sessionId) return navigate(`/shadow/${sessionId}`);
+    if (!player) return undefined;
+
+    if (act === 'play') player.toggle();
+    if (act === 'prev') player.previous();
+    if (act === 'next') player.next();
+
+    /*
+     * ⚠️ **والجلسةُ المُبقاة تُحفَظ موضعُها أيضًا.** كانت أحداثُ
+     *    المحرّك تُهمَل وأنت خارج الشاشة (حارسُ `parked`)، فتتنقّل
+     *    عشرَ جملٍ وأنت ماشٍ ثم تعود فتجد نفسك حيث تركتَ. الموضعُ
+     *    عملُك، ولا يجوز أن يضيع لأنك لم تكن تنظر.
+     */
+    if (sessionId) savePosition(sessionId, player.state.index).catch(() => {});
+    paintFloating();
     return undefined;
   });
+
   document.body.append(bar);
   parkedBar = bar;
+  paintFloating();
+}
+
+/** يُبقي شكلَ الشريط العائم مطابقًا لما يحدث فعلًا. */
+function paintFloating() {
+  if (!parkedBar) return;
+  const on = Boolean(player?.state?.running && !player.state.paused);
+  const btn = parkedBar.querySelector('[data-shf="play"]');
+  if (btn) {
+    btn.textContent = on ? '⏸' : '▶';
+    btn.setAttribute('aria-label', on ? 'وقّف' : 'كمّل');
+  }
+  parkedBar.classList.toggle('is-quiet', !on);
 }
 
 /** يوقف الجلسة المُبقاة ويرفع شريطها. */
@@ -159,16 +218,20 @@ function stopParked() {
   player = null;
   parkedBar?.remove();
   parkedBar = null;
+  releaseAudio('session');
 }
 
 export function disposeShadow() {
   /*
    * ⚠️ **والتسجيلُ يقف مع مغادرة الشاشة — دائمًا.** وهو خارج شرط
-   *    «الجلسة تُبقى شغّالة»: ما يُبقى هو **نطقُ التدريب** لأنك
-   *    تسمعه وأنت تتنقّل؛ أمّا تسجيلٌ ضغطتَه من ورقة الذكرى فيصير —
-   *    إن بقي — صوتًا يخرج من شاشةٍ غادرتَها بلا زرٍّ يوقفه.
+   *    «الجلسة تُبقى شغّالة»: ما يُبقى هو **نطقُ التدريب** لأن له
+   *    شريطًا عائمًا فيه أزرارُه؛ أمّا تسجيلٌ ضغطتَه من ورقة الذكرى
+   *    فيصير — إن بقي — صوتًا يخرج من شاشةٍ غادرتَها بلا مقبض.
+   *
+   * ⚠️ ولا يُسكِت الجلسةَ: `releaseAudio` بمُعطًى تُسكِت **إن كان
+   *    هو المالك** وحده. فلو كان المالكُ الجلسةَ لم يُمَسّ شيء.
    */
-  stopVoice();
+  if (voice.id) releaseAudio(`voice:${voice.id}`);
 
   /*
    * ⚠️ يُقرأ **قبل** أي تدمير: `running && !paused` تعني أن المحرّك
@@ -1385,13 +1448,24 @@ function handleEvent(event) {
    * فالمتروكُ يشتغل ولا يُخبر أحدًا — إلّا حين ينتهي، فيرفع شريطَه.
    */
   if (parked) {
-    if (event.type === 'done' || event.type === 'stop') stopParked();
-    return;
+    if (event.type === 'done' || event.type === 'stop' || event.type === 'session-complete') {
+      return stopParked();
+    }
+    /*
+     * ⚠️ **لكنّ الشريطَ العائم يتبع الحقيقة.** كان المتروكُ يشتغل ولا
+     *    يُخبر أحدًا؛ فلو انتهى تكرارٌ أو أوقفتَ من الشريط بقي شكلُ
+     *    الزرّ على حاله. والشريطُ هو كلُّ ما تراه حينها.
+     */
+    paintFloating();
+    return undefined;
   }
 
   const card = $('[data-card]');
   const play = $('[data-sh="play"]');
   const status = $('[data-status]');
+
+  /* شكلُ الزرّ يتبع الحقيقة بعد كلّ حدث — لا بعد النقر وحده. */
+  queueMicrotask(paintTransport);
 
   switch (event.type) {
     /*
@@ -1499,9 +1573,13 @@ function handleEvent(event) {
       break;
 
     case 'session-complete':
-      if (play) play.textContent = '▶';
       card?.classList.remove('speaking');
       finishSession();
+      break;
+
+    /* وصولٌ إلى الحافّة بالإصبع — لا إنهاءَ ولا نافذة. */
+    case 'at-end':
+      if (status) status.textContent = 'دي آخر جملة';
       break;
 
     default:
@@ -1661,6 +1739,17 @@ async function finishSession() {
   if (!ctx) return;
   const summary = await completeSession(ctx.session.id);
   if (!summary) return;
+
+  /*
+   * ⚠️ **ولا ملخّصَ لجلسةٍ لم تُمارَس.** رأيتُ النافذة تقول «اتدرّبت
+   *    على ٠ من ٣ · إجمالي التكرارات ٠ · المدّة دقيقة» — وهي أرقامٌ
+   *    صادقةٌ عن لا شيء. نافذةٌ تحتفل بالصفر تُعلّمك ألّا تقرأ
+   *    النوافذ.
+   *
+   *    والاكتمالُ يُسجَّل في القاعدة على أيّ حال — ما يُمنَع هو
+   *    **الاحتفالُ** به.
+   */
+  if (!summary.segmentsPracticed) return;
 
   const minutes = Math.max(1, Math.round(summary.durationMs / 60000));
   showModal({
@@ -2198,10 +2287,8 @@ const MODES = [
     /** هل نحن فيه الآن؟ */
     is: () => !ctx.scratch
       && player?.state?.settings?.practiceMode !== PRACTICE_MODE.WORD,
-    enter: async () => {
-      clearScratch();
-      await setPractice(PRACTICE_MODE.SENTENCE);
-    },
+    enter: async () => setPractice(PRACTICE_MODE.SENTENCE),
+    paint: () => clearScratch(),
   },
   {
     id: 'word',
@@ -2209,27 +2296,30 @@ const MODES = [
     hint: 'يقرا الكلمات المقسّمة واحدة واحدة',
     is: () => !ctx.scratch
       && player?.state?.settings?.practiceMode === PRACTICE_MODE.WORD,
-    enter: async () => {
-      clearScratch();
-      await setPractice(PRACTICE_MODE.WORD);
-    },
+    enter: async () => setPractice(PRACTICE_MODE.WORD),
+    paint: () => clearScratch(),
   },
   {
     id: 'own',
     label: 'جملة برّه',
     hint: 'الصق جملة من عندك وتتقرا بنفس الإعدادات',
-    is: () => Boolean(ctx.scratch),
-    enter: async () => {
-      /* الخروجُ من وضع الكلمة أوّلًا — وإلّا نطق كلمةً من جملةٍ غادرتها. */
-      await setPractice(PRACTICE_MODE.SENTENCE);
+    is: () => Boolean(ctx.scratch) || !$('[data-scratch]')?.hidden,
+    /* الخروجُ من وضع الكلمة أوّلًا — وإلّا نطق كلمةً من جملةٍ غادرتها. */
+    enter: async () => setPractice(PRACTICE_MODE.SENTENCE),
+    paint: () => {
       const box = $('[data-scratch]');
-      if (box) {
-        box.hidden = false;
-        box.querySelector('[data-scratch-input]')?.focus();
-      }
+      if (!box) return;
+      box.hidden = false;
+      box.querySelector('[data-scratch-input]')?.focus();
     },
   },
 ];
+
+/**
+ * تذكرةُ تبديل الوضع — تمنع تسابقَ الضغطات.
+ * الشرحُ عند `case 'mode-go'`.
+ */
+let modeTicket = 0;
 
 /** يضبط وضعَ المحرّك ويحفظه — مكانٌ واحدٌ يكتب `practiceMode`. */
 async function setPractice(mode) {
@@ -2515,7 +2605,12 @@ const WELLS = {
  */
 const voice = { audio: null, url: null, id: null };
 
-/** يوقف التسجيل الجاري ويحرّر رابطَه ويرجّع زرَّه. */
+/**
+ * يوقف التسجيل الجاري ويحرّر رابطَه ويرجّع زرَّه.
+ *
+ * ⚠️ **ولا يُنادي `releaseAudio`**: هو نفسُه ما يُنادى **من** الناقل.
+ *    وإلّا دار الاثنان في حلقة.
+ */
 function stopVoice() {
   if (voice.audio) {
     voice.audio.pause();
@@ -2532,20 +2627,17 @@ function stopVoice() {
 /** يشغّل تسجيلًا — أو يوقفه إن كان هو الجاري. */
 async function playVoice(mediaId) {
   /* ضغطةٌ ثانيةٌ على الجاري = إيقاف. وهو ما يجعل الزرَّ بابًا في اتّجاهين. */
-  const wasPlaying = voice.id === mediaId;
-  stopVoice();
-  if (wasPlaying) return;
+  if (voice.id === mediaId) return releaseAudio(`voice:${mediaId}`);
 
   const row = await media.get(mediaId);
   if (!row?.blob) return toastError('التسجيل ده مش موجود');
 
   /*
-   * ⚠️ **والاتّجاه الآخر من نفس القاعدة**: تسجيلٌ يبدأ يُوقف نطقَ
-   *    الجلسة. مخرجُ صوتٍ واحدٌ في الوقت الواحد — لا اثنان فوق بعض.
-   *    ونوقفه إيقافًا لا إنهاءً: تضغط تشغيل فتُستأنف الجلسةُ من حيث
-   *    كانت، فلا تكلّفك النظرةُ في التسجيلات مكانَك في التدريب.
+   * ⚠️ **المطالبةُ تُسكِت مَن قبله — أيًّا كان.** لا نكتب هنا «أوقف
+   *    الجلسة» ولا «أوقف التسجيل الآخر»: الناقلُ يعرف مالكَه ويُسكته.
+   *    وهو ما يجعل بابًا نُضيفه غدًا آمنًا بلا أن نتذكّر هذا السطر.
    */
-  if (player?.state?.running && !player.state.paused) player.pause();
+  claimAudio(`voice:${mediaId}`, stopVoice);
 
   voice.id = mediaId;
   voice.url = URL.createObjectURL(row.blob);
@@ -2554,16 +2646,53 @@ async function playVoice(mediaId) {
   const btn = document.querySelector(`[data-sh="well-play"][data-v="${mediaId}"]`);
   if (btn) { btn.textContent = '■'; btn.setAttribute('aria-label', 'وقّف'); }
 
-  voice.audio.addEventListener('ended', stopVoice);
+  voice.audio.addEventListener('ended', () => releaseAudio(`voice:${mediaId}`));
   /* ⚠️ وملفٌّ تالفٌ يُقال، لا يُترك زرًّا عالقًا على `■` إلى الأبد. */
-  voice.audio.addEventListener('error', () => { stopVoice(); toastError('مش قادر أشغّل التسجيل ده'); });
+  voice.audio.addEventListener('error', () => {
+    releaseAudio(`voice:${mediaId}`);
+    toastError('مش قادر أشغّل التسجيل ده');
+  });
 
   try {
     await voice.audio.play();
   } catch {
-    stopVoice();
+    releaseAudio(`voice:${mediaId}`);
     toastError('المتصفّح مارضاش يشغّل — دوس تاني');
   }
+}
+
+/**
+ * زرُّ التشغيل — بابٌ واحدٌ لكلّ نطقٍ في هذه الشاشة.
+ *
+ * ⚠️ **والقرارُ عند المحرّك** (`toggle`) لا هنا: الشاشة كانت تقرأ
+ *    `running` و`paused` وتفترض ثلاثَ حالات، وقد خرجت رابعةٌ فماتت
+ *    الضغطة. راجع الشرح فوق `toggle` في `playback-controller`.
+ */
+function togglePlay() {
+  const active = activePlayer();
+  const id = active === scratchPlayer ? 'scratch' : 'session';
+  claimAudio(id, () => active.pause());
+  active.toggle();
+  paintTransport();
+}
+
+/**
+ * يرسم زرَّ التشغيل بحالته الحقيقيّة — ▶ أو ⏸.
+ *
+ * ⚠️ **وكان لا يتبدّل أبدًا.** زرٌّ شكلُه واحدٌ في الحالتين يجعلك
+ *    تخمّن أثرَ ضغطتك، وهو نصفُ «التحكّم بيشتغل ساعات ويبوظ ساعات»:
+ *    الشكوى ليست كلُّها عن السلوك، بل عن **ألّا تعرف السلوك**.
+ */
+function paintTransport() {
+  const active = activePlayer();
+  const on = Boolean(active?.state?.running && !active.state.paused);
+  const btn = $('[data-sh="play"]');
+  if (btn) {
+    btn.classList.toggle('is-playing', on);
+    btn.setAttribute('aria-label', on ? 'وقّف' : 'شغّل');
+  }
+  document.querySelector('.shadow-app')?.classList.toggle('is-speaking', on);
+  paintFloating();
 }
 
 /** المنبعُ المفتوح الآن. */
@@ -3113,7 +3242,25 @@ async function saveScratchTo(where) {
 
 /** يرجع من النصّ الخارجي إلى جملة الجلسة. */
 function clearScratch() {
-  if (!scratchPlayer) return;
+  /*
+   * ⚠️ **الصندوقُ يُقفَل حتى لو لم تُقرأ فيه جملةٌ قطّ.**
+   *
+   * كان أوّلُ سطرٍ `if (!scratchPlayer) return;` — والمُشغّلُ لا
+   * يُنشأ إلّا عند أوّل قراءة. فمَن فتح الصندوقَ ولم يلصق فيه شيئًا
+   * ثم رجع إلى وضع «نصّ» يجد الصندوقَ **باقيًا مفتوحًا** فوق جملته.
+   * **قِستُه**: `hidden === false` بعد الرجوع.
+   *
+   * والإقفالُ لا يحتاج مُشغّلًا، فخرج من تحت الحارس.
+   */
+  const box = $('[data-scratch]');
+  if (box) box.hidden = true;
+  const field = $('[data-scratch-input]');
+  if (field) field.value = '';
+
+  if (!scratchPlayer) {
+    if (ctx) ctx.scratch = null;
+    return;
+  }
   scratchPlayer.destroy();
   scratchPlayer = null;
   ctx.scratch = null;
@@ -3435,29 +3582,8 @@ function wireInteractions(main) {
       case 'tips':
         return showTips();
 
-      case 'play': {
-        /*
-         * ⚠️ **مخرجُ صوتٍ واحدٌ في الوقت الواحد.**
-         *
-         * بلاغُك: «دلوقتي بتجي أشغّل الجملة يروح مشغّل الفويسات».
-         * وهو عيبي: صنعتُ مشغّلًا ثانيًا للتسجيلات (WELLS) ولم أخبر
-         * أحدَهما بالآخر. فتضغط تسجيلًا من الورقة، ثم تضغط تشغيل
-         * لتسمع الجملة — فيبقى التسجيلُ شغّالًا فوقها، ويصير ما
-         * تسمعه هو هو لا الجملة.
-         *
-         * ⚠️ **قِستُه**: بعد تشغيل تسجيلٍ ثم ضغط تشغيل الجملة:
-         *    «صوت شغّال: 1» والنطق `[]`.
-         *
-         * والقاعدةُ من هنا: **مَن يبدأ يُسكِت مَن قبله** — في
-         * الاتّجاهين (راجع `playVoice`).
-         */
-        stopVoice();
-
-        const active = activePlayer();
-        if (active.state.running && !active.state.paused) return active.pause();
-        if (active.state.paused) return active.resume();
-        return active.start();
-      }
+      case 'play':
+        return togglePlay();
 
       // التنقّل يخصّ جمل الجلسة، فالخروج من النصّ الخارجي جزءٌ منه.
       case 'prev': clearScratch(); return player.previous();
@@ -3577,6 +3703,15 @@ function wireInteractions(main) {
         return renderRail();
 
       case 'well':
+        /*
+         * ⚠️ **تبديلُ التبويب يُسكِت التسجيل.** بلاغُك: «أشغّل فويس
+         *    وأنقل لتاب تانية، يفضل شغّال ومش هلاقي زرار يقفله».
+         *    وهو حقٌّ: الزرُّ نفسُه يُمحى مع رسم التبويب الجديد،
+         *    فيبقى الصوتُ بلا مقبض.
+         *
+         * ⚠️ وقاعدةٌ أعمّ من الحالة: **ما اختفى زرُّه لا يبقى صوتُه**.
+         */
+        releaseAudio();
         well = btn.dataset.v;
         await renderWells();
         return;
@@ -3598,7 +3733,35 @@ function wireInteractions(main) {
       case 'mode-go': {
         const mode = MODES.find((m) => m.id === btn.dataset.v);
         if (!mode) return undefined;
+        /* تبديلُ ما يُقرأ يُسكِت ما كان يُقرأ — ومنه تسجيلٌ شغّال. */
+        releaseAudio();
+
+        /*
+         * ⚠️ **آخرُ ضغطةٍ تفوز — ولو تسابقت الضغطات.**
+         *
+         * `enter` غيرُ متزامنة (تحفظ في القاعدة). فثلاثُ ضغطاتٍ
+         * متتاليةٍ تبدأ ثلاثَ عمليّاتٍ تنتهي بترتيبٍ لا يضمنه أحد.
+         * **قِستُه**: كلمة ← جملة برّه ← نصّ، فانتهت «جملة برّه»
+         * بعد «نصّ» فأظهرت صندوقَها **فوق وضعِ النصّ**. الشاشةُ تقول
+         * حالًا والمحرّكُ في حالٍ آخر.
+         *
+         * والتذكرةُ تحسم: مَن بدأ ولم يعد الأحدثَ لا يكتب شيئًا.
+         */
+        const my = ++modeTicket;
         await mode.enter();
+        if (my !== modeTicket) return undefined;
+
+        /*
+         * ⚠️ **والرسمُ بعد التذكرة لا داخل `enter`.** أوّلُ إصلاحٍ
+         *    وضع التذكرةَ حول `renderModes` وحدها، وترك كلَّ وضعٍ
+         *    يلمس الـDOM داخل `enter` — أي **قبل** الفحص. فبقي
+         *    السباق: «جملة برّه» تُظهر صندوقَها بعد أن أخفاه «نصّ».
+         *    **قِستُه**: `hidden === false` بعد الرجوع لوضع النصّ.
+         *
+         *    فصار `enter` عملًا غيرَ متزامنٍ لا يلمس شاشة، و`paint`
+         *    رسمًا متزامنًا لا يقع إلّا للفائز.
+         */
+        mode.paint?.();
         renderModes();
         renderRail();
         return undefined;

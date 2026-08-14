@@ -3875,3 +3875,82 @@ body.shadow-open { overflow: hidden; }
 .sh-left .sh-modes button.on {
   background: rgba(122, 95, 44, .14); color: rgba(60, 46, 22, .95);
 }
+
+/* ══════════════════════════════════════════════════════════════
+   الشريط العائم صار مُشغّلًا كاملًا (WS29)
+
+   > «يبقى فيه شريط خارجي أقفله منه أو أتنقّل للجملة اللي بعدها أو
+   >  قبلها.»
+
+   ⚠️ **وخمسةُ أزرارٍ في شريطٍ عائمٍ على هاتف ضيّق.** فالاسمُ يتقلّص
+      أوّلًا (`min-width: 0` عليه وحده)، والأزرارُ تبقى 44px كلُّها —
+      لأنها هي الغرض، والاسمُ زينةٌ تُقرأ إن اتّسع.
+   ══════════════════════════════════════════════════════════════ */
+
+.sh-floating { max-inline-size: min(420px, calc(100vw - 24px)); }
+
+.shf-nav, .shf-play {
+  flex: none; inline-size: 44px; padding: 0 !important;
+  font-size: 15px; line-height: 1;
+  color: rgba(240, 220, 176, .92);
+  direction: ltr; unicode-bidi: isolate;
+}
+.shf-play {
+  background: rgba(217, 182, 114, .14) !important;
+  font-size: 13px;
+}
+.shf-nav:hover, .shf-play:hover { background: rgba(217, 182, 114, .22) !important; }
+
+/* والاسمُ وحده هو الذي يتقلّص. */
+.shf-open { flex: 1 1 auto; min-inline-size: 0; padding-inline: 10px !important; }
+.shf-open b { max-inline-size: 100%; }
+
+/* ونبضةُ الحياة تسكن حين يسكن الصوت — لا تكذب. */
+.sh-floating.is-quiet .shf-pulse { animation: none; opacity: .3; background: #6b6357; }
+
+/* ══════════════════════════════════════════════════════════════
+   زرُّ التشغيل يقول حالَه
+
+   ⚠️ الشكوى «التحكّم بيشتغل ساعات ويبوظ ساعات» نصفُها سلوكٌ ونصفُها
+      **ألّا تعرف السلوك**: زرٌّ شكلُه واحدٌ في الحالتين يجعلك تخمّن
+      أثرَ ضغطتك. فصار المثلّثُ عمودين حين ينطق.
+   ══════════════════════════════════════════════════════════════ */
+.sh-play.is-playing .sh-ico-play {
+  border: 0;
+  inline-size: 13px; block-size: 15px;
+  background: linear-gradient(90deg,
+    currentColor 0 34%, transparent 34% 66%, currentColor 66% 100%);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   على الهاتف: التحكّم لا يهرب أسفل الصفحة (WS29)
+
+   ⚠️ **قِيس على 412×915**: مفتاحُ الأوضاع قاعُه عند **993px** — أي
+      تحت الطيّة. فلتضغط «تشغيل» تمرّر، ولتبدّل الوضع تمرّر، ثم تعود
+      لتقرأ الجملة فتمرّر ثانيةً. والجملةُ وحدها تأخذ 432px على
+      الهاتف، فالمسافة ليست عرَضًا بل بنيةَ العمود.
+
+   والحلّ ليس تصغيرَ الجملة — هي المقصودة. بل **أن يثبت التحكّم**:
+   الجملةُ والكلماتُ تُمرَّر تحته، وهو باقٍ حيث إبهامُك.
+
+   ⚠️ **ويحمل خلفيّةً معتمة**: شريطٌ شفّافٌ فوق نصٍّ يمرّ تحته يجعل
+      الحرفين يتراكبان بصريًّا — وهو ما يشبه العطلَ وإن لم يكن.
+   ══════════════════════════════════════════════════════════════ */
+
+@media (max-width: 899px) {
+  .sh-modes,
+  .sh-transport {
+    position: sticky;
+    z-index: 3;
+    background: linear-gradient(180deg,
+      rgba(4, 7, 14, 0) 0, rgba(4, 7, 14, .93) 22%, rgba(4, 7, 14, .97) 100%);
+  }
+  /* المفتاحُ فوق ثم الترانسبورت تحته — بارتفاعيهما. */
+  .sh-modes { inset-block-end: 96px; margin-bottom: 0; padding-block: 6px; }
+  .sh-transport {
+    inset-block-end: 0; margin-top: 8px;
+    padding-block: 8px calc(10px + env(safe-area-inset-bottom, 0px));
+  }
+  /* وما تحتهما يبقى مقروءًا: مساحةٌ لا يغطّيها الثابت. */
+  .sh-quickpills { margin-top: 14px; }
+}

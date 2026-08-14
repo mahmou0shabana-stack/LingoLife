@@ -401,7 +401,18 @@ export function createPlaybackController({
 
     /** يبدأ التشغيل من الموضع الحالي. */
     start() {
-      if (!segments.length || state.running) return;
+      if (!segments.length) return;
+      /*
+       * ⚠️ **والبدءُ من نهايةٍ يعود إلى البداية.** كان `state.running`
+       *    وحدَه يمنع، فلو ضغطتَ تشغيل بعد آخر جملةٍ لم يحدث شيء:
+       *    الموضعُ على الأخيرة والجلسةُ «خلصت» — فتبدأ وتنتهي فورًا.
+       *    فالوصولُ إلى النهاية يجعل الضغطةَ **إعادةً** لا عدمًا.
+       */
+      if (state.running) return;
+      if (state.finished && state.index >= segments.length - 1) {
+        const first = nextSelected(-1);
+        if (first !== -1) state.index = first;
+      }
       // لا يبدأ من مقطعٍ خارج تحديدك: يقفز لأوّل محدَّد.
       if (!inSelection(state.index)) {
         const first = nextSelected(-1);
@@ -439,8 +450,35 @@ export function createPlaybackController({
       halt();
       state.running = false;
       state.paused = false;
+      state.finished = false;
       state.repetition = 0;
       emit('stop');
+    },
+
+    /**
+     * زرُّ التشغيل الواحد — **والمحرّكُ هو مَن يقرّر لا الشاشة**.
+     *
+     * ⚠️ كانت الشاشة تستنتج بنفسها:
+     *
+     *     if (running && !paused) pause();
+     *     else if (paused) resume();
+     *     else start();
+     *
+     * وهي تقرأ حالتين وتفترض أن تركيبَهما لا يخرج عن ثلاث. وقد خرج:
+     * `running=false, paused=true` بعد `goTo` — فيقع النداءُ على
+     * `resume()` وتخرج فارغة. الشاشةُ لا تملك أن تعرف كلَّ حالات
+     * المحرّك، فصار القرارُ حيث الحالة.
+     *
+     * ⚠️ **ولا حالةَ ميّتة**: كلُّ تركيبٍ ممكنٍ ينتهي إمّا بصوتٍ وإمّا
+     *    بصمتٍ مقصود. لا شيءَ يُترَك بلا فعل.
+     */
+    toggle() {
+      if (state.running && !state.paused) return controller.pause();
+      if (state.running && state.paused) return controller.resume();
+      /* غيرُ شغّال — بأيّ سببٍ كان: بداية، أو انتهاء، أو حالةٌ ملتبسة. */
+      state.paused = false;
+      state.finished = false;
+      return controller.start();
     },
 
     /** ينتقل لمقطع بالفهرس. */
@@ -452,13 +490,22 @@ export function createPlaybackController({
       state.repetition = 0;
       wordIndex = 0;
       words = [];
+      /*
+       * ⚠️ **الوصولُ إلى جملةٍ يُنهي «مؤقّتًا» ويُنهي «خلصت».**
+       *
+       * كانت `paused` تبقى `true` بعد أن تصير `running` هي `false` —
+       * فتصير الحالةُ «موقوفٌ مؤقّتًا وليس شغّالًا»، وهي حالةٌ لا
+       * معنى لها. وزرُّ التشغيل يقرأ `paused` فينادي `resume()`،
+       * و`resume()` تخرج فورًا لأن `running` كاذبة. **ضغطةٌ ميّتة.**
+       *
+       * وهذا بالضبط «التحكّم بيشتغل ساعات ويبوظ ساعات»: يعتمد على
+       * هل أوقفتَ مؤقّتًا قبل ذلك أم لا. حالةٌ خفيّةٌ تقرّر سلوكَ زرّ.
+       */
+      state.paused = false;
+      state.finished = false;
       emit('seek');
-      if (wasRunning) {
-        state.running = true;
-        cycle();
-      } else {
-        state.running = false;
-      }
+      state.running = wasRunning;
+      if (wasRunning) cycle();
     },
 
     /**
@@ -477,10 +524,26 @@ export function createPlaybackController({
 
       const target = nextSelected(state.index);
       if (target === -1) {
-        halt();
-        state.running = false;
-        state.finished = true;
-        emit('session-complete');
+        /*
+         * ═══════════════════════════════════════════════════════
+         * ⚠️ **زرُّ «التالي» لا يُنهي جلستك.**
+         * ═══════════════════════════════════════════════════════
+         *
+         * كان يُطلق `session-complete` — فتُغلَق الجلسةُ في القاعدة
+         * وتُفتَح نافذةُ ملخّصٍ فوق الشاشة. أي أن **تصفّحك بالأزرار
+         * حتى آخر جملة يُنهي عملك**.
+         *
+         * ⚠️ **قِستُه**: بعد ضغطاتِ «التالي» ظهرت نافذةٌ تقول «خلصت
+         *    الجلسة — اتدرّبت على **٠ من ٣**»، وحجبت الشاشةَ كلَّها
+         *    (`elementFromPoint` على زرّ التشغيل يعيد `DIV.overlay`).
+         *    وهذا نصفُ «التحكّم بيبوظ ساعات»: الأزرارُ لم تُكسَر، بل
+         *    صار فوقها غطاء.
+         *
+         * والاكتمالُ الصادق يقع في `cycle` وحدها: حين **يقرأ**
+         * المحرّكُ آخرَ جملةٍ ولا يجد بعدها شيئًا. أمّا الوصولُ
+         * بالإصبع فوقوفٌ عند الحافّة لا انتهاء.
+         */
+        emit('at-end');
         return;
       }
       controller.goTo(target);

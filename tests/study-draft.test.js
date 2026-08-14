@@ -394,24 +394,73 @@ describe('التشغيل · لا بابين لفعلٍ واحد', () => {
     expect(body.includes('practiceMode:')).toBe(false);
   });
 
-  it('⚠️ والتشغيل يُسكِت التسجيلات — مخرجُ صوتٍ واحد', () => {
-    const at = code.indexOf("case 'play'");
-    expect(at > 0).toBe(true);
-    const block = code.slice(at, at + 400);
-    expect(block.includes('stopVoice()')).toBe(true);
+  /*
+   * ⚠️ **هذه الحُرّاسُ الثلاثةُ استُبدلت — وأقول لماذا.**
+   *
+   * كانت تحرس المقابلات: «التشغيل يُسكِت التسجيل»، «التسجيل يوقف
+   * الجلسة»، «المغادرة توقف التسجيل». وهي حراسةُ ثقوبٍ **بعد أن
+   * تُكتشَف**: في الشاشة أربعةُ مصادرِ صوت، فالمقابلاتُ اثنتا عشرة،
+   * ولا يُكتَب منها إلّا ما يخطر بالبال.
+   *
+   * ⚠️ **وقِستُ ما لم يخطر**: تقلّبُ تبويبِ المنبع يترك التسجيلَ
+   *    شغّالًا وزرُّه اختفى معه؛ وتغييرُ الوضع كذلك. الحُرّاسُ الثلاثةُ
+   *    كانت خضراءَ والعطلان قائمان.
+   *
+   * فصار الحارسُ على **القاعدة** لا على أمثلتها: كلُّ مَن يُصدر
+   * صوتًا يطالب بالناقل، ولا أحدَ يُصدر صوتًا بلا مطالبة.
+   */
+  it('⚠️ الحارس: لا مصدرَ صوتٍ بلا مطالبةٍ بالناقل', () => {
+    /* كلُّ نداءٍ لبدء صوتٍ في الشاشة، ومعه شرطُ أن تسبقه مطالبة. */
+    expect(code.includes("claimAudio(`voice:")).toBe(true);
+    expect(code.includes('claimAudio(id, () => active.pause())')).toBe(true);
+
+    /*
+     * ولا `new Audio` خارج `playVoice` — أيّ مُشغّلٍ ثانٍ يتسلّل
+     * يفلت من الناقل، وهو بالضبط ما فعلتُه أنا في WS25.
+     */
+    const audios = (code.match(/new Audio\(/g) || []).length;
+    expect(audios).toBe(1);
   });
 
-  it('⚠️ والتسجيل يوقف نطقَ الجلسة — في الاتّجاه الآخر أيضًا', () => {
-    const at = code.indexOf('async function playVoice');
-    expect(at > 0).toBe(true);
-    const block = code.slice(at, at + 900);
-    expect(block.includes('player.pause()')).toBe(true);
+  it('⚠️ وكلُّ بابٍ يُخفي زرَّ الصوت يُسكته قبل أن يُخفيه', () => {
+    /* تبويبُ المنبع يمحو زرَّ «■»، وتبديلُ الوضع يعيد رسم المسرح. */
+    for (const kase of ["case 'well':", "case 'mode-go':"]) {
+      const at = code.indexOf(kase);
+      expect(at > 0).toBe(true);
+      expect(code.slice(at, at + 260).includes('releaseAudio(')).toBe(true);
+    }
   });
 
-  it('⚠️ ومغادرةُ الشاشة توقف التسجيل', () => {
+  it('⚠️ ومغادرةُ الشاشة تُسكِت التسجيل ولا تمسّ الجلسة', () => {
     const at = code.indexOf('export function disposeShadow');
-    const block = code.slice(at, at + 500);
-    expect(block.includes('stopVoice()')).toBe(true);
+    const block = code.slice(at, at + 700);
+    /* بمُعطًى: تُسكِت إن كان التسجيلُ هو المالك وحده. */
+    expect(block.includes('releaseAudio(`voice:')).toBe(true);
+    expect(block.includes('releaseAudio()')).toBe(false);
+  });
+
+  it('⚠️ وقرارُ زرّ التشغيل عند المحرّك لا عند الشاشة', () => {
+    /*
+     * كانت الشاشة تستنتج من `running` و`paused` وتفترض ثلاثَ حالات،
+     * وقد خرجت رابعة (`running=false, paused=true` بعد `goTo`) فماتت
+     * الضغطة. **وهذا هو «بيشتغل ساعات ويبوظ ساعات».**
+     */
+    const at = code.indexOf('function togglePlay');
+    /* ⚠️ حتى قوسِ الإغلاق لا بعدَد محارف: 400 محرفًا تبتلع الدالّةَ
+       التي تليها، فيقرأ الحارسُ سطرًا ليس من شأنه. */
+    const block = code.slice(at, code.indexOf('\n}', at));
+    expect(block.includes('.toggle()')).toBe(true);
+    expect(block.includes('.state.paused')).toBe(false);
+  });
+
+  it('⚠️ والشريط العائم مُشغّلٌ كامل لا زرّا إغلاق', () => {
+    const at = code.indexOf('function parkShadow');
+    const block = code.slice(at, code.indexOf('function paintFloating'));
+    for (const act of ['prev', 'play', 'next', 'open', 'stop']) {
+      expect(block.includes(`data-shf="${act}"`)).toBe(true);
+    }
+    /* والموضعُ يُحفَظ وأنت خارجها — التنقّلُ عملٌ لا يضيع. */
+    expect(block.includes('savePosition(')).toBe(true);
   });
 
   it('ورسالةُ «مفيش ترجمة» بابٌ لا وصفُ طريق', () => {
