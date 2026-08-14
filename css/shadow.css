@@ -3353,9 +3353,21 @@ body.shadow-open { overflow: hidden; }
   color: #fdf7ea;
 }
 
-/* ⚠️ وتصغر × .8 حين يُفتح الدرج — فلا تُقطع كلماتُها في العمود الأضيق. */
-.shadow-app.is-rail .sh-current-text { font-size: calc(var(--sh-size, 41px) * .8); }
-.shadow-app:not(.is-rail) .sh-current-text { font-size: var(--sh-size, 41px); }
+/*
+ * ⚠️ وتصغر × .8 حين يُفتح الدرج — فلا تُقطع كلماتُها في العمود الأضيق.
+ *
+ * ⚠️ **و`--sh-len` هنا لا في قاعدةٍ أدنى.** كتبتُ أوّلًا قاعدةً في
+ *    آخر الملفّ تضرب في `--sh-len`، فلم تعمل: هاتان أعلى تخصّصًا
+ *    (`.shadow-app:not(.is-rail) .sh-current-text`) فتغلبانها. وقِستُ
+ *    النتيجة: الجملةُ ما زالت تحتاج 431px. فالمقياسُ فرّق بين «كتبتُ
+ *    القاعدة» و«القاعدة تعمل».
+ */
+.shadow-app.is-rail .sh-current-text {
+  font-size: calc(var(--sh-size, 41px) * .8 * var(--sh-len, 1));
+}
+.shadow-app:not(.is-rail) .sh-current-text {
+  font-size: calc(var(--sh-size, 41px) * var(--sh-len, 1));
+}
 
 .sh-current-tr { color: var(--sh-ar); }
 
@@ -3712,3 +3724,103 @@ body.shadow-open { overflow: hidden; }
   font-size: 12px; line-height: 1;
 }
 .sh-well-row > span { flex: 1; min-width: 0; font-size: 12px; overflow-wrap: anywhere; }
+
+/* ══════════════════════════════════════════════════════════════
+   الجملة الطويلة لا تدهس ما تحتها
+
+   > «ولو الجملة كبيرة شوية كله بيجي فوق بعضه.»
+
+   ⚠️ **قِستُه**: جملةٌ من سطرين على 1280×800 تحتاج **431px** وتأخذ
+      **104px**. أي أنها تفيض بأربعة أضعاف صندوقها، فتنزل حروفُها
+      على الترجمة وعلى رقائق الكلمات.
+
+   والسببُ حرفان: `.sh-hero` عمودُ فليكس بـ`min-height: 0`، وأولادُه
+   على `flex-shrink: 1` الافتراضيّة. فحين يضيق الارتفاع **ينكمش
+   صندوقُ النصّ دون محتواه** — والمحتوى لا ينكمش، فيخرج.
+
+   والعلاج ثلاثةُ أشياء معًا، وكلٌّ وحده لا يكفي:
+
+    1. **`flex: 0 1 auto` مع `min-height: 0`** — يُسمَح له بالانكماش
+       صراحةً بدل أن ينكمش ضمنًا ويفيض.
+    2. **`overflow-y: auto`** — فإن لم يبقَ مكانٌ للجملة كلِّها
+       تُمرَّر داخل صندوقها. ⚠️ التمريرُ أصدقُ من القصّ: جملةٌ
+       مقصوصةٌ تُخفي ما تتدرّب عليه بلا أن تقول.
+    3. **حجمُ الخطّ يتبع طولَ الجملة** — `--sh-len` يكتبه الرسم،
+       فتصغر الجملةُ الطويلة قبل أن تحتاج تمريرًا أصلًا. وهو ما
+       يجعل الحالةَ الشائعة تُقرأ كاملةً بلا حركة.
+   ══════════════════════════════════════════════════════════════ */
+
+.sh-hero > * { flex: 0 0 auto; }
+
+.sh-current-text {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  /*
+   * ⚠️ ولا `font-size` هنا: القاعدتان في بلوك v5 أعلى تخصّصًا،
+   *    وفيهما يُضرَب `--sh-len`. راجع الشرح هناك.
+   */
+}
+.sh-current-text::-webkit-scrollbar { width: 4px; }
+.sh-current-text::-webkit-scrollbar-thumb {
+  background: rgba(217, 182, 114, .3); border-radius: 2px;
+}
+
+/* والترجمة لا تُدهَس ولا تَدهَس: سطران بحدٍّ أقصى ثم تمرير. */
+.sh-current-tr {
+  flex: 0 0 auto;
+  max-height: 4.2em;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+/* الرسالةُ نفسُها زرّ — راجع fetchMissingTranslation. */
+.sh-tr-off {
+  min-height: 44px; padding: 6px 14px; cursor: pointer;
+  font: inherit; font-size: 12px; line-height: 1.6;
+  border: 1px dashed rgba(217, 182, 114, .38); border-radius: 4px;
+  background: transparent; color: rgba(201, 177, 132, .8);
+}
+.sh-tr-off:hover { border-style: solid; color: rgba(240, 220, 176, .95); }
+
+/* ══════════════════════════════════════════════════════════════
+   قسمةُ المسرح: الجملةُ أوّلًا
+
+   ⚠️ **قِستُ القسمة**: صفحةٌ ارتفاعُها 646px، ونصيبُ الجملة منها
+      **149px** ونصيبُ رقائق الكلمات **140px**. أي أن المُعِين يأخذ
+      ما يأخذه المُعان تقريبًا — وأنت تقرأ سطرين من ستّة.
+
+   والرقائقُ **أداةٌ مساعدة**: تضغط كلمةً فتسمعها. والجملةُ هي
+   الشيءُ نفسُه. فالقسمةُ تتبع ذلك:
+
+    · الرقائقُ **تُقيَّد بصفّين** وتُمرَّر إن زادت — لا تُحذف، فهي
+      تعمل، لكنها لا تنمو على حساب ما جئتَ من أجله.
+    · واللافتةُ الإنجليزيّة تحتها تختفي على الشاشات القصيرة: سطرٌ
+      تعليميٌّ يُقرأ مرّةً في العمر ويأخذ مكانًا كلَّ مرّة.
+   ══════════════════════════════════════════════════════════════ */
+
+.sh-chips {
+  flex: 0 1 auto;
+  max-height: 6.2em;
+  /*
+   * ⚠️ **وحدٌّ أدنى، وإلّا اختفت.** أوّلُ كتابةٍ كانت `flex: 0 1 auto`
+   *    بسقفٍ بلا قاع، فقِستُ على 412×915: **الرقائقُ ارتفاعُها صفر**.
+   *    عمودُ الهاتف يمرّر، فالانكماشُ فيه بلا حدٍّ يسحق العنصر تمامًا.
+   *    القيدُ الذي يُخفي ما يقيّده ليس قيدًا — هو حذف.
+   */
+  min-height: 3.2em;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.sh-chips::-webkit-scrollbar { width: 4px; }
+.sh-chips::-webkit-scrollbar-thumb {
+  background: rgba(217, 182, 114, .26); border-radius: 2px;
+}
+
+/* والمسرحُ يعطي الجملةَ ما يفيض — لا يقسمه بالتساوي. */
+.sh-hero { flex: 1 1 auto; }
+
+@media (max-height: 900px) {
+  .sh-hint { display: none; }
+}

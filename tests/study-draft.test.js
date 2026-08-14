@@ -303,3 +303,111 @@ describe('سكّة الأدوات · لا بابَ في اتّجاهٍ واحد'
     expect(source.includes('const TOOLSETS')).toBe(false);
   });
 });
+
+/* ================================================================== *
+ * التشغيل — حُرّاسٌ على أعطالٍ بلّغ عنها المستعمِل (WS27)
+ * ================================================================== *
+ *
+ * ⚠️ كلُّ واحدٍ هنا يحرس **عطلًا وقع فعلًا** وقِيس في متصفّح، لا
+ *    احتمالًا تخيّلتُه. والقراءة من مصدر الشاشة لأنها وحدةُ DOM لا
+ *    تُستورَد في مجموعةٍ بلا شاشة — نفسُ نهج `places.test.js`.
+ */
+describe('التشغيل · لا بابين لفعلٍ واحد', () => {
+  let code = '';
+
+  it('⚠️ الحارس: نقرةُ الكلمة لا تقلب وضعَ التدريب', async () => {
+    const source = await (await fetch('/js/views/shadow-view.js')).text();
+    code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+    /*
+     * كان معالِجٌ ثانٍ للنقرة يكتب `practiceMode: PRACTICE_MODE.WORD`
+     * ولا يعيدها أبدًا، فيصير زرُّ التشغيل ينطق تلك الكلمة إلى آخر
+     * الجلسة. **قِيس**: تشغيل ← جملة، نقرُ كلمة، تشغيل ← الكلمة.
+     *
+     * فالوضعُ لا يُكتَب إلّا حيث يختاره المستعمِل صراحةً.
+     */
+    /*
+     * ⚠️ **والحارسُ يقيس المعنى لا العدد.** كتبتُه أوّلًا «لا تزيد
+     *    الكتاباتُ عن أربع» فسقط على خمسٍ كلُّها مشروعة. وعدَدٌ
+     *    سقفُه رأيٌ لا حارس: يسقط على الصواب ويمرّ على الخطأ.
+     *
+     *    والقاعدةُ الحقيقيّة: الوضعُ يُكتَب من **اختيارٍ في يد
+     *    المستعمِل** — متغيّرٍ جاء من زرّ — لا من ثابتٍ مكتوبٍ في
+     *    الكود. فلا `practiceMode: PRACTICE_MODE.WORD` حرفيًّا في
+     *    أيّ موضع؛ وهو بالضبط ما كان في المعالِج المحذوف.
+     */
+    const hardcoded = code.match(/practiceMode:\s*PRACTICE_MODE\.WORD/g) || [];
+    expect(hardcoded).toEqual([]);
+
+    /* ولا يُكتَب داخل معالِج الرقائق. */
+    const chips = code.slice(code.indexOf('function wireChips'));
+    const body = chips.slice(0, chips.indexOf('\n}\n'));
+    expect(body.includes('practiceMode:')).toBe(false);
+  });
+
+  it('⚠️ والتشغيل يُسكِت التسجيلات — مخرجُ صوتٍ واحد', () => {
+    const at = code.indexOf("case 'play'");
+    expect(at > 0).toBe(true);
+    const block = code.slice(at, at + 400);
+    expect(block.includes('stopVoice()')).toBe(true);
+  });
+
+  it('⚠️ والتسجيل يوقف نطقَ الجلسة — في الاتّجاه الآخر أيضًا', () => {
+    const at = code.indexOf('async function playVoice');
+    expect(at > 0).toBe(true);
+    const block = code.slice(at, at + 900);
+    expect(block.includes('player.pause()')).toBe(true);
+  });
+
+  it('⚠️ ومغادرةُ الشاشة توقف التسجيل', () => {
+    const at = code.indexOf('export function disposeShadow');
+    const block = code.slice(at, at + 500);
+    expect(block.includes('stopVoice()')).toBe(true);
+  });
+
+  it('ورسالةُ «مفيش ترجمة» بابٌ لا وصفُ طريق', () => {
+    expect(code.includes('data-sh="tr-on"')).toBe(true);
+    /*
+     * ولا تُحيل إلى «الإعدادات» — ثلاثةُ أماكن في التطبيق بهذا الاسم.
+     * ⚠️ ويُفحَص `code` (بلا تعليقات) لا المصدرُ الخام: أوّلُ تشغيلٍ
+     *    سقط على **شرحي للعيب** الذي يقتبس العبارةَ القديمة. وهو
+     *    نفسُ درسِ حارس السكّة قبله — الحارسُ يقرأ الكود لا النثر.
+     */
+    expect(code.includes('فعّل الترجمة من الإعدادات')).toBe(false);
+  });
+});
+
+describe('التشغيل · الجملة الطويلة لا تدهس ما تحتها', () => {
+  it('⚠️ الحارس: حجمُ الجملة يتبع طولَها', async () => {
+    const view = await (await fetch('/js/views/shadow-view.js')).text();
+    const css = await (await fetch('/css/shadow.css')).text();
+
+    /* الرسمُ يكتب الطول… */
+    expect(view.includes("setProperty('--sh-len'")).toBe(true);
+
+    /*
+     * ⚠️ …ويُقرأ حيث **تُحسَم** القيمة. كتبتُه أوّلًا في قاعدةٍ أدنى
+     *    تخصّصًا فلم يعمل، وبقيت الجملة تحتاج 431px. فالحارسُ يطلبه
+     *    في القاعدتين اللتين تغلبان.
+     */
+    for (const rule of [
+      '.shadow-app.is-rail .sh-current-text',
+      '.shadow-app:not(.is-rail) .sh-current-text',
+    ]) {
+      const at = css.lastIndexOf(rule);
+      expect(at > 0).toBe(true);
+      expect(css.slice(at, at + 160).includes('--sh-len')).toBe(true);
+    }
+  });
+
+  it('⚠️ والرقائق مقيَّدةٌ بحدَّين — سقفٌ وقاع', () => {
+    /* السقفُ يمنعها أن تأكل المسرح، والقاعُ يمنع الهاتفَ أن يسحقها. */
+    return fetch('/css/shadow.css').then(async (r) => {
+      const css = await r.text();
+      const at = css.lastIndexOf('.sh-chips {');
+      const block = css.slice(at, at + 700);
+      expect(block.includes('max-height')).toBe(true);
+      expect(block.includes('min-height')).toBe(true);
+    });
+  });
+});

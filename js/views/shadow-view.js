@@ -35,7 +35,7 @@ import {
   INTERVAL_MIN_MS,
   INTERVAL_MAX_MS,
 } from '../services/shadow/playback-controller.js';
-import { listVoices, loadVoices, RATE_MIN, RATE_MAX } from '../services/shadow/tts-controller.js';
+import { listVoices, loadVoices, RATE_MIN, RATE_MAX, speak as speakOnce } from '../services/shadow/tts-controller.js';
 import {
   completeSession,
   detectSourceChange,
@@ -696,11 +696,41 @@ function wireChips(main) {
     clearTimeout(timer);
     const chip = event.target.closest?.('[data-word]');
     if (!chip || long) return;
+
+    host.querySelectorAll('[data-word]').forEach((n) => n.classList.remove('selected'));
+    chip.classList.add('selected');
+
+    const at = Number(chip.dataset.word);
+
     /*
-     * ⚠️ نقرةٌ تُسمعك الكلمة — **ولا تغيّر الوضع**. تبديلُ ما يُنطَق
-     *    فعلٌ تختاره من `PLAY MODE`، لا أثرٌ جانبيّ لنقرةٍ على كلمة.
+     * ⚠️ **نقرةٌ تُسمعك الكلمة — ولا تغيّر الوضع.** وهذه المرّة صحيحة:
+     *    كان تحتها معالِجٌ ثانٍ يقلب الوضعَ إلى «كلمة» ولا يعيده، فبقي
+     *    التعليقُ وعدًا والسلوكُ عكسَه.
+     *
+     * وفي وضع «كلمة» النقرةُ **تنقّل** داخل الوضع — فهذا هو معناه.
+     * وفي وضع «جملة» تُنطَق الكلمةُ **مرّةً خارج المحرّك**: نداءٌ
+     * مستقلٌّ للناطق لا يمسّ موضعَ الجلسة ولا وضعَها ولا تكرارَها.
+     *
+     * ⚠️ ولو كانت الجلسةُ تنطق الآن **تقف** ثم تُنطَق الكلمة. جرّبتُ
+     *    أوّلًا ألّا أقاطعها — «نقرةٌ فضوليّةٌ لا تقطع تكرارًا أنت في
+     *    وسطه» — فقِستُ النتيجة: النقرةُ **لا تفعل شيئًا** والجملةُ
+     *    ماضية. وزرٌّ لا يفعل شيئًا أسوأُ من زرٍّ يقاطع: أنت طلبتَ
+     *    الكلمةَ صراحةً. والوقوفُ إيقافٌ لا إنهاء — «تشغيل» تستأنف.
      */
-    player.selectWord(Number(chip.dataset.word));
+    if (player.state.settings.practiceMode === PRACTICE_MODE.WORD) {
+      player.selectWord(at);
+      return;
+    }
+
+    if (player.state.running && !player.state.paused) player.pause();
+    const word = splitWords(ctx.segments[player.state.index]?.sourceTextSnapshot || '')[at];
+    if (word) {
+      speakOnce(word.spoken, {
+        rate: ctx.session.speed ?? 1,
+        voiceName: ctx.session.voiceId || null,
+        volume: ctx.volume ?? 1,
+      });
+    }
   };
   host.addEventListener('pointerup', end);
   host.addEventListener('pointercancel', () => clearTimeout(timer));
@@ -1493,6 +1523,15 @@ function syncSegment() {
 
   if (trEl) trEl.textContent = translationFor(segment);
 
+  /*
+   * ⚠️ **حجمُ الخطّ يتبع طولَ الجملة.** الحجمُ الثابت يجعل جملةً من
+   *    سطرين تحتاج 431px في مسرحٍ يعطيها 104 — فتفيض على ما تحتها.
+   *    والدرجاتُ مقيسةٌ لا مُختارة، والشرحُ فوق `.sh-current-text`.
+   */
+  const chars = (segment.sourceTextSnapshot || '').length;
+  const app = document.querySelector('.shadow-app');
+  if (app) app.style.setProperty('--sh-len', chars > 150 ? '.62' : chars > 80 ? '.78' : '1');
+
   const pos = $('[data-pos]');
   if (pos) pos.textContent = index + 1;
   const counter = $('[data-counter]');
@@ -1560,7 +1599,22 @@ async function fetchMissingTranslation(segment) {
 
   const result = await translate(segment.sourceTextSnapshot, ctx.lang);
   if (!result) {
-    if (el) el.textContent = 'مفيش ترجمة محفوظة — فعّل الترجمة من الإعدادات';
+    /*
+     * ⚠️ **الرسالةُ تُشير إلى مكانٍ لا يجده أحد.**
+     *
+     * بلاغُك: «هي فين الإعدادات اللي أشغّل منها الترجمة دي؟». وكانت
+     * تقول «فعّل الترجمة من الإعدادات» — وفي التطبيق **ثلاثةُ أماكن**
+     * تُسمّى إعدادات: شاشةُ الإعدادات، ودرجُ الجلسة، وسكّةُ الأدوات.
+     * والزرُّ في الدرج.
+     *
+     * ورسالةٌ تصف طريقًا أضعفُ من زرٍّ يمشيه: فصارت **الرسالةُ هي
+     * الزرّ**. ولا تُفعّلها بضغطةٍ صامتة — تفتح نفسَ نافذةِ الإقرار
+     * التي تقول إن بياناتك ستخرج من جهازك.
+     */
+    if (el) {
+      el.innerHTML = '<button class="sh-tr-off" data-sh="tr-on">'
+        + 'مفيش ترجمة محفوظة للجملة دي — دوس هنا تفعّل الترجمة أونلاين</button>';
+    }
     return;
   }
 
@@ -2377,6 +2431,14 @@ async function playVoice(mediaId) {
 
   const row = await media.get(mediaId);
   if (!row?.blob) return toastError('التسجيل ده مش موجود');
+
+  /*
+   * ⚠️ **والاتّجاه الآخر من نفس القاعدة**: تسجيلٌ يبدأ يُوقف نطقَ
+   *    الجلسة. مخرجُ صوتٍ واحدٌ في الوقت الواحد — لا اثنان فوق بعض.
+   *    ونوقفه إيقافًا لا إنهاءً: تضغط تشغيل فتُستأنف الجلسةُ من حيث
+   *    كانت، فلا تكلّفك النظرةُ في التسجيلات مكانَك في التدريب.
+   */
+  if (player?.state?.running && !player.state.paused) player.pause();
 
   voice.id = mediaId;
   voice.url = URL.createObjectURL(row.blob);
@@ -3209,15 +3271,29 @@ function wireInteractions(main) {
     const mark = event.target.closest('[data-expr]');
     if (mark) return openAnalysisDrawer(mark.dataset.expr);
 
-    const word = event.target.closest('[data-word]');
-    if (word) {
-      document.querySelectorAll('[data-word]').forEach((n) => n.classList.remove('selected'));
-      word.classList.add('selected');
-      player.updateSettings({ practiceMode: PRACTICE_MODE.WORD });
-      player.selectWord(Number(word.dataset.word));
-      player.start();
-      return;
-    }
+    /*
+     * ⚠️ **نقرةُ الكلمة لها بابٌ واحد: `wireChips`.**
+     *
+     * كان هنا معالِجٌ ثانٍ للشيء نفسه — ويعمل مع الأوّل على نفس
+     * النقرة. وكان يكتب:
+     *
+     *     player.updateSettings({ practiceMode: PRACTICE_MODE.WORD });
+     *
+     * **ولا سطرَ يعيدها إلى الجملة أبدًا.** فبعد أوّل كلمةٍ تلمسها
+     * يصير زرُّ التشغيل ينطق **تلك الكلمة** إلى آخر الجلسة — وهو
+     * بلاغُك: «لما باجي أقرا كلمة معدتش بعرف أشغّل جملة تاني».
+     *
+     * ⚠️ **وقِستُه**: تشغيل ← «Он придёт завтра.» مرّتين. ثم نقرُ
+     *    كلمة ← «придёт». ثم تشغيل ← «придёт» «придёт». الجملةُ لا
+     *    تعود.
+     *
+     * ⚠️ وأسوأُ ما فيه أنني كتبتُ فوق `wireChips` تعليقًا يقول
+     *    «نقرةٌ تُسمعك الكلمة — **ولا تغيّر الوضع**»، وكان هذا
+     *    السطرُ يغيّره من تحتها. تعليقٌ يصف نيّةً لا سلوكًا أسوأُ من
+     *    لا تعليق: يجعلك تصدّق أن الأمر مفحوص.
+     *
+     * والاختيارُ البصريّ انتقل إلى `wireChips` حيث تقع النقرة.
+     */
 
     // كشف الجملة المخفيّة بالنقر عليها
     const text = event.target.closest('[data-text].hidden-mode');
@@ -3242,6 +3318,23 @@ function wireInteractions(main) {
         return showTips();
 
       case 'play': {
+        /*
+         * ⚠️ **مخرجُ صوتٍ واحدٌ في الوقت الواحد.**
+         *
+         * بلاغُك: «دلوقتي بتجي أشغّل الجملة يروح مشغّل الفويسات».
+         * وهو عيبي: صنعتُ مشغّلًا ثانيًا للتسجيلات (WELLS) ولم أخبر
+         * أحدَهما بالآخر. فتضغط تسجيلًا من الورقة، ثم تضغط تشغيل
+         * لتسمع الجملة — فيبقى التسجيلُ شغّالًا فوقها، ويصير ما
+         * تسمعه هو هو لا الجملة.
+         *
+         * ⚠️ **قِستُه**: بعد تشغيل تسجيلٍ ثم ضغط تشغيل الجملة:
+         *    «صوت شغّال: 1» والنطق `[]`.
+         *
+         * والقاعدةُ من هنا: **مَن يبدأ يُسكِت مَن قبله** — في
+         * الاتّجاهين (راجع `playVoice`).
+         */
+        stopVoice();
+
         const active = activePlayer();
         if (active.state.running && !active.state.paused) return active.pause();
         if (active.state.paused) return active.resume();
@@ -3477,6 +3570,14 @@ function wireInteractions(main) {
         const select = $('[data-sh="voice-select"]');
         select.hidden = false;
         select.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        return;
+      }
+
+      /* الرسالةُ نفسُها بابٌ — راجع `fetchMissingTranslation`. */
+      case 'tr-on': {
+        await openPanel('online-tr');
+        /* فإن فُعِّلت، تُجلَب ترجمةُ الجملة التي أنت عليها فورًا. */
+        if (await trEnabled()) await fetchMissingTranslation(ctx.segments[player.state.index]);
         return;
       }
 
