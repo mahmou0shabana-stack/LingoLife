@@ -576,9 +576,30 @@ function originPanel(source) {
 }
 
 /** صورة غلاف المشهد — الصفحة اليسرى تعرض الذكرى لا النصّ وحده. */
-async function coverImage(sceneId) {
-  if (!sceneId) return null;
+async function coverImage(sceneId, session) {
   try {
+    /*
+     * ═══════════════════════════════════════════════════════════
+     * ⚠️ **صورةُ الجلسة أوّلًا — لا غلافُ الذكرى.**
+     * ═══════════════════════════════════════════════════════════
+     *
+     * بلاغُك: «الصورة اللي اخترتها أتدرّب عليها المفروض تتعرض في
+     * التابة الرئيسيّة».
+     *
+     * وكانت الورقةُ تعرض **غلافَ الذكرى** دائمًا. فتفتح صورةً من
+     * خمسٍ وتضغط «استخرج النصّ واتدرّب» — فتُبنى جلسةٌ مصدرُها تلك
+     * الصورة بعينها، **وتعرض الورقةُ صورةً أخرى**. أي أنك تتدرّب على
+     * نصّ صورةٍ وأمامك غيرُها.
+     *
+     * فالأولويّة: صورةُ **مصدر هذه الجلسة** إن كان مصدرُها صورة، ثم
+     * غلافُ الذكرى، ثم أوّلُ صورةٍ فيها.
+     */
+    if (session?.sourceType === SOURCE_TYPE.MEDIA_TEXT && session.sourceId) {
+      const own = await media.get(session.sourceId);
+      if (own && (own.mime || '').startsWith('image')) return urlFor(own, { thumb: false });
+    }
+
+    if (!sceneId) return null;
     const links = await sceneMediaLinks.byIndex('sceneId', sceneId);
     const cover = links.find((l) => l.roles?.includes('cover')) || links[0];
     if (!cover) return null;
@@ -623,7 +644,7 @@ export async function renderShadow(main, sessionId) {
   const [current, scene, cover, voices, source] = await Promise.all([
     readCurrentSource(session),
     session.sceneId ? scenes.get(session.sceneId) : null,
-    coverImage(session.sceneId),
+    coverImage(session.sceneId, session),
     listVoices(),
     resolveSource(session, segments),
   ]);

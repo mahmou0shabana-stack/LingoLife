@@ -3532,3 +3532,19 @@ body.tr-focused .tr-text { font-size: var(--fs-md); line-height: 2.15; }
 @media (prefers-reduced-motion: reduce) {
   .is-revealed { animation-duration: 0.01ms; box-shadow: 0 0 0 3px var(--accent); }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   عارض الصور: زرُّ الإغلاق فوق الصورة دائمًا
+
+   ⚠️ الصورةُ المكبَّرة تخرج أطرافُها فوق الزرّ، فتضغط X فتقع على
+      الصورة فتُكبَّر أكثر. وهو ما يجعل الإغلاق يحتاج ضغطاتٍ عدّة.
+      فالزرُّ على طبقةٍ فوقها، وله خلفيّةٌ تفصله عمّا تحته.
+   ══════════════════════════════════════════════════════════════ */
+.lightbox-close {
+  z-index: 4;
+  background: rgba(12, 14, 22, .72);
+  backdrop-filter: blur(6px);
+  border-radius: 50%;
+}
+.lb-stage { z-index: 1; }
+.lb-nav, .lightbox-bar, .lb-caption { z-index: 3; }

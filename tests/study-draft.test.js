@@ -616,3 +616,63 @@ describe('الإعدادات · كل زرّ له معالِجٌ واحد', () =>
     expect(lbCode.includes('refreshSceneIfShowing')).toBe(true);
   });
 });
+
+/* ================================================================== *
+ * عارضُ الصور — الضغطةُ والفراغُ والالتقاط (WS30)
+ * ================================================================== */
+
+describe('العارض · الفراغُ يُغلِق والصورةُ تُكبّر', () => {
+  let code = '';
+
+  it('⚠️ الحارس: «هل هو على الصورة؟» بالموضع لا بـ`event.target`', async () => {
+    code = codeOnly(await (await fetch('/js/components/lightbox.js')).text());
+
+    /*
+     * `pointerdown` ينادي `setPointerCapture` على المسرح، فيصير
+     * `event.target` هو المسرحَ في كلّ حدثٍ بعده — ولو كان إصبعُك
+     * في منتصف الصورة. **قِستُه**: بـ`event.target === img` صارت
+     * الضغطةُ على الصورة **تُغلِق العارض**، عكسَ المقصود.
+     */
+    const at = code.indexOf('const onImage');
+    expect(at > 0).toBe(true);
+    /* ⚠️ والقياسُ يسبق الاسم: `const r = img.getBoundingClientRect()`
+       فوقه بسطر. حارسٌ يقرأ إلى الأمام وحده يفوته ما بُني له. */
+    const block = code.slice(at - 120, at + 200);
+    expect(block.includes('getBoundingClientRect')).toBe(true);
+    expect(block.includes('event.target')).toBe(false);
+  });
+
+  it('⚠️ وحدُّ «الضغطة» أوسعُ من حدِّ «السحب» — وهما سؤالان', () => {
+    /*
+     * كان الشرطُ `!moved` و`moved` تصير صادقةً بعد ٦px — وكلُّ إصبعٍ
+     * على لوحٍ ينزلق أكثر. فالضغطةُ التي تنزلق سبعةً لا تُغلِق ولا
+     * تُكبّر ولا تنقل: **لا تفعل شيئًا**.
+     */
+    expect(code.includes('const isTap')).toBe(true);
+    const at = code.indexOf('const isTap');
+    const line = code.slice(at, at + 90);
+    /* الحدُّ مقيسٌ لا مُختار: ١٦px تسع انزلاقَ إصبعٍ ولا تسع سحبة. */
+    expect(/16/.test(line)).toBe(true);
+  });
+
+  it('⚠️ وسحبةُ التصفّح أفقيّةٌ صراحةً — لا مجرّد بعيدة', () => {
+    const at = code.indexOf('show(dx > 0');
+    expect(at > 0).toBe(true);
+    /* الشرطُ قبلها يقارن الأفقيَّ بالرأسيّ، وإلّا قلبت سحبةٌ مائلة. */
+    const before = code.slice(Math.max(0, at - 220), at);
+    expect(before.includes('Math.abs(dy)')).toBe(true);
+  });
+
+  it('⚠️ وصورةُ الجلسة تُعرَض — لا غلافُ الذكرى دائمًا', async () => {
+    const view = codeOnly(await (await fetch('/js/views/shadow-view.js')).text());
+    const at = view.indexOf('async function coverImage');
+    const block = view.slice(at, at + 700);
+    /*
+     * تفتح صورةً من خمسٍ وتتدرّب على نصّها، فتُبنى جلسةٌ مصدرُها تلك
+     * الصورة — وكانت الورقةُ تعرض غيرَها. أي: تتدرّب على نصّ صورةٍ
+     * وأمامك أخرى.
+     */
+    expect(block.includes('SOURCE_TYPE.MEDIA_TEXT')).toBe(true);
+    expect(block.includes('session.sourceId')).toBe(true);
+  });
+});
