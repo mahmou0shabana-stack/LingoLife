@@ -4007,3 +4007,56 @@ body.shadow-open { overflow: hidden; }
   .sh-scrim { bottom: 150px; }
   .sh-transport, .sh-modes { z-index: 12; }
 }
+
+/* ══════════════════════════════════════════════════════════════
+   أوجهُ المصدر الواحد (WS33)
+
+   > «الصورة لو مرتبطة بسكريبت أو صوت أقدر أقلّب بينهم في المصدر،
+   >  لأن التلاتة بيمثّلوا سكريبت واحد.»
+
+   ⚠️ **مبدِّلٌ لا أشرطة.** أشرطةُ المنابع فوق تقول «إيه اللي في
+      الذكرى»؛ وهذا يقول «إيه اللي أنا باصص عليه من **نفس** المصدر».
+      فشكلُه أصغر وأخفت — تمييزٌ بصريٌّ لفرقٍ في المعنى.
+
+   ⚠️ **ولا يظهر إن كان للمصدر وجهٌ واحد** — مبدِّلٌ بخيارٍ واحدٍ
+      يسأل سؤالًا لا جواب له.
+   ══════════════════════════════════════════════════════════════ */
+
+.sh-faces {
+  display: flex; gap: 3px; margin: 0 0 8px;
+  inline-size: fit-content;
+}
+.sh-faces button {
+  min-height: 44px; padding: 0 13px; cursor: pointer;
+  font-family: var(--sh-mono); font-size: 9.5px; letter-spacing: .14em;
+  border: 1px solid rgba(101, 80, 48, .18); border-radius: 3px;
+  background: transparent; color: rgba(90, 72, 44, .55);
+  transition: all .22s ease;
+}
+.sh-faces button.on {
+  border-color: rgba(122, 95, 44, .45);
+  background: rgba(122, 95, 44, .12);
+  color: rgba(60, 46, 22, .95);
+}
+
+.sh-face-body { overflow-y: auto; max-block-size: 100%; }
+
+.sh-face-img {
+  display: flex; justify-content: center;
+  max-block-size: 300px; overflow: hidden; border-radius: 4px;
+  background: rgba(101, 80, 48, .06);
+}
+.sh-face-img img { max-inline-size: 100%; max-block-size: 300px; object-fit: contain; }
+
+.sh-face-open {
+  display: block; inline-size: 100%; min-height: 44px; margin-top: 6px;
+  cursor: pointer; font-family: var(--sh-mono); font-size: 9.5px;
+  letter-spacing: .14em; border-radius: 3px;
+  border: 1px solid rgba(101, 80, 48, .2);
+  background: transparent; color: rgba(90, 72, 44, .6);
+}
+
+.sh-face-note {
+  margin: 8px 2px 0; font-size: 11px; line-height: 1.7;
+  color: rgba(90, 72, 44, .55);
+}

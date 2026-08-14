@@ -342,6 +342,13 @@ async function readCurrentSource(session) {
  * ------------------------------------------------------------------ */
 
 /** التسمية الصادقة: ثلاثة مصادر متمايزة، ولا يُسمَّى المُصنَّع بشريًّا. */
+/** اسمٌ قصيرٌ يسع زرَّ لوحةٍ عرضُه 260px. */
+const AUDIO_SHORT = Object.freeze({
+  [AUDIO_SOURCE.TTS]: 'آليّ',
+  [AUDIO_SOURCE.MINE]: 'تسجيلي',
+  [AUDIO_SOURCE.NATIVE]: 'أصليّ',
+});
+
 const AUDIO_LABEL = Object.freeze({
   [AUDIO_SOURCE.TTS]: '🤖 آلي (TTS)',
   [AUDIO_SOURCE.MINE]: '🎙 تسجيلي',
@@ -725,7 +732,14 @@ export async function renderShadow(main, sessionId) {
     cover,
     voices,
     source,
-    display: session.displayMode || DISPLAY.RU,
+    /*
+     * ⚠️ **والافتراضُ «مصري» لا «روسي فقط».** لمّا صار «روسي فقط»
+     *    يُخفي الترجمةَ فعلًا — كما يقول اسمُه — صارت الجلسةُ الجديدة
+     *    تفتح بلا ترجمة، وهو عكسُ ما كان يراه المستعمِل. فالتصحيحُ
+     *    الصادقُ للمعنى يلزمه تصحيحُ الافتراض معه، وإلّا بدا كأنه
+     *    عطلٌ جديد.
+     */
+    display: session.displayMode || DISPLAY.EGY,
     volume: session.volume ?? 1,
     lang: session.translationLang || 'ams',
     font: session.fontId || 'philosopher',
@@ -799,6 +813,8 @@ export async function renderShadow(main, sessionId) {
   /* ارتفاعُ المستند المحفوظ، ثم السكّة في وضعها الابتدائي. */
   applyDoc(Number(await settings.get(DOC_KEY, 250)) || 0);
   await applySky();
+  await readFaces(ctx.session);
+  renderFaces();
   await renderWells();
   renderModes();
   renderRail();
@@ -998,6 +1014,12 @@ function shell() {
               <div class="sh-well-tabs" data-well-tabs></div>
 
               <div class="sh-doc" data-doc>
+                <!--
+                  مبدّلُ أوجه المصدر الواحد (WS33) — الشرحُ فوق FACES.
+                  لا يظهر إن كان للمصدر وجهٌ واحد.
+                -->
+                <div class="sh-faces" data-faces hidden></div>
+                <div class="sh-face-body" data-face-body hidden></div>
                 <div class="sh-well-body" data-well-body hidden></div>
               <!--
                 ⚠️ **والصورةُ أوّلًا حين توجد.** كانت آخرَ ما في الورقة:
@@ -1747,6 +1769,20 @@ function syncSegment() {
  *    المصري يقرّب الترجمة العربية من لهجتك بلا اختراع نصّ جديد.
  */
 function translationFor(segment) {
+  /*
+   * ⚠️ **«روسي فقط» لم تكن تُخفي شيئًا.**
+   *
+   * الأوضاعُ الثلاثة تصف **ما تراه**: `ru` روسيٌّ بلا ترجمة، و`egy`
+   * الاثنان، و`hidden` ترجمةٌ والروسيُّ مضبَّب لتستنتجه. وكانت هذه
+   * الدالّة تقرأ `ctx.lang` (مصريّ/فصيح) ولا تقرأ `ctx.display`
+   * إطلاقًا — فالترجمةُ تظهر في الأوضاع الثلاثة.
+   *
+   * ⚠️ **قِستُه**: بعد اختيار «روسي فقط» تبقى «هو هييجي بكرة» تحت
+   *    الجملة. أي أن الزرَّ يستجيب ولا يفعل — وهو ما يجعلك تشكّ في
+   *    الترجمة كلِّها.
+   */
+  if (ctx.display === DISPLAY.RU) return '';
+
   const stored = segment.translationSnapshot;
   if (!stored) return '';
   return ctx.lang === 'ams' ? toEgyptian(stored) : stored;
@@ -2031,7 +2067,7 @@ const TOOLS = [
   { id: 'speed', glyph: '▹', label: 'السرعة', value: () => `${ctx.session?.speed ?? 1}x` },
   { id: 'repeat', glyph: '↻', label: 'التكرار', value: () => `×${ctx.session?.repeatCount ?? 1}` },
   { id: 'voice', glyph: '◈', label: 'الصوت',
-    value: () => (ctx.audioSource === AUDIO_SOURCE.NATIVE ? 'أصليّ' : 'آليّ') },
+    value: () => AUDIO_SHORT[ctx.audioSource] || 'آليّ' },
   { id: 'mode', glyph: '⊞', label: 'PLAY MODE',
     value: () => MODE_SHORT[player?.state?.settings?.practiceMode] || 'جملة' },
   { id: 'draft', glyph: '✎', label: 'مسودّة مذاكرة' },
@@ -2136,10 +2172,26 @@ function panelFor(id) {
   if (id === 'voice') {
     return {
       title: 'الصوت',
-      foot: 'أصواتُ جهازك — لا شيء يُحمَّل',
+      foot: ctx.humanAudioUrl ? 'تسجيلُك مربوطٌ بهذا المصدر' : 'أصواتُ جهازك — لا شيء يُحمَّل',
+      /*
+       * ⚠️ **تُرسَم من السجلّ لا بأسمائها.**
+       *
+       * كنتُ أكتب خيارين بيدي: `آليّ` و`أصليّ`. و`audioChoices()` —
+       * وهي المرجع — تعرف **ثلاثة**، وتضيف «تسجيلي» حين يكون هناك
+       * تسجيلٌ مربوطٌ بالمصدر. فكان التسجيلُ البشريُّ يُقرأ من
+       * القاعدة، ويُحسَب في `humanAudioUrl`، ويصله المحرّكُ — **ولا
+       * زرَّ يختاره**. بلاغُك: «الصوت البشري مش شغّال».
+       *
+       * ⚠️ **قِستُه**: تسجيلٌ مربوطٌ بـ`audio:script` وبلوبه موجود،
+       *    ولوحةُ الصوت تعرض `["tts","native"]` فقط.
+       *
+       * وهذا ثالثُ عطلٍ في هذه السلسلة من نفس النوع: **قائمةٌ
+       * مكتوبةٌ بيدٍ بجانب سجلٍّ يعرف أكثر منها.** فالقاعدة: مَن له
+       * سجلٌّ يُرسَم منه.
+       */
       groups: [{ title: 'المصدر', items:
-        `${pick('audio-src', AUDIO_SOURCE.TTS, 'آليّ', ctx.audioSource === AUDIO_SOURCE.TTS)}
-         ${pick('audio-src', AUDIO_SOURCE.NATIVE, 'أصليّ', ctx.audioSource === AUDIO_SOURCE.NATIVE)}` }],
+        audioChoices().map((id) =>
+          pick('audio-src', id, AUDIO_SHORT[id] || id, ctx.audioSource === id)).join('') }],
       after: `<div class="sh-pgroup"><span>صوت الجهاز</span>${voiceOptions(ctx.voices, s.voiceURI)}</div>`,
     };
   }
@@ -2205,6 +2257,35 @@ function panelFor(id) {
     };
   }
   return { title: 'الأدوات', foot: '', groups: [] };
+}
+
+/**
+ * يضبط مصدرَ الصوت: الشاشةُ والمحرّكُ والقاعدة معًا.
+ *
+ * ⚠️ **والموافقةُ قبل «الأصليّ»** — لا نُفعّل ما لم يُوافَق عليه.
+ */
+async function setAudioSource(next) {
+  if (!audioChoices().includes(next)) return undefined;
+
+  if (next === AUDIO_SOURCE.NATIVE && !ctx.nativeConsent.enabled) {
+    const granted = await askNativeConsent();
+    if (!granted) return undefined;
+  }
+
+  ctx.audioSource = next;
+  player.updateSettings({ audioSource: next });
+
+  document.querySelectorAll('[data-sh="audio-source"]').forEach((node) => {
+    node.classList.toggle('on', next !== AUDIO_SOURCE.TTS);
+    node.textContent = AUDIO_LABEL[next];
+  });
+
+  toastOk(next === AUDIO_SOURCE.MINE ? 'هيشغّل تسجيلك'
+    : next === AUDIO_SOURCE.NATIVE ? 'للكلمات المفردة بس — الجملة هتفضل آلية'
+    : 'هينطق آليًا');
+
+  renderRail();
+  return saveSessionSettings(ctx.session.id, { audioSource: next }).catch(() => {});
 }
 
 /** نصُّ الكلمة المختارة — أو فراغ. */
@@ -2794,12 +2875,146 @@ async function renderWells() {
   if (well === 'source' || !WELLS[well] || !counts[well]?.length) {
     body.innerHTML = '';
     body.hidden = true;
-    $('[data-doc-source]')?.removeAttribute('hidden');
+    /*
+     * ⚠️ **والرجوعُ إلى «المصدر» يعيد الوجهَ الذي اخترتَه** — لا
+     *    النصَّ دائمًا. اخترتَ الصورةَ ثم نظرتَ في السكريبتات ثم
+     *    عدتَ، فتجد الصورة كما تركتها.
+     */
+    $('[data-faces]')?.removeAttribute('hidden');
+    renderFaces();
     return;
   }
+  /* منبعٌ آخر يملأ اللوح: الوجوهُ تختفي معًا. */
   $('[data-doc-source]')?.setAttribute('hidden', '');
+  $('[data-face-body]')?.setAttribute('hidden', '');
+  $('[data-faces]')?.setAttribute('hidden', '');
   body.hidden = false;
   body.innerHTML = WELLS[well].draw(counts[well]);
+}
+
+/* ================================================================== */
+/* أوجهُ المصدر الواحد — نصٌّ وصورةٌ وصوت (WS33)                        */
+/* ================================================================== */
+
+/**
+ * ⚠️ **طلبُك**: «تابة المصدر — الصورة لو مرتبطة بسكريبت أو صوت أقدر
+ *    أقلّب بينهم، لأن التلاتة بيمثّلوا سكريبت واحد. افرض أنا عايز
+ *    أعرض الصورة أو النصّ أو أسمع الفويس».
+ *
+ * وهو تمييزٌ دقيق. أشرطةُ المنابع (`WELLS`) تعرض **كلَّ ما في
+ * الذكرى**: كلَّ الصور وكلَّ السكريبتات. وهذا شيءٌ آخر: **هذا
+ * المصدرُ بعينه** — الورقةُ التي تتدرّب عليها — له وجوهٌ ثلاثة
+ * مربوطةٌ ببعضها في `relationships`:
+ *
+ *     الصورة  ──image:script──▶  السكريبت  ◀──audio:script──  التسجيل
+ *
+ * فليست ثلاثةَ أشياء، بل **شيءٌ واحدٌ بثلاث واجهات**. والتقليبُ
+ * بينها ليس تصفّحًا بل اختيارُ ما تنظر إليه وأنت تتدرّب على نفس
+ * الجمل.
+ *
+ * ⚠️ **وهذا يحلّ بلاغَك الثاني أيضًا**: «استخراج النصّ من الصورة
+ *    ساعات بيبقى غبي بيسحب كلّ حاجة، فأحسن أستخرج النصّ من
+ *    السكريبت لكن أقراه من الصورة». وهو ما يصير ممكنًا هنا بلا
+ *    ميزةٍ جديدة: الجلسةُ مبنيّةٌ من **السكريبت** (نصٌّ نظيف
+ *    كتبتَه)، والوجهُ المعروض **الصورة**. النصُّ من هنا والنظرُ من
+ *    هناك.
+ *
+ * ⚠️ **ولا وجهَ بلا شيءٍ خلفه**: وجهٌ لا رابطَ له لا يُعرَض زرُّه.
+ */
+const FACES = {
+  text: {
+    label: 'نصّ',
+    /* المصدرُ الأصليّ كما هو — لوحةُ `sh-sheet` بحالها. */
+    has: () => true,
+    show: () => {
+      $('[data-doc-source]')?.removeAttribute('hidden');
+      $('[data-face-body]')?.setAttribute('hidden', '');
+    },
+  },
+
+  image: {
+    label: 'صورة',
+    has: () => Boolean(faceLinks.image),
+    show: () => {
+      const host = $('[data-face-body]');
+      if (!host) return;
+      $('[data-doc-source]')?.setAttribute('hidden', '');
+      host.hidden = false;
+      host.innerHTML = `
+        <div class="sh-face-img">
+          <img src="${urlFor(faceLinks.image, { thumb: false })}" alt="صورة المصدر" />
+        </div>
+        <button class="sh-face-open" data-sh="face-open" data-v="${faceLinks.image.id}">
+          كبّرها
+        </button>`;
+    },
+  },
+
+  audio: {
+    label: 'صوت',
+    has: () => Boolean(faceLinks.audio),
+    show: () => {
+      const host = $('[data-face-body]');
+      if (!host) return;
+      $('[data-doc-source]')?.setAttribute('hidden', '');
+      host.hidden = false;
+      const row = faceLinks.audio;
+      host.innerHTML = `
+        <div class="sh-well-row" data-voice-row="${row.id}">
+          <button data-sh="well-play" data-v="${row.id}" aria-label="شغّل">▶</button>
+          <span>${esc(row.caption || row.filename || 'تسجيل المصدر')}</span>
+        </div>
+        <p class="sh-face-note">ده التسجيل المربوط بالمصدر ده — وتقدر تخلّيه
+          صوت التدريب من «الصوت ← تسجيلي».</p>`;
+    },
+  },
+};
+
+/** روابطُ هذا المصدر — تُقرأ مرّةً عند الإقلاع. */
+let faceLinks = { image: null, audio: null };
+let face = 'text';
+
+/**
+ * يقرأ وجوهَ المصدر من `relationships`.
+ *
+ * ⚠️ **والاتّجاهان معًا**: `resolveLinks` تُرجع ما رُبط من الطرفين،
+ *    فسواءٌ ربطتَ الصورةَ بالسكريبت أو السكريبتَ بالصورة يُوجَد.
+ */
+async function readFaces(session) {
+  faceLinks = { image: null, audio: null };
+  if (!session?.sourceId) return;
+
+  try {
+    const [audio, image] = await Promise.all([
+      resolveLinks(session.sourceId, LINK.AUDIO_SCRIPT),
+      resolveLinks(session.sourceId, LINK.IMAGE_SCRIPT),
+    ]);
+    faceLinks.audio = audio.map((l) => l.entity).find((e) => e?.blob && e.kind === 'audio') || null;
+    faceLinks.image = image.map((l) => l.entity)
+      .find((e) => e?.blob && (e.mime || '').startsWith('image')) || null;
+  } catch {
+    /* غيابُ رابطٍ ليس عطلًا — الوجهُ لا يظهر فحسب. */
+  }
+}
+
+/** يرسم مبدِّلَ الأوجه — ولا يظهر أصلًا إن كان للمصدر وجهٌ واحد. */
+function renderFaces() {
+  const host = $('[data-faces]');
+  if (!host) return;
+
+  const live = Object.entries(FACES).filter(([, f]) => f.has());
+  if (live.length < 2) {
+    host.innerHTML = '';
+    host.hidden = true;
+    FACES.text.show();
+    return;
+  }
+
+  host.hidden = false;
+  if (!FACES[face]?.has()) face = 'text';
+  host.innerHTML = live.map(([id, f]) =>
+    `<button data-sh="face" data-v="${id}" class="${face === id ? 'on' : ''}">${f.label}</button>`).join('');
+  FACES[face].show();
 }
 
 /** يقفز إلى جملةٍ بعينها — من شرطةٍ أو من سطرٍ في الورقة. */
@@ -3772,10 +3987,29 @@ function wireInteractions(main) {
         return renderRail();
       }
 
+      /*
+       * ⚠️ **وكانت تُغيّر متغيّرًا ولا تُخبر المحرّك ولا تحفظ.**
+       *
+       * `ctx.audioSource = …` وحدها. والمحرّكُ يقرأ من `config` لا من
+       * `ctx`، والقاعدةُ لا تعرف شيئًا. فحتى لو وُجد الزرُّ لم يكن
+       * ليفعل شيئًا: الصوتُ يبقى آليًّا، والاختيارُ يضيع بإغلاق
+       * الجلسة. عطلان في سطرٍ واحد.
+       *
+       * فصارت تمرّ من `setAudioSource` نفسِها التي يمرّ منها زرُّ
+       * الدورة في الدرج — بابٌ واحدٌ يفعل الثلاثة.
+       */
       case 'audio-src':
-        ctx.audioSource = btn.dataset.v;
-        toastOk('اتغيّر مصدر الصوت');
-        return renderRail();
+        return setAudioSource(btn.dataset.v);
+
+      /* وجهُ المصدر: نصٌّ أو صورةٌ أو صوت — الشرحُ فوق FACES. */
+      case 'face':
+        releaseAudio();
+        face = btn.dataset.v;
+        renderFaces();
+        return undefined;
+
+      case 'face-open':
+        return openLightbox(btn.dataset.v, ctx.scene?.id);
 
       case 'well':
         /*
@@ -4070,27 +4304,10 @@ function wireInteractions(main) {
        * يتغيّر شيء — لا نُفعّل ما لم يُوافَق عليه ثم «نتذكّر» لاحقًا.
        */
       case 'audio-source': {
+        /* دورةٌ من ثلاثة (بند 22): آلي → تسجيلي (إن وُجد) → ناطق أصلي. */
         const choices = audioChoices();
         const next = choices[(choices.indexOf(ctx.audioSource) + 1) % choices.length];
-
-        if (next === AUDIO_SOURCE.NATIVE && !ctx.nativeConsent.enabled) {
-          const granted = await askNativeConsent();
-          if (!granted) return;
-        }
-
-        ctx.audioSource = next;
-        player.updateSettings({ audioSource: next });
-        btn.classList.toggle('on', next !== AUDIO_SOURCE.TTS);
-        btn.textContent = AUDIO_LABEL[next];
-
-        if (next === AUDIO_SOURCE.NATIVE) {
-          // نقولها قبل أن يضغط تشغيل، لا بعد أن يسمع صوتًا آليًّا
-          // ويظنّه ناطقًا أصليًّا.
-          toast('للكلمات المفردة بس — الجملة هتفضل آلية');
-        } else {
-          toast(next === AUDIO_SOURCE.MINE ? 'هيشغّل تسجيلك' : 'هينطق آليًا');
-        }
-        return saveSessionSettings(ctx.session.id, { audioSource: next });
+        return setAudioSource(next);
       }
 
       case 'my-role': {

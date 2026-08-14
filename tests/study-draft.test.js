@@ -805,3 +805,77 @@ describe('الظلّ · مستمعٌ واحدٌ لكلّ فتحة', () => {
     expect(code.slice(at, end).includes('wires?.abort()')).toBe(true);
   });
 });
+
+/* ================================================================== *
+ * أوجهُ المصدر · والصوتُ البشريّ · والترجمة (WS33)
+ * ================================================================== */
+
+describe('المصدر · وجهٌ واحدٌ بثلاث واجهات', () => {
+  let code = '';
+
+  it('⚠️ الحارس: الأوجهُ سجلٌّ، وكلُّ وجهٍ يقول متى يوجد', async () => {
+    code = codeOnly(await (await fetch('/js/views/shadow-view.js')).text());
+
+    const at = code.indexOf('const FACES = {');
+    expect(at > 0).toBe(true);
+    const block = code.slice(at, code.indexOf('\n};', at));
+
+    const ids = [...block.matchAll(/^  (\w+): \{/gm)].map((h) => h[1]);
+    expect(ids).toEqual(['text', 'image', 'audio']);
+    /* ⚠️ ولا وجهَ بلا `has` — وجهٌ يُعرَض بلا شيءٍ خلفه وعدٌ كاذب. */
+    expect((block.match(/has:/g) || []).length).toBe(3);
+    expect((block.match(/show:/g) || []).length).toBe(3);
+  });
+
+  it('⚠️ والوجوهُ تُقرأ من العلاقات لا من حقلٍ في الجلسة', () => {
+    const at = code.indexOf('async function readFaces');
+    const block = code.slice(at, code.indexOf('\n}', at));
+    /* الصورةُ والصوتُ مربوطان بالسكريبت — والثلاثةُ شيءٌ واحد. */
+    expect(block.includes('LINK.AUDIO_SCRIPT')).toBe(true);
+    expect(block.includes('LINK.IMAGE_SCRIPT')).toBe(true);
+  });
+
+  it('⚠️ ومبدِّلٌ بخيارٍ واحدٍ لا يُعرَض', () => {
+    const at = code.indexOf('function renderFaces');
+    const block = code.slice(at, code.indexOf('\n}', at));
+    expect(block.includes('live.length < 2')).toBe(true);
+  });
+});
+
+describe('الصوت · المصادر تُرسَم من سجلّها', () => {
+  let code = '';
+
+  it('⚠️ الحارس: لوحةُ الصوت تُرسَم من `audioChoices` لا بأسماءٍ مكتوبة', async () => {
+    code = codeOnly(await (await fetch('/js/views/shadow-view.js')).text());
+    const at = code.indexOf("id === 'voice'");
+    const block = code.slice(at, at + 620);
+
+    /*
+     * ⚠️ كنتُ أكتب خيارين بيدي و`audioChoices` تعرف ثلاثة. فكان
+     *    التسجيلُ البشريُّ يُقرأ من القاعدة ويصل المحرّكَ — **ولا
+     *    زرَّ يختاره**. «الصوت البشري مش شغّال».
+     */
+    expect(block.includes('audioChoices()')).toBe(true);
+    expect(block.includes('AUDIO_SOURCE.NATIVE,')).toBe(false);
+  });
+
+  it('⚠️ وتغييرُ المصدر يُخبر المحرّكَ ويحفظ — لا يغيّر متغيّرًا وحده', () => {
+    const at = code.indexOf('async function setAudioSource');
+    expect(at > 0).toBe(true);
+    const block = code.slice(at, code.indexOf('\n}', at));
+    expect(block.includes('player.updateSettings')).toBe(true);
+    expect(block.includes('saveSessionSettings')).toBe(true);
+
+    /* والبابان يمرّان منها — لا يفترقان بعد شهر. */
+    const panel = code.indexOf("case 'audio-src'");
+    expect(code.slice(panel, panel + 120).includes('setAudioSource')).toBe(true);
+    const cycle = code.indexOf("case 'audio-source'");
+    expect(code.slice(cycle, cycle + 320).includes('setAudioSource')).toBe(true);
+  });
+
+  it('⚠️ و«روسي فقط» يُخفي الترجمة فعلًا — الاسمُ يصف السلوك', () => {
+    const at = code.indexOf('function translationFor');
+    const block = code.slice(at, code.indexOf('\n}', at));
+    expect(block.includes('DISPLAY.RU')).toBe(true);
+  });
+});
