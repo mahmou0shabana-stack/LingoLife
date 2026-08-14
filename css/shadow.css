@@ -2615,9 +2615,19 @@ body.shadow-open { overflow: hidden; }
   border: 1px solid transparent; background: none;
   font: inherit; transition: background .35s ease, border-color .35s ease;
 }
+/*
+ * ⚠️ **بلاغُك: «خلّي الكلمات المقسّمة مش باهتة، تكون واضحة».**
+ *
+ * كانت 38% — أي كلمةٌ تكاد لا تُقرأ. والقصدُ كان أن تبرز الكلمةُ
+ * المنطوقةُ وحدها، فأخفتُّ الباقيَ لتبرز. وهو **ترتيبٌ مقلوب**: النصُّ
+ * الذي تتدرّب عليه لا يُخفَّت ليُبرز غيرَه — بل يكون واضحًا كلُّه،
+ * والمنطوقةُ تزيد عليه لا تنقص منه غيرها.
+ *
+ * فصار الأساسُ مقروءًا (82%)، والتمييزُ بالإطار والوهج لا بالإخفات.
+ */
 .sh-chip-w {
   font-size: 17px; line-height: 1; text-align: center; white-space: nowrap;
-  direction: ltr; color: rgba(239, 231, 216, .38); transition: color .35s ease;
+  direction: ltr; color: rgba(239, 231, 216, .82); transition: color .35s ease;
 }
 .sh-chip-bar {
   height: 2px; border-radius: 1px; overflow: hidden;
@@ -2627,7 +2637,7 @@ body.shadow-open { overflow: hidden; }
   display: block; height: 100%; width: 0;
   background: rgba(217, 182, 114, .32); transition: width .4s ease;
 }
-.sh-chip.past .sh-chip-w { color: rgba(239, 231, 216, .6); }
+.sh-chip.past .sh-chip-w { color: rgba(239, 231, 216, .95); }
 .sh-chip.past .sh-chip-bar i { width: 100%; }
 .sh-chip.speaking {
   border-color: rgba(217, 182, 114, .5); background: rgba(217, 182, 114, .09);
@@ -4074,4 +4084,19 @@ body.shadow-open { overflow: hidden; }
 .sh-face-note {
   margin: 8px 2px 0; font-size: 11px; line-height: 1.7;
   color: rgba(90, 72, 44, .55);
+}
+
+/*
+ * شريطُ التسجيل — نفسُ شريطِ الجلسة، وفوقه قليلًا كي لا يركبا بعضهما
+ * حين يكون في الشاشة شريطان (جلسةٌ مُبقاةٌ وتسجيلٌ شغّال).
+ */
+.sh-vbar {
+  inset-block-end: calc(var(--nav-h) + 64px + env(safe-area-inset-bottom, 0px));
+  border-color: rgba(140, 190, 240, .42);
+}
+.sh-vbar .shf-pulse { background: #8cbef0; }
+.sh-floating.is-quiet .shf-pulse { animation: none; opacity: .35; }
+
+@media (min-width: 1024px) {
+  .sh-vbar { inset-inline-start: calc(var(--sidebar-w) + 16px); }
 }

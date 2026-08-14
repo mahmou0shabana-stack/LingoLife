@@ -422,21 +422,59 @@ describe('التشغيل · لا بابين لفعلٍ واحد', () => {
     expect(audios).toBe(1);
   });
 
-  it('⚠️ وكلُّ بابٍ يُخفي زرَّ الصوت يُسكته قبل أن يُخفيه', () => {
-    /* تبويبُ المنبع يمحو زرَّ «■»، وتبديلُ الوضع يعيد رسم المسرح. */
-    for (const kase of ["case 'well':", "case 'mode-go':"]) {
-      const at = code.indexOf(kase);
-      expect(at > 0).toBe(true);
-      expect(code.slice(at, at + 260).includes('releaseAudio(')).toBe(true);
-    }
+  it('⚠️ وكلُّ بابٍ يُخفي زرَّ الصوت يُعطيه مقبضًا بديلًا', () => {
+    /*
+     * ⚠️ **القاعدةُ تبدّلت ببلاغك، ولم تُلغَ** (WS35).
+     *
+     * كانت: «ما اختفى زرُّه لا يبقى صوتُه» — فكان كلُّ بابٍ يُسكِت
+     * التسجيل. وقلتَ: «الفويس بيقفل لما أخرج لتابة تانية، صلّح ده
+     * وادّيني تحكّم أكتر برّه». والعلّةُ كانت **غيابَ المقبض** لا بقاءَ
+     * الصوت. فصارت: **ما اختفى زرُّه ظهر شريطُه**.
+     *
+     * والحارسُ يحرس القاعدةَ الجديدة بنفس الصرامة: بابٌ يُخفي الزرَّ
+     * بلا `paintVoiceBar` يترك صوتًا بلا مقبض — وهو العطبُ الأصليّ
+     * نفسُه من الجهة الأخرى.
+     */
+    const at = code.indexOf("case 'well':");
+    expect(at > 0).toBe(true);
+    expect(code.slice(at, at + 420).includes('paintVoiceBar()')).toBe(true);
+
+    /* وتبديلُ الوضع يُعيد رسم المسرح — وزرُّ التسجيل ليس فيه أصلًا. */
+    const mode = code.indexOf("case 'mode-go':");
+    expect(mode > 0).toBe(true);
+    expect(code.slice(mode, mode + 260).includes('releaseAudio(')).toBe(true);
   });
 
-  it('⚠️ ومغادرةُ الشاشة تُسكِت التسجيل ولا تمسّ الجلسة', () => {
+  it('⚠️ ومغادرةُ الشاشة تُبقي التسجيل ومعه شريطُه', () => {
     const at = code.indexOf('export function disposeShadow');
-    const block = code.slice(at, at + 700);
-    /* بمُعطًى: تُسكِت إن كان التسجيلُ هو المالك وحده. */
-    expect(block.includes('releaseAudio(`voice:')).toBe(true);
+    const block = code.slice(at, at + 900);
+    /* لا إسكاتَ للتسجيل — بل شريطٌ يحمله معك، بمغادرةٍ مُصرَّحٍ بها. */
+    expect(block.includes('paintVoiceBar({ leaving: true })')).toBe(true);
+    expect(block.includes('releaseAudio(`voice:')).toBe(false);
+    /* ولا إسكاتَ أعمى يطال الجلسةَ المُبقاة. */
     expect(block.includes('releaseAudio()')).toBe(false);
+  });
+
+  it('⚠️ والمغادرةُ تُصرَّح بها ولا تُستنتَج من الـDOM', () => {
+    /*
+     * `disposeShadow` تُنادى **قبل** استبدال محتوى `#app-main`، فزرُّ
+     * التسجيل ما زال موجودًا لحظتَها. فلو استنتجت الدالّةُ من الـDOM
+     * لقالت «زرُّه أمامك» فامتنعت عن الشريط — ثم يُمحى الزرُّ بعد سطر،
+     * فيبقى الصوتُ بلا مقبضٍ أصلًا. **قِيس**: لا شريطَ ولا زرّ.
+     */
+    const at = code.indexOf('export function disposeShadow');
+    const block = code.slice(at, at + 900);
+    expect(block.includes('paintVoiceBar({ leaving: true })')).toBe(true);
+
+    const fn = code.indexOf('function paintVoiceBar(');
+    expect(code.slice(fn, fn + 200).includes('leaving = false')).toBe(true);
+  });
+
+  it('⚠️ ولا يظهر شريطُ التسجيل وزرُّه أمامك — مقبضان يتنازعان', () => {
+    const at = code.indexOf('function paintVoiceBar');
+    const block = code.slice(at, code.indexOf('\n}', at));
+    expect(block.includes('[data-sh="well-play"]')).toBe(true);
+    expect(block.includes('if (!live || onScreen)')).toBe(true);
   });
 
   it('⚠️ وقرارُ زرّ التشغيل عند المحرّك لا عند الشاشة', () => {
@@ -773,6 +811,13 @@ describe('الظلّ · مستمعٌ واحدٌ لكلّ فتحة', () => {
        */
       if (hit[1] === 'document') continue;
       if (body.slice(Math.max(0, hit.index - 14), hit.index).includes('voice.')) continue;
+      /*
+       * ⚠️ **`outlives` استثناءٌ باسمه لا بالصمت** (WS35).
+       *    الشريطُ العائم للتسجيل يُقصَد به أن يعيش بعد الشاشة: لو أخذ
+       *    إشارةَ القطع لمات معها وبقي الصوتُ بلا مقبض. فالاسمُ نفسُه
+       *    هو الإقرار، ولا يمرّ استثناءٌ بلا اسمٍ يقول لماذا.
+       */
+      if (hit[1] === 'outlives') continue;
 
       /* نوازن الأقواس لنقرأ النداءَ كاملًا — فهو يمتدّ سطورًا. */
       let depth = 0; let quote = null; let j = hit.index + hit[0].length - 1;
@@ -999,5 +1044,63 @@ describe('الذكرى · الربطُ بالنظر، والأصواتُ بدَ�
      */
     expect(css.includes('max-block-size: 4lh')).toBe(true);
     expect(scene.includes('t.rawText.length > 240')).toBe(true);
+  });
+});
+
+/* ================================================================== */
+/* WS35 — ما تراه: الحجم، والوضوح، والسبب                              */
+/* ================================================================== */
+
+describe('العرض · الحجم والوضوح والسبب', () => {
+  let code = '';
+
+  it('⚠️ الحارس: الافتراضيُّ رقمٌ واحدٌ لا أربعة مكتوبةٌ بيدي', async () => {
+    code = codeOnly(await (await fetch('/js/views/shadow-view.js')).text());
+    expect(code.includes('const DEFAULT_SIZE_PX = 30')).toBe(true);
+    /*
+     * كان `41` مكتوبًا في أربعة مواضع، وأحدُها هو ما يُكتَب في القاعدة.
+     * فاختلافُ واحدٍ منها يعني حجمًا يُحفَظ غيرَ الذي يُعرَض.
+     */
+    expect(/sizePx \|\| 41/.test(code)).toBe(false);
+  });
+
+  it('⚠️ وسلّمُ المقاسات ينزل تحت 36 — بلاغُك: «صغّره أكتر»', () => {
+    const at = code.indexOf("'SENTENCE SIZE'");
+    const block = code.slice(at, at + 300);
+    expect(block.includes("'24'")).toBe(true);
+  });
+
+  it('⚠️ والنبرُ يقول كم كلمةً يعرف — الصمتُ يبدو عطلًا', () => {
+    expect(code.includes('function stressFoot')).toBe(true);
+    const at = code.indexOf('function stressFoot');
+    const block = code.slice(at, code.indexOf('\n}', at));
+    /* `markSentence` كانت تُرجع `known`/`total` من أوّل يوم ولم يقرأهما أحد. */
+    expect(block.includes('markSentence(')).toBe(true);
+    expect(block.includes('known')).toBe(true);
+  });
+
+  it('⚠️ والترجمةُ تقول أيَّ إخفاقٍ هذا — لا نصًّا واحدًا لخمس حالات', async () => {
+    const tr = codeOnly(await (await fetch('/js/services/shadow/translate.js')).text());
+    expect(tr.includes('export function translationFailure')).toBe(true);
+    /* مطفأةٌ · بلا إنترنت · الخدماتُ لا تردّ — ثلاثةُ أسبابٍ مسمّاة. */
+    expect(tr.includes("lastFailure = 'مفيش إنترنت'")).toBe(true);
+    expect(tr.includes('export async function probeServices')).toBe(true);
+    /* ⚠️ ولا مفتاحَ في الحزمة — تطبيقٌ ساكنٌ لا يخفي سرًّا. */
+    expect(/api[_-]?key\s*[:=]\s*['"][A-Za-z0-9]/i.test(tr)).toBe(false);
+  });
+
+  it('⚠️ والرجوعُ من المسودّة إلى ما جئتَ منه', () => {
+    expect(code.includes("label: 'ارجع للنصّ الأصلي'")).toBe(true);
+    /* `draft.sessionId` سياقُ ميلادٍ لا هُويّة — ويكفي لطريق العودة. */
+    expect(code.includes('draft?.sessionId && draft.sessionId !== session.id')).toBe(true);
+  });
+
+  it('⚠️ والكلماتُ المقسّمة مقروءةٌ لا باهتة', async () => {
+    const css = await (await fetch('/css/shadow.css')).text();
+    const at = css.indexOf('.sh-chip-w {');
+    const block = css.slice(at, at + 220);
+    const alpha = Number(block.match(/rgba\(239, 231, 216, (\.\d+)\)/)?.[1] || 0);
+    /* كانت .38 — أي كلمةٌ تكاد لا تُقرأ. */
+    expect(alpha >= 0.8).toBe(true);
   });
 });

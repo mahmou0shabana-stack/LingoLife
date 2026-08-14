@@ -62,7 +62,7 @@ import {
   fontsByForm,
   measureCoverage,
 } from '../services/shadow/fonts.js';
-import { LANGUAGES, languageByCode, translate, isEnabled as trEnabled, setEnabled as setTrEnabled } from '../services/shadow/translate.js';
+import { LANGUAGES, languageByCode, translate, translationFailure, isEnabled as trEnabled, setEnabled as setTrEnabled } from '../services/shadow/translate.js';
 import { practiceStreak, recentPractice } from '../services/shadow/shadow-session-service.js';
 import { scripts, contentBlocks, scenes, sceneMediaLinks, media, shadowSegments, studyDrafts } from '../db/repositories.js';
 import { urlFor, startRecording, canRecord, addFilesToScene, AUDIO_ROLE } from '../services/media-service.js';
@@ -109,6 +109,16 @@ let picked = new Set();
 
 /** أوضاع عرض النصّ. */
 const DISPLAY = Object.freeze({ RU: 'ru', EGY: 'egy', HIDDEN: 'hidden' });
+
+/**
+ * حجمُ الجملة الافتراضيّ بالبكسل.
+ *
+ * ⚠️ رقمٌ واحدٌ في أربعة مواضع كان يُكتَب بيدي في كلٍّ منها. ولمّا
+ *    نزل الافتراضُ من 41 إلى 30 كان لا بدّ أن ينزل في الأربعة معًا —
+ *    وواحدٌ منها هو ما يُكتَب في القاعدة، فاختلافُه يعني حجمًا يُحفَظ
+ *    غيرَ الذي يُعرَض.
+ */
+const DEFAULT_SIZE_PX = 30;
 
 /** يُنادى عند مغادرة الشاشة — بدونه يظلّ الصوت شغّالًا. */
 /**
@@ -274,7 +284,14 @@ export function disposeShadow() {
    * ⚠️ ولا يُسكِت الجلسةَ: `releaseAudio` بمُعطًى تُسكِت **إن كان
    *    هو المالك** وحده. فلو كان المالكُ الجلسةَ لم يُمَسّ شيء.
    */
-  if (voice.id) releaseAudio(`voice:${voice.id}`);
+  /*
+   * ⚠️ **والتسجيلُ يكمل مع المغادرة — بعد أن صار له شريط** (WS35).
+   *
+   * كان يُسكَت هنا دائمًا، وعلّلتُه بأن «تسجيلًا ضغطتَه من ورقة الذكرى
+   * يصير — إن بقي — صوتًا يخرج من شاشةٍ غادرتَها بلا مقبض». والعلّةُ
+   * كانت في **غياب المقبض** لا في بقاء الصوت؛ وقد صار له مقبض.
+   */
+  paintVoiceBar({ leaving: true });
 
   /*
    * ⚠️ يُقرأ **قبل** أي تدمير: `running && !paused` تعني أن المحرّك
@@ -483,6 +500,8 @@ async function resolveSource(session, segments) {
    *    والمحادثة لم يكن لهما شيء.
    */
   let origin = null;
+  /** طريقُ العودة إلى ما جئتَ منه — إن كان غيرَ الذكرى. */
+  let backTo = null;
 
   try {
     if (session.sourceType === SOURCE_TYPE.SCRIPT || session.sourceType === SOURCE_TYPE.SELECTION) {
@@ -531,6 +550,17 @@ async function resolveSource(session, segments) {
        */
       const draft = await studyDrafts.get(session.sourceId);
       resolved = draft ? { title: draft.subjectText || 'مسودّة' } : { missing: true };
+      /*
+       * ⚠️ **بلاغُك**: «التدرّب على اللي في المسودّة حلو، بس بيخرجني من
+       *    النصّ الأصلي — خلّي فيه إمكانية الإنهاء والرجوع له».
+       *
+       * والمسودّةُ تحفظ مكانَ ميلادها (`sessionId`) منذ WS25، ووصفتُه
+       * وقتها بأنه «سياقٌ لا هُويّة» — أي أنه لا يملكها. وهو كذلك،
+       * **ولكنّه يكفي لطريق العودة**: من أين جئت، لا أين تعيش.
+       */
+      if (draft?.sessionId && draft.sessionId !== session.id) {
+        backTo = { href: `/shadow/${draft.sessionId}`, label: 'ارجع للنصّ الأصلي' };
+      }
       if (draft?.text) {
         const inSession = new Set(segments.map((s) => (s.sourceTextSnapshot || '').trim()));
         const all = draftSentences(draft);
@@ -546,7 +576,10 @@ async function resolveSource(session, segments) {
     resolved = { missing: true };
   }
 
-  return { ...describeSource(session, segments, resolved), origin };
+  const described = describeSource(session, segments, resolved);
+  /* طريقُ العودة يسبق «افتح الأصل» العامّ حين يوجد — هو الأدقّ. */
+  if (backTo) return { ...described, origin, href: backTo.href, hrefLabel: backTo.label };
+  return { ...described, origin };
 }
 
 /**
@@ -577,7 +610,7 @@ function sourceBadge(source, tight) {
       ${raw(
         source.href
           ? html`<button class="sh-source-open" data-sh="open-source"
-              data-to="${source.href}">افتح الأصل</button>`
+              data-to="${source.href}">${source.hrefLabel || 'افتح الأصل'}</button>`
           : ''
       )}
     </div>`;
@@ -772,7 +805,7 @@ export async function renderShadow(main, sessionId) {
     coverPinned: session.coverPinned ?? false,
     fontSize: session.fontSize ?? 1,
     /* درجةُ الحجم بالبكسل (§١٩٫٢) — غيرُ النسبة أعلاه. */
-    sizePx: session.sizePx || 41,
+    sizePx: session.sizePx || DEFAULT_SIZE_PX,
     // مطويّة افتراضيًّا: الأصل مرجعٌ تفتحه عند الحاجة لا شيءٌ يزاحم
     // ما تتدرّب عليه.
     originOpen: session.originOpen ?? false,
@@ -840,6 +873,8 @@ export async function renderShadow(main, sessionId) {
   await renderWells();
   renderModes();
   renderRail();
+  /* رجعتَ والزرُّ عاد أمامك — فالشريطُ يرفع نفسَه. */
+  paintVoiceBar();
   wireChips(main);
 }
 
@@ -1836,9 +1871,20 @@ async function fetchMissingTranslation(segment) {
      * الزرّ**. ولا تُفعّلها بضغطةٍ صامتة — تفتح نفسَ نافذةِ الإقرار
      * التي تقول إن بياناتك ستخرج من جهازك.
      */
+    /*
+     * ⚠️ **والرسالةُ تقول أيَّ إخفاقٍ هذا** (WS35).
+     *
+     * بلاغُك: «ليه الترجمة الأونلاين معدتش شغّالة؟» — وكانت الشاشةُ
+     * تقول شيئًا واحدًا في كلّ الحالات: «فعّلها». فمَن فعّلها بالفعل
+     * ثم رأى نفسَ الرسالة يظنّ الزرَّ لا يعمل، والحقيقةُ أن الخدمة
+     * لم تردّ. حالتان مختلفتان ونصٌّ واحد.
+     */
+    const why = translationFailure();
     if (el) {
-      el.innerHTML = '<button class="sh-tr-off" data-sh="tr-on">'
-        + 'مفيش ترجمة محفوظة للجملة دي — دوس هنا تفعّل الترجمة أونلاين</button>';
+      el.innerHTML = why && !why.includes('مطفيّة')
+        ? `<span class="sh-tr-off">${esc(why)}</span>`
+        : '<button class="sh-tr-off" data-sh="tr-on">'
+          + 'مفيش ترجمة محفوظة للجملة دي — دوس هنا تفعّل الترجمة أونلاين</button>';
     }
     return;
   }
@@ -2088,7 +2134,7 @@ const TOOLS = [
 
   /* ---- أدواتُ المسرح: دائمًا ---- */
   { id: 'display', glyph: '◐', label: 'العرض', value: () => DISPLAY_SHORT[ctx.display] || '' },
-  { id: 'text', glyph: 'Aa', label: 'الخطّ', value: () => `${ctx.sizePx || 41}px` },
+  { id: 'text', glyph: 'Aa', label: 'الخطّ', value: () => `${ctx.sizePx || DEFAULT_SIZE_PX}px` },
   { id: 'speed', glyph: '▹', label: 'السرعة', value: () => `${ctx.session?.speed ?? 1}x` },
   { id: 'repeat', glyph: '↻', label: 'التكرار', value: () => `×${ctx.session?.repeatCount ?? 1}` },
   { id: 'voice', glyph: '◈', label: 'الصوت',
@@ -2147,6 +2193,16 @@ function hasPickedWord() {
  *    `setTuner` و`ctx.display` و`applyFonts`… فالسكّة **بابٌ** لا
  *    محرّك، والوظيفةُ لم تُنقَل بل جُمِعَت.
  */
+/** يقول كم كلمةً في الجملة الجارية نعرف نبرها — وما العملُ في الباقي. */
+function stressFoot() {
+  const text = currentSentenceText();
+  if (!text) return 'يغيّر ما تراه لا ما يُنطَق';
+  const { known, total } = markSentence(text);
+  if (!total) return 'يغيّر ما تراه لا ما يُنطَق';
+  if (known === total) return `النبر معروف لكلّ الـ${total} كلمة`;
+  return `النبر معروف لـ${known} من ${total} كلمة — الباقي بلا علامة عشان مانخمّنش غلط`;
+}
+
 function panelFor(id) {
   const s = ctx.session;
   const on = (a, b) => (a === b ? ' on' : '');
@@ -2156,7 +2212,19 @@ function panelFor(id) {
   if (id === 'display') {
     return {
       title: 'العرض',
-      foot: 'يغيّر ما تراه لا ما يُنطَق',
+      /*
+       * ⚠️ **بلاغُك: «ليه النبر (ударение) مش ظاهر؟»**
+       *
+       * وهو ظاهرٌ — على ما يعرفه القاموسُ المحلّيّ وحده. والقاعدةُ
+       * مكتوبةٌ في `stress.js` منذ نقلها: «الكلماتُ غير الموجودة تُترَك
+       * بلا علامة بدل تخمين موضعٍ خاطئ — التخمينُ هنا أسوأُ من الصمت».
+       * والقاعدةُ صحيحة، **والصمتُ عنها ليس صحيحًا**: أنت ترى جملةً بلا
+       * علامةٍ واحدة فتظنّ الميزةَ معطّلة، وهي تعمل ولا تعرف كلماتِك.
+       *
+       * فصار العددُ مكتوبًا: «٣ من ٧ كلمات نعرف نبرها». `markSentence`
+       * كانت تُرجع `known` و`total` من أوّل يوم — ولم يقرأهما أحد.
+       */
+      foot: stressFoot(),
       groups: [
         { title: 'الترجمة', items:
           `${pick('disp', 'ru', 'روسي فقط', ctx.display === DISPLAY.RU)}
@@ -2172,9 +2240,15 @@ function panelFor(id) {
     return {
       title: 'الخطّ',
       foot: 'يخصّ النصّ الروسي وحده',
+      /*
+       * ⚠️ **بلاغُك: «خلّي إمكانية تصغير الخطّ أكتر من كده، ويكون ده
+       *    الافتراضيّ».** كان أصغرُ ما يمكن 36px وهو كبيرٌ لجملةٍ
+       *    طويلة، والافتراضُ 41. فنزل السلّمُ إلى 24 وصار الافتراضُ
+       *    30 — ومَن اختار حجمًا يبقى عليه، فالافتراضُ لا يدهس اختيارًا.
+       */
       groups: [{ title: 'SENTENCE SIZE', items:
-        [['36', 'S'], ['41', 'M'], ['48', 'L']].map(([px, label]) =>
-          pick('fsize', px, label, Number(ctx.sizePx || 41) === Number(px))).join('') },
+        [['24', 'XS'], ['30', 'S'], ['36', 'M'], ['41', 'L'], ['48', 'XL']].map(([px, label]) =>
+          pick('fsize', px, label, Number(ctx.sizePx || DEFAULT_SIZE_PX) === Number(px))).join('') },
       ],
       after: fontPanelBody(),
     };
@@ -2862,7 +2936,7 @@ const WELLS = {
  * فصار **مشغّلٌ واحدٌ للشاشة كلِّها**: يوقف ما قبله، ويحرّر رابطَه،
  * ويقلب زرَّه إلى `■`، ويرجع `▶` عند الانتهاء.
  */
-const voice = { audio: null, url: null, id: null };
+const voice = { audio: null, url: null, id: null, title: '' };
 
 /**
  * يوقف التسجيل الجاري ويحرّر رابطَه ويرجّع زرَّه.
@@ -2881,6 +2955,92 @@ function stopVoice() {
   voice.audio = null;
   voice.url = null;
   voice.id = null;
+  voice.title = '';
+  paintVoiceBar();
+}
+
+/* ------------------------------------------------------------------ *
+ * شريطُ التسجيل — «ما اختفى زرُّه لا يبقى صوتُه» بالمعنى الصحيح
+ * ------------------------------------------------------------------ */
+
+/**
+ * ⚠️ **بلاغُك**: «الفويس لما باجي أشغّله وأنا في الشادوينج وأخرج لتابة
+ *    تانية بيقفل — صلّح ده وادّيني تحكّم أكتر برّه.»
+ *
+ * وكنتُ أنا مَن أقفله عمدًا، بقاعدةٍ كتبتُها: «ما اختفى زرُّه لا يبقى
+ * صوتُه». والقاعدةُ صحيحةٌ في نصفها: **صوتٌ بلا مقبضٍ** هو المشكلة.
+ * وقد قرأتُها على أنها «فأقفل الصوت»، والقراءةُ الأصحّ: **«فأعطِه
+ * مقبضًا»** — كما فعلتُ للجلسة بالشريط العائم بالضبط.
+ *
+ * فالتسجيلُ الآن يكمل، ويظهر له شريطٌ فيه وقفٌ وإكمالٌ وإنهاء، ويحمل
+ * اسمَه فتعرف أيَّ صوتٍ هذا.
+ *
+ * ⚠️ **ولا يظهر الشريطُ وزرُّه أمامك.** وأنت في تبويب «أصوات» زرُّ
+ *    التسجيل موجودٌ ويكفي؛ فالشريطُ يظهر حين **يغيب** الزرّ وحده —
+ *    وإلّا صار مقبضان لشيءٍ واحدٍ يتنازعان شكلَه.
+ */
+let voiceBar = null;
+
+/**
+ * @param {{leaving?: boolean}} [opts] `leaving` تعني أن الشاشة تُغادَر الآن.
+ *
+ * ⚠️ **ولماذا لا يكفي سؤالُ الـDOM؟** `disposeShadow` تُنادى **قبل** أن
+ *    يُستبدَل محتوى `#app-main`، فزرُّ التسجيل ما زال موجودًا لحظتَها.
+ *    فتقول الدالّةُ «زرُّه أمامك» فتمتنع عن الشريط — ثم يُمحى الزرُّ
+ *    بعد سطرٍ واحد، فيبقى الصوتُ بلا مقبضٍ أصلًا.
+ *
+ *    **قِستُه**: تُشغّل تسجيلًا وأنت في تبويب «أصوات» ثم تخرج من
+ *    الصفحة ← لا شريطَ ولا زرّ. وهو نفسُ العطب الذي جاء البلاغُ لأجله
+ *    عائدًا من بابٍ آخر. فالمغادرةُ **تُصرَّح بها ولا تُستنتَج**.
+ */
+function paintVoiceBar({ leaving = false } = {}) {
+  const live = Boolean(voice.id && voice.audio);
+  const onScreen = live && !leaving
+    && document.querySelector(`[data-sh="well-play"][data-v="${voice.id}"]`);
+
+  if (!live || onScreen) {
+    voiceBar?.remove();
+    voiceBar = null;
+    return;
+  }
+
+  if (!voiceBar) {
+    /*
+     * ⚠️ **`outlives` اسمٌ يقول لماذا لا يأخذ إشارةَ القطع.**
+     *
+     * حارسُ المستمعين يفرض `wired()` على كلّ `addEventListener` في هذه
+     * الشاشة — وهو صواب. وهذا الشريطُ **يُقصَد به أن يعيش بعدها**:
+     * مستمعُه على الشريط نفسِه، والشريطُ يُزال بيده في `paintVoiceBar`.
+     * فلو أخذ الإشارةَ لمات مع الشاشة وبقي الصوتُ بلا مقبض — وهو
+     * العطبُ الذي وُجد الشريطُ لأجله.
+     */
+    const outlives = document.createElement('div');
+    const bar = outlives;
+    bar.className = 'sh-floating sh-vbar';
+    bar.innerHTML = `
+      <button class="shf-play" data-vb="play" aria-label="وقّف">⏸</button>
+      <button class="shf-open" data-vb="name"><i class="shf-pulse"></i><b></b></button>
+      <button class="shf-stop" data-vb="stop" aria-label="اقفل التسجيل">✕</button>`;
+    outlives.addEventListener('click', (event) => {
+      const act = event.target.closest('[data-vb]')?.dataset.vb;
+      if (act === 'stop') return releaseAudio(`voice:${voice.id}`);
+      if (act === 'play' && voice.audio) {
+        if (voice.audio.paused) voice.audio.play().catch(() => {});
+        else voice.audio.pause();
+        paintVoiceBar();
+      }
+      return undefined;
+    });
+    document.body.append(bar);
+    voiceBar = bar;
+  }
+
+  voiceBar.querySelector('b').textContent = voice.title || 'تسجيل';
+  const on = !voice.audio.paused;
+  const btn = voiceBar.querySelector('[data-vb="play"]');
+  btn.textContent = on ? '⏸' : '▶';
+  btn.setAttribute('aria-label', on ? 'وقّف' : 'كمّل');
+  voiceBar.classList.toggle('is-quiet', !on);
 }
 
 /** يشغّل تسجيلًا — أو يوقفه إن كان هو الجاري. */
@@ -2899,6 +3059,7 @@ async function playVoice(mediaId) {
   claimAudio(`voice:${mediaId}`, stopVoice);
 
   voice.id = mediaId;
+  voice.title = row.caption || row.filename || 'تسجيل';
   voice.url = URL.createObjectURL(row.blob);
   voice.audio = new Audio(voice.url);
 
@@ -2912,12 +3073,17 @@ async function playVoice(mediaId) {
     toastError('مش قادر أشغّل التسجيل ده');
   });
 
+  /* الشريطُ يتبع الحالَ الحقيقيّ — ولو أوقفه النظامُ من خارج أزرارنا. */
+  voice.audio.addEventListener('pause', paintVoiceBar);
+  voice.audio.addEventListener('play', paintVoiceBar);
+
   try {
     await voice.audio.play();
   } catch {
     releaseAudio(`voice:${mediaId}`);
     toastError('المتصفّح مارضاش يشغّل — دوس تاني');
   }
+  paintVoiceBar();
 }
 
 /**
@@ -3371,7 +3537,7 @@ function applyFonts() {
      * ⚠️ **ودرجةُ البكسل تُطبَّق هنا أيضًا.** كانت تُكتَب عند الضغط
      *    وحده، فتُحفَظ في الجلسة ولا تُقرأ عند فتحها ثانيةً.
      */
-    app.style.setProperty('--sh-size', `${ctx.sizePx || 41}px`);
+    app.style.setProperty('--sh-size', `${ctx.sizePx || DEFAULT_SIZE_PX}px`);
   }
 
   document.querySelectorAll('[data-font-label]').forEach((n) => {
@@ -4123,9 +4289,15 @@ function wireInteractions(main) {
          *
          * ⚠️ وقاعدةٌ أعمّ من الحالة: **ما اختفى زرُّه لا يبقى صوتُه**.
          */
-        releaseAudio();
+        /*
+         * ⚠️ **ولم يعد يُسكِته** (WS35). كان `releaseAudio()` هنا بقاعدة
+         *    «ما اختفى زرُّه لا يبقى صوتُه»، وبلاغُك صحّحها: المطلوبُ
+         *    أن يكمل ويكون له مقبض. فالزرُّ يختفي مع التبويب —
+         *    و`paintVoiceBar` تعطيه شريطًا بديلًا في نفس اللحظة.
+         */
         well = btn.dataset.v;
         await renderWells();
+        paintVoiceBar();
         return;
 
       case 'well-open':

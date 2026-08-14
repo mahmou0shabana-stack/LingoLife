@@ -104,10 +104,33 @@ async function viaLibre(text, code) {
  * @param {string} code
  * @returns {Promise<string|null>}
  */
+/**
+ * سببُ آخرِ إخفاق — **حتى لا يكون الصمتُ هو كلَّ الجواب**.
+ *
+ * ⚠️ بلاغُك: «ليه الترجمة الأونلاين معدتش شغّالة؟» ولم يكن في التطبيق
+ *    ما يجيب: الدالّةُ تعيد `null` في خمس حالاتٍ مختلفة — مطفأةٌ من
+ *    الإعدادات، بلا إنترنت، الخدماتُ لا تردّ، أو خلص رصيدُ اليوم —
+ *    وكلُّها تبدو على الشاشة شيئًا واحدًا: لا ترجمة.
+ *
+ * فصار لكلِّ حالةٍ اسمُها، وتقرؤه الشاشة فتقول لك أيَّ واحدةٍ هي.
+ */
+let lastFailure = null;
+
+export function translationFailure() {
+  return lastFailure;
+}
+
 export async function translate(text, code = 'ar') {
+  lastFailure = null;
   if (!text?.trim()) return null;
-  if (!navigator.onLine) return null;
-  if (!(await isEnabled())) return null;
+  if (!navigator.onLine) {
+    lastFailure = 'مفيش إنترنت';
+    return null;
+  }
+  if (!(await isEnabled())) {
+    lastFailure = 'الترجمة الأونلاين مطفيّة من الإعدادات';
+    return null;
+  }
 
   const services = [viaLingva, viaMyMemory, viaLibre];
 
@@ -130,6 +153,48 @@ export async function translate(text, code = 'ar') {
     });
   });
 
-  if (!result) return null;
+  if (!result) {
+    /*
+     * ⚠️ **الخدماتُ الثلاث مجّانيّةٌ عامّة، وحياتُها ليست بيدنا.**
+     *    `lingva.ml` توقّفت نُسخُها العامّة أكثرَ من مرّة،
+     *    و`libretranslate.com` صارت تطلب مفتاحًا لواجهتها العامّة،
+     *    و`mymemory` تُغلق البابَ بعد حدٍّ يوميّ. فلا نَعِدُك بما لا
+     *    نملكه — ولكن نقول لك ما جرى بدل أن نصمت.
+     *
+     * ⚠️ **ولا مفتاحَ في الحزمة.** تطبيقٌ ساكنٌ على GitHub Pages لا
+     *    يخفي سرًّا: أيُّ مفتاحٍ نضعه هنا يقرؤه مَن يفتح المصدر.
+     *    راجع `docs/12-analysis-request.md`.
+     */
+    lastFailure = 'خدمات الترجمة المجّانيّة مش راضية تردّ دلوقتي';
+    return null;
+  }
   return code === 'ams' ? toEgyptian(result) : result;
+}
+
+/**
+ * يجرّب كلَّ خدمةٍ وحدَها ويقول أيُّها يردّ — **على جهازك أنت**.
+ *
+ * لا يمكنني قياسُ ذلك من مكاني: شبكتي محجوبةٌ عن هذه النطاقات. وأنت
+ * تستطيع، فالزرُّ في الإعدادات يفعلها ويعرض النتيجة.
+ *
+ * @returns {Promise<{name: string, ok: boolean, why: string}[]>}
+ */
+export async function probeServices(sample = 'привет', code = 'ar') {
+  const all = [
+    ['lingva.ml', viaLingva],
+    ['mymemory', viaMyMemory],
+    ['libretranslate', viaLibre],
+  ];
+  return Promise.all(
+    all.map(async ([name, fn]) => {
+      try {
+        const value = await fn(sample, code);
+        return value
+          ? { name, ok: true, why: String(value).slice(0, 40) }
+          : { name, ok: false, why: 'ردّ فاضي' };
+      } catch (error) {
+        return { name, ok: false, why: error?.message || 'مارَدّش' };
+      }
+    })
+  );
 }
