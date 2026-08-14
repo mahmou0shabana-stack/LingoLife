@@ -3363,11 +3363,18 @@ body.shadow-open { overflow: hidden; }
  *    القاعدة» و«القاعدة تعمل».
  */
 .shadow-app.is-rail .sh-current-text {
-  font-size: calc(var(--sh-size, 41px) * .8 * var(--sh-len, 1));
+  font-size: calc(var(--sh-size, 41px) * .8 * var(--sh-font-size, 1) * var(--sh-len, 1));
 }
 .shadow-app:not(.is-rail) .sh-current-text {
-  font-size: calc(var(--sh-size, 41px) * var(--sh-len, 1));
+  font-size: calc(var(--sh-size, 41px) * var(--sh-font-size, 1) * var(--sh-len, 1));
 }
+
+/*
+ * ⚠️ **و`--sh-font-size` هنا وإلّا فمنزلقُ الخطّ لا أثرَ له.** كان
+ *    يُكتَب على `.shadow-app` ويُقرأ في قاعدةٍ أدنى تخصّصًا فقط —
+ *    أي أن سحبَ المنزلق كان يحرّك رقمًا ولا يحرّك حرفًا. وهو ثالثُ
+ *    إعدادٍ في هذه الجولة يبدو شغّالًا وليس كذلك.
+ */
 
 .sh-current-tr { color: var(--sh-ar); }
 
@@ -3823,4 +3830,48 @@ body.shadow-open { overflow: hidden; }
 
 @media (max-height: 900px) {
   .sh-hint { display: none; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   مفتاح الأوضاع الثلاثة (WS28)
+
+   > «عايز يبقى على الشاشة صراحةً تنقّل من مود الكلمة لمود جملة
+   >  لمود نصّ.»
+
+   ⚠️ **فوق زرّ التشغيل مباشرةً** — لأنه يجيب عن السؤال الذي تسبق
+      به الضغطة: «هيقرا إيه؟». وفي لوحةٍ جانبيّة لا يُقرأ إلّا بعد
+      أن تفتحها، وحينها تكون قد ضغطتَ ولم تعرف.
+
+   ⚠️ **ولا يُعطَّل زرٌّ منها**: الثلاثة متاحةٌ دائمًا، والمُختار
+      يُعرَف باللون. زرٌّ رماديٌّ يجعلك تسأل «ليه؟» ولا جواب.
+   ══════════════════════════════════════════════════════════════ */
+
+.sh-modes {
+  display: flex; justify-content: center; gap: 4px;
+  margin: 0 auto 10px; padding: 3px;
+  inline-size: fit-content; max-inline-size: 100%;
+  border: 1px solid rgba(239, 231, 216, .1); border-radius: 5px;
+  background: rgba(0, 0, 0, .2);
+}
+.sh-modes button {
+  min-height: 44px; padding: 0 15px; cursor: pointer;
+  font-family: var(--sh-mono); font-size: 10.5px; letter-spacing: .1em;
+  border: 0; border-radius: 3px; background: transparent;
+  color: rgba(239, 231, 216, .45);
+  transition: background .25s ease, color .25s ease;
+  white-space: nowrap;
+}
+.sh-modes button:hover { color: rgba(239, 231, 216, .8); }
+.sh-modes button.on {
+  background: rgba(217, 182, 114, .14);
+  color: rgba(240, 220, 176, .96);
+}
+
+/* والورقةُ اليسرى ليست كونًا — نفسُ المفتاح بحبرها. */
+.sh-left .sh-modes {
+  border-color: rgba(101, 80, 48, .2); background: rgba(101, 80, 48, .05);
+}
+.sh-left .sh-modes button { color: rgba(90, 72, 44, .55); }
+.sh-left .sh-modes button.on {
+  background: rgba(122, 95, 44, .14); color: rgba(60, 46, 22, .95);
 }

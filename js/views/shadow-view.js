@@ -608,6 +608,8 @@ export async function renderShadow(main, sessionId) {
     coverZoom: session.coverZoom || 100,
     coverPinned: session.coverPinned ?? false,
     fontSize: session.fontSize ?? 1,
+    /* درجةُ الحجم بالبكسل (§١٩٫٢) — غيرُ النسبة أعلاه. */
+    sizePx: session.sizePx || 41,
     // مطويّة افتراضيًّا: الأصل مرجعٌ تفتحه عند الحاجة لا شيءٌ يزاحم
     // ما تتدرّب عليه.
     originOpen: session.originOpen ?? false,
@@ -660,6 +662,7 @@ export async function renderShadow(main, sessionId) {
   applyDoc(Number(await settings.get(DOC_KEY, 250)) || 0);
   await applySky();
   await renderWells();
+  renderModes();
   renderRail();
   wireChips(main);
 }
@@ -986,6 +989,14 @@ function shell() {
                     إعدادات الجهاز ← اللغة والإدخال ← تحويل النص لكلام،
                     وارجع افتح الصفحة تاني.</span>
                 </div>`)}
+
+              <!--
+                ⚠️ مفتاحُ الأوضاع الثلاثة (WS28) — الشرحُ فوق سجلّ
+                    MODES في shadow-view.js. ولا backtick هنا: يكسر
+                    القالب (فخٌّ وقعتُ فيه ثلاث مرّات).
+              -->
+              <div class="sh-modes" data-modes role="tablist"
+                   aria-label="إيه اللي بيتقرا"></div>
 
               <div class="sh-transport">
                 <button class="sh-nav-btn" data-sh="prev" aria-label="السابق">
@@ -1852,7 +1863,7 @@ const TOOLS = [
 
   /* ---- أدواتُ المسرح: دائمًا ---- */
   { id: 'display', glyph: '◐', label: 'العرض', value: () => DISPLAY_SHORT[ctx.display] || '' },
-  { id: 'text', glyph: 'Aa', label: 'الخطّ', value: () => `${Math.round(ctx.fontSize * 100)}%` },
+  { id: 'text', glyph: 'Aa', label: 'الخطّ', value: () => `${ctx.sizePx || 41}px` },
   { id: 'speed', glyph: '▹', label: 'السرعة', value: () => `${ctx.session?.speed ?? 1}x` },
   { id: 'repeat', glyph: '↻', label: 'التكرار', value: () => `×${ctx.session?.repeatCount ?? 1}` },
   { id: 'voice', glyph: '◈', label: 'الصوت',
@@ -1917,9 +1928,9 @@ function panelFor(id) {
       foot: 'يغيّر ما تراه لا ما يُنطَق',
       groups: [
         { title: 'الترجمة', items:
-          `${pick('mode', 'ru', 'روسي فقط', ctx.display === DISPLAY.RU)}
-           ${pick('mode', 'egy', 'مصري', ctx.display === DISPLAY.EGY)}
-           ${pick('mode', 'hidden', 'مخفي', ctx.display === DISPLAY.HIDDEN)}` },
+          `${pick('disp', 'ru', 'روسي فقط', ctx.display === DISPLAY.RU)}
+           ${pick('disp', 'egy', 'مصري', ctx.display === DISPLAY.EGY)}
+           ${pick('disp', 'hidden', 'مخفي', ctx.display === DISPLAY.HIDDEN)}` },
         { title: 'النبر', items:
           `${pick('stress', '1', 'ظاهر', Boolean(ctx.stress))}
            ${pick('stress', '0', 'مخفي', !ctx.stress)}` },
@@ -1932,7 +1943,7 @@ function panelFor(id) {
       foot: 'يخصّ النصّ الروسي وحده',
       groups: [{ title: 'SENTENCE SIZE', items:
         [['36', 'S'], ['41', 'M'], ['48', 'L']].map(([px, label]) =>
-          pick('fsize', px, label, Number(ctx.fontSize || 41) === Number(px))).join('') },
+          pick('fsize', px, label, Number(ctx.sizePx || 41) === Number(px))).join('') },
       ],
       after: fontPanelBody(),
     };
@@ -2143,6 +2154,102 @@ async function applySky() {
   skyUrl = URL.createObjectURL(blob);
   app.style.setProperty('--sky', `url("${skyUrl}")`);
   app.classList.add('has-sky');
+}
+
+/* ================================================================== */
+/* الأوضاع الثلاثة — «إيه اللي بيتقرا» على الشاشة لا في لوحة (WS28)    */
+/* ================================================================== */
+
+/**
+ * ⚠️ **طلبُك بحرفه**: «عايز يبقى على الشاشة صراحةً تنقّل من مود
+ *    الكلمة لمود جملة لمود نصّ. الكلمة دي هقرا الكلمات المقسّمة،
+ *    والجملة لو جملة خارجية، والنصّ لو هيكمّل قراءة الجمل اللي
+ *    متقسّمة من النصّ».
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * وثلاثةُ أشياء كانت موجودةً ومتفرّقة
+ * ═══════════════════════════════════════════════════════════════
+ *
+ *  · قراءةُ الجمل — زرُّ التشغيل، وهو الوضع الضِّمنيّ.
+ *  · قراءةُ الكلمات — `PRACTICE_MODE.WORD`، مدفونٌ في لوحةِ سكّة.
+ *  · الجملةُ الخارجيّة — صندوقُ `scratch`، يُفتَح من زرٍّ في القاع.
+ *
+ * ثلاثةُ أشياءَ من جنسٍ واحد — **ما الذي يُقرأ الآن** — وثلاثةُ
+ * أمكنةٍ لا يجمعها شيء، ولا واحدٌ منها يقول لك في أيّها أنت. وهذا
+ * أصلُ «مفيش تناسق» الذي بلّغتَ عنه أكثر من مرّة.
+ *
+ * فصارت **مفتاحًا واحدًا ظاهرًا فوق زرّ التشغيل**: تقرأ منه أين أنت
+ * وتنتقل بضغطة.
+ *
+ * ⚠️ **وسجلٌّ لا شروطٌ متفرّقة.** وضعٌ رابعٌ يُضاف غدًا (وضعُ «دوري»
+ *    في المحادثات مثلًا) سطرٌ هنا بـ`enter` و`is` — ولا يُلمَس الرسمُ
+ *    ولا المفتاحُ ولا الشاشة. نفسُ نمط `WELLS` و`TOOLS` و`PLACES`.
+ *
+ * ⚠️ **وكلُّ وضعٍ يُخرج من الآخر صراحةً.** أوّلُ ما جرّبتُه كان
+ *    يدخل «كلمة» ويترك صندوقَ الجملة الخارجيّة مفتوحًا تحته، فيصير
+ *    زرُّ التشغيل يقرأ نصًّا لا علاقةَ له بالكلمات المعروضة. الدخولُ
+ *    الذي لا يُنهي ما قبله هو بالضبط ما كسر وضعَ الكلمة قبل WS27.
+ */
+const MODES = [
+  {
+    id: 'text',
+    label: 'نصّ',
+    hint: 'يمشي في جمل المصدر واحدة ورا التانية',
+    /** هل نحن فيه الآن؟ */
+    is: () => !ctx.scratch
+      && player?.state?.settings?.practiceMode !== PRACTICE_MODE.WORD,
+    enter: async () => {
+      clearScratch();
+      await setPractice(PRACTICE_MODE.SENTENCE);
+    },
+  },
+  {
+    id: 'word',
+    label: 'كلمة',
+    hint: 'يقرا الكلمات المقسّمة واحدة واحدة',
+    is: () => !ctx.scratch
+      && player?.state?.settings?.practiceMode === PRACTICE_MODE.WORD,
+    enter: async () => {
+      clearScratch();
+      await setPractice(PRACTICE_MODE.WORD);
+    },
+  },
+  {
+    id: 'own',
+    label: 'جملة برّه',
+    hint: 'الصق جملة من عندك وتتقرا بنفس الإعدادات',
+    is: () => Boolean(ctx.scratch),
+    enter: async () => {
+      /* الخروجُ من وضع الكلمة أوّلًا — وإلّا نطق كلمةً من جملةٍ غادرتها. */
+      await setPractice(PRACTICE_MODE.SENTENCE);
+      const box = $('[data-scratch]');
+      if (box) {
+        box.hidden = false;
+        box.querySelector('[data-scratch-input]')?.focus();
+      }
+    },
+  },
+];
+
+/** يضبط وضعَ المحرّك ويحفظه — مكانٌ واحدٌ يكتب `practiceMode`. */
+async function setPractice(mode) {
+  player.updateSettings({ practiceMode: mode });
+  document.querySelector('.shadow-app')
+    ?.classList.toggle('is-wordmode', mode === PRACTICE_MODE.WORD);
+  await saveSessionSettings(ctx.session.id, { practiceMode: mode }).catch(() => {});
+}
+
+/** يرسم المفتاح من السجلّ — والمُختارُ يُعرَف من الحال لا من متغيّر. */
+function renderModes() {
+  const host = $('[data-modes]');
+  if (!host || !ctx) return;
+  const active = MODES.find((mode) => mode.is()) || MODES[0];
+  host.innerHTML = MODES.map((mode) => `
+    <button data-sh="mode-go" data-v="${mode.id}" role="tab"
+            aria-selected="${mode === active}" title="${esc(mode.hint)}"
+            class="${mode === active ? 'on' : ''}">${esc(mode.label)}</button>`).join('');
+  const foot = $('[data-modes-hint]');
+  if (foot) foot.textContent = active.hint;
 }
 
 /* ================================================================== */
@@ -2736,7 +2843,14 @@ function applyFonts() {
   document.querySelectorAll('.sh-line [data-line-text]').forEach((node) => applyFont(node, ctx.font));
 
   const app = document.querySelector('.shadow-app');
-  if (app) app.style.setProperty('--sh-font-size', ctx.fontSize);
+  if (app) {
+    app.style.setProperty('--sh-font-size', ctx.fontSize);
+    /*
+     * ⚠️ **ودرجةُ البكسل تُطبَّق هنا أيضًا.** كانت تُكتَب عند الضغط
+     *    وحده، فتُحفَظ في الجلسة ولا تُقرأ عند فتحها ثانيةً.
+     */
+    app.style.setProperty('--sh-size', `${ctx.sizePx || 41}px`);
+  }
 
   document.querySelectorAll('[data-font-label]').forEach((n) => {
     n.textContent = fontFullLabel(font);
@@ -2915,6 +3029,9 @@ function readScratch(text) {
   $('[data-scratch-clear]')?.removeAttribute('hidden');
   $('[data-scratch-save]')?.removeAttribute('hidden');
 
+  /* المفتاحُ يقرأ الحالَ، والحالُ تغيّر. */
+  renderModes();
+
   scratchPlayer.start();
 }
 
@@ -3011,6 +3128,7 @@ function clearScratch() {
 
   // إعادة الرسم تُرجع الجملة وترجمتها وعلاماتها كما كانت.
   syncSegment();
+  renderModes();
 }
 
 /**
@@ -3377,6 +3495,27 @@ function wireInteractions(main) {
         return saveSessionSettings(ctx.session.id, { displayMode: ctx.display });
       }
 
+      /*
+       * ⚠️ **تصادمُ اسمٍ أعطبَ إعدادَ الترجمة بالكامل.**
+       *
+       * لوحةُ العرض في السكّة كانت تُصدر `data-sh="mode"` — وهو نفسُ
+       * اسمِ مفتاحِ **نمط التكرار** في الدرج. فضغطُ «مصري» كان يقع
+       * في حالةِ التكرار، فتقرأ `dataset.val` (وهو `undefined`)
+       * وتضبط التكرارَ على «بالعدد»، **ولا تلمس الترجمة إطلاقًا**.
+       *
+       * ⚠️ **وقِستُه**: بعد ضغط «مصري» يبقى `ru` هو المُضاء والسكّة
+       *    تقول «روسي». عطلٌ صامتٌ تمامًا — لا خطأ ولا رسالة.
+       *
+       * وهذا ما يجعل `switch` على سلسلةٍ نصّيّة خطِرًا: اسمان
+       * يلتقيان بلا أن يشتكي أحد. فصارت لوحةُ العرض `disp`.
+       */
+      case 'disp': {
+        ctx.display = btn.dataset.v;
+        await saveSessionSettings(ctx.session.id, { displayMode: ctx.display });
+        syncSegment();
+        return renderRail();
+      }
+
       case 'mode': {
         const mode = btn.dataset.val === 'continuous' ? REPEAT_MODE.CONTINUOUS : REPEAT_MODE.COUNT;
         player.updateSettings({ repeatMode: mode });
@@ -3413,10 +3552,22 @@ function wireInteractions(main) {
       }
 
       case 'fsize': {
-        /* §١٩٫٢ — ثلاث درجات لا منزلق: 36 · 41 · 48. */
+        /*
+         * §١٩٫٢ — ثلاث درجات لا منزلق: 36 · 41 · 48.
+         *
+         * ⚠️ **وكانت تكتب البكسل في حقلٍ معناه نسبة.** `ctx.fontSize`
+         *    نسبةٌ (1 = 100%) يكتبها منزلقُ الخطّ ويقرأها
+         *    `--sh-font-size`؛ وهذه كانت تضع فيها `48`، فتصير
+         *    النسبةُ 4800% — وهو ما ظهر حرفيًّا على السكّة حين صارت
+         *    تعرض القيَم. حقلٌ بمعنيين يفسد كليهما.
+         *
+         * ⚠️ **ولم تكن تُحفَظ أصلًا**: تختار الحجمَ ثم تعود للجلسة
+         *    فتجده كما كان. فصار له حقلُه `sizePx`.
+         */
         const px = Number(btn.dataset.v);
-        ctx.fontSize = px;
+        ctx.sizePx = px;
         document.querySelector('.shadow-app')?.style.setProperty('--sh-size', `${px}px`);
+        await saveSessionSettings(ctx.session.id, { sizePx: px });
         return renderRail();
       }
 
@@ -3443,12 +3594,26 @@ function wireInteractions(main) {
         return openShadowForScript(script.id, ctx.scene.id);
       }
 
+      /* المفتاحُ على الشاشة — راجع سجلّ MODES. */
+      case 'mode-go': {
+        const mode = MODES.find((m) => m.id === btn.dataset.v);
+        if (!mode) return undefined;
+        await mode.enter();
+        renderModes();
+        renderRail();
+        return undefined;
+      }
+
+      /*
+       * لوحةُ السكّة تبقى: فيها «متّصل بلا تكرار» وهو تفصيلٌ داخل
+       * وضع النصّ لا وضعٌ رابع. ⚠️ وتمرّ من `setPractice` نفسِها —
+       * مكانٌ واحدٌ يكتب الوضعَ، فلا يفترق البابان بعد شهر.
+       */
       case 'mode-set': {
         const mode = btn.dataset.v;
-        player.updateSettings({ practiceMode: mode });
-        await saveSessionSettings(ctx.session.id, { practiceMode: mode });
-        document.querySelector('.shadow-app')?.classList.toggle('is-wordmode', mode === PRACTICE_MODE.WORD);
+        await setPractice(mode);
         toastOk(mode === PRACTICE_MODE.WORD ? 'بيقرا كلمة كلمة' : mode === PRACTICE_MODE.CONTINUOUS ? 'بيقرا متّصل' : 'بيقرا الجملة كاملة');
+        renderModes();
         return renderRail();
       }
 
@@ -3545,17 +3710,21 @@ function wireInteractions(main) {
        * ويمرّ من نفس باب `PLAY MODE` في الدرج — بابٌ واحدٌ للفعل
        * الواحد، فلا ينازع اثنان على قيمةٍ واحدة.
        */
+      /*
+       * ⚠️ **بابٌ قديمٌ صار يمرّ من المفتاح الجديد.** كان يكتب الوضعَ
+       *    بنفسه — بابٌ ثالثٌ لنفس الشيء، وقد كلّفنا عطلًا في WS27.
+       *    فصار يستدعي `MODES` كما يستدعيه الزرُّ الظاهر.
+       */
       case 'words': {
-        const now = player.state.settings.practiceMode;
-        const next = now === PRACTICE_MODE.WORD ? PRACTICE_MODE.SENTENCE : PRACTICE_MODE.WORD;
-        player.updateSettings({ practiceMode: next });
-        await saveSessionSettings(ctx.session.id, { practiceMode: next });
+        const word = player.state.settings.practiceMode === PRACTICE_MODE.WORD;
+        await MODES.find((m) => m.id === (word ? 'text' : 'word')).enter();
         document
           .querySelectorAll('[data-sh="words"]')
-          .forEach((node) => node.classList.toggle('on', next === PRACTICE_MODE.WORD));
+          .forEach((node) => node.classList.toggle('on', !word));
         renderWords();
+        renderModes();
         renderRail();
-        toastOk(next === PRACTICE_MODE.WORD ? 'بيقرا كلمة كلمة' : 'بيقرا الجملة كاملة');
+        toastOk(word ? 'بيقرا الجملة كاملة' : 'بيقرا كلمة كلمة');
         return;
       }
 

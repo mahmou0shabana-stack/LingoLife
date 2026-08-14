@@ -28,7 +28,7 @@ import {
 import { resolveLinks } from '../services/link-service.js';
 import { toastOk } from './toast.js';
 import { actWithUndo } from '../services/delete-service.js';
-import { reloadScene } from '../ui-state.js';
+import { refreshSceneIfShowing } from '../ui-state.js';
 import { openLinksModal } from '../modals/link-modal.js';
 import { openShadowFromImage } from '../services/shadow/shadow-entry.js';
 import { icon } from './icons.js';
@@ -170,8 +170,12 @@ export async function openLightbox(mediaId, sceneId) {
       dropLayer(layer);
       layer = null;
     }
-    // الوصف قد يكون تغيّر — الذكرى تُعيد رسم شبكتها.
-    if (sceneId) reloadScene(sceneId);
+    /*
+     * ⚠️ **تُنعَش شاشةُ الذكرى إن كانت معروضة — ولا يُنتقَل إليها.**
+     *    كانت `reloadScene`، وفرعُها الآخر ينادي `navigate`. فمَن فتح
+     *    الصورة من داخل كتاب الظلّ كان إغلاقُها يقذفه خارج جلسته.
+     */
+    if (sceneId) refreshSceneIfShowing(sceneId);
   };
 
   /*
@@ -330,7 +334,7 @@ export async function openLightbox(mediaId, sceneId) {
           await close();
         },
         restore: () => undoRemove(linkId),
-        after: () => reloadScene(sceneId),
+        after: () => refreshSceneIfShowing(sceneId),
       });
     }
   });

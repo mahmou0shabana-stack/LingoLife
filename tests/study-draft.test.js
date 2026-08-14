@@ -28,6 +28,57 @@ import { STATE } from '../js/db/schema.js';
 import { TRASHABLE, NOT_TRASHABLE } from '../js/services/trash-service.js';
 import { SOURCE_TYPE, SOURCE_LABEL } from '../js/services/shadow/shadow-session-service.js';
 
+/* ------------------------------------------------------------------ *
+ * ماسحُ التعليقات — يقرأ الكود لا النثر
+ * ------------------------------------------------------------------ *
+ *
+ * ⚠️ **وكتبتُه ماسحًا حقيقيًّا لا `replace` واحدة.** كانت الحُرّاسُ
+ *    كلُّها تنزع التعليقات بـ`/\/\*[\s\S]*?\*\//g` — وهي تكفي حتى
+ *    يوجد في الملفّ سطرٌ فيه:
+ *
+ *        pickFiles({ accept: 'image/*', ... })
+ *
+ *    فالـ`/*` **داخل السلسلة** يفتح تعليقًا وهميًّا يبتلع كلَّ ما
+ *    بعده حتى أوّل `*​/` حقيقيّ — فابتلع في حالتنا نصفَ المُوزِّع،
+ *    فأبلغ حارسٌ عن ستّة أزرارٍ «بلا معالِج» وأربعةٌ منها سليمة.
+ *
+ *    وحارسٌ يصرخ في الصواب أسوأُ من لا حارس: هو أوّلُ ما يُعلَّم
+ *    الناسُ تجاهلَه. فصار المسحُ يعرف السلاسل والقوالبَ والمحارفَ
+ *    المهروبة.
+ */
+function codeOnly(src) {
+  let out = '';
+  let i = 0;
+  let quote = null;
+
+  while (i < src.length) {
+    const ch = src[i];
+    const next = src[i + 1];
+
+    if (quote) {
+      if (ch === '\\') { out += src.slice(i, i + 2); i += 2; continue; }
+      if (ch === quote) quote = null;
+      out += ch; i += 1; continue;
+    }
+
+    if (ch === "'" || ch === '"' || ch === '`') { quote = ch; out += ch; i += 1; continue; }
+
+    if (ch === '/' && next === '*') {
+      const end = src.indexOf('*/', i + 2);
+      i = end === -1 ? src.length : end + 2;
+      continue;
+    }
+    if (ch === '/' && next === '/') {
+      const end = src.indexOf('\n', i);
+      i = end === -1 ? src.length : end;
+      continue;
+    }
+
+    out += ch; i += 1;
+  }
+  return out;
+}
+
 /** يمسح كلّ المسودّات — لا نبني على بقايا اختبارٍ سابق. */
 async function wipe() {
   for (const row of await studyDrafts.getAll()) await studyDrafts.destroy(row.id);
@@ -265,9 +316,7 @@ describe('سكّة الأدوات · لا بابَ في اتّجاهٍ واحد'
      *    على **شرحي أنا** للعيب في رأس `TOOLS`. حارسٌ يقرأ النثرَ
      *    كأنه كودٌ يمنعك من أن تكتب لماذا أصلحتَ الشيء.
      */
-    const code = source
-      .replace(/\/\*[\s\S]*?\*\//g, '')
-      .replace(/^\s*\/\/.*$/gm, '');
+    const code = codeOnly(source);
 
     const writes = code.match(/rail\.ctx\s*=/g) || [];
     expect(writes).toEqual([]);
@@ -317,7 +366,7 @@ describe('التشغيل · لا بابين لفعلٍ واحد', () => {
 
   it('⚠️ الحارس: نقرةُ الكلمة لا تقلب وضعَ التدريب', async () => {
     const source = await (await fetch('/js/views/shadow-view.js')).text();
-    code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    code = codeOnly(source);
 
     /*
      * كان معالِجٌ ثانٍ للنقرة يكتب `practiceMode: PRACTICE_MODE.WORD`
@@ -409,5 +458,112 @@ describe('التشغيل · الجملة الطويلة لا تدهس ما تح�
       expect(block.includes('max-height')).toBe(true);
       expect(block.includes('min-height')).toBe(true);
     });
+  });
+});
+
+/* ================================================================== *
+ * الإعدادات — حارسٌ عامّ على تصادم الأسماء (WS28)
+ * ================================================================== */
+
+describe('الإعدادات · كل زرّ له معالِجٌ واحد', () => {
+  let code = '';
+  let raw = '';
+
+  it('⚠️ الحارس: كل اسم فعلٍ يُصدره الرسم له `case` في المُوزِّع', async () => {
+    raw = await (await fetch('/js/views/shadow-view.js')).text();
+    code = codeOnly(raw);
+
+    /* ما يُصدره الرسم: سماتٌ مكتوبةٌ حرفيًّا، وما تولّده `pick`. */
+    const emitted = new Set([
+      ...[...code.matchAll(/data-sh="([a-z-]+)"/g)].map((h) => h[1]),
+      ...[...code.matchAll(/\bpick\('([a-z-]+)'/g)].map((h) => h[1]),
+    ]);
+    const handled = new Set([...code.matchAll(/case '([a-z-]+)':/g)].map((h) => h[1]));
+
+    /*
+     * ما يُعالَج **خارج** المُوزِّع — بسببٍ مكتوبٍ لكلّ واحد، كسائر
+     * سجلّات «ما لا نفعله» في المشروع. وسطرٌ يُضاف هنا قرارٌ، وغيابُه
+     * سهوٌ يُسقط الاختبار.
+     */
+    const ELSEWHERE = {
+      'voice-select': 'قائمة select لا زرّ — حدثُها change لا click، فلا مكانَ لها في مُوزِّع النقر',
+      unsave: 'داخل نافذة المحفوظات، ولها مستمعُها على document لأن النوافذ تُلحَق بـbody لا بالشاشة',
+    };
+    for (const [name, why] of Object.entries(ELSEWHERE)) {
+      expect(why.length > 25).toBe(true);
+      handled.add(name);
+    }
+
+    /*
+     * ⚠️ **هذا الحارسُ وُلد من عطلٍ صامتٍ تمامًا.** لوحةُ العرض كانت
+     *    تُصدر `mode` — وهو اسمُ فعلٍ آخر (نمط التكرار). فضغطُ
+     *    «مصري» يقع في الحالة الخطأ فتقرأ سمةً غيرَ موجودة وتضبط
+     *    التكرار، **ولا تلمس الترجمة**. ولا خطأ ولا رسالة.
+     *
+     *    ولأن التصادمَ نفسَه لا يُكشَف بالاسم (كلاهما له `case`)،
+     *    يمسك هذا الحارسُ أخاه: فعلٌ يُصدَر بلا معالِج. والتصادمُ
+     *    نفسُه له اختبارُه تحت.
+     */
+    const orphans = [...emitted].filter((name) => !handled.has(name));
+    expect(orphans).toEqual([]);
+  });
+
+  it('⚠️ ولوحةُ العرض لا تُسمّى باسم نمط التكرار', () => {
+    /* الاسمان كانا `mode` كلاهما — وهو ما أعطب الترجمة بالكامل. */
+    const at = code.indexOf("id === 'display'");
+    const panel = code.slice(at, at + 700);
+    expect(panel.includes("pick('mode'")).toBe(false);
+    expect(panel.includes("pick('disp'")).toBe(true);
+  });
+
+  it('⚠️ وحجمُ الخطّ بالبكسل لا يُكتَب في حقلِ النسبة', () => {
+    /*
+     * `ctx.fontSize` نسبةٌ (1 = 100%)، وكانت `fsize` تضع فيها `48`
+     * فتصير 4800% — وقد ظهرت حرفيًّا على السكّة. حقلٌ بمعنيين
+     * يفسد كليهما، فصار للبكسل حقلُه.
+     */
+    const at = code.indexOf("case 'fsize'");
+    const block = code.slice(at, at + 420);
+    expect(block.includes('ctx.fontSize =')).toBe(false);
+    expect(block.includes('ctx.sizePx =')).toBe(true);
+    /* ويُحفَظ — كان يُطبَّق ولا يبقى بعد إغلاق الجلسة. */
+    expect(block.includes('saveSessionSettings')).toBe(true);
+  });
+
+  it('⚠️ وكلا متغيّرَي الخطّ في القاعدة التي تحسم', async () => {
+    const css = await (await fetch('/css/shadow.css')).text();
+    for (const rule of [
+      '.shadow-app.is-rail .sh-current-text',
+      '.shadow-app:not(.is-rail) .sh-current-text',
+    ]) {
+      const at = css.lastIndexOf(rule);
+      const block = css.slice(at, at + 190);
+      /* البكسل من الدرجات، والنسبة من المنزلق — وإلّا فأحدهما بلا أثر. */
+      expect(block.includes('--sh-size')).toBe(true);
+      expect(block.includes('--sh-font-size')).toBe(true);
+    }
+  });
+
+  it('⚠️ ومفتاحُ الأوضاع الثلاثة على الشاشة لا في لوحة', () => {
+    expect(raw.includes('data-modes')).toBe(true);
+    const at = code.indexOf('const MODES = [');
+    const block = code.slice(at, code.indexOf('\n];', at));
+    const ids = [...block.matchAll(/id: '([a-z]+)'/g)].map((h) => h[1]);
+    expect(ids).toEqual(['text', 'word', 'own']);
+    /* وكلٌّ يقول متى هو المُختار، ويدخل بفعل. */
+    expect((block.match(/is: \(\)/g) || []).length).toBe(3);
+    expect((block.match(/enter: async/g) || []).length).toBe(3);
+  });
+
+  it('⚠️ وإغلاقُ العارض لا ينقل أحدًا', async () => {
+    const lb = await (await fetch('/js/components/lightbox.js')).text();
+    /*
+     * كان يُنادي `reloadScene`، وفرعُها الآخر `navigate`. فمَن فتح
+     * صورةً من داخل كتاب الظلّ كان إغلاقُها يقذفه خارج جلسته.
+     * **قِيس**: بعد الإغلاق يبقى المسارُ على `/shadow/`.
+     */
+    const lbCode = codeOnly(lb);
+    expect(lbCode.includes('reloadScene')).toBe(false);
+    expect(lbCode.includes('refreshSceneIfShowing')).toBe(true);
   });
 });
