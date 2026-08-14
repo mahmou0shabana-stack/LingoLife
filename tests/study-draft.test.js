@@ -730,3 +730,78 @@ describe('التحكّم · لا زرَّ تحت لوحة', () => {
     expect(css.slice(wide, wide + 260).includes('.sh-scrim { bottom:')).toBe(true);
   });
 });
+
+/* ================================================================== *
+ * المستمعون لا يتراكمون (WS32)
+ * ================================================================== *
+ *
+ * ⚠️ **أخطرُ عطلٍ في هذه السلسلة كلِّها، ولم تمسكه فحوصي.**
+ *
+ * `#app-main` عنصرٌ يعيش عبر الشاشات: يُستبدَل محتواه ولا يُستبدَل هو.
+ * و`wireInteractions(main)` تعلّق عليه `click` في كلّ دخولٍ للظلّ بلا
+ * نزعٍ لما قبلها — فتتراكم:
+ *
+ *     أوّل فتحة   → مستمعٌ واحد → لمسةٌ = فعلٌ واحد        ✔
+ *     تغيّر الصورة → مستمعان    → تشغيلٌ ثم إيقافٌ فورًا   ✘ صامت
+ *     والثالثة    → ثلاثة       → تشغيل، إيقاف، تشغيل     ✔
+ *
+ * وهو تفسيرُ «بيشتغل ساعات ويبوظ ساعات» بحرفه: العدَدُ الزوجيُّ من
+ * المستمعين يُلغي نفسَه، والفرديُّ يعمل.
+ *
+ * ⚠️ **ولماذا لم أره في اثنتي عشرة جولة؟** لأن كلَّ فحصٍ يبدأ
+ *    بـ`page.reload()` — مستندٌ جديدٌ ومستمعٌ واحد. **انضباطي في
+ *    «ابدأ من حالةٍ نضيفة» هو نفسُه ما أخفى العطل.** العيبُ لا يظهر
+ *    إلّا في الاستعمال المتّصل — وهو ما يفعله المستعمِلُ ولا يفعله
+ *    اختباري.
+ */
+describe('الظلّ · مستمعٌ واحدٌ لكلّ فتحة', () => {
+  let code = '';
+
+  it('⚠️ الحارس: كلُّ مستمعٍ في الشاشة يأخذ إشارةَ القطع', async () => {
+    code = codeOnly(await (await fetch('/js/views/shadow-view.js')).text());
+
+    /* كلُّ نداءٍ بعد تعريف `freshWires` — أي داخل الشاشة نفسها. */
+    const from = code.indexOf('function freshWires');
+    expect(from > 0).toBe(true);
+
+    const naked = [];
+    const body = code.slice(from);
+    for (const hit of body.matchAll(/(\w+)\.addEventListener\(/g)) {
+      /*
+       * ما يُنزَع بيده: `document` له `removeEventListener` صريحٌ في
+       * `disposeShadow`، وعناصرُ الصوت تموت مع `stopVoice`.
+       */
+      if (hit[1] === 'document') continue;
+      if (body.slice(Math.max(0, hit.index - 14), hit.index).includes('voice.')) continue;
+
+      /* نوازن الأقواس لنقرأ النداءَ كاملًا — فهو يمتدّ سطورًا. */
+      let depth = 0; let quote = null; let j = hit.index + hit[0].length - 1;
+      for (; j < body.length; j += 1) {
+        const ch = body[j];
+        if (quote) {
+          if (ch === '\\') { j += 1; continue; }
+          if (ch === quote) quote = null;
+          continue;
+        }
+        if (ch === "'" || ch === '"' || ch === '`') { quote = ch; continue; }
+        if (ch === '(') depth += 1;
+        else if (ch === ')') { depth -= 1; if (!depth) break; }
+      }
+      const call = body.slice(hit.index, j + 1);
+      if (!call.includes('wired()')) naked.push(`${hit[1]}:${call.slice(0, 46)}`);
+    }
+    expect(naked).toEqual([]);
+  });
+
+  it('⚠️ والحبلُ يُفتَح عند الرسم ويُقطَع عند المغادرة', () => {
+    const mount = code.indexOf('freshWires();');
+    expect(mount > 0).toBe(true);
+
+    /* ⚠️ 700 حرفًا لا تكفي: الدالّةُ فيها شروحٌ طويلة، والقطعُ على
+       بعد 1379. حدٌّ عدَديٌّ ضيّقٌ يُسقط الصوابَ — نفسُ درسِ «حارسٌ
+       بنمطٍ خاطئ». فنقرأ إلى نهاية الدالّة. */
+    const at = code.indexOf('export function disposeShadow');
+    const end = code.indexOf('\n}', at);
+    expect(code.slice(at, end).includes('wires?.abort()')).toBe(true);
+  });
+});

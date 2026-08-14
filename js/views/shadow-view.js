@@ -211,6 +211,49 @@ function paintFloating() {
   parkedBar.classList.toggle('is-quiet', !on);
 }
 
+/**
+ * حبلُ مستمعي هذه الشاشة — يُقطَع عند المغادرة فيسقط كلُّ ما عُلِّق به.
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **وهذا هو أصلُ «التشغيل بيشتغل مرّة ويبوظ مرّة»**
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * `wireInteractions(main)` تعلّق `click` على `#app-main` — وهو عنصرٌ
+ * **يعيش عبر الشاشات كلِّها**: يُستبدَل محتواه ولا يُستبدَل هو. وكانت
+ * تُنادى في كلّ دخولٍ للظلّ بلا نزعٍ لما قبلها، فتتراكم:
+ *
+ *     أوّل فتحة  → مستمعٌ واحد   → لمسةٌ = فعلٌ واحد     ✔ يشتغل
+ *     تغيّر الصورة → مستمعان     → لمسةٌ = تشغيلٌ ثم إيقاف ✘ صامت
+ *     والثالثة   → ثلاثة        → تشغيل، إيقاف، تشغيل   ✔ يشتغل
+ *
+ * ⚠️ **قِستُه**: بعد الانتقال إلى جلسةٍ أخرى، لمسةٌ واحدة على زرّ
+ *    التشغيل تُنتج تتابعَ الحالة `["بيشتغل", "متوقّف"]` ونطقًا `[]`.
+ *    والنداءُ البرمجيُّ `.click()` يُنتج تغييرًا واحدًا. فليست اللمسةُ
+ *    مضاعَفة — بل **المستمعون** هم المضاعَفون.
+ *
+ * ⚠️ **ولماذا لم تمسكه فحوصي؟** لأن كلَّ واحدٍ منها يبدأ بـ`reload`
+ *    — مستندٌ جديدٌ ومستمعٌ واحد. **انضباطي في «ابدأ من حالةٍ نضيفة»
+ *    هو نفسُه ما أخفى العطل**: العيبُ لا يظهر إلّا في الاستعمال
+ *    المتّصل، وهو ما يفعله المستعمِلُ ولا يفعله اختباري.
+ *
+ * والعلاج `AbortSignal` واحد: كلُّ `addEventListener` في هذه الشاشة
+ * يأخذه، و`disposeShadow` تقطعه. فلا يُنسى نزعُ مستمعٍ يُضاف غدًا —
+ * إن نسي كاتبُه الإشارةَ أسقطه اختبار.
+ */
+let wires = null;
+
+/** يفتح حبلًا جديدًا بعد قطع القديم. */
+function freshWires() {
+  wires?.abort();
+  wires = new AbortController();
+  return wires.signal;
+}
+
+/** الخيارُ الذي يأخذه كلُّ مستمعٍ في هذه الشاشة. */
+function wired(extra = {}) {
+  return { ...extra, signal: wires?.signal };
+}
+
 /** يوقف الجلسة المُبقاة ويرفع شريطها. */
 function stopParked() {
   parked = false;
@@ -264,6 +307,13 @@ export function disposeShadow() {
   recorder?.cancel?.();
   recorder = null;
   clearExpressionIndex();
+  /*
+   * ⚠️ **قطعُ الحبل قبل أيّ شيء آخر**: مستمعٌ باقٍ على `#app-main`
+   *    يعمل على شاشةٍ لم تعد له.
+   */
+  wires?.abort();
+  wires = null;
+
   if (modalClickHandler) {
     document.removeEventListener('click', modalClickHandler);
     modalClickHandler = null;
@@ -734,6 +784,10 @@ export async function renderShadow(main, sessionId) {
    *    المسرح لا لوحةً تُفتَح، فلو انتظرت ضغطةً لبقي تحت الجملة فراغ.
    */
   renderWords();
+
+  /* حبلٌ جديدٌ لهذه الفتحة — يقطع مستمعي الفتحة التي قبلها. */
+  freshWires();
+
   wireSpine(main);
   wireDocSplit(main);
   wirePinch(main);
@@ -777,7 +831,7 @@ function wireChips(main) {
       chip.classList.add('picked');
       renderRail();
     }, 420);
-  });
+  }, wired());
 
   const end = (event) => {
     clearTimeout(timer);
@@ -819,9 +873,9 @@ function wireChips(main) {
       });
     }
   };
-  host.addEventListener('pointerup', end);
-  host.addEventListener('pointercancel', () => clearTimeout(timer));
-  host.addEventListener('pointerleave', () => clearTimeout(timer));
+  host.addEventListener('pointerup', end, wired());
+  host.addEventListener('pointercancel', () => clearTimeout(timer), wired());
+  host.addEventListener('pointerleave', () => clearTimeout(timer), wired());
 }
 
 /**
@@ -2827,7 +2881,7 @@ function wirePinch(main) {
       pinch = { start: spread(), from: ctx.coverZoom };
       box.setPointerCapture?.(event.pointerId);
     }
-  });
+  }, wired());
 
   box.addEventListener('pointermove', (event) => {
     if (!touches.has(event.pointerId)) return;
@@ -2848,16 +2902,16 @@ function wirePinch(main) {
     /* نفسُ حدَّي الأزرار — فلا يخرج القرصُ عمّا يقدر عليه الزرّ. */
     ctx.coverZoom = Math.round(Math.max(40, Math.min(400, pinch.from * (now / pinch.start))));
     applyCover();
-  });
+  }, wired());
 
   const lift = (event) => {
     touches.delete(event.pointerId);
     if (touches.size < 2) pinch = null;
     if (!touches.size) pan = null;
   };
-  box.addEventListener('pointerup', lift);
-  box.addEventListener('pointercancel', lift);
-  box.addEventListener('pointerleave', lift);
+  box.addEventListener('pointerup', lift, wired());
+  box.addEventListener('pointercancel', lift, wired());
+  box.addEventListener('pointerleave', lift, wired());
 }
 
 /** يركّب سحبَ مقبض الورقة — بنفس منطق كعب الكتاب. */
@@ -2873,12 +2927,12 @@ function wireDocSplit(main) {
     from = { y: event.clientY, base: docSize };
     app.classList.add('is-docdrag');
     handle.setPointerCapture?.(event.pointerId);
-  });
+  }, wired());
 
   handle.addEventListener('pointermove', (event) => {
     if (!from) return;
     applyDoc(from.base + (event.clientY - from.y));
-  });
+  }, wired());
 
   const release = () => {
     if (!from) return;
@@ -2886,8 +2940,8 @@ function wireDocSplit(main) {
     app.classList.remove('is-docdrag');
     settings.set(DOC_KEY, docSize).catch(() => {});
   };
-  handle.addEventListener('pointerup', release);
-  handle.addEventListener('pointercancel', release);
+  handle.addEventListener('pointerup', release, wired());
+  handle.addEventListener('pointercancel', release, wired());
 }
 
 /* ------------------------------------------------------------------ *
@@ -3512,7 +3566,7 @@ function wireInteractions(main) {
     if (event.target.hasAttribute('data-draft-box')) {
       scheduleDraftSave(event.target.value);
     }
-  });
+  }, wired());
 
   main.addEventListener('change', (event) => {
     const key = event.target.dataset.tuneRange || event.target.dataset.tuneNum;
@@ -3528,13 +3582,13 @@ function wireInteractions(main) {
       saveSessionSettings(ctx.session.id, { voiceId: voiceName }).catch(() => {});
       toast(`الصوت: ${voiceName}`);
     }
-  });
+  }, wired());
 
   main.addEventListener('submit', (event) => {
     if (!event.target.hasAttribute('data-scratch')) return;
     event.preventDefault();
     readScratch(new FormData(event.target).get('scratch'));
-  });
+  }, wired());
 
   main.addEventListener('click', async (event) => {
     // النقر خارج الدرج يغلقه — كأيّ ورقة منزلقة.
@@ -4125,7 +4179,7 @@ function wireInteractions(main) {
       default:
         return;
     }
-  });
+  }, wired());
 
   // الحالة الابتدائية للأزرار
   main.querySelector('[data-sh="stress"]')?.classList.toggle('on', ctx.stress);
@@ -4163,7 +4217,7 @@ function wireOriginPanel(main) {
   box.addEventListener('toggle', () => {
     ctx.originOpen = box.open;
     saveSessionSettings(ctx.session.id, { originOpen: box.open }).catch(() => {});
-  });
+  }, wired());
 
   const grip = box.querySelector('[data-origin-grip]');
   const scroll = box.querySelector('.sh-origin-scroll');
@@ -4182,13 +4236,13 @@ function wireOriginPanel(main) {
     startH = scroll.getBoundingClientRect().height;
     grip.setPointerCapture(event.pointerId);
     event.preventDefault();
-  });
+  }, wired());
 
   grip.addEventListener('pointermove', (event) => {
     if (!dragging) return;
     ctx.originHeight = Math.max(80, Math.min(maxHeight(), Math.round(startH + (event.clientY - startY))));
     apply();
-  });
+  }, wired());
 
   const end = (event) => {
     if (!dragging) return;
@@ -4197,8 +4251,8 @@ function wireOriginPanel(main) {
     saveSessionSettings(ctx.session.id, { originHeight: ctx.originHeight }).catch(() => {});
   };
 
-  grip.addEventListener('pointerup', end);
-  grip.addEventListener('pointercancel', end);
+  grip.addEventListener('pointerup', end, wired());
+  grip.addEventListener('pointercancel', end, wired());
 
   // ولمن لا يسحب — على تابلت بلوحة مفاتيح، أو بلا لمسٍ دقيق.
   grip.tabIndex = 0;
@@ -4209,7 +4263,7 @@ function wireOriginPanel(main) {
     ctx.originHeight = Math.max(80, Math.min(maxHeight(), ctx.originHeight + step));
     apply();
     saveSessionSettings(ctx.session.id, { originHeight: ctx.originHeight }).catch(() => {});
-  });
+  }, wired());
 }
 
 /**
@@ -4235,13 +4289,13 @@ function wireCoverResize(main) {
     startH = box.getBoundingClientRect().height;
     grip.setPointerCapture(event.pointerId);
     event.preventDefault();
-  });
+  }, wired());
 
   grip.addEventListener('pointermove', (event) => {
     if (!dragging) return;
     ctx.coverHeight = Math.max(90, Math.min(maxHeight(), Math.round(startH + (event.clientY - startY))));
     applyCover();
-  });
+  }, wired());
 
   const end = (event) => {
     if (!dragging) return;
@@ -4250,8 +4304,8 @@ function wireCoverResize(main) {
     saveSessionSettings(ctx.session.id, { coverHeight: ctx.coverHeight }).catch(() => {});
   };
 
-  grip.addEventListener('pointerup', end);
-  grip.addEventListener('pointercancel', end);
+  grip.addEventListener('pointerup', end, wired());
+  grip.addEventListener('pointercancel', end, wired());
 
   // ولمن لا يسحب: الأسهم تغيّر الارتفاع درجةً درجة.
   grip.tabIndex = 0;
@@ -4262,7 +4316,7 @@ function wireCoverResize(main) {
     ctx.coverHeight = Math.max(90, Math.min(maxHeight(), ctx.coverHeight + step));
     applyCover();
     saveSessionSettings(ctx.session.id, { coverHeight: ctx.coverHeight }).catch(() => {});
-  });
+  }, wired());
 }
 
 /**
@@ -4319,8 +4373,8 @@ function wireSpine(main) {
     spine.classList.add('is-dragging');
     spine.setPointerCapture(event.pointerId);
     event.preventDefault();
-  });
-  spine.addEventListener('pointermove', (event) => { if (dragging) apply(event); });
+  }, wired());
+  spine.addEventListener('pointermove', (event) => { if (dragging) apply(event); }, wired());
 
   const release = (event) => {
     if (!dragging) return;
@@ -4334,6 +4388,6 @@ function wireSpine(main) {
      */
     settings.set(SPLIT_KEY, savedSplit).catch(() => {});
   };
-  spine.addEventListener('pointerup', release);
-  spine.addEventListener('pointercancel', release);
+  spine.addEventListener('pointerup', release, wired());
+  spine.addEventListener('pointercancel', release, wired());
 }
