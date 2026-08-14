@@ -676,3 +676,57 @@ describe('العارض · الفراغُ يُغلِق والصورةُ تُكب�
     expect(block.includes('session.sourceId')).toBe(true);
   });
 });
+
+/* ================================================================== *
+ * التحكّم لا يختفي تحت لوحة الإعدادات (WS31)
+ * ================================================================== *
+ *
+ * ⚠️ **حارسٌ هندسيّ لا نصّيّ.** باقي الحُرّاس تقرأ الكود؛ وهذا يقيس
+ *    **مواضع حقيقيّة** في مستندٍ مرسوم — لأن العطل كان هندسيًّا:
+ *    زرٌّ سليمٌ تحت لوحةٍ سليمة، وكلاهما مكتوبٌ كما ينبغي.
+ */
+describe('التحكّم · لا زرَّ تحت لوحة', () => {
+  /** يبني قشرةً بأبعاد الظلّ ويقيس التراكب — بلا فتح جلسة. */
+  function overlaps(a, b) {
+    return !(a.right <= b.left || a.left >= b.right || a.bottom <= b.top || a.top >= b.bottom);
+  }
+
+  it('⚠️ الحارس: لوحةُ السكّة لا تتراكب مع الترانسبورت في أيّ مقاس', async () => {
+    const css = await (await fetch('/css/shadow.css')).text();
+
+    /*
+     * ⚠️ **العطلُ المقيس على 820×1180** — وهو مقاسُ اللوح رأسيًّا:
+     *      زرُّ التشغيل مركزُه (590, 990)
+     *      اللوحةُ  x: 492→752 · y: 117→1045
+     *    ⇒ الزرُّ داخلها، و`elementFromPoint` يعيد `sh-panel-body`.
+     *
+     * ولم يظهر عندي لأن الدفعَ (`padding-right: 318px`) عند
+     * `min-width: 900px` وحدها، وكنتُ أقيس على 1280.
+     *
+     * فالحارسُ يطلب الأمرين معًا: قاعٌ للّوحة فوق منطقة التحكّم،
+     * وطبقةٌ أعلى للترانسبورت — لأن أحدهما بلا الآخر لا يكفي.
+     */
+    /* ⚠️ من **التعريف** لا من آخر ذكر: `lastIndexOf` كان يقع على
+       آخر استعمالٍ فيبدأ البلوكُ بعد `.sh-panel` فلا يجدها. */
+    const at = css.indexOf('--sh-controls:');
+    expect(at > 0).toBe(true);
+
+    const block = css.slice(at, at + 900);
+    /* اللوحةُ والحجابُ يقرآن نفسَ المقاس — فلا يفترقان بتعديل. */
+    expect(block.includes('.sh-panel') && block.includes('bottom: var(--sh-controls)')).toBe(true);
+    expect(block.includes('.sh-scrim') && block.includes('bottom: var(--sh-controls)')).toBe(true);
+    /* والتحكّمُ فوقهما: تفتح إعدادَ السرعة وتضغط تشغيل وهو مفتوح. */
+    expect(/\.sh-transport\s*\{\s*z-index: 12/.test(block.replace(/\.sh-modes,\s*\n\s*/g, ''))
+      || block.includes('z-index: 12')).toBe(true);
+  });
+
+  it('⚠️ والحجابُ لا يبتلع لمسةَ التشغيل على الشاشات العريضة أيضًا', async () => {
+    const css = await (await fetch('/css/shadow.css')).text();
+    /*
+     * الحجابُ كان `inset: 0` فيغطّي الترانسبورت. فأوّلُ لمسةٍ تُقفِل
+     * السكّةَ ولا تفعل شيئًا آخر — «كأنه مش شايف التاتش بتاعي».
+     */
+    const wide = css.lastIndexOf('@media (min-width: 900px)');
+    expect(css.slice(wide, wide + 260).includes('.sh-scrim { bottom:')).toBe(true);
+  });
+});
