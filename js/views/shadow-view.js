@@ -330,6 +330,7 @@ export function disposeShadow() {
   player = null;
   scratchPlayer?.destroy();
   scratchPlayer = null;
+  closeFontPop();
   selecting = false;
   picked = new Set();
   /* ⚠️ علاماتُ جلسةٍ لا تُورَّث لجلسةٍ بعدها. */
@@ -791,6 +792,9 @@ export async function renderShadow(main, sessionId) {
     volume: session.volume ?? 1,
     lang: session.translationLang || 'ams',
     font: session.fontId || 'philosopher',
+    /* ⚠️ يرث `fontId` حين لا يكون له حقلٌ خاصّ — فالجلساتُ القديمة
+       تفتح بصفحتين متطابقتين كما تركتَها، ثم تفترقان باختيارك. */
+    fontDoc: session.fontDocId || session.fontId || 'philosopher',
     stress: session.showStress ?? true,
     autoRead: false,
     humanAudioUrl,
@@ -1117,6 +1121,8 @@ function shell() {
                 <button class="sh-select-go" data-sh="sel-apply">تدرّب على المحدَّد</button>
               </div>
 
+              ${raw(fontChip('doc'))}
+
               <div class="sh-lines" data-lines>
                 ${raw(segments.map((seg, i) => lineHtml(seg, i, i === idx)).join(''))}
               </div>
@@ -1148,12 +1154,27 @@ function shell() {
                   <span data-status class="sh-dim">جاهز</span>
                 </div>
                 <!--
+                  ⚠️ **الرجوعُ إلى ما جئتَ منه — حيث تنظر لا حيث دفنتُه.**
+
+                     بنيتُه في الجولة الماضية داخل بطاقة المصدر في
+                     الصفحة اليسرى، وقلتَ: «بشغّل المسودّة وبادرّب عليها
+                     بس مش لاقي رجوع للنصّ الأصلي». وهو موجودٌ — وأنت
+                     محقّ: مكانُه كان خطأ. الصفحةُ اليسرى تُطوى على
+                     الهاتف، وأنت وقتَ التدريب تنظر إلى **اليمنى** كلَّ
+                     الوقت. فزرٌّ في مكانٍ لا تنظر إليه = زرٌّ غير موجود.
+                -->
+                ${raw(source.hrefLabel ? html`
+                  <button class="sh-backsrc" data-sh="open-source" data-to="${source.href}">
+                    ↩ ${source.hrefLabel}
+                  </button>` : '')}
+                <!--
                   ⚠️ **شُرَطٌ لا شريطُ تقدّم.** الشريط يقول «كم قطعتَ»؛
                      والشُّرَط تقول ذلك **وتُنقَر**: كل شرطةٍ جملة، تضغطها
                      فتقفز إليها. رقمٌ صار قائمة — كقاعدة المختبر.
                 -->
                 <div class="sh-bar" data-bar><span></span></div>
                 <span data-counter hidden></span>
+                ${raw(fontChip('stage'))}
               </div>
 
               <div class="sh-hero" data-card>
@@ -1193,19 +1214,18 @@ function shell() {
               <div class="sh-hint sh-mono" data-hint>TAP A WORD TO HEAR · HOLD FOR ACTIONS</div>
 
               <!--
-                ⚠️ جهازٌ بلا صوتٍ روسيّ يُقال، لا يُمثَّل عليه.
-                    الشرحُ كاملًا فوق تعريف sh-novoice في shadow.css —
-                    ⚠️ ولا يُكتَب هنا: أوّلُ backtick في تعليقٍ داخل
-                    قالب html ينهي القالبَ ويكسر الوحدةَ كلَّها، وهو
-                    فخٌّ موثَّقٌ في المشروع وقعتُ فيه مرّتين.
+                ⚠️ **لافتةُ «مفيش صوت روسي» اتشالت** (WS36) — بطلبك:
+                    «ملهاش لازمة وواخدة مساحة كبيرة».
+
+                    وكانت لها لازمةٌ يوم كُتبت: كنتَ تدوس تشغيل فلا تسمع
+                    شيئًا ولا تعرف لماذا. ثم صار على جهازك صوتٌ روسيّ،
+                    فصارت لافتةً لا تظهر لك أصلًا — إلّا حين يتأخّر
+                    تحميلُ الأصوات لحظةً عند الفتح فتومض ثم تختفي.
+
+                    ⚠️ **والمعلومةُ لم تُرمَ، بل انتقلت**: لوحةُ الصوت في
+                    السكّة تقول «مفيش صوت روسي» حين لا يوجد — سطرٌ في
+                    مكانِ السؤال، بدل لوحةٍ تحجز رُبعَ المسرح دائمًا.
               -->
-              ${raw(voices.russian.length ? '' : html`
-                <div class="sh-novoice" data-novoice>
-                  <b>مفيش صوت روسي على الجهاز ده</b>
-                  <span>عشان كده بتدوس تشغيل وماتسمعش حاجة. نزّل صوت روسي من
-                    إعدادات الجهاز ← اللغة والإدخال ← تحويل النص لكلام،
-                    وارجع افتح الصفحة تاني.</span>
-                </div>`)}
 
               <!--
                 ⚠️ مفتاحُ الأوضاع الثلاثة (WS28) — الشرحُ فوق سجلّ
@@ -2277,7 +2297,18 @@ function panelFor(id) {
   if (id === 'voice') {
     return {
       title: 'الصوت',
-      foot: ctx.humanAudioUrl ? 'تسجيلُك مربوطٌ بهذا المصدر' : 'أصواتُ جهازك — لا شيء يُحمَّل',
+      /*
+       * ⚠️ **وهنا مكانُ «مفيش صوت روسي»** بعد أن رُفعت لافتتُها من
+       *    المسرح (WS36). المعلومةُ صحيحةٌ ونادرة، فتُقال حيث تُسأل —
+       *    في لوحة الصوت — لا في لوحةٍ تحجز رُبعَ الشاشة دائمًا لمن
+       *    لا يعنيه الأمر.
+       */
+      foot: (() => {
+        if (!ctx.voices?.russian?.length) {
+          return 'مفيش صوت روسي على الجهاز — نزّله من إعدادات الجهاز ← تحويل النصّ لكلام';
+        }
+        return ctx.humanAudioUrl ? 'تسجيلُك مربوطٌ بهذا المصدر' : 'أصواتُ جهازك — لا شيء يُحمَّل';
+      })(),
       /*
        * ⚠️ **تُرسَم من السجلّ لا بأسمائها.**
        *
@@ -2981,6 +3012,98 @@ function stopVoice() {
  */
 let voiceBar = null;
 
+
+/**
+ * يجعل شريطًا عائمًا **يُسحَب بالإصبع ويتذكّر مكانه** (WS36).
+ *
+ * ⚠️ بلاغُك: «حلو شريط الإيقاف والتشغيل بتاع الفويس… بس خلّيه قابل
+ *    للسحب وحطّه من البداية في مكان مناسب».
+ *
+ * ومكانُه الأوّل كان فوق شريط الجلسة بـ64px — رقمٌ اخترتُه ليتجنّب
+ * التراكب، لا لأنه مكانٌ حسن. وهو يقع على يسار الأسفل حيث تُمسك اللوحَ
+ * بيدك، فيغطّي ما تقرؤه أحيانًا. فالمكانُ الأوّل صار **أعلى اليمين**
+ * بعيدًا عن التحكّم وعن النصّ معًا، ثم هو لك تسحبه حيث شئت.
+ *
+ * ⚠️ **ولا يهرب خارج الشاشة**: الموضعُ يُقصَر داخل حدودها عند السحب
+ *    **وعند القراءة من الذاكرة** — تسحبه إلى طرفٍ على اللوح ثم تفتحه
+ *    على الهاتف فيصير خارجَه بلا رجعة.
+ *
+ * ⚠️ **والسحبُ ليس ضغطة**: تحرّكٌ أقلُّ من 6px يبقى ضغطةً على الزرّ،
+ *    وإلّا صار كلُّ إيقافٍ سحبًا صغيرًا لا يوقف شيئًا.
+ */
+function makeDraggable(outlives, key) {
+  const el = outlives;
+  const clamp = () => {
+    const r = el.getBoundingClientRect();
+    const x = Math.min(Math.max(8, r.left), window.innerWidth - r.width - 8);
+    const y = Math.min(Math.max(8, r.top), window.innerHeight - r.height - 8);
+    el.style.insetInlineStart = 'auto';
+    el.style.insetBlockEnd = 'auto';
+    el.style.left = `${Math.round(x)}px`;
+    el.style.top = `${Math.round(y)}px`;
+  };
+
+  const saved = (() => {
+    try {
+      return JSON.parse(localStorage.getItem(key) || 'null');
+    } catch {
+      return null;
+    }
+  })();
+  if (saved && Number.isFinite(saved.x) && Number.isFinite(saved.y)) {
+    el.style.insetInlineStart = 'auto';
+    el.style.insetBlockEnd = 'auto';
+    el.style.left = `${saved.x}px`;
+    el.style.top = `${saved.y}px`;
+    /* بعد الإلحاق تُعرَف أبعادُه فيُقصَر داخل الشاشة. */
+    requestAnimationFrame(clamp);
+  }
+
+  let from = null;
+  outlives.addEventListener('pointerdown', (event) => {
+    /* الأزرارُ تعمل؛ السحبُ من جسم الشريط أو باستمرار الحركة. */
+    from = { x: event.clientX, y: event.clientY, box: el.getBoundingClientRect(), moved: false };
+  });
+
+  outlives.addEventListener('pointermove', (event) => {
+    if (!from) return;
+    const dx = event.clientX - from.x;
+    const dy = event.clientY - from.y;
+    if (!from.moved && Math.hypot(dx, dy) < 6) return;
+    from.moved = true;
+    el.setPointerCapture?.(event.pointerId);
+    el.classList.add('is-dragging');
+    el.style.insetInlineStart = 'auto';
+    el.style.insetBlockEnd = 'auto';
+    el.style.left = `${Math.round(from.box.left + dx)}px`;
+    el.style.top = `${Math.round(from.box.top + dy)}px`;
+    event.preventDefault();
+  });
+
+  const end = (event) => {
+    if (!from) return;
+    const wasDrag = from.moved;
+    from = null;
+    el.classList.remove('is-dragging');
+    if (!wasDrag) return;
+    /*
+     * ⚠️ **سحبةٌ انتهت فوق زرٍّ لا تضغطه.** و`stopPropagation` على
+     *    `pointerup` لا تمنع `click` — هو حدثٌ لاحقٌ مستقلّ. فالعلامةُ
+     *    تُترَك على العنصر ويقرؤها معالِجُ الضغط ويتجاهل نفسَه مرّةً.
+     */
+    el.dataset.dragged = '1';
+    clamp();
+    const r = el.getBoundingClientRect();
+    try {
+      localStorage.setItem(key, JSON.stringify({ x: Math.round(r.left), y: Math.round(r.top) }));
+    } catch {
+      /* التخزين ممتلئ أو ممنوع — المكانُ لا يُحفظ ولا يُكسَر شيء */
+    }
+  };
+  outlives.addEventListener('pointerup', end);
+  outlives.addEventListener('pointercancel', end);
+}
+
 /**
  * @param {{leaving?: boolean}} [opts] `leaving` تعني أن الشاشة تُغادَر الآن.
  *
@@ -3022,6 +3145,10 @@ function paintVoiceBar({ leaving = false } = {}) {
       <button class="shf-open" data-vb="name"><i class="shf-pulse"></i><b></b></button>
       <button class="shf-stop" data-vb="stop" aria-label="اقفل التسجيل">✕</button>`;
     outlives.addEventListener('click', (event) => {
+      if (outlives.dataset.dragged === '1') {
+        outlives.dataset.dragged = '';
+        return undefined;
+      }
       const act = event.target.closest('[data-vb]')?.dataset.vb;
       if (act === 'stop') return releaseAudio(`voice:${voice.id}`);
       if (act === 'play' && voice.audio) {
@@ -3031,6 +3158,7 @@ function paintVoiceBar({ leaving = false } = {}) {
       }
       return undefined;
     });
+    makeDraggable(bar, 'shadow.voiceBarPos');
     document.body.append(bar);
     voiceBar = bar;
   }
@@ -3518,17 +3646,116 @@ function setTuner(key, raw, { silent = false } = {}) {
   return saveSessionSettings(ctx.session.id, spec.persist(value)).catch(() => {});
 }
 
+
+/* ------------------------------------------------------------------ *
+ * مفتاحُ الخطّ الصغير — واحدٌ لكلّ صفحة، معروضٌ دائمًا (WS36)
+ * ------------------------------------------------------------------ */
+
 /**
- * يطبّق الخطّ وحجمه على الجملة الحالية وعلى سطور المصدر معًا.
+ * ⚠️ **بلاغُك**: «التحكّم في شكل الخطّ جميل جدًّا، بس عايز الكنترول
+ *    بتاعه يكون ذكيّ وجميل وصغير ومعروض طول الوقت في المكان المناسب
+ *    في كلّ صفحة من الصفحتين».
  *
- * كان الخطّ يُطبَّق على البطاقة وحدها، فتقرأ الجملة بخطٍّ وترى بقيّة
- * النصّ بخطٍّ آخر. الخطّ قرارٌ للنصّ الروسي كلّه.
+ * وكان الخطُّ يُغيَّر من لوحةٍ تُفتَح من السكّة — أي أنك تترك ما تنظر
+ * إليه لتصل إلى إعداده. والخطُّ **قرارٌ بصريّ**: تحكم عليه بالنظر إلى
+ * النصّ، فلا يصحّ أن يكون بابُه بعيدًا عنه.
+ *
+ * فصار على كلّ صفحةٍ شارةٌ صغيرةٌ فيها **حرفٌ روسيٌّ مرسومٌ بالخطّ
+ * نفسِه** — لا اسمُ الخطّ. الاسمُ يحتاج قراءةً وترجمةً في رأسك؛ والحرفُ
+ * يريك الجوابَ مباشرةً.
+ *
+ * ⚠️ **ولا تُغلق اللوحةَ ضغطةٌ داخلها.** أوّلُ نسخةٍ أغلقت على أي
+ *    `pointerdown` في المستند فكانت تُغلق قبل أن تصل الضغطةُ إلى
+ *    الخيار — فيبدو الاختيار بلا أثر.
+ */
+let fontPop = null;
+
+function closeFontPop() {
+  fontPop?.remove();
+  fontPop = null;
+}
+
+function toggleFontPop(page, anchor) {
+  const already = fontPop?.dataset.page === page;
+  closeFontPop();
+  if (already) return undefined;
+
+  const current = page === 'doc' ? ctx.fontDoc : ctx.font;
+  const pop = document.createElement('div');
+  pop.className = 'sh-fontpop';
+  pop.dataset.page = page;
+  pop.innerHTML = fontsByForm()
+    .map((group) => `
+      <div class="sh-fontpop-g">${esc(group.label)}</div>
+      ${group.fonts.map((f) => `
+        <button data-sh="font-pick" data-page="${page}" data-font="${f.id}"
+                class="${f.id === current ? 'on' : ''}" title="${esc(f.label)}">
+          <span style="font-family:${f.stack};font-style:${f.style}">Аа</span>
+          <b>${esc(f.label)}</b>
+        </button>`).join('')}`)
+    .join('');
+
+  anchor.closest('.sh-page')?.append(pop);
+  /* تُوضَع تحت شارتها لا في وسط الصفحة. */
+  const box = anchor.getBoundingClientRect();
+  const page_ = anchor.closest('.sh-page').getBoundingClientRect();
+  pop.style.insetBlockStart = `${Math.round(box.bottom - page_.top + 6)}px`;
+  pop.style.insetInlineStart = `${Math.round(box.left - page_.left)}px`;
+  fontPop = pop;
+  return undefined;
+}
+
+/** يُبقي الشارتين مطابقتين لخطَّي الصفحتين. */
+function paintFontChips() {
+  for (const [page, id] of [['stage', ctx.font], ['doc', ctx.fontDoc]]) {
+    const chip = $(`[data-sh="fontpop"][data-page="${page}"] span`);
+    if (!chip) continue;
+    const f = fontById(id);
+    chip.style.fontFamily = f.stack;
+    chip.style.fontStyle = f.style;
+  }
+  for (const btn of document.querySelectorAll('[data-sh="font-pick"][data-page]')) {
+    const on = btn.dataset.page === 'doc' ? ctx.fontDoc : ctx.font;
+    btn.classList.toggle('on', btn.dataset.font === on);
+  }
+}
+
+/** الشارةُ نفسُها — حرفٌ بالخطّ الجاري. */
+function fontChip(page) {
+  return html`<button class="sh-fontchip-mini" data-sh="fontpop" data-page="${page}"
+    title="خطّ الصفحة دي" aria-label="خطّ الصفحة دي"><span>Аа</span></button>`;
+}
+
+/**
+ * يطبّق الخطّ وحجمه — **لكلِّ صفحةٍ خطُّها** (WS36).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ بلاغُك: «لما بغيّره بيغيّر نوع الخطّ في الصفحتين — أنا عايز كل
+ *    صفحة لوحدها أتحكّم فيها»
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * وكنتُ كتبتُ هنا بالحرف: «الخطّ قرارٌ للنصّ الروسي كلّه» — وهو تعميمٌ
+ * بدا لي بديهيًّا وليس كذلك. الصفحتان تؤدّيان عملين مختلفين:
+ *
+ *   · **اليمنى** جملةٌ واحدةٌ كبيرة تنطقها — تريدها واضحةً بلا زخرفة.
+ *   · **اليسرى** سطورٌ كثيرةٌ تمسحها بعينك — قد تريدها بخطّ يدٍ يشبه
+ *     ما تقرؤه في الحياة، أو بخطٍّ أضيقَ يسع أكثر.
+ *
+ * فصارا خطّين: `ctx.font` للمسرح و`ctx.fontDoc` للسطور.
+ *
+ * ⚠️ **والقديمُ يبقى**: جلسةٌ محفوظةٌ بـ`fontId` وحده تفتح والخطّان
+ *    منها — فلا تتغيّر شاشةٌ تحت يدك لأننا فصلنا حقلًا.
  */
 function applyFonts() {
   const font = fontById(ctx.font);
 
   applyFont($('[data-text]'), ctx.font);
-  document.querySelectorAll('.sh-line [data-line-text]').forEach((node) => applyFont(node, ctx.font));
+  document.querySelectorAll('.sh-line [data-line-text]')
+    .forEach((node) => applyFont(node, ctx.fontDoc));
+  /* والأصلُ في لوحة المصدر يتبع صفحتَه أيضًا. */
+  document.querySelectorAll('[data-origin-text], .sh-origin-line')
+    .forEach((node) => applyFont(node, ctx.fontDoc));
+  paintFontChips();
 
   const app = document.querySelector('.shadow-app');
   if (app) {
@@ -4036,6 +4263,18 @@ async function openPanel(name) {
 }
 
 function wireInteractions(main) {
+  /*
+   * ⚠️ **`pointerdown` على المستند يقفل لوحةَ الخطّ الصغيرة — إلّا
+   *    داخلها.** أوّلُ نسخةٍ أغلقت على أيّ ضغطة فكانت تُغلق قبل أن تصل
+   *    الضغطةُ إلى الخيار، فيبدو الاختيارُ بلا أثر.
+   */
+  document.addEventListener('pointerdown', (event) => {
+    if (!fontPop) return;
+    if (event.target.closest('.sh-fontpop')) return;
+    if (event.target.closest('[data-sh="fontpop"]')) return;
+    closeFontPop();
+  }, wired());
+
   // السحب يطبّق فورًا بلا كتابة في القاعدة؛ الحفظ عند رفع الإصبع.
   main.addEventListener('input', (event) => {
     const key = event.target.dataset.tuneRange || event.target.dataset.tuneNum;
@@ -4625,10 +4864,27 @@ function wireInteractions(main) {
       }
 
       case 'font-pick': {
+        /*
+         * ⚠️ **الصفحةُ تُقرأ من الزرّ لا تُفترَض.** لوحةُ الخطّ القديمة
+         *    بلا `data-page` تعني «المسرح» كما كانت — فلا ينكسر بابٌ
+         *    قديمٌ لأننا فتحنا ثانيًا.
+         */
+        const page = btn.dataset.page === 'doc' ? 'doc' : 'stage';
+        if (page === 'doc') {
+          ctx.fontDoc = btn.dataset.font;
+          applyFonts();
+          closeFontPop();
+          return saveSessionSettings(ctx.session.id, { fontDocId: ctx.fontDoc });
+        }
         ctx.font = btn.dataset.font;
         applyFonts();
+        closeFontPop();
         return saveSessionSettings(ctx.session.id, { fontId: ctx.font });
       }
+
+      /* مفتاحُ الخطّ الصغير المعروض دائمًا على كلّ صفحة. */
+      case 'fontpop':
+        return toggleFontPop(btn.dataset.page === 'doc' ? 'doc' : 'stage', btn);
 
       case 'stress': {
         ctx.stress = !ctx.stress;

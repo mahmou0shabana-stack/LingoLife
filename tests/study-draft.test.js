@@ -1104,3 +1104,107 @@ describe('العرض · الحجم والوضوح والسبب', () => {
     expect(alpha >= 0.8).toBe(true);
   });
 });
+
+/* ================================================================== */
+/* WS36 — خطٌّ لكلّ صفحة، ومقبضٌ يُسحَب، ولافتةٌ رُفعت                   */
+/* ================================================================== */
+
+describe('الكتاب · لكلِّ صفحةٍ خطُّها', () => {
+  let code = '';
+
+  it('⚠️ الحارس: الصفحتان خطّان لا خطٌّ واحد', async () => {
+    code = codeOnly(await (await fetch('/js/views/shadow-view.js')).text());
+    const at = code.indexOf('function applyFonts');
+    const block = code.slice(at, code.indexOf('\n}', at));
+    /*
+     * كتبتُ فوق هذه الدالّة بالحرف: «الخطّ قرارٌ للنصّ الروسي كلّه» —
+     * تعميمٌ بدا بديهيًّا وليس كذلك: المسرحُ جملةٌ تنطقها، والورقةُ
+     * سطورٌ تمسحها بعينك، ولكلٍّ ما يناسبه.
+     */
+    expect(block.includes('ctx.font)')).toBe(true);
+    expect(block.includes('ctx.fontDoc)')).toBe(true);
+  });
+
+  it('⚠️ والجلساتُ القديمة تفتح كما تركتَها', () => {
+    /* `fontDocId` غيرُ موجودٍ فيها — فيرث `fontId` ولا تتبدّل شاشةٌ تحت يدك. */
+    expect(code.includes('session.fontDocId || session.fontId')).toBe(true);
+  });
+
+  it('⚠️ ومفتاحُ الخطّ معروضٌ في كلّ صفحة بلا فتح لوحة', () => {
+    expect(code.includes("fontChip('doc')")).toBe(true);
+    expect(code.includes("fontChip('stage')")).toBe(true);
+    /* والشارةُ حرفٌ بالخطّ نفسِه — الاسمُ يحتاج قراءةً والحرفُ يريك الجواب. */
+    const at = code.indexOf('function fontChip');
+    expect(code.slice(at, at + 320).includes('Аа')).toBe(true);
+  });
+
+  it('⚠️ والبابُ القديم بلا `data-page` يبقى للمسرح', () => {
+    const at = code.indexOf("case 'font-pick'");
+    const block = code.slice(at, at + 700);
+    expect(block.includes("btn.dataset.page === 'doc' ? 'doc' : 'stage'")).toBe(true);
+    expect(block.includes('fontDocId')).toBe(true);
+  });
+
+  it('⚠️ ولوحةُ الخطّ لا تُغلقها ضغطةٌ داخلها', () => {
+    const at = code.indexOf('function wireInteractions');
+    const block = code.slice(at, at + 700);
+    /*
+     * أوّلُ نسخةٍ أغلقت على أيّ `pointerdown` فكانت تُغلق قبل أن تصل
+     * الضغطةُ إلى الخيار — فيبدو الاختيارُ بلا أثر.
+     */
+    expect(block.includes("closest('.sh-fontpop')")).toBe(true);
+  });
+});
+
+describe('المقابض · تُسحَب وتُرى', () => {
+  let code = '';
+
+  it('⚠️ الحارس: السحبُ ليس ضغطة', async () => {
+    code = codeOnly(await (await fetch('/js/views/shadow-view.js')).text());
+    const at = code.indexOf('function makeDraggable');
+    expect(at > 0).toBe(true);
+    const block = code.slice(at, code.indexOf('\n}\n', at));
+    /* تحرّكٌ أقلُّ من 6px يبقى ضغطةً، وإلّا صار كلُّ إيقافٍ سحبًا لا يوقف. */
+    expect(block.includes('Math.hypot(dx, dy) < 6')).toBe(true);
+    /*
+     * ⚠️ و`stopPropagation` على `pointerup` لا تمنع `click` — هو حدثٌ
+     *    لاحقٌ مستقلّ. فالعلامةُ تُترَك ويقرؤها معالِجُ الضغط.
+     */
+    expect(block.includes("dataset.dragged = '1'")).toBe(true);
+  });
+
+  it('⚠️ ولا يهرب المقبضُ خارج الشاشة — ولا عند القراءة من الذاكرة', () => {
+    const at = code.indexOf('function makeDraggable');
+    const block = code.slice(at, code.indexOf('\n}\n', at));
+    expect(block.includes('const clamp')).toBe(true);
+    /* تسحبه إلى طرفٍ على اللوح ثم تفتحه على الهاتف فيصير خارجَه بلا رجعة. */
+    expect(block.includes('requestAnimationFrame(clamp)')).toBe(true);
+  });
+
+  it('⚠️ والرجوعُ للأصل في الصفحة التي تنظر إليها وقت التدريب', () => {
+    /*
+     * بنيتُه في بطاقة المصدر في الصفحة اليسرى — وهي تُطوى على الهاتف،
+     * وأنت وقتَ التدريب تنظر إلى اليمنى. فزرٌّ في مكانٍ لا تنظر إليه
+     * زرٌّ غير موجود. **بلاغُك**: «مش لاقي رجوع للنصّ الأصلي».
+     */
+    expect(code.includes('class="sh-backsrc"')).toBe(true);
+    const at = code.indexOf('sh-stage-top');
+    const end = code.indexOf('sh-hero', at);
+    expect(code.slice(at, end).includes('sh-backsrc')).toBe(true);
+  });
+
+  it('⚠️ ولافتةُ «مفيش صوت روسي» رُفعت ومعلومتُها انتقلت', () => {
+    expect(code.includes('class="sh-novoice"')).toBe(false);
+    /* لا تُرمى المعلومة — تُقال حيث تُسأل: في لوحة الصوت. */
+    const at = code.indexOf("if (id === 'voice')");
+    expect(code.slice(at, at + 900).includes('مفيش صوت روسي')).toBe(true);
+  });
+
+  it('⚠️ وصندوقُ المحادثة محدودٌ كأخويه', async () => {
+    const scene = codeOnly(await (await fetch('/js/views/scene-view.js')).text());
+    const css = await (await fetch('/css/journal.css')).text();
+    expect(scene.includes('conv-box')).toBe(true);
+    /* بالأسطر لا بالبكسل — كالنصّ الأصلي وجسم السكريبت. */
+    expect(css.includes('max-block-size: 16lh')).toBe(true);
+  });
+});

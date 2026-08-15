@@ -1025,3 +1025,18 @@
   background: var(--red-bg);
   border-color: var(--red);
 }
+
+/*
+ * صندوق المحادثة — ثالثُ الصناديق الطويلة (WS36)
+ *
+ * ⚠️ كلُّ جزءٍ فقاعةٌ باسمٍ ونصٍّ وترجمة، فمحادثةٌ من عشرين جزءًا تصير
+ *    شاشتين تمرّ عليهما لتصل إلى ما تحتها. والحدُّ بالأسطر (`lh`) كما
+ *    في أخويه، لا بالبكسل — فمَن كبّر الخطَّ يرى نفسَ عددِ الأسطر.
+ */
+.conv-box {
+  max-block-size: 420px; /* بديلٌ لمن لا يعرف `lh` */
+  max-block-size: 16lh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-inline-end: var(--sp-2);
+}

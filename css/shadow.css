@@ -4090,13 +4090,94 @@ body.shadow-open { overflow: hidden; }
  * شريطُ التسجيل — نفسُ شريطِ الجلسة، وفوقه قليلًا كي لا يركبا بعضهما
  * حين يكون في الشاشة شريطان (جلسةٌ مُبقاةٌ وتسجيلٌ شغّال).
  */
+/*
+ * ⚠️ **المكانُ الأوّل صار أعلى اليمين** (WS36): كان أسفلَ اليسار فوق
+ *    شريط الجلسة — حيث تُمسك اللوحَ بيدك وحيث تقرأ. والأعلى بعيدٌ عن
+ *    التحكّم وعن النصّ معًا. ثم هو لك تسحبه حيث شئت، ويتذكّر.
+ */
 .sh-vbar {
-  inset-block-end: calc(var(--nav-h) + 64px + env(safe-area-inset-bottom, 0px));
+  inset-block-start: calc(var(--sp-4) + env(safe-area-inset-top, 0px));
+  inset-block-end: auto;
+  inset-inline: auto var(--sp-4);
   border-color: rgba(140, 190, 240, .42);
 }
 .sh-vbar .shf-pulse { background: #8cbef0; }
 .sh-floating.is-quiet .shf-pulse { animation: none; opacity: .35; }
 
-@media (min-width: 1024px) {
-  .sh-vbar { inset-inline-start: calc(var(--sidebar-w) + 16px); }
+
+
+/* ==================================================================
+   WS36 — مفتاحُ الخطّ لكلّ صفحة · الرجوعُ للأصل · شريطٌ يُسحَب
+   ================================================================== */
+
+/*
+ * الشارةُ الصغيرة: حرفٌ روسيٌّ مرسومٌ بخطّ الصفحة نفسِه.
+ * ⚠️ الحرفُ لا الاسم — الاسمُ يحتاج قراءةً، والحرفُ يريك الجواب.
+ */
+.sh-fontchip-mini {
+  flex: 0 0 auto;
+  inline-size: 34px; block-size: 34px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 50%;
+  border: 1px solid rgba(217, 182, 114, .34);
+  background: rgba(217, 182, 114, .07);
+  color: var(--sh-ink);
+  cursor: pointer; padding: 0;
+  /* ⚠️ الهدفُ 44px باللمس وإن بدا 34: هالةٌ شفّافة حوله. */
+  position: relative;
 }
+.sh-fontchip-mini::after {
+  content: ''; position: absolute; inset: -5px; border-radius: 50%;
+}
+.sh-fontchip-mini span { font-size: 15px; line-height: 1; }
+.sh-fontchip-mini:hover { border-color: var(--sh-accent-2); }
+
+/* على صفحة الورقة تجلس في أعلى السطور، بمحاذاة الحافّة. */
+.sh-left > .sh-fontchip-mini { align-self: flex-end; margin: 0 0 6px; }
+/* وعلى المسرح داخل صفّ العدّاد. */
+.sh-stage-top .sh-fontchip-mini { margin-inline-start: auto; }
+
+.sh-fontpop {
+  position: absolute; z-index: 14;
+  inline-size: min(260px, 76vw);
+  max-block-size: 46vh; overflow-y: auto; overscroll-behavior: contain;
+  padding: 8px;
+  border-radius: 12px;
+  border: 1px solid rgba(217, 182, 114, .34);
+  background: linear-gradient(180deg, rgba(14, 20, 32, .99), rgba(8, 12, 20, .99));
+  box-shadow: 0 18px 40px -14px rgba(0, 0, 0, .85);
+}
+.sh-fontpop-g {
+  font-size: 10.5px; letter-spacing: .08em;
+  color: var(--sh-faint); padding: 8px 6px 4px;
+}
+.sh-fontpop button {
+  inline-size: 100%; min-block-size: 44px;
+  display: flex; align-items: center; gap: 10px;
+  padding: 6px 9px; border-radius: 8px;
+  border: 1px solid transparent; background: none;
+  color: var(--sh-ink); cursor: pointer; font: inherit; text-align: start;
+}
+.sh-fontpop button span { font-size: 19px; line-height: 1; min-inline-size: 34px; }
+.sh-fontpop button b { font-weight: 400; font-size: 12.5px; color: var(--sh-faint); }
+.sh-fontpop button.on {
+  border-color: rgba(217, 182, 114, .5);
+  background: rgba(217, 182, 114, .1);
+}
+.sh-fontpop button.on b { color: var(--sh-ink); }
+
+/* الرجوعُ إلى ما جئتَ منه — في الصفحة التي تنظر إليها وقت التدريب. */
+.sh-backsrc {
+  flex: 0 0 auto;
+  min-block-size: 34px; padding: 0 12px;
+  border-radius: 999px; cursor: pointer;
+  border: 1px solid rgba(217, 182, 114, .42);
+  background: rgba(217, 182, 114, .09);
+  color: var(--sh-ink); font: inherit; font-size: 12px;
+  white-space: nowrap;
+}
+.sh-backsrc:hover { background: rgba(217, 182, 114, .17); }
+
+/* شريطٌ يُسحَب: بلا انتقالٍ أثناء السحب وإلّا تأخّر عن الإصبع. */
+.sh-floating.is-dragging { transition: none; cursor: grabbing; opacity: .92; }
+.sh-vbar { touch-action: none; }
