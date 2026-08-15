@@ -200,6 +200,8 @@
 }
 
 .sh-page {
+  /* ⚠️ مرجعٌ للشارة المطلقة في ركنها — بدونه تُنسَب لأبٍ أبعد فتطير. */
+  position: relative;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   min-height: 0;
@@ -4132,13 +4134,38 @@ body.shadow-open { overflow: hidden; }
 .sh-fontchip-mini span { font-size: 15px; line-height: 1; }
 .sh-fontchip-mini:hover { border-color: var(--sh-accent-2); }
 
-/* على صفحة الورقة تجلس في أعلى السطور، بمحاذاة الحافّة. */
-.sh-left > .sh-fontchip-mini { align-self: flex-end; margin: 0 0 6px; }
-/* وعلى المسرح داخل صفّ العدّاد. */
-.sh-stage-top .sh-fontchip-mini { margin-inline-start: auto; }
+/*
+ * ⚠️ **ولا تأخذ صفًّا لنفسها** — بلاغُك: «خدت مساحة في الصفّ بتاعها
+ *    ملهاش لازمة». وكانت عنصرًا في تدفّق الصفحة، فأزاحت ما تحتها
+ *    بارتفاعها كلِّه لأجل زرٍّ قطرُه 34px.
+ *
+ *    فصارت **مطلقةً في ركن صفحتها**: تطفو فوق المحتوى ولا تدفعه.
+ *    و`.sh-page` عندها `position: relative` أصلًا فالركنُ ركنُها.
+ */
+.sh-page > .sh-fontchip-mini {
+  position: absolute;
+  z-index: 13;
+  inset-block-start: 6px;
+  inset-inline-end: 8px;
+  margin: 0;
+  opacity: .72;
+}
+.sh-page > .sh-fontchip-mini:hover,
+.sh-page > .sh-fontchip-mini:focus-visible { opacity: 1; }
+
+/* وعلى المسرح تجلس في صفّ العدّاد — هناك مكانٌ فارغٌ أصلًا. */
+.sh-stage-top .sh-fontchip-mini { margin-inline-start: auto; position: static; }
+
+
+/* أدواتُ الصورة مطويّةٌ خلف زرٍّ واحد. */
+.sh-cover-more { font-size: 13px; }
+.sh-cover-rest { display: inline-flex; align-items: center; gap: 4px; }
+.sh-cover-rest[hidden] { display: none; }
 
 .sh-fontpop {
-  position: absolute; z-index: 14;
+  /* ⚠️ `fixed` لا `absolute`: تُلحَق بـ`body` وتُوضَع بإحداثيّات الشاشة،
+     فأيُّ أبٍ يقصّ لا يطالها — وهو سببُ «مختفي نصّها». */
+  position: fixed; z-index: var(--z-overlay);
   inline-size: min(260px, 76vw);
   max-block-size: 46vh; overflow-y: auto; overscroll-behavior: contain;
   padding: 8px;

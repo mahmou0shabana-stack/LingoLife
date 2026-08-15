@@ -1459,13 +1459,26 @@ function coverPanel(url) {
       <div class="sh-cover-scroll" data-cover-scroll data-pinch>
         <img class="sh-cover" src="${url}" alt="الصورة اللي بتتدرّب على نصّها" />
       </div>
-      <div class="sh-cover-tools">
-        <button data-sh="cover-pin" class="${coverPinned ? 'on' : ''}"
-          aria-pressed="${coverPinned ? 'true' : 'false'}" title="ثبّت الصورة وانت بتقلّب">📌</button>
-        <button data-sh="cover-zoom" data-dir="-1" aria-label="صغّر">−</button>
-        <span class="sh-cover-zoom" data-cover-zoom>${coverZoom}%</span>
-        <button data-sh="cover-zoom" data-dir="1" aria-label="كبّر">+</button>
-        <button data-sh="cover-fit" title="ارجعها لمقاس الإطار">⤢</button>
+      <!--
+        ⚠️ **مطويّةٌ خلف زرٍّ واحد** — بلاغُك: «القايمة اللي فيها pin
+           واخدة مساحة ملهاش لازمة».
+
+           وكانت خمسةَ أزرارٍ مفتوحةً فوق الصورة دائمًا. وأنا نفسي
+           كتبتُ فوق القرص بإصبعين أن أزرار (+) و(−) «ثاني طريقٍ لا
+           أوّله» — ثم تركتُها تحجز رُبعَ عرض الصورة في كلّ نظرة.
+
+           فصارت الأدواتُ تحت ⚙ يُفتَح عند الحاجة، والصورةُ لك.
+      -->
+      <div class="sh-cover-tools" data-cover-tools>
+        <button data-sh="cover-tools" class="sh-cover-more" aria-label="أدوات الصورة">⚙</button>
+        <span class="sh-cover-rest" data-cover-rest hidden>
+          <button data-sh="cover-pin" class="${coverPinned ? 'on' : ''}"
+            aria-pressed="${coverPinned ? 'true' : 'false'}" title="ثبّت الصورة وانت بتقلّب">📌</button>
+          <button data-sh="cover-zoom" data-dir="-1" aria-label="صغّر">−</button>
+          <span class="sh-cover-zoom" data-cover-zoom>${coverZoom}%</span>
+          <button data-sh="cover-zoom" data-dir="1" aria-label="كبّر">+</button>
+          <button data-sh="cover-fit" title="ارجعها لمقاس الإطار">⤢</button>
+        </span>
       </div>
       <div class="sh-cover-grip" data-cover-grip role="separator"
         aria-label="اسحب لتغيير ارتفاع الصورة"></div>
@@ -3389,6 +3402,30 @@ async function readFaces(session) {
     faceLinks.audio = audio.map((l) => l.entity).find((e) => e?.blob && e.kind === 'audio') || null;
     faceLinks.image = image.map((l) => l.entity)
       .find((e) => e?.blob && (e.mime || '').startsWith('image')) || null;
+
+    /*
+     * ⚠️ **والتسجيلُ المربوط بالصورة وجهٌ أيضًا** — بلاغُك: «الفويس
+     *    اللي متلنك مع صورة أو نصّ عايزه يظهر في المصدر المعروض».
+     *
+     * كنتُ أسأل عن `audio:script` وحدَه. وأنت تربط بالصورة أيضًا —
+     * ومن منتقي الصور البصريّ الذي بنيتُه لك في WS34 بالذات، فهو
+     * يكتب `audio:image` لا `audio:script`. أي أنّي بنيتُ لك بابًا
+     * للربط ثم لم أقرأ ما يكتبه.
+     *
+     * ⚠️ **والمربوطُ بالسكريبت يسبق**: هو الأدقّ — نطقُ هذا النصّ
+     *    بعينه. وما رُبط بالصورة يسدّ حين لا يكون ثَمّ أدقُّ منه.
+     */
+    if (!faceLinks.audio && faceLinks.image) {
+      const viaImage = await resolveLinks(faceLinks.image.id, LINK.AUDIO_IMAGE);
+      faceLinks.audio = viaImage.map((l) => l.entity)
+        .find((e) => e?.blob && e.kind === 'audio') || null;
+    }
+    /* ومصدرٌ هو الصورةُ نفسُها (نصٌّ مستخرَج) — نسألها مباشرةً. */
+    if (!faceLinks.audio && session.sourceType === SOURCE_TYPE.MEDIA_TEXT) {
+      const onImage = await resolveLinks(session.sourceId, LINK.AUDIO_IMAGE);
+      faceLinks.audio = onImage.map((l) => l.entity)
+        .find((e) => e?.blob && e.kind === 'audio') || null;
+    }
   } catch {
     /* غيابُ رابطٍ ليس عطلًا — الوجهُ لا يظهر فحسب. */
   }
@@ -3675,6 +3712,23 @@ function closeFontPop() {
   fontPop = null;
 }
 
+/**
+ * يختار خطًّا لصفحة.
+ *
+ * ⚠️ **الصفحةُ تُقرأ من الزرّ لا تُفترَض.** لوحةُ الخطّ القديمة بلا
+ *    `data-page` تعني «المسرح» كما كانت، فلا ينكسر بابٌ قديمٌ لأننا
+ *    فتحنا ثانيًا.
+ */
+function pickFont(page, fontId) {
+  if (!fontId || !ctx?.session) return undefined;
+  const doc = page === 'doc';
+  if (doc) ctx.fontDoc = fontId;
+  else ctx.font = fontId;
+  applyFonts();
+  closeFontPop();
+  return saveSessionSettings(ctx.session.id, doc ? { fontDocId: fontId } : { fontId });
+}
+
 function toggleFontPop(page, anchor) {
   const already = fontPop?.dataset.page === page;
   closeFontPop();
@@ -3695,12 +3749,36 @@ function toggleFontPop(page, anchor) {
         </button>`).join('')}`)
     .join('');
 
-  anchor.closest('.sh-page')?.append(pop);
-  /* تُوضَع تحت شارتها لا في وسط الصفحة. */
+  /*
+   * ⚠️ **مثبَّتةٌ بالشاشة لا بالصفحة** — بلاغُك: «القايمة نفسها مش
+   *    باينة، مختفي نصّها».
+   *
+   *    كانت تُلحَق داخل `.sh-page`، وللصفحة `overflow` يقصّ ما تجاوزها
+   *    — فنصفُ القائمة خلف الحافّة لا سبيل إليه. و`position: fixed`
+   *    تخرجها من كلّ قصٍّ مهما كان أبوها.
+   *
+   * ⚠️ **وتُقلَب لأعلى إن ضاق ما تحتها**: شارةُ المسرح قريبةٌ من قاع
+   *    الشاشة أحيانًا، فقائمةٌ تنزل منها تقع خارجها.
+   */
+  /*
+   * ⚠️ **ومستمعُها عليها.** الموزّعُ العامّ معلَّقٌ على `#app-main`،
+   *    والقائمةُ صارت في `body` لتهرب من القصّ — فخرجت من مداه.
+   *    **قِستُه**: الضغطُ على خطٍّ لا يفعل شيئًا والقائمةُ لا تُغلق.
+   *    فالهروبُ من قصٍّ لا يكون بالهروب من الأحداث.
+   */
+  pop.addEventListener('click', (event) => {
+    const b = event.target.closest('[data-sh="font-pick"]');
+    if (b) pickFont(b.dataset.page, b.dataset.font);
+  }, wired());
+
+  document.body.append(pop);
   const box = anchor.getBoundingClientRect();
-  const page_ = anchor.closest('.sh-page').getBoundingClientRect();
-  pop.style.insetBlockStart = `${Math.round(box.bottom - page_.top + 6)}px`;
-  pop.style.insetInlineStart = `${Math.round(box.left - page_.left)}px`;
+  const H = Math.min(pop.scrollHeight + 16, window.innerHeight * 0.46);
+  const below = window.innerHeight - box.bottom - 10;
+  const top = below >= H ? box.bottom + 6 : Math.max(8, box.top - H - 6);
+  const left = Math.min(Math.max(8, box.left), window.innerWidth - pop.offsetWidth - 8);
+  pop.style.top = `${Math.round(top)}px`;
+  pop.style.left = `${Math.round(left)}px`;
   fontPop = pop;
   return undefined;
 }
@@ -4863,24 +4941,8 @@ function wireInteractions(main) {
         return;
       }
 
-      case 'font-pick': {
-        /*
-         * ⚠️ **الصفحةُ تُقرأ من الزرّ لا تُفترَض.** لوحةُ الخطّ القديمة
-         *    بلا `data-page` تعني «المسرح» كما كانت — فلا ينكسر بابٌ
-         *    قديمٌ لأننا فتحنا ثانيًا.
-         */
-        const page = btn.dataset.page === 'doc' ? 'doc' : 'stage';
-        if (page === 'doc') {
-          ctx.fontDoc = btn.dataset.font;
-          applyFonts();
-          closeFontPop();
-          return saveSessionSettings(ctx.session.id, { fontDocId: ctx.fontDoc });
-        }
-        ctx.font = btn.dataset.font;
-        applyFonts();
-        closeFontPop();
-        return saveSessionSettings(ctx.session.id, { fontId: ctx.font });
-      }
+      case 'font-pick':
+        return pickFont(btn.dataset.page, btn.dataset.font);
 
       /* مفتاحُ الخطّ الصغير المعروض دائمًا على كلّ صفحة. */
       case 'fontpop':
@@ -4894,6 +4956,12 @@ function wireInteractions(main) {
       }
 
       /* ---- لوحة الصورة ---- */
+
+      case 'cover-tools': {
+        const rest = $('[data-cover-rest]');
+        if (rest) rest.hidden = !rest.hidden;
+        return undefined;
+      }
 
       case 'cover-pin': {
         ctx.coverPinned = !ctx.coverPinned;

@@ -31,6 +31,7 @@ export const mistakeComparisons = createRepository('mistakeComparisons', PREFIX.
 // أنواع الأحداث: المدمجة بمعرّفاتٍ ثابتة مقروءة (`meeting`), والمضافة
 // بمعرّفٍ مولَّد. الاثنان في نفس المستودع لأنهما نفس الكيان.
 export const eventTypes = createRepository('eventTypes', PREFIX.EVENT_TYPE);
+export const audioRoles = createRepository('audioRoles', PREFIX.AUDIO_ROLE);
 export const eventThreads = createRepository('eventThreads', PREFIX.THREAD);
 export const people = createRepository('people', PREFIX.PERSON);
 export const places = createRepository('places', PREFIX.PLACE);
@@ -119,6 +120,7 @@ export const ALL_REPOS = {
   words,
   mistakeComparisons,
   eventTypes,
+  audioRoles,
   eventThreads,
   people,
   places,

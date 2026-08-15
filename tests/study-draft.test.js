@@ -1139,10 +1139,20 @@ describe('الكتاب · لكلِّ صفحةٍ خطُّها', () => {
   });
 
   it('⚠️ والبابُ القديم بلا `data-page` يبقى للمسرح', () => {
-    const at = code.indexOf("case 'font-pick'");
-    const block = code.slice(at, at + 700);
-    expect(block.includes("btn.dataset.page === 'doc' ? 'doc' : 'stage'")).toBe(true);
+    /*
+     * ⚠️ المنطقُ في `pickFont` لا في `case`: للاختيار **بابان** الآن —
+     *    الموزّعُ على `#app-main`، ومستمعُ القائمة نفسِها بعد أن خرجت
+     *    إلى `body`. وبابان بنسختين من المنطق يفترقان بعد شهر.
+     */
+    const at = code.indexOf('function pickFont');
+    expect(at > 0).toBe(true);
+    const block = code.slice(at, code.indexOf('\n}', at));
+    expect(block.includes("page === 'doc'")).toBe(true);
     expect(block.includes('fontDocId')).toBe(true);
+    /* والبابان كلاهما يمرّ منها. */
+    expect(code.includes("case 'font-pick':\n        return pickFont(")).toBe(true);
+    const pop = code.indexOf("pop.addEventListener('click'");
+    expect(code.slice(pop, pop + 260).includes('pickFont(')).toBe(true);
   });
 
   it('⚠️ ولوحةُ الخطّ لا تُغلقها ضغطةٌ داخلها', () => {
@@ -1206,5 +1216,103 @@ describe('المقابض · تُسحَب وتُرى', () => {
     expect(scene.includes('conv-box')).toBe(true);
     /* بالأسطر لا بالبكسل — كالنصّ الأصلي وجسم السكريبت. */
     expect(css.includes('max-block-size: 16lh')).toBe(true);
+  });
+});
+
+/* ================================================================== */
+/* WS37 — التصنيفاتُ كياناتٌ تُضاف وتُعدَّل ويسري التعديل                 */
+/* ================================================================== */
+
+describe('تصنيفاتُ الأصوات · كيانٌ لا قائمةٌ ثابتة', () => {
+  let svc = '';
+
+  it('⚠️ الحارس: المعرّفاتُ المدمجة لا تتغيّر أبدًا', async () => {
+    svc = codeOnly(await (await fetch('/js/services/audio-role-service.js')).text());
+    /*
+     * `sceneMediaLinks.roles` تحمل هذه المعرّفات منذ اليوم الأوّل.
+     * تغييرُ واحدٍ منها يعني تسجيلاتٍ تشير إلى تصنيفٍ لا وجود له.
+     */
+    for (const id of ['original', 'scriptVoice', 'conversation', 'retelling', 'pronunciation', 'note']) {
+      expect(svc.includes(`id: '${id}'`)).toBe(true);
+    }
+  });
+
+  it('⚠️ وإعادةُ التسمية لا تكتب في الروابط — المعرّفُ هو الهُويّة', () => {
+    const at = svc.indexOf('export async function renameRole');
+    const block = svc.slice(at, svc.indexOf('\n}\n', at));
+    /*
+     * لو كتبنا الاسمَ على الروابط لاحتجنا هجرةً تمرّ على كلّ تسجيل —
+     * وتُخطئ في واحدٍ من ألف. والصفُّ يحمل الاسمَ والرابطُ المعرّف،
+     * فالتسميةُ تسري دفعةً واحدة بلا كتابةِ صفٍّ واحد.
+     */
+    expect(block.includes('sceneMediaLinks')).toBe(false);
+    expect(block.includes('audioRoles.update')).toBe(true);
+  });
+
+  it('⚠️ ولا اسمان متطابقان — التعارضُ يُكشف قبل الحفظ', () => {
+    for (const fn of ['addRole', 'renameRole']) {
+      const at = svc.indexOf(`export async function ${fn}`);
+      const block = svc.slice(at, svc.indexOf('\n}\n', at));
+      expect(block.includes('فيه تصنيف بنفس الاسم')).toBe(true);
+    }
+  });
+
+  it('⚠️ ولا يُحذف تصنيف — يُؤرشَف، ومُقَرٌّ بذلك في السلة', async () => {
+    expect(svc.includes('export async function archiveRole')).toBe(true);
+    expect(svc.includes('audioRoles.destroy')).toBe(false);
+    const trash = codeOnly(await (await fetch('/js/services/trash-service.js')).text());
+    /* كلُّ مستودعٍ إمّا في السلة وإمّا مُقَرٌّ باستثنائه — بسببٍ مكتوب. */
+    const at = trash.indexOf('NOT_TRASHABLE');
+    expect(trash.slice(at, at + 1400).includes('audioRoles:')).toBe(true);
+  });
+
+  it('⚠️ والسؤالُ عن التصنيف قبل الحفظ لا بعده', async () => {
+    const ma = codeOnly(await (await fetch('/js/modals/media-actions.js')).text());
+    expect(ma.includes('export async function askAudioRole')).toBe(true);
+    const at = ma.indexOf('export async function handleAddAudio');
+    const block = ma.slice(at, ma.indexOf('\n}\n', at));
+    const ask = block.indexOf('askAudioRole');
+    const save = block.indexOf('addFilesToScene');
+    /* بعده يصير تصحيحًا لا اختيارًا. */
+    expect(ask > 0 && save > ask).toBe(true);
+  });
+
+  it('⚠️ وأسماءُ التصنيفات تُقرأ مرّةً لا مرّةً لكلّ صفّ', async () => {
+    const scene = codeOnly(await (await fetch('/js/views/scene-view.js')).text());
+    expect(scene.includes('roleLabels()')).toBe(true);
+    const at = scene.indexOf('function roleName');
+    const block = scene.slice(at, scene.indexOf('\n}', at));
+    /* الرسمُ متزامنٌ ولا ينتظر قاعدة. */
+    expect(block.includes('await')).toBe(false);
+  });
+});
+
+describe('الظلّ · الصوتُ المربوطُ بالصورة وجهٌ أيضًا', () => {
+  it('⚠️ الحارس: تُقرأ `audio:image` لا `audio:script` وحدها', async () => {
+    const code = codeOnly(await (await fetch('/js/views/shadow-view.js')).text());
+    const at = code.indexOf('async function readFaces');
+    const block = code.slice(at, code.indexOf('\n}\n', at));
+    /*
+     * منتقي الصور البصريّ الذي بُني في WS34 يكتب `audio:image`. فكنتُ
+     * أبني بابًا للربط ثم لا أقرأ ما يكتبه.
+     */
+    expect(block.includes('LINK.AUDIO_IMAGE')).toBe(true);
+    /* والمربوطُ بالسكريبت يسبق — هو الأدقّ. */
+    expect(block.indexOf('LINK.AUDIO_SCRIPT') < block.indexOf('LINK.AUDIO_IMAGE')).toBe(true);
+  });
+
+  it('⚠️ وقائمةُ الخطّ مثبّتةٌ بالشاشة فلا يقصّها أبٌ', async () => {
+    const css = await (await fetch('/css/shadow.css')).text();
+    const at = css.indexOf('.sh-fontpop {');
+    expect(css.slice(at, at + 220).includes('position: fixed')).toBe(true);
+    /* والشارةُ لا تأخذ صفًّا لنفسها. */
+    const chip = css.indexOf('.sh-page > .sh-fontchip-mini');
+    expect(css.slice(chip, chip + 200).includes('position: absolute')).toBe(true);
+  });
+
+  it('⚠️ وأدواتُ الصورة مطويّةٌ خلف زرٍّ واحد', async () => {
+    const code = codeOnly(await (await fetch('/js/views/shadow-view.js')).text());
+    expect(code.includes('data-cover-rest')).toBe(true);
+    expect(code.includes("case 'cover-tools'")).toBe(true);
   });
 });

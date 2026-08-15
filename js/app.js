@@ -535,6 +535,26 @@ function wireActions() {
       case 'links':
         return void openLinksModal(id, sceneId);
 
+      /*
+       * تغييرُ تصنيفِ تسجيلٍ من صفِّه — ومن نفس النافذة تُضيف تصنيفًا
+       * جديدًا. راجع `audio-role-service` لِمَ تسري التسميةُ عامّةً.
+       */
+      case 'audio-role': {
+        const { askAudioRole } = await import('./modals/media-actions.js');
+        const { setMediaRole } = await import('./services/audio-role-service.js');
+        const record = await media.get(id);
+        const links = await sceneMediaLinks.byIndex('sceneId', sceneId);
+        const current = links.find((l) => l.mediaId === id)?.roles?.[0] || null;
+        const picked = await askAudioRole({
+          title: record?.caption || record?.filename || 'التسجيل ده إيه؟',
+          suggest: current,
+        });
+        if (!picked || picked === current) return undefined;
+        await setMediaRole(sceneId, id, picked);
+        toastOk('التصنيف اتغيّر');
+        return void reloadScene(sceneId);
+      }
+
       case 'delete-audio': {
         const record = await media.get(id);
         // كالصورة: يُشال ربطه بالذكرى ويبقى الملف في `media` — فالتراجع

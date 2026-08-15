@@ -57,6 +57,7 @@ export const PREFIX = Object.freeze({
 
   /** مسودّة المذاكرة (v12) */
   STUDY_DRAFT: 'STD',
+  AUDIO_ROLE: 'ARL',
 });
 
 function encodeTime(ms, len = 10) {

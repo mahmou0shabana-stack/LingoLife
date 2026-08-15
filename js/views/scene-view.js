@@ -126,6 +126,21 @@ function sectionImages(scene, images, coverId) {
     </section>`;
 }
 
+
+/**
+ * اسمُ التصنيف كما عدّلتَه — لا كما كتبتُه أنا (WS37).
+ *
+ * ⚠️ **يُقرأ من خريطةٍ حُمّلت مع الصفحة** لا بسؤالٍ لكلّ صفّ: الرسمُ
+ *    متزامنٌ ولا ينتظر قاعدة، وذكرى فيها عشرون تسجيلًا تعني عشرين
+ *    رحلة. والخريطةُ تُملأ في `renderScene` قبل الرسم.
+ */
+let roleNames = new Map();
+
+function roleName(id) {
+  if (!id) return 'تسجيل';
+  return roleNames.get(id) || AUDIO_ROLE_LABEL[id] || 'تسجيل';
+}
+
 /**
  * الأصوات — **مجموعةً بدَورها، لا كومةً واحدة** (WS34).
  *
@@ -160,7 +175,8 @@ function sectionVoices(scene, audio) {
               </button>
               <div class="info">
                 <b>${m.caption || m.filename}</b>
-                <span class="role">${AUDIO_ROLE_LABEL[m.role] || 'تسجيل'}</span>
+                <button class="role" data-action="audio-role" data-id="${m.id}"
+                  data-scene="${scene.id}" title="غيّر التصنيف">${roleName(m.role)}</button>
                 ${raw(
                   m.tags?.length
                     ? html`<span class="link-badges">${raw(
@@ -188,7 +204,7 @@ function sectionVoices(scene, audio) {
           ([role, rows], gi) => html`
             <details class="voice-group" ${gi === 0 ? 'open' : ''}>
               <summary>
-                <span>${AUDIO_ROLE_LABEL[role] || 'تسجيل'}</span>
+                <span>${roleName(role)}</span>
                 <b>${rows.length}</b>
               </summary>
               ${raw(rows.map((m, i) => rowHtml(m, i)).join(''))}
@@ -668,6 +684,13 @@ export async function renderScene(main, sceneId, options = {}) {
   }
 
   const { scene, media: mediaItems, scripts: scriptList, mistakes } = full;
+  /* أسماءُ التصنيفات كما عدّلتَها — مرّةً قبل الرسم لا مرّةً لكلّ صفّ. */
+  try {
+    const { roleLabels } = await import('../services/audio-role-service.js');
+    roleNames = await roleLabels();
+  } catch {
+    /* غيابُها يعني الأسماءَ المدمجة — لا شاشةً ساقطة */
+  }
   const images = mediaItems.filter((m) => m.kind === 'image');
   const audio = mediaItems.filter((m) => m.kind === 'audio');
 

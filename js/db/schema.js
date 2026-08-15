@@ -192,6 +192,20 @@ export const STORES = {
    * `normalizedName` مفهرس لأن كشف التعارض (بند 10) يسأل «هل هذا الاسم
    * موجود؟» عند كل ضغطة مفتاح، و`parentId` لأن الشجرة تُبنى بالأب.
    */
+  /**
+   * تصنيفاتُ الأصوات — كيانٌ لا قائمةٌ ثابتة (v13).
+   *
+   * ⚠️ المعرّفُ هو الهُويّة: `sceneMediaLinks.roles` تحمله، والاسمُ
+   *    هنا. فتغييرُ الاسم يسري على كلّ تسجيلٍ بلا كتابةٍ واحدة.
+   */
+  audioRoles: {
+    indexes: [
+      ['normalizedName', 'normalizedName'],
+      ['state', 'state'],
+      ['order', 'order'],
+    ],
+  },
+
   eventTypes: {
     indexes: [
       ['parentId', 'parentId'],

@@ -3645,3 +3645,18 @@ body.tr-focused .tr-text { font-size: var(--fs-md); line-height: 2.15; }
   display: inline-flex; align-items: center; justify-content: center;
 }
 .row-link:hover { color: var(--accent); }
+
+/*
+ * التصنيفُ زرٌّ لا لافتة (WS37) — تدوسه فتغيّره.
+ * ⚠️ ٤٤px باللمس عبر هالةٍ شفّافة، فلا يكبر شكلُه في الصفّ.
+ */
+.voice-row .role {
+  position: relative;
+  display: inline-block;
+  background: none; border: none; padding: 2px 0;
+  font: inherit; font-size: var(--fs-2xs);
+  color: var(--ink-faint); cursor: pointer;
+  border-bottom: 1px dashed var(--line-strong);
+}
+.voice-row .role::after { content: ''; position: absolute; inset: -12px -8px; }
+.voice-row .role:hover { color: var(--accent); border-bottom-color: var(--accent); }
