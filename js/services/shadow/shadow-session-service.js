@@ -203,12 +203,18 @@ export async function saveSessionSettings(sessionId, changes) {
  *    (بند 19). رفع الإتقان يحتاج استخدامًا حقيقيًا في حياتك.
  */
 export async function recordSegmentPractice(session, segment, repetitions, options = {}) {
-  const updated = await shadowSegments.update(segment.id, {
+  const patch = {
     repetitionsCompleted: (segment.repetitionsCompleted || 0) + repetitions,
     lastPracticedAt: Date.now(),
     practiceStatus: options.difficult ? SEGMENT_STATUS.DIFFICULT : SEGMENT_STATUS.PRACTICED,
     difficulty: options.difficult ? (segment.difficulty || 0) + 1 : segment.difficulty || 0,
-  });
+  };
+  /*
+   * ⚠️ **مقطعٌ مؤقّتٌ لا صفَّ له في القاعدة (WS40 — نصٌّ خارجيّ).**
+   *    لا يوجد سطرٌ نُحدِّثه؛ فنكتفي بدمج التغيير في الذاكرة، وتبقى
+   *    شهادةُ الممارسة أدناه — فالتدريبُ حقيقيٌّ ولو كان مصدره عابرًا.
+   */
+  const updated = segment.temporary ? { ...segment, ...patch } : await shadowSegments.update(segment.id, patch);
 
   await practiceEvidence.create({
     sessionId: session.id,

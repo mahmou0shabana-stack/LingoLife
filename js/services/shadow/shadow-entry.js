@@ -286,7 +286,9 @@ export async function openShadowFromImage(mediaId, sceneId) {
         console.info(`[ocr] ${status} ${Math.round(progress * 100)}%`);
       },
     });
-    extracted = result.text;
+    /* ⚠️ تنظيفٌ قبل المراجعة اليدويّة لا بديلًا عنها (بند 9، WS40). */
+    const { cleanExtractedText } = await import('./text-cleanup.js');
+    extracted = cleanExtractedText(result.text);
   } catch (error) {
     dismiss();
     console.error(error);

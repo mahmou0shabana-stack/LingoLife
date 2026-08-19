@@ -77,7 +77,10 @@ export async function openQuickShadow() {
         note.textContent = 'بنقرا الصورة…';
         try {
           const { extractText } = await import('../services/shadow/ocr.js');
-          const { text } = await extractText(picked);
+          const { cleanExtractedText } = await import('../services/shadow/text-cleanup.js');
+          const { text: raw } = await extractText(picked);
+          /* ⚠️ تنظيفٌ قبل المراجعة اليدويّة لا بديلًا عنها (بند 9، WS40). */
+          const text = cleanExtractedText(raw);
           const box = modal.querySelector('[name="text"]');
           box.value = [box.value.trim(), text.trim()].filter(Boolean).join('\n');
           /* ⚠️ النصُّ يُلحَق لا يُستبدَل: قد تكون لصقتَ شيئًا قبلها. */

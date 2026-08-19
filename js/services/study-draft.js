@@ -271,8 +271,10 @@ export async function ocrIntoDraft(draftId, mediaId, { onProgress } = {}) {
   if (!record?.blob) throw new Error('الصورة دي مش موجودة');
 
   const { extractText } = await import('./shadow/ocr.js');
+  const { cleanExtractedText } = await import('./shadow/text-cleanup.js');
   const result = await extractText(record.blob, { onProgress });
-  const text = (result?.text || '').trim();
+  /* ⚠️ تنظيفٌ قبل المراجعة اليدويّة لا بديلًا عنها (بند 9، WS40). */
+  const text = cleanExtractedText(result?.text || '');
 
   if (!text) throw new Error('مالقيتش نصّ في الصورة دي');
 

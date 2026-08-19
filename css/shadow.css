@@ -864,10 +864,27 @@
   margin-bottom: 10px;
 }
 
+/*
+ * ⚠️ **صفٌّ واحد للشارة وزرَّي الحفظ/النسخ (WS40، بند 5، 11).** كانا
+ *    بلا مكان: `.sh-current-tools` كانت أنماطًا بلا عنصرٍ يستعملها —
+ *    كودٌ يُقرأ كميزةٍ وليس بها زرٌّ واحد يصل إليها.
+ */
+.sh-hero-top {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; margin-bottom: 4px; min-height: 26px;
+}
+
 .sh-current-lbl {
   font-size: 12px;
   color: var(--sh-mute);
+  /*
+   * ⚠️ **صارت زرَّ خروجٍ من نصٍّ خارجيّ (WS40، بند 17-18)** — لا
+   *    لافتةً وحدها. إعادة تصفير مظهر الزرّ لتبقى شكلًا كما كانت.
+   */
+  font: inherit; font-size: 12px; background: none; border: 0; padding: 0;
+  cursor: pointer; text-align: start;
 }
+.sh-current-lbl:not([hidden]):hover { color: var(--sh-ink); text-decoration: underline; }
 
 .sh-current-tools { display: flex; gap: 4px; }
 
@@ -3561,6 +3578,12 @@ body.shadow-open { overflow: hidden; }
 .sh-well-img img { width: 100%; height: 100%; object-fit: cover; border-radius: 3px; }
 
 .sh-well-doc { margin-bottom: 12px; }
+/* صفٌّ مدمجٌ لكل سكريبت (WS40، بند 3) — لا كتلة نصٍّ مبسوطة. */
+.sh-well-script-row {
+  border-bottom: 1px solid rgba(101, 80, 48, .08);
+  padding-block: 8px;
+}
+.sh-well-script-row:last-child { border-bottom: 0; }
 .sh-well-head {
   display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
   padding-bottom: 6px; font-size: 12px; color: var(--sh-paper-ink);
@@ -4174,24 +4197,47 @@ body.shadow-open { overflow: hidden; }
   background: linear-gradient(180deg, rgba(14, 20, 32, .99), rgba(8, 12, 20, .99));
   box-shadow: 0 18px 40px -14px rgba(0, 0, 0, .85);
 }
+/*
+ * ⚠️ **الألوانُ هنا صريحةٌ لا `var(--sh-*)` — والفرقُ هو العطب (بند
+ *    12، WS40).**
+ *
+ * `--sh-ink`/`--sh-mute`/`--sh-faint` تُعرَّف على `.shadow-app`
+ * (أعلى الملفّ) — وهذه اللوحةُ `position:fixed` **تُلحَق بـ`body`
+ * مباشرةً**، خارج `.shadow-app` تمامًا (التعليقُ فوق `.sh-fontpop`
+ * يشرح لماذا: كي لا يقصّها أبٌ). فحين تكتب `color: var(--sh-ink)`
+ * هنا، المتغيّر **غيرُ معرَّفٍ إطلاقًا** في هذا الموضع من الشجرة —
+ * لا خطأً في القيمة، بل غيابًا تامًّا — فيسقط إلى لونٍ موروثٍ من
+ * `body` لا علاقة له بتصميم اللوحة. **قِستُ**: نصُّ الاسم غير
+ * المختار `rgb(31,36,48)` على خلفيّةٍ `rgb(14,20,32)` — نسبةُ
+ * تباينٍ 1.19:1، ومعيار WCAG لنصٍّ عاديّ 4.5:1. لم يكن اللونُ
+ * خافتًا، كان **غائبًا**.
+ *
+ * فالإصلاحُ ليس تبديل متغيّرٍ بآخر (كلاهما بلا قيمةٍ هنا) بل قيمٌ
+ * صريحة — تمامًا كخلفيّة اللوحة نفسِها التي كُتبت بالفعل صريحةً
+ * أعلى هذه القاعدة للسبب ذاته.
+ */
 .sh-fontpop-g {
   font-size: 10.5px; letter-spacing: .08em;
-  color: var(--sh-faint); padding: 8px 6px 4px;
+  color: rgba(239, 231, 216, .68); padding: 8px 6px 4px;
 }
 .sh-fontpop button {
   inline-size: 100%; min-block-size: 44px;
   display: flex; align-items: center; gap: 10px;
   padding: 6px 9px; border-radius: 8px;
   border: 1px solid transparent; background: none;
-  color: var(--sh-ink); cursor: pointer; font: inherit; text-align: start;
+  color: #efe7d8; cursor: pointer; font: inherit; text-align: start;
 }
 .sh-fontpop button span { font-size: 19px; line-height: 1; min-inline-size: 34px; }
-.sh-fontpop button b { font-weight: 400; font-size: 12.5px; color: var(--sh-faint); }
+.sh-fontpop button b { font-weight: 400; font-size: 12.5px; color: rgba(239, 231, 216, .68); }
+.sh-fontpop button:hover,
+.sh-fontpop button:focus-visible { background: rgba(255, 255, 255, .08); }
+.sh-fontpop button:hover b,
+.sh-fontpop button:focus-visible b { color: #efe7d8; }
 .sh-fontpop button.on {
   border-color: rgba(217, 182, 114, .5);
   background: rgba(217, 182, 114, .1);
 }
-.sh-fontpop button.on b { color: var(--sh-ink); }
+.sh-fontpop button.on b { color: #efe7d8; }
 
 /* الرجوعُ إلى ما جئتَ منه — في الصفحة التي تنظر إليها وقت التدريب. */
 .sh-backsrc {

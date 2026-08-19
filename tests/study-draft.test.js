@@ -412,7 +412,12 @@ describe('التشغيل · لا بابين لفعلٍ واحد', () => {
   it('⚠️ الحارس: لا مصدرَ صوتٍ بلا مطالبةٍ بالناقل', () => {
     /* كلُّ نداءٍ لبدء صوتٍ في الشاشة، ومعه شرطُ أن تسبقه مطالبة. */
     expect(code.includes("claimAudio(`voice:")).toBe(true);
-    expect(code.includes('claimAudio(id, () => active.pause())')).toBe(true);
+    /*
+     * ⚠️ **`active`/`activePlayer()` زالت مع توحيد المحرّك (WS40).**
+     *    كان نصٌّ خارجيّ يحتاج تمييز أيّ محرّكٍ يُطالب — الآن محرّكٌ
+     *    واحدٌ فقط (`player`)، فالمطالبةُ باسمٍ ثابتٍ لا بمتغيّرٍ يُحسَب.
+     */
+    expect(code.includes("claimAudio('session', () => player.pause())")).toBe(true);
 
     /*
      * ولا `new Audio` خارج `playVoice` — أيّ مُشغّلٍ ثانٍ يتسلّل
@@ -575,6 +580,7 @@ describe('الإعدادات · كل زرّ له معالِجٌ واحد', () =>
     const ELSEWHERE = {
       'voice-select': 'قائمة select لا زرّ — حدثُها change لا click، فلا مكانَ لها في مُوزِّع النقر',
       unsave: 'داخل نافذة المحفوظات، ولها مستمعُها على document لأن النوافذ تُلحَق بـbody لا بالشاشة',
+      'goto-origin': 'زرّ الرجوع لأصل المحفوظ (WS40) — داخل نفس نافذة المحفوظات، نفس السبب أعلاه',
     };
     for (const [name, why] of Object.entries(ELSEWHERE)) {
       expect(why.length > 25).toBe(true);

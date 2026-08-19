@@ -65,14 +65,14 @@ import {
 import { LANGUAGES, languageByCode, translate, translationFailure, isEnabled as trEnabled, setEnabled as setTrEnabled } from '../services/shadow/translate.js';
 import { practiceStreak, recentPractice } from '../services/shadow/shadow-session-service.js';
 import { scripts, contentBlocks, scenes, sceneMediaLinks, media, shadowSegments, studyDrafts } from '../db/repositories.js';
-import { urlFor, startRecording, canRecord, addFilesToScene, AUDIO_ROLE } from '../services/media-service.js';
+import {
+  urlFor, startRecording, canRecord, addFilesToScene, AUDIO_ROLE, pickFiles,
+} from '../services/media-service.js';
 import { resolveLinks, LINK } from '../services/link-service.js';
 import {
   SAVED_KIND, listSavedTags, addSavedTag, saveItem, listSaved, isSaved,
 } from '../services/saved-service.js';
-import {
-  addExpression, addScript, listConversationParts, EXPRESSION_SOURCE,
-} from '../services/content-service.js';
+import { listConversationParts } from '../services/content-service.js';
 import { savedItems, settings } from '../db/repositories.js';
 
 /** نسبةُ الصفحة اليسرى — تُحفَظ فلا تعيد ضبطها كل جلسة. */
@@ -94,15 +94,6 @@ let ctx = null;
 let recorder = null;
 /** مستمع على `document` لأن نوافذ اللوحات تُلحَق خارج `main`. */
 let modalClickHandler = null;
-/**
- * محرّك منفصل للنصّ الخارجي.
- *
- * منفصلٌ عمدًا: نصٌّ كتبته الآن ليس جزءًا من الجلسة، فلا يُحسب في
- * تقدّمها ولا يُسجَّل كممارسة على مقطع لم تمرّ عليه — وفي الوقت نفسه
- * يُقرأ بنفس السرعة والتكرار والصوت، لأنها إعداداتك أنت لا إعدادات
- * النصّ.
- */
-let scratchPlayer = null;
 /** وضع التحديد ومجموعته (بند 21). */
 let selecting = false;
 let picked = new Set();
@@ -324,8 +315,6 @@ export function disposeShadow() {
     wires?.abort();
     wires = null;
     ctx = null;
-    scratchPlayer?.destroy();
-    scratchPlayer = null;
     recorder?.cancel?.();
     recorder = null;
     clearExpressionIndex();
@@ -339,8 +328,11 @@ export function disposeShadow() {
   parkedBar = null;
   player?.destroy();
   player = null;
-  scratchPlayer?.destroy();
-  scratchPlayer = null;
+  /* ⚠️ جلسةٌ مغادَرةٌ تمامًا (لا شيء يُبقيه شغّالًا) لا تترك أثرًا على شاشة القفل. */
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.metadata = null;
+    navigator.mediaSession.playbackState = 'none';
+  }
   closeFontPop();
   selecting = false;
   picked = new Set();
@@ -884,6 +876,7 @@ export async function renderShadow(main, sessionId) {
   wireOriginPanel(main);
   wireInteractions(main);
   wireModalActions();
+  wireMediaSession();
 
   /* ارتفاعُ المستند المحفوظ، ثم السكّة في وضعها الابتدائي. */
   applyDoc(Number(await settings.get(DOC_KEY, 250)) || 0);
@@ -988,6 +981,19 @@ function wireModalActions() {
   if (modalClickHandler) document.removeEventListener('click', modalClickHandler);
 
   modalClickHandler = async (event) => {
+    /*
+     * ⚠️ **الرجوعُ لأصل المحفوظ (بند 5، WS40).** كانت البيانات
+     *    (`sessionId`/`sceneId`) تُكتَب منذ WS35 ولا تُقرَأ في أيّ
+     *    شاشة — نسبٌ محفوظٌ بلا بابٍ إليه.
+     */
+    const gotoBtn = event.target.closest('[data-sh="goto-origin"]');
+    if (gotoBtn) {
+      const { session, scene } = gotoBtn.dataset;
+      if (session) return navigate(`/shadow/${session}`);
+      if (scene) return navigate(`/scene/${scene}`);
+      return toastError('مفيش مصدرٌ محفوظ لهذه — نصٌّ قديم من قبل الربط');
+    }
+
     const btn = event.target.closest('[data-sh="unsave"]');
     if (!btn) return;
 
@@ -1210,7 +1216,32 @@ function shell() {
               </div>
 
               <div class="sh-hero" data-card>
-                <span class="sh-current-lbl" data-current-lbl hidden></span>
+                <!--
+                  ⚠️ **الشارةُ نفسُها هي زرُّ الخروج (بند 17-18).** لا
+                     صندوقَ حفظٍ ثانٍ ولا حوارَ خروجٍ منفصل — ضغطةٌ
+                     عليها ترجعك لجملة الجلسة، والحفظُ من الزرّ العامّ
+                     (🔖) الذي يعمل على أيّ مقطعٍ حاليّ سواءً كان هذا
+                     أو جملةً من السكريبت.
+                -->
+                <div class="sh-hero-top">
+                  <button type="button" class="sh-current-lbl" data-current-lbl
+                    data-sh="scratch-clear" hidden></button>
+                  <!--
+                    ⚠️ **زرّان عامّان — يعملان على أيّ مقطعٍ حاليّ**
+                       (بند 5، 11، 19): سكريبتٍ كان أو نصًّا لصقتَه
+                       الآن. لا نسخةَ ثانية لأيٍّ منهما للنصّ الخارجي.
+                  -->
+                  <span class="sh-current-tools">
+                    <button data-sh="save-item" aria-label="احفظها">🔖</button>
+                    <button data-sh="copy-item" aria-label="انسخها">⧉</button>
+                    <!--
+                      ⚠️ **لوحةٌ كاملةٌ بلا بابٍ إليها (بند 5).** openPanel('difficult')
+                         كانت مبنيّةً بكل تفصيلها — تصنيفاتٌ، حذفٌ، والآن
+                         الرجوعُ للأصل — ولا زرَّ واحدًا في الشاشة يفتحها.
+                    -->
+                    <button data-sh="panel" data-panel="difficult" aria-label="المحفوظات والصعب">♡</button>
+                  </span>
+                </div>
                 <div class="sh-current-text" data-text></div>
                 <div class="sh-current-tr" dir="rtl" data-tr></div>
                 <div class="sh-marks" data-marks></div>
@@ -1220,9 +1251,10 @@ function shell() {
                      طلبُك: «أجيب نصّ خارجي وأدخله في نفس المكان اللي
                      عارض الجملة، وأشيله وأنسخ التانية، ولما أخلص أرجع
                      أكمّل». وكان في أسفل الشاشة مطويًّا — أي في مكانٍ
-                     غيرِ الذي يُقرأ منه. فصار **هنا**: النصُّ يحلّ محلّ
-                     الجملة ويُقرأ بنفس المحرّك والسرعة والتكرار، ثم
-                     يُشال فتعود الجلسةُ من حيث وقفت.
+                     غيرِ الذي يُقرأ منه. فصار **هنا**: النصُّ يصير
+                     **مقطعًا حقيقيًّا** (WS40) يحلّ محلّ الجملة ويُقرأ
+                     بنفس المحرّك والسرعة والتكرار وكلّ ميزةٍ أخرى، ثم
+                     يُشال فتعود الجلسةُ من حيث وقفت بالضبط.
                 -->
                 <form class="sh-scratch" data-scratch hidden>
                   <input type="text" name="scratch" dir="ltr" lang="ru" data-scratch-input
@@ -1230,12 +1262,6 @@ function shell() {
                   <button type="submit">اقرأها</button>
                   <button type="button" data-sh="scratch-close" aria-label="اقفل">✕</button>
                 </form>
-                <div class="sh-scratch-save" data-scratch-save hidden>
-                  <span>احفظها في:</span>
-                  <button data-sh="scratch-to" data-to="saved">المحفوظات</button>
-                  <button data-sh="scratch-to" data-to="expression">تعبير</button>
-                  <button data-sh="scratch-clear" data-scratch-clear hidden>↩ رجّع جملة الجلسة</button>
-                </div>
               </div>
 
               <!--
@@ -1817,6 +1843,8 @@ function syncSegment() {
   const segment = ctx.segments[index];
   if (!segment) return;
 
+  syncMediaSession(segment);
+
   const textEl = $('[data-text]');
   const trEl = $('[data-tr]');
 
@@ -1833,6 +1861,20 @@ function syncSegment() {
   }
 
   if (trEl) trEl.textContent = translationFor(segment);
+
+  /*
+   * ⚠️ **مقطعٌ خارجيٌّ يقول عن نفسه — لا يتظاهر أنه جملة الجلسة (بند
+   *    17).** الشارةُ نفسُها التي كانت خاصّةً بالنصّ الخارجي وحده،
+   *    الآن تُقرَأ هنا حيث تُقرَأ كلُّ حالةِ المقطع — لا في دالّةٍ
+   *    ثانية.
+   */
+  const lbl = $('[data-current-lbl]');
+  const count = $('.sh-count');
+  if (lbl) {
+    lbl.hidden = !segment.temporary;
+    if (segment.temporary) lbl.textContent = '⚡ ذاكِرها دلوقتي';
+  }
+  if (count) count.hidden = Boolean(segment.temporary);
 
   /*
    * ⚠️ **حجمُ الخطّ يتبع طولَ الجملة.** الحجمُ الثابت يجعل جملةً من
@@ -1954,7 +1996,10 @@ async function fetchMissingTranslation(segment) {
     return;
   }
 
-  const updated = await shadowSegments.update(segment.id, { translationSnapshot: result });
+  /* ⚠️ مقطعٌ مؤقّتٌ (نصٌّ خارجيّ، WS40) لا صفَّ له يُحدَّث — تُحفَظ في الذاكرة فقط. */
+  const updated = segment.temporary
+    ? { ...segment, translationSnapshot: result }
+    : await shadowSegments.update(segment.id, { translationSnapshot: result });
   const index = ctx.segments.findIndex((s) => s.id === segment.id);
   if (index >= 0) ctx.segments[index] = updated;
   if (el && player.state.index === index) el.textContent = translationFor(updated);
@@ -2120,9 +2165,18 @@ function renderWords() {
   const segment = ctx.segments[player.state.index];
   const words = splitWords(segment.sourceTextSnapshot);
   player.setWords(words);
+  /*
+   * ⚠️ **بند 6: نبرٌ لكل رقاقةٍ لا للجملة الكاملة وحدها.**
+   *
+   * `markSentence` كانت تُطبَّق على الجملة الكاملة في `[data-text]`
+   * فقط — والرقائقُ تحته (`splitWords` وحدها، بلا نبر) تعرض نصًّا
+   * خامًا دائمًا. فمن يتتبّع الرقائقَ كلمةً كلمة لا يرى نبرًا إلا في
+   * السطر الكبير فوقها، ويبدو كأن النبر «توقّف بعد أوّل جملة».
+   * `markSentence` نفسُها — لا حسابٌ ثانٍ — تُستدعى هنا على كلّ كلمة.
+   */
   host.innerHTML = words
     .map((w, i) => `<button class="sh-chip" data-word="${i}">
-        <span class="sh-chip-w">${esc(w.display)}</span>
+        <span class="sh-chip-w">${ctx.stress ? markSentence(w.display).html : esc(w.display)}</span>
         <span class="sh-chip-bar"><i></i></span>
       </button>`)
     .join('');
@@ -2622,25 +2676,25 @@ const MODES = [
     label: 'نصّ',
     hint: 'يمشي في جمل المصدر واحدة ورا التانية',
     /** هل نحن فيه الآن؟ */
-    is: () => !ctx.scratch
+    is: () => !hasExternalSegment()
       && player?.state?.settings?.practiceMode !== PRACTICE_MODE.WORD,
     enter: async () => setPractice(PRACTICE_MODE.SENTENCE),
-    paint: () => clearScratch(),
+    paint: () => exitExternalText(),
   },
   {
     id: 'word',
     label: 'كلمة',
     hint: 'يقرا الكلمات المقسّمة واحدة واحدة',
-    is: () => !ctx.scratch
+    is: () => !hasExternalSegment()
       && player?.state?.settings?.practiceMode === PRACTICE_MODE.WORD,
     enter: async () => setPractice(PRACTICE_MODE.WORD),
-    paint: () => clearScratch(),
+    paint: () => exitExternalText(),
   },
   {
     id: 'own',
     label: 'جملة برّه',
     hint: 'الصق جملة من عندك وتتقرا بنفس الإعدادات',
-    is: () => Boolean(ctx.scratch) || !$('[data-scratch]')?.hidden,
+    is: () => hasExternalSegment() || !$('[data-scratch]')?.hidden,
     /* الخروجُ من وضع الكلمة أوّلًا — وإلّا نطق كلمةً من جملةٍ غادرتها. */
     enter: async () => setPractice(PRACTICE_MODE.SENTENCE),
     paint: () => {
@@ -2954,22 +3008,28 @@ const WELLS = {
     label: 'سكريبتات',
     read: (sceneId) => scripts.byIndex('sceneId', sceneId),
     /*
-     * ⚠️ **والنصُّ يُقسَّم لجمله عند العرض لا عند الحفظ.** التقسيمُ
-     *    اشتقاقٌ من النصّ، فتخزينُه نسخةٌ ثانيةٌ تتقادم حين تُحرِّر
-     *    الأصل. و`splitSentences` هي نفسُها التي يبني بها المحرّك
-     *    جلستَه — فما تراه هنا هو ما ستتدرّب عليه بالضبط.
+     * ⚠️ **صفٌّ مدمجٌ لكل سكريبت — لا كل جمله مبسوطةً تحته (WS40، بند
+     *    3).** كانت تعرض كلَّ جملةٍ في كلّ سكريبت دفعةً واحدة، فذكرى
+     *    فيها 8 سكريبتات × 20 جملة تصير 160 سطرًا في تبويبٍ واحد. لا
+     *    شيء كان يقرأ تلك الأسطر أصلًا (لا `data-sh` عليها) — معاينةٌ
+     *    زخرفيّة لا تفيد، وتُطيل الصفحةَ بلا داعٍ. فصار السطر الواحد
+     *    عنوانًا وعددَ جملٍ وزرَّ «تدرّب عليه» — تختار السكريبتَ فتصير
+     *    جملُه هي مساحة العمل الرئيسة، لا كل السكريبتات معًا.
+     *
+     * ⚠️ **والأساسيّ (⭐) أوّلًا.** `isPrimary` موجودةٌ فعلًا في
+     *    البيانات (`setPrimaryScript` — سكريبتٌ واحدٌ لكلّ مشهد)،
+     *    ولم تكن تُقرَأ هنا قطّ.
      */
-    draw: (rows) => rows.map((row) => {
-      const lines = splitSentences(row.text || '');
-      return `<div class="sh-well-doc">
-        <div class="sh-well-head">
-          <b>${esc(row.title || 'سكريبت')}</b>
-          <span>${lines.length} جملة</span>
+    draw: (rows) => [...rows]
+      .sort((a, b) => (b.isPrimary || 0) - (a.isPrimary || 0))
+      .map((row) => {
+        const count = splitSentences(row.text || '').length;
+        return `<div class="sh-well-head sh-well-script-row">
+          <b>${row.isPrimary ? '⭐ ' : ''}${esc(row.title || 'سكريبت')}</b>
+          <span>${count} جملة</span>
           <button data-sh="well-shadow" data-v="${row.id}">تدرّب عليه</button>
-        </div>
-        ${lines.map((line, i) => `<p class="sh-well-line"><i>${i + 1}</i>${esc(line)}</p>`).join('')}
-      </div>`;
-    }).join(''),
+        </div>`;
+      }).join(''),
   },
 
   voices: {
@@ -3267,10 +3327,13 @@ async function playVoice(mediaId) {
  *    الضغطة. راجع الشرح فوق `toggle` في `playback-controller`.
  */
 function togglePlay() {
-  const active = activePlayer();
-  const id = active === scratchPlayer ? 'scratch' : 'session';
-  claimAudio(id, () => active.pause());
-  active.toggle();
+  /*
+   * ⚠️ **محرّكٌ واحدٌ لكلّ نطقٍ الآن (WS40).** كان نصٌّ خارجيّ يشغّل
+   *    محرّكًا ثانيًا فاحتاج مُعرِّفًا يميّزه في طابور الصوت المشترك؛
+   *    والآن هو مقطعٌ في نفس `player`، فلا يوجد ما يُميَّز.
+   */
+  claimAudio('session', () => player.pause());
+  player.toggle();
   paintTransport();
 }
 
@@ -3282,8 +3345,7 @@ function togglePlay() {
  *    الشكوى ليست كلُّها عن السلوك، بل عن **ألّا تعرف السلوك**.
  */
 function paintTransport() {
-  const active = activePlayer();
-  const on = Boolean(active?.state?.running && !active.state.paused);
+  const on = Boolean(player?.state?.running && !player.state.paused);
   const btn = $('[data-sh="play"]');
   if (btn) {
     btn.classList.toggle('is-playing', on);
@@ -3291,6 +3353,56 @@ function paintTransport() {
   }
   document.querySelector('.shadow-app')?.classList.toggle('is-speaking', on);
   paintFloating();
+  if ('mediaSession' in navigator) navigator.mediaSession.playbackState = on ? 'playing' : 'paused';
+}
+
+/**
+ * يُسجِّل الظلّ عند نظام التشغيل كصوتٍ حقيقيّ — تحكّمٌ من شاشة القفل
+ * وسمّاعة البلوتوث، لا مجرّد صوتٍ مجهول المصدر (بند 4، WS40).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ وما لا يفعله هذا — بصراحة
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * Media Session **لا** تمنع المتصفّح من إسكات الصوت حين يغادر التطبيق
+ * الخلفيّة أو تُقفَل الشاشة؛ هي فقط تُظهر عناصر تحكّمٍ حقيقية وتُشعر
+ * النظامَ أن هذه جلسةُ وسائطَ لا تبويبًا صامتًا — وهو ما يرفع فرصةَ
+ * الاستمرار، لا يضمنه.
+ *
+ * والفرقُ الحقيقيّ بين مصدرَي صوت هذه الشاشة:
+ *  · **صوتٌ مسجَّل (`mine`/`native`)** — عنصر `<audio>` حقيقيّ، وهذا
+ *    ما تحترمه أنظمة تشغيل الموبايل عادةً في الخلفية، خصوصًا مع
+ *    Media Session مسجَّلة.
+ *  · **النطقُ الآليّ (`speechSynthesis`)** — API منفصلٌ عن عناصر
+ *    الوسائط، ومتصفّحات أندرويد (خصوصًا Chrome وSamsung Internet)
+ *    معروفةٌ بإيقافها أو تجميدها حين يغادر التبويب الواجهة. هذا قيدٌ
+ *    من المنصّة نفسها — لا سطرَ جافاسكربت هنا يُصلحه، ولا فحصُ
+ *    Playwright في بيئة headless يقدر يُحاكي إغلاقَ شاشةٍ حقيقيّ
+ *    ليقيسه. التوصية: جرّبها على جهازك الحقيقيّ (Tab S10+) وقارن
+ *    سلوك الصوت المسجَّل بالنطق الآليّ في الخلفية.
+ */
+function wireMediaSession() {
+  if (!('mediaSession' in navigator)) return;
+
+  const handlers = {
+    play: () => { if (!player?.state?.running || player.state.paused) togglePlay(); },
+    pause: () => { if (player?.state?.running && !player.state.paused) togglePlay(); },
+    previoustrack: () => player?.previous(),
+    nexttrack: () => player?.next(),
+  };
+  for (const [action, handler] of Object.entries(handlers)) {
+    try { navigator.mediaSession.setActionHandler(action, handler); } catch { /* غيرُ مدعوم */ }
+  }
+}
+
+/** يُحدِّث ما تعرضه شاشةُ القفل — يُنادى كلَّما تبدّلت الجملة. */
+function syncMediaSession(segment) {
+  if (!('mediaSession' in navigator) || !ctx) return;
+  navigator.mediaSession.metadata = new MediaMetadata({
+    title: segment?.sourceTextSnapshot?.slice(0, 80) || ctx.session?.title || 'ظلّ',
+    artist: ctx.session?.title || 'LingoLife',
+    album: 'الظلّ',
+  });
 }
 
 /** المنبعُ المفتوح الآن. */
@@ -3685,11 +3797,9 @@ function setTuner(key, raw, { silent = false } = {}) {
     Math.max(spec.min, Math.min(spec.max, snapped)).toFixed(spec.decimals)
   );
 
-  // المحرّكان معًا: الإعداد لك لا للنصّ، فلا يختلف صوتُ جملةٍ كتبتها
-  // عن صوت جملةٍ من السكريبت.
-  const patch = spec.patch(value);
-  player?.updateSettings(patch);
-  scratchPlayer?.updateSettings(patch);
+  // الإعدادُ لك لا للنصّ — محرّكٌ واحدٌ الآن (WS40)، فلا يختلف صوتُ
+  // جملةٍ كتبتها عن صوت جملةٍ من السكريبت.
+  player?.updateSettings(spec.patch(value));
 
   const range = document.querySelector(`[data-tune-range="${key}"]`);
   const num = document.querySelector(`[data-tune-num="${key}"]`);
@@ -4159,164 +4269,123 @@ function renderPicked() {
   });
 }
 
-/** المحرّك الفاعل الآن: الخارجي إن كان مفتوحًا، وإلا محرّك الجلسة. */
-function activePlayer() {
-  return scratchPlayer || player;
+/** هل المقطعُ الأخير نصٌّ خارجيٌّ عابرٌ — لا صفَّ له في القاعدة (WS40)؟ */
+function hasExternalSegment() {
+  return Boolean(ctx?.segments?.at(-1)?.temporary);
 }
 
-/** يقرأ نصًّا كتبته بنفسك بنفس إعدادات الجلسة. */
-function readScratch(text) {
+/**
+ * يدخل بنصٍّ خارجيّ **كمقطعٍ حقيقيّ** في نفس `ctx.segments` — لا محرّكَ
+ * ثانٍ ولا رسمَ يدويّ.
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ هذا هو جوهرُ التوحيد الذي طلبتَه (WS40)
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * > «Any text currently being practiced should become a real Shadowing
+ * >  Practice Segment and receive the same capabilities, regardless of
+ * >  where it came from.»
+ *
+ * كان هذا النصّ يُقرأ بمحرّكٍ منفصل (`scratchPlayer`) على مقطعٍ وهميّ
+ * واحد، ويُكتَب مباشرةً في `[data-text]` بلا `renderWords` — فلا
+ * تقسيمَ كلماتٍ، ولا نبرَ متّصلًا بموضعك (بند 15)، ولا حوارَ حفظٍ
+ * حقيقيًّا (كان له نسخته الخاصّة `saveScratchTo`). كلُّ ميزةٍ جديدة
+ * كانت تحتاج أن تُكتَب **مرّتين**.
+ *
+ * الآن هو مقطعٌ عاديٌّ — `temporary: true` وحدها تميّزه — يدفعه
+ * `player.pushSegment` فيتنقّل إليه بـ`goTo` كأيّ جملة. فيرث مجّانًا:
+ * `renderWords` (بند 13)، و`syncSegment`/النبر (بند 15)، وحوارَ
+ * الحفظ الموحَّد (بند 5، 19)، وإعداداتِ السرعة والتكرار والصوت
+ * (مشتركةٌ أصلًا عبر `player.updateSettings` — بند 14).
+ */
+function enterExternalText(text) {
   const clean = (text || '').trim();
   if (!clean) return;
 
-  // محرّك الجلسة يصمت: صوتان معًا لا يُفهم منهما شيء.
-  player.pause();
-  scratchPlayer?.destroy();
+  /* ⚠️ أوّل دخولٍ فقط يحفظ موضعك — دخولٌ ثانٍ لا يُبدّل رجوعك (بند 18). */
+  if (ctx.returnIndex == null) ctx.returnIndex = player.state.index;
 
-  ctx.scratch = clean;
-
-  scratchPlayer = createPlaybackController({
-    segments: [{ id: 'scratch', text: clean }],
-    settings: { ...player.state.settings, autoAdvance: false },
-    onEvent: handleScratchEvent,
-  });
-
-  const textEl = $('[data-text]');
-  if (textEl) {
-    if (ctx.stress) textEl.innerHTML = markSentence(clean).html;
-    else textEl.textContent = clean;
-    textEl.classList.remove('hidden-mode');
-    applyFonts();
+  /* نصٌّ خارجيّ جديد يستبدل القديم — لا يتراكم فوقه. */
+  if (hasExternalSegment()) {
+    const old = ctx.segments.pop();
+    player.dropSegment(old.id, ctx.returnIndex);
   }
 
-  const trEl = $('[data-tr]');
-  if (trEl) trEl.textContent = '';
-  const marks = $('[data-marks]');
-  if (marks) marks.innerHTML = '';
+  const seg = {
+    id: `ext-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+    sessionId: ctx.session.id,
+    sourceObjectId: null,
+    sourceTextSnapshot: clean,
+    translationSnapshot: null,
+    speaker: null,
+    isMine: 0,
+    order: ctx.segments.length,
+    difficulty: 0,
+    repetitionsCompleted: 0,
+    lastPracticedAt: null,
+    practiceStatus: 'pending',
+    notes: '',
+    /* ⚠️ الشارةُ الوحيدة التي تُميّزه — كلُّ ما عداها يُعامَل كأيّ مقطع. */
+    temporary: true,
+  };
+  ctx.segments.push(seg);
+  player.pushSegment({ id: seg.id, text: clean, humanAudioUrl: null });
 
-  const lbl = $('[data-current-lbl]');
-  if (lbl) lbl.textContent = '✎ نصّ من عندك';
-  $('[data-scratch-clear]')?.removeAttribute('hidden');
-  $('[data-scratch-save]')?.removeAttribute('hidden');
+  const field = $('[data-scratch-input]');
+  if (field) field.value = '';
+  const box = $('[data-scratch]');
+  if (box) box.hidden = true;
+  document.querySelector('[data-sh="scratch-open"]')?.classList.remove('on');
 
   /* المفتاحُ يقرأ الحالَ، والحالُ تغيّر. */
   renderModes();
-
-  scratchPlayer.start();
+  /* ⚠️ يبدأ فورًا — لصقتَه لتسمعه، لا لتضغط تشغيلًا بعده. */
+  player.start();
 }
 
 /**
- * أحداث المحرّك الخارجي.
+ * يرجع من النصّ الخارجيّ إلى **نفس** الجملة التي كنتَ عليها (بند 18).
  *
- * ⚠️ لا `recordSegmentPractice` ولا `savePosition` هنا. تكرار نصٍّ
- *    كتبته الآن ليس ممارسةً على جملةٍ في جلستك — تسجيله كذلك يزوّر
- *    دليل ممارستك (بند 19).
+ * ⚠️ **آمنٌ يُنادى دائمًا** — حتى لو فتحتَ الصندوق ولم تلصق فيه شيئًا.
+ *    كان أوّلُ سطرٍ هنا `if (!scratchPlayer) return;`، فمَن فتح
+ *    الصندوقَ ولم يلصق شيئًا ثم رجع لوضع «جملة» يجده **باقيًا مفتوحًا**
+ *    فوق جملته. الإقفالُ لا يحتاج مقطعًا موجودًا، فخرج من تحت الحارس.
  */
-function handleScratchEvent(event) {
-  const status = $('[data-status]');
-  const counter = $('[data-counter]');
-  const card = $('[data-card]');
-  const play = $('[data-sh="play"]');
-
-  if (event.type === 'speak-start') {
-    if (status) status.textContent = 'بيقرا';
-    card?.classList.add('speaking');
-    if (counter) counter.textContent = `×${event.repetition}`;
-    if (play) play.textContent = '⏸';
-  }
-  if (event.type === 'speak-end') card?.classList.remove('speaking');
-  if (event.type === 'paused') {
-    if (status) status.textContent = 'واقف';
-    if (play) play.textContent = '▶';
-  }
-  if (event.type === 'finished' || event.type === 'stopped') {
-    if (status) status.textContent = 'جاهز';
-    card?.classList.remove('speaking');
-    if (play) play.textContent = '▶';
-  }
-}
-
-/**
- * يحفظ النصّ الخارجي حيث تريد (بند 19).
- *
- * ⚠️ **لا يمسّ مصدر الجلسة.** الممارسة السريعة نصٌّ عابر؛ حفظه يُنشئ
- *    شيئًا جديدًا في مكانه الصحيح ولا يعدّل السكريبت الذي تتدرّب عليه.
- */
-async function saveScratchTo(where) {
-  const text = (ctx.scratch || '').trim();
-  if (!text) return toast('مفيش نصّ نحفظه');
-
-  try {
-    if (where === 'saved') {
-      await saveItem({
-        text,
-        kind: text.split(/\s+/).length > 1 ? SAVED_KIND.SENTENCE : SAVED_KIND.WORD,
-        sceneId: ctx.session.sceneId,
-        sessionId: ctx.session.id,
-      });
-      return toastOk('اتحفظت في المحفوظات');
-    }
-
-    if (where === 'expression') {
-      if (!ctx.session.sceneId) return toastError('الجلسة دي مش مربوطة بذكرى');
-      /*
-       * لا اقتباس هنا: النصّ الخارجي **هو** التعبير نفسه، وتكراره
-       * كاقتباسٍ يوهم بسياقٍ لا وجود له. لكن الجلسة تُسجَّل، فتعرف
-       * بعد شهرٍ أنك التقطته وأنت تتمرّن لا وأنت تكتب.
-       */
-      await addExpression(ctx.session.sceneId, {
-        text,
-        source: { type: EXPRESSION_SOURCE.SHADOW, id: ctx.session.id },
-      });
-      return toastOk('اتضافت كتعبير في الذكرى');
-    }
-
-    if (where === 'script') {
-      if (!ctx.session.sceneId) return toastError('الجلسة دي مش مربوطة بذكرى');
-      await addScript(ctx.session.sceneId, { title: 'من الممارسة السريعة', text });
-      return toastOk('اتضاف سكريبت جديد في الذكرى');
-    }
-  } catch (err) {
-    toastError(err.message || 'مقدرناش نحفظ');
-  }
-}
-
-/** يرجع من النصّ الخارجي إلى جملة الجلسة. */
-function clearScratch() {
-  /*
-   * ⚠️ **الصندوقُ يُقفَل حتى لو لم تُقرأ فيه جملةٌ قطّ.**
-   *
-   * كان أوّلُ سطرٍ `if (!scratchPlayer) return;` — والمُشغّلُ لا
-   * يُنشأ إلّا عند أوّل قراءة. فمَن فتح الصندوقَ ولم يلصق فيه شيئًا
-   * ثم رجع إلى وضع «نصّ» يجد الصندوقَ **باقيًا مفتوحًا** فوق جملته.
-   * **قِستُه**: `hidden === false` بعد الرجوع.
-   *
-   * والإقفالُ لا يحتاج مُشغّلًا، فخرج من تحت الحارس.
-   */
+function exitExternalText() {
   const box = $('[data-scratch]');
   if (box) box.hidden = true;
   const field = $('[data-scratch-input]');
   if (field) field.value = '';
+  document.querySelector('[data-sh="scratch-open"]')?.classList.remove('on');
 
-  if (!scratchPlayer) {
-    if (ctx) ctx.scratch = null;
-    return;
+  if (!hasExternalSegment()) return;
+
+  const seg = ctx.segments.pop();
+  const back = ctx.returnIndex ?? Math.max(0, ctx.segments.length - 1);
+  ctx.returnIndex = null;
+  player.dropSegment(seg.id, Math.min(back, Math.max(0, ctx.segments.length - 1)));
+}
+
+/**
+ * ينسخ النصّ الحاليّ — جملةً أو كلمةً مختارة — إلى الحافظة (بند 11).
+ *
+ * ⚠️ **نفسُ منطق اختيار «ماذا» في `openSaveDialog` تمامًا** — لا
+ *    قاعدةً ثانية تُكتَب هنا فتختلف يومًا عن أختها.
+ */
+async function copyCurrentText() {
+  const segment = ctx.segments[player.state.index];
+  const selectedWord = document.querySelector('[data-word].selected');
+  const text = selectedWord
+    ? selectedWord.textContent.trim()
+    : segment?.sourceTextSnapshot || '';
+  if (!text) return toast('مفيش نصّ نسخه');
+
+  try {
+    await navigator.clipboard.writeText(text);
+    toastOk('اتنسخت');
+  } catch {
+    toastError('المتصفّح مارضاش ينسخ');
   }
-  scratchPlayer.destroy();
-  scratchPlayer = null;
-  ctx.scratch = null;
-
-  const lbl = $('[data-current-lbl]');
-  if (lbl) lbl.textContent = 'الجملة الحالية';
-  $('[data-scratch-clear]')?.setAttribute('hidden', '');
-  $('[data-scratch-save]')?.setAttribute('hidden', '');
-
-  const input = $('[data-scratch-input]');
-  if (input) input.value = '';
-
-  // إعادة الرسم تُرجع الجملة وترجمتها وعلاماتها كما كانت.
-  syncSegment();
-  renderModes();
 }
 
 /**
@@ -4453,6 +4522,10 @@ async function openPanel(name) {
                       )}
                       ${raw(s.note ? html`<span class="sv-row-note">${s.note}</span>` : '')}
                     </div>
+                    ${raw(s.sessionId || s.sceneId ? html`
+                      <button class="row-goto" data-sh="goto-origin"
+                        data-session="${s.sessionId || ''}" data-scene="${s.sceneId || ''}"
+                        aria-label="ارجع لأصلها">↩</button>` : '')}
                     <button class="row-del" data-sh="unsave" data-id="${s.id}"
                       aria-label="شيلها من المحفوظات">${raw(icon('trash', 15))}</button>
                   </div>`
@@ -4565,7 +4638,7 @@ function wireInteractions(main) {
   main.addEventListener('submit', (event) => {
     if (!event.target.hasAttribute('data-scratch')) return;
     event.preventDefault();
-    readScratch(new FormData(event.target).get('scratch'));
+    enterExternalText(new FormData(event.target).get('scratch'));
   }, wired());
 
   main.addEventListener('click', async (event) => {
@@ -4639,8 +4712,8 @@ function wireInteractions(main) {
         return togglePlay();
 
       // التنقّل يخصّ جمل الجلسة، فالخروج من النصّ الخارجي جزءٌ منه.
-      case 'prev': clearScratch(); return player.previous();
-      case 'next': clearScratch(); return player.next();
+      case 'prev': exitExternalText(); return player.previous();
+      case 'next': exitExternalText(); return player.next();
 
       case 'scratch-open': {
         const box = $('[data-scratch]');
@@ -4659,10 +4732,10 @@ function wireInteractions(main) {
       }
 
       case 'scratch-clear':
-        return clearScratch();
+        return exitExternalText();
 
-      case 'scratch-to':
-        return saveScratchTo(btn.dataset.to);
+      case 'copy-item':
+        return copyCurrentText();
 
       case 'drawer':       return toggleDrawer(true);
       case 'drawer-close': return toggleDrawer(false);
@@ -5002,7 +5075,11 @@ function wireInteractions(main) {
 
       case 'difficult': {
         const segment = ctx.segments[player.state.index];
-        const updated = await markDifficult(segment.id, segment.practiceStatus !== 'difficult');
+        const next = segment.practiceStatus !== 'difficult';
+        /* ⚠️ مقطعٌ مؤقّتٌ (نصٌّ خارجيّ، WS40) لا صفَّ له يُحدَّث. */
+        const updated = segment.temporary
+          ? { ...segment, practiceStatus: next ? 'difficult' : 'practiced' }
+          : await markDifficult(segment.id, next);
         ctx.segments[player.state.index] = updated;
         const node = document.querySelector(`[data-line="${player.state.index}"]`);
         node?.classList.toggle('difficult', updated.practiceStatus === 'difficult');

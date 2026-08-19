@@ -576,6 +576,42 @@ export function createPlaybackController({
     },
 
     /**
+     * يُلحق مقطعًا مؤقّتًا بآخر القائمة وينتقل إليه فورًا — WS40.
+     *
+     * ⚠️ **هذا ما يجعل النصّ الخارجيّ مقطعًا حقيقيًّا لا محرّكًا ثانيًا.**
+     *    نفسُ `cycle`/`goTo`/`selectWord` تعمل عليه بلا فرقٍ عن أي
+     *    مقطعِ سكريبت — لا تكرارَ منطقٍ في مكانين.
+     *
+     * @param {{id: string, text: string}} segment
+     * @returns {number} فهرسه الجديد
+     */
+    pushSegment(segment) {
+      segments.push(segment);
+      const index = segments.length - 1;
+      controller.goTo(index);
+      return index;
+    },
+
+    /**
+     * يحذف مقطعًا بمعرّفه — للخروج من نصٍّ خارجيّ (بند 18).
+     *
+     * ⚠️ **ويعود إلى الفهرس المطلوب بعد الحذف**، لا إلى صفرٍ افتراضيّ:
+     *    الخروجُ من الممارسة السريعة يجب أن يُعيدك حيث كنتَ بالضبط.
+     *
+     * @param {string} id
+     * @param {number} [returnIndex] الفهرس الذي يُنتقَل إليه بعد الحذف
+     */
+    dropSegment(id, returnIndex) {
+      const at = segments.findIndex((s) => s.id === id);
+      if (at === -1) return;
+      segments.splice(at, 1);
+      const target = returnIndex == null
+        ? Math.min(state.index, segments.length - 1)
+        : returnIndex;
+      controller.goTo(target);
+    },
+
+    /**
      * يحصر التدريب في مقاطع بعينها (بند 21).
      *
      * @param {number[]|Set<number>} indices فارغةٌ = كلّها
