@@ -899,6 +899,7 @@ export async function renderShadow(main, sessionId) {
   wireCoverResize(main);
   wireOriginPanel(main);
   wireInteractions(main);
+  wireHitTestDebug(main);
   wireModalActions();
   wireMediaSession();
 
@@ -1928,7 +1929,33 @@ function syncSegment() {
   document.querySelectorAll('[data-line]').forEach((node) => {
     const isCurrent = Number(node.dataset.line) === index;
     node.classList.toggle('current', isCurrent);
-    if (isCurrent) node.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    /*
+     * ⚠️ **WS43 — لا `scrollIntoView` هنا: يقلب صفحة الكتاب (بند 2).**
+     *
+     *    `scrollIntoView` يمشي في كل سلف قابلٍ للتمرير ليُظهر العنصر —
+     *    ومن أسلاف هذا السطر `.sh-pages` نفسُها، وهي في وضع الصفحة
+     *    الواحدة (WS39) حاويةٌ أفقيّةٌ هي «الكتاب» بعينه. فضغطةُ
+     *    «التالي» كانت تُمرّر السطرَ الجاري رأسيًّا داخل صفحة المصدر —
+     *    فتُعيد `scrollIntoView` صفحةَ الكتاب كلَّها إلى المصدر، رغم
+     *    أنك في صفحة الشادوينج. تنقّلُ المحتوى شيءٌ، وتقليبُ الكتاب
+     *    شيءٌ آخر (بلاغُك)، فلا يجوز أن يحرّك أحدُهما الآخر.
+     *
+     *    فبدل الاعتماد على المتصفّح ليقرّر أيَّ سلفٍ يُمرَّر، نُمرّر
+     *    **صفحةَ المصدر وحدها رأسيًّا** بحساب يدويّ — يُطابق سلوك
+     *    `block:'nearest'` الأصليّ دون أن يلمس `.sh-pages` أبدًا.
+     */
+    if (isCurrent) {
+      const page = node.closest('.sh-page');
+      if (page) {
+        const pageRect = page.getBoundingClientRect();
+        const nodeRect = node.getBoundingClientRect();
+        if (nodeRect.top < pageRect.top) {
+          page.scrollBy({ top: nodeRect.top - pageRect.top, behavior: 'smooth' });
+        } else if (nodeRect.bottom > pageRect.bottom) {
+          page.scrollBy({ top: nodeRect.bottom - pageRect.bottom, behavior: 'smooth' });
+        }
+      }
+    }
   });
 
   /*
@@ -2674,7 +2701,18 @@ function renderRail() {
 function pickTool(id) {
   /* أفعالٌ فوريّة لا لوحةَ لها: تُنفَّذ وتُغلق. */
   if (id === 'hear') { if (rail.word >= 0) player.selectWord(rail.word); rail.open = false; return renderRail(); }
-  if (id === 'save') { document.querySelector('[data-sh="save-item"]')?.click(); rail.open = false; return renderRail(); }
+  /*
+   * ⚠️ **WS43 · بند 3 — الكلمةُ الممسوكة صراحةً لا نقرةٌ وهميّة.**
+   *    راجع الشرح فوق `openSaveDialog`: النقرُ الوهميّ على الزرّ
+   *    العامّ كان يقرأ `.selected` من جديد، وهي لا تُكتَب من الضغطة
+   *    المطوّلة — فيضيع تحديدُ الكلمة بين الفتح والحفظ.
+   */
+  if (id === 'save') {
+    const chip = rail.word >= 0 ? document.querySelectorAll('[data-word]')[rail.word] : null;
+    rail.open = false;
+    renderRail();
+    return openSaveDialog(chip);
+  }
   if (id === 'hard') { document.querySelector('[data-sh="difficult"]')?.click(); rail.open = false; return renderRail(); }
 
   rail.open = !(rail.open && rail.tool === id);
@@ -4467,9 +4505,25 @@ async function copyCurrentText() {
  * الكلمة تسبق الجملة حين تكون مختارة: أنت واقفٌ عندها الآن، فهي ما
  * تقصد حفظه.
  */
-async function openSaveDialog() {
+/*
+ * ⚠️ **WS43 — تأخذ الكلمة صراحةً، لا تخمّنها من `.selected` وحدها
+ *    (بند 3).**
+ *
+ *    الضغطةُ المطوّلة على رقاقةٍ («HOLD FOR ACTIONS») تفتح سكّةَ
+ *    الأدوات على تلك الكلمة (`rail.word`) — لكنها **لا** تضع عليها
+ *    `.selected`؛ ذاك صنفٌ خاصٌّ بالنقرة العابرة وحدها (`wireChips`
+ *    · `end()`). فكان زرُّ «✦ احفظها» في السكّة ينفّذ نقرةً وهميّةً
+ *    على `[data-sh="save-item"]`، الذي يقرأ `.selected` من جديد —
+ *    فيحفظ كلمةً منقورةً قبلها بمنطقٍ ما، أو الجملةَ كلَّها إن لم
+ *    تكن هناك نقرةٌ سابقة. **قِيس**: امسك كلمةً مطوّلًا ثم احفظها —
+ *    كانت تُحفَظ الجملةُ لا الكلمة.
+ *
+ *    فصار المستدعي يمرّر عنصر الرقاقة صراحةً — لا بابٌ ثانٍ يُخمَّن
+ *    منه، وسلوكُ الضغطة القصيرة (بلا مُعطًى) يبقى كما كان بالضبط.
+ */
+async function openSaveDialog(explicitWordEl) {
   const segment = ctx.segments[player.state.index];
-  const selectedWord = document.querySelector('[data-word].selected');
+  const selectedWord = explicitWordEl || document.querySelector('[data-word].selected');
 
   const kind = selectedWord ? SAVED_KIND.WORD : SAVED_KIND.SENTENCE;
   const defaultText = selectedWord
@@ -4661,6 +4715,68 @@ async function openPanel(name) {
     const now = await setTrEnabled(!online);
     toast(now ? 'الترجمة الأونلاين اتفعّلت' : 'الترجمة الأونلاين اتطفت');
   }
+}
+
+/*
+ * ══════════════════════════════════════════════════════════════════
+ * WS43 · بند 4-5 — تشخيصُ اللمس الحقيقيّ (خلف علَمٍ للمطوّر)
+ * ══════════════════════════════════════════════════════════════════
+ *
+ * ⚠️ بلاغُك: «الرجوعُ للنصّ الأصلي لا يزال يفتح قائمة الخطّ — على
+ *    الجهاز الحقيقيّ.» ودقّقتُ الهندسة فعليًّا: `getBoundingClientRect`
+ *    و`elementsFromPoint` على مركز الزرّ وحوافّه الأربعة، في وضعَي
+ *    الصفحة الواحدة والصفحتين، على مقاس Tab S10+ — والنتيجة نظيفةٌ في
+ *    كل مرّة: `.sh-current-lbl` هو الهدفُ الوحيد، ولا تراكب مع شارة
+ *    الخطّ (تفصلهما مئات البكسلات أفقيًّا ورأسيًّا). فلا سببَ هندسيًّا
+ *    يُعاد إنتاجُه هنا — **وهذا لا يُغلق البلاغ**: قد يكون سلوكَ
+ *    محرّك اللمس الحقيقيّ لنظام أندرويد (تكبير نصٍّ، تحجيمًا مختلفًا،
+ *    محاكاةً للفأرة بتأخير) لا شيءٌ يُقاس من هنا.
+ *
+ * فبدل تخمين إصلاحٍ لا دليلَ عليه، هذه أداةُ قياسٍ **على الجهاز
+ * نفسه**: كل `pointerdown` في هذه الشاشة يُسجَّل — هدفُه، إحداثيّاته،
+ * `elementsFromPoint` عندها، والفعلُ الذي سيُحلّ منه فعليًّا — في
+ * الكونسول وفي شارةٍ صغيرة على الشاشة (فلا حاجة لتوصيل الجهاز
+ * بحاسوب). ويُفعَّل ويُطفَأ من نفس الجهاز:
+ *
+ *   localStorage.setItem('sh.debugHitTest', '1')   // تفعيل
+ *   localStorage.removeItem('sh.debugHitTest')      // إطفاء
+ *
+ * ثم إعادة تحميل الشاشة. لا أثر له وهو مطفًأ — علَمٌ واحد يُقرَأ مرّةً
+ * عند الدخول، لا حِمل دائم على كل شاشات التطبيق.
+ */
+const DEBUG_HIT_TEST_KEY = 'sh.debugHitTest';
+
+function isHitTestDebugOn() {
+  try {
+    return localStorage.getItem(DEBUG_HIT_TEST_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function wireHitTestDebug(main) {
+  if (!isHitTestDebugOn()) return;
+
+  const hud = document.createElement('div');
+  hud.className = 'sh-debug-hud';
+  hud.setAttribute('dir', 'ltr');
+  main.appendChild(hud);
+
+  document.addEventListener('pointerdown', (event) => {
+    const stack = document.elementsFromPoint(event.clientX, event.clientY).slice(0, 5);
+    const describe = (el) => `${el.tagName.toLowerCase()}${el.className ? `.${String(el.className).trim().split(/\s+/).join('.')}` : ''}${el.dataset?.sh ? `[data-sh=${el.dataset.sh}]` : ''}`;
+    const resolvedAction = event.target.closest?.('[data-sh]')?.dataset.sh || '(بلا فعل)';
+    const lines = [
+      `target: ${describe(event.target)}`,
+      `resolved data-sh: ${resolvedAction}`,
+      `xy: ${Math.round(event.clientX)}, ${Math.round(event.clientY)}`,
+      `elementsFromPoint:`,
+      ...stack.map((el, i) => `  ${i}. ${describe(el)}`),
+    ];
+    // eslint-disable-next-line no-console
+    console.log('[ظلّ:تشخيص اللمس]\n' + lines.join('\n'));
+    hud.textContent = lines.join('\n');
+  }, wired({ capture: true }));
 }
 
 function wireInteractions(main) {

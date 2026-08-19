@@ -4002,13 +4002,29 @@ body.shadow-open { overflow: hidden; }
       الحرفين يتراكبان بصريًّا — وهو ما يشبه العطلَ وإن لم يكن.
    ══════════════════════════════════════════════════════════════ */
 
+/*
+ * ⚠️ **WS43 — الكونُ يكمل خلف اللوحة، لا يُقطَع بأسود مصمت.**
+ *
+ *    بلاغُك: «تحت التحكّم أسود، والكتاب يفقد استمراريّته البصريّة.»
+ *    وكان صحيحًا: `rgba(4,7,14,.93→.97)` تدرّجٌ شبه معتمٍ بالكامل —
+ *    يرسم فوق النجوم والسديم صفيحةً سوداء مسطّحة، فتبدو الصفحةُ وكأنها
+ *    تُقطَع لا تُكمَل. والسببُ الأصليّ الذي وُلد له هذا الشريطُ ما زال
+ *    قائمًا (بند WS29 فوق): نصٌّ يمرّ تحت شريطٍ شفّافٍ يتراكب بصريًّا.
+ *
+ *    فالحلُّ **ضبابٌ لا سوادٌ**: `backdrop-filter: blur()` يُذيب أيَّ
+ *    حرفٍ يمرّ تحت اللوحة (فلا تراكب) بينما يُبقي ألوانَ الكون —
+ *    نجومَه وسديمَه — مرئيّةً من خلال الزجاج المصنفَر. والشفافيّةُ
+ *    انخفضت من ~95% إلى ~55% كي يبقى الأثرُ زجاجًا لا حائطًا.
+ */
 @media (max-width: 899px) {
   .sh-modes,
   .sh-transport {
     position: sticky;
     z-index: 3;
     background: linear-gradient(180deg,
-      rgba(4, 7, 14, 0) 0, rgba(4, 7, 14, .93) 22%, rgba(4, 7, 14, .97) 100%);
+      rgba(4, 7, 14, 0) 0, rgba(4, 7, 14, .38) 22%, rgba(4, 7, 14, .55) 100%);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
   }
   /* المفتاحُ فوق ثم الترانسبورت تحته — بارتفاعيهما. */
   .sh-modes { inset-block-end: 96px; margin-bottom: 0; padding-block: 6px; }
@@ -4351,7 +4367,14 @@ body.shadow-open { overflow: hidden; }
   justify-content: center;
   align-items: center;
   gap: 10px;
-  z-index: 12;
+  /*
+   * ⚠️ **WS43 — فوق `.sh-modes` لا مساويًا له.** كان بنفس رقم
+   *    `.sh-modes`/`.sh-transport` (12)، وترتيبُهما في DOM يجعل
+   *    `.sh-modes` يُرسَم فوقه — فتقع أزرارُ التقليب الصريح («‹ SOURCE»)
+   *    هندسيًّا تحت شريط الأوضاع: `elementFromPoint` على مركز الزرّ
+   *    يعيد `.sh-modes` لا الزرّ، فلا تصل اللمسةُ إليه أبدًا. **قِيس**.
+   */
+  z-index: 13;
   pointer-events: none;
 }
 .sh-pager button {
@@ -4373,3 +4396,24 @@ body.shadow-open { overflow: hidden; }
 .sh-pager button.on::before { background: var(--sh-accent-2); transform: scale(1.35); }
 
 .sh-book[data-layout="single"] .sh-pager { display: flex; }
+
+/* ---------- شارةُ تشخيص اللمس (WS43 · بند 4-5) — خلف علَمٍ للمطوّر ---------- */
+.sh-debug-hud {
+  position: fixed;
+  z-index: 999;
+  inset-inline-end: 8px;
+  inset-block-end: 8px;
+  max-inline-size: min(360px, 92vw);
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(0, 0, 0, .82);
+  color: #6EE7B7;
+  font-family: var(--sh-mono, monospace);
+  font-size: 10px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  pointer-events: none;
+  direction: ltr;
+  text-align: start;
+}
+.sh-debug-hud:empty { display: none; }
