@@ -833,7 +833,12 @@ describe('الظلّ · مستمعٌ واحدٌ لكلّ فتحة', () => {
         else if (ch === ')') { depth -= 1; if (!depth) break; }
       }
       const call = body.slice(hit.index, j + 1);
-      if (!call.includes('wired()')) naked.push(`${hit[1]}:${call.slice(0, 46)}`);
+      /*
+       * ⚠️ `wired(` لا `wired()` حرفيًّا — `wired({ passive: true })`
+       *    صحيحةٌ أيضًا: تدمج خياراتٍ إضافيّة مع إشارة القطع نفسِها
+       *    (راجع تعريف `wired`)، فهي نفسُ الحراسة بشكلٍ آخر.
+       */
+      if (!call.includes('wired(')) naked.push(`${hit[1]}:${call.slice(0, 46)}`);
     }
     expect(naked).toEqual([]);
   });
@@ -1314,5 +1319,125 @@ describe('الظلّ · الصوتُ المربوطُ بالصورة وجهٌ أ
     const code = codeOnly(await (await fetch('/js/views/shadow-view.js')).text());
     expect(code.includes('data-cover-rest')).toBe(true);
     expect(code.includes("case 'cover-tools'")).toBe(true);
+  });
+});
+
+/* ================================================================== */
+/* WS38 — على الموبايل: صفحتان جنبَ بعضهما، وزرّ الظلّ السريع           */
+/* ================================================================== */
+
+describe('الكتاب · صفحتان تُقلَّبان على الموبايل', () => {
+  let code = '';
+
+  it('⚠️ الحارس: الانزلاقُ من `scroll-snap` لا من سحبٍ يدويّ', async () => {
+    const css = await (await fetch('/css/shadow.css')).text();
+    const at = css.indexOf('WS38');
+    expect(at > 0).toBe(true);
+    /*
+     * ⚠️ حدٌّ عدديٌّ لا نهايةَ بنيويّة — نفسُ الفخّ الذي حذّر منه تعليقٌ
+     *    آخر في هذا الملفّ: «حارسٌ بنمطٍ خاطئ». الشرحُ فوق هذه الكتلة
+     *    طال بعد إصلاح 699/899، فـ1600 حرفًا عادت تقطع قبل القاعدة.
+     *    فنقرأ إلى أوّل `}` يغلق كتلة الوسائط — نهايةٌ بنيويّة لا رقمٌ
+     *    خمّنّاه.
+     */
+    const block = css.slice(at, css.indexOf('\n}\n', at) + 3);
+    /*
+     * `scroll-snap` تعطي الزخمَ والتوقّفَ على الحافّة مجّانًا، وتعمل
+     * بالإصبع وبالعجلة وبقارئ الشاشة — أيُّ سحبٍ نكتبه بيدنا أسوأُ
+     * منها في كلّ واحدةٍ من هذه.
+     */
+    expect(block.includes('scroll-snap-type: x mandatory')).toBe(true);
+    expect(block.includes('scroll-snap-align: start')).toBe(true);
+  });
+
+  it('⚠️ وحدُّ الموبايل 699px لا 899px — الأخيرُ يبتلع التابلت الرأسيّ', async () => {
+    const css = await (await fetch('/css/shadow.css')).text();
+    const at = css.indexOf('WS38');
+    const end = css.indexOf('.sh-pages {', at);
+    const block = css.slice(at, end + 40);
+    /*
+     * 899px نقطةُ تحوّلٍ عامّة في هذا الملفّ، تشمل **التابلت الرأسيّ**
+     * (700–899px) الذي له قاعدةٌ صريحةٌ أقدم: «الكتاب يبقى كتابًا —
+     * بندٌ ٧ يطلب بقاء فكرة الصفحتين المتقابلتين على التابلت». قاعدةٌ
+     * بـ899px هنا (الأحدث) تكسر تلك الأقدم لكلّ تابلتٍ رأسيّ.
+     * **قِيس**: 820×1180 (تابلت) فقد زرَّ التشغيل عن مكانه المُختبَر.
+     * وطلبُك كان صريحًا: «تطبيق الموبايل» لا التابلت.
+     */
+    expect(block.includes('@media (max-width: 699px)')).toBe(true);
+    expect(block.includes('@media (max-width: 899px)')).toBe(false);
+  });
+
+  it('⚠️ ومُقلِّبٌ يذهب بالصفّ لا بترتيب الأبناء', async () => {
+    code = codeOnly(await (await fetch('/js/views/shadow-view.js')).text());
+    const at = code.indexOf('function goToPage');
+    expect(at > 0).toBe(true);
+    const block = code.slice(at, code.indexOf('\n}', at));
+    /*
+     * `.sh-pages` أبناؤها ثلاثة: الورقة، الكعبُ (`.sh-spine`)، والكون —
+     * لا اثنان. فـ`children[1]` كانت تلتقط الكعبَ لا الصفحةَ اليمنى،
+     * والضغطُ على «صفحة التدريب» لا يحرّك شيئًا. **قِيس**.
+     */
+    expect(block.includes('children[index]')).toBe(false);
+    expect(block.includes("querySelectorAll('.sh-page')[index]")).toBe(true);
+  });
+
+  it('⚠️ والمؤشّرُ شقيقُ الصفحات لا ابنُها', () => {
+    const pager = code.indexOf('data-pager');
+    const pages = code.indexOf('data-pages');
+    expect(pager > 0 && pages > 0 && pager < pages).toBe(true);
+  });
+});
+
+describe('الظلّ السريع · نصٌّ من برّه بلا ذكرى', () => {
+  let qs = '';
+
+  it('⚠️ الحارس: الجلسةُ تُبنى من النصّ المحفوظ لا من نسخةٍ قبل الحفظ', async () => {
+    qs = codeOnly(await (await fetch('/js/modals/quick-shadow.js')).text());
+    /*
+     * `openDraft` تُنشئ الصفَّ بـ`text: ''` ثم `saveDraftText` تكتب
+     * النصَّ الحقيقيّ. أوّلُ نسخةٍ استمرّت تستعمل الكائنَ القديم
+     * (`created`) بعد الحفظ، فبقي `.text` فارغًا في الذاكرة رغم
+     * صحّته في القاعدة — فـ`practicableSentences` كانت تُرجع `[]`
+     * دائمًا، والنافذةُ تُغلَق بصمتٍ بلا نقلة. **قِيس فعلًا في متصفّح.**
+     */
+    const at = qs.indexOf('async function openQuickShadow');
+    const end = qs.indexOf('\nexport async function promoteDraftToScene', at);
+    const block = qs.slice(at, end);
+    expect(block.includes('const draft = await saveDraftText(')).toBe(true);
+    expect(block.includes('practicableSentences(draft)')).toBe(true);
+  });
+
+  it('⚠️ ولا لوحةَ ثانية بعد «ابدأ» — الجلسةُ تُبنى هنا مباشرةً', () => {
+    const at = qs.indexOf('async function openQuickShadow');
+    const end = qs.indexOf('\nexport async function promoteDraftToScene', at);
+    const block = qs.slice(at, end);
+    /*
+     * `openShadowFromDraft` تفتح لوحةً ثانيةً «اختار من المسودّة» —
+     * صحيحةٌ لمسودّةٍ عاديّةٍ مختلطة، وزائدةٌ هنا حيث كلُّ ما في
+     * المسودّة هو ما لصقتَه أنت للتوّ. سؤالُك «اختار» بعد أن ضغطتَ
+     * «ابدأ» ينفي «أذاكرها مباشرة».
+     */
+    expect(block.includes('openShadowFromDraft')).toBe(false);
+    expect(block.includes('createSession')).toBe(true);
+  });
+
+  it('⚠️ ومسودّتُها بلا ذكرى — `sceneId: null` صراحةً', () => {
+    expect(qs.includes('sceneId: null')).toBe(true);
+  });
+
+  it('⚠️ والزرّ عائمٌ في كلّ شاشة، ويختفي جوّه كتاب الظلّ', async () => {
+    const idx = await (await fetch('/index.html')).text();
+    expect(idx.includes('quick-fab')).toBe(true);
+    expect(idx.includes("data-action=\"quick-shadow\"")).toBe(true);
+    const css = await (await fetch('/css/components.css')).text();
+    expect(css.includes('body:has(.shadow-app) .quick-fab')).toBe(true);
+  });
+
+  it('⚠️ و«خلّيها ذكرى» تنسب المسودّة لا تنسخها', () => {
+    const at = qs.indexOf('async function promoteDraftToScene');
+    const block = qs.slice(at, qs.indexOf('\n}\n', at));
+    /* السكريبتُ الجديد يحمل نصَّها، والمسودّةُ تُربَط لا تُكرَّر. */
+    expect(block.includes("draft.text || ''")).toBe(true);
+    expect(block.includes('studyDrafts.update(draftId, { sceneId')).toBe(true);
   });
 });

@@ -4208,3 +4208,82 @@ body.shadow-open { overflow: hidden; }
 /* شريطٌ يُسحَب: بلا انتقالٍ أثناء السحب وإلّا تأخّر عن الإصبع. */
 .sh-floating.is-dragging { transition: none; cursor: grabbing; opacity: .92; }
 .sh-vbar { touch-action: none; }
+
+/* ==================================================================
+   WS38 — على الموبايل: صفحتان جنبَ بعضهما تُقلَّبان بالسحب
+
+   ⚠️ **بلاغُك**: «بدل ما تخلّي الصفحتين في بعض، خليهم جنب بعض على
+      الموبايل وأقدر أقلب بينهم — واحدة معروضة والتانية جنبها أسحب
+      أجيبها، وكل صفحة واخدة المساحة الكاملة لشاشة الموبايل».
+
+   وكانتا عمودًا واحدًا يُمرَّر: الورقةُ فوق والكونُ تحتها. وهو حلٌّ
+   يجعل شاشةَ الموبايل **نصفَ شاشتين** لا شاشةً كاملة — تقرأ الجملة
+   وتحتها فراغٌ ثم تمرّر لترى ما يخصّها.
+
+   ⚠️ **والسحبُ من المتصفّح لا من يدي.** `scroll-snap` تفعلها بسطرين:
+      حركةٌ بزخمٍ طبيعيّ، وتوقّفٌ على حافّة الصفحة دائمًا، وتعملُ
+      بالإصبع وبعجلة الفأرة وبقارئ الشاشة. وأيُّ سحبٍ أكتبه بيدي
+      سيكون أسوأَ منها في كل واحدةٍ من هذه.
+
+   ⚠️ **و699px لا 899px.** كتبتُها أوّلَ مرّةٍ على نقطة التحوّل العامّة
+      في هذا الملفّ (899px) — وهي تشمل **التابلت الرأسيّ** (700–899px)،
+      الذي له قاعدةٌ صريحةٌ فوق بالحرف: «الكتاب يبقى كتابًا… بندٌ ٧
+      يطلب بقاء فكرة الصفحتين المتقابلتين على التابلت». فكانت هذه
+      القاعدةُ — الأحدثُ في الملفّ — تكسر تلك الأقدمَ لكل تابلتٍ رأسيّ
+      (768 · 810 · 834 · تابلتُك 8xx). **قِيس**: على 820×1180 اختفى
+      زرُّ التشغيل عن مكانه المُختبَر — لأن الصفحةَ صارت طيّةً أفقيّةً
+      لا عمودين متقابلين. وطلبُك كان صريحًا: «بالنسبة لتطبيق
+      **الموبايل**» — لا التابلت. فالحدُّ 699px، نفسُ نقطة «على
+      الموبايل الصفحتان فوق بعضهما» المستعملة أعلاه لغرضٍ مشابه.
+   ================================================================== */
+@media (max-width: 699px) {
+  .sh-pages {
+    flex-direction: row;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    /* ⚠️ لئلّا يجرّ سحبُ الصفحة الصفحةَ الأمَّ خلفها فيهتزّ التطبيق كلّه. */
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+  .sh-pages::-webkit-scrollbar { display: none; }
+
+  .sh-pages > .sh-page {
+    flex: 0 0 100%;
+    inline-size: 100%;
+    scroll-snap-align: start;
+    scroll-snap-stop: always;
+  }
+
+  /* الكعبُ يقسم عرضًا مشتركًا — ولا عرضَ مشتركًا هنا. */
+  .sh-spine { display: none; }
+
+  /* والصفحةُ اليمنى لم تعد تحتاج هامشًا للسكّة فوق عرضٍ كامل. */
+  .sh-right { padding-inline-end: 16px; }
+}
+
+/* مؤشّرُ الصفحتين — نقطتان تُضغطان أيضًا. */
+.sh-pager {
+  display: none;
+  position: absolute;
+  inset-block-end: calc(var(--sh-controls, 196px) - 26px);
+  inset-inline: 0;
+  justify-content: center;
+  gap: 8px;
+  z-index: 12;
+  pointer-events: none;
+}
+.sh-pager button {
+  pointer-events: auto;
+  inline-size: 34px; block-size: 34px;
+  display: grid; place-items: center;
+  background: none; border: 0; cursor: pointer; padding: 0;
+}
+.sh-pager button::before {
+  content: '';
+  inline-size: 7px; block-size: 7px; border-radius: 50%;
+  background: rgba(239, 231, 216, .3);
+  transition: background .25s ease, transform .25s ease;
+}
+.sh-pager button.on::before { background: var(--sh-accent-2); transform: scale(1.35); }
+
+@media (max-width: 699px) { .sh-pager { display: flex; } }

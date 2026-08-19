@@ -532,6 +532,16 @@ function wireActions() {
        *    يلزمه أن تبدأ **من الصورة**. ومَن سجّل صوته للتوّ ينظر إلى
        *    التسجيل لا إلى الصورة، فلا يجد للربط بابًا.
        */
+      case 'quick-shadow': {
+        const { openQuickShadow } = await import('./modals/quick-shadow.js');
+        return void openQuickShadow();
+      }
+
+      case 'promote-draft': {
+        const { promoteDraftToScene } = await import('./modals/quick-shadow.js');
+        return void promoteDraftToScene(id);
+      }
+
       case 'links':
         return void openLinksModal(id, sceneId);
 

@@ -880,6 +880,7 @@ export async function renderShadow(main, sessionId) {
   /* رجعتَ والزرُّ عاد أمامك — فالشريطُ يرفع نفسَه. */
   paintVoiceBar();
   wireChips(main);
+  wirePager(main);
 }
 
 /**
@@ -1054,7 +1055,16 @@ function shell() {
 
         <!-- ══════════ الكتاب ══════════ -->
         <div class="sh-book">
-          <div class="sh-pages">
+          <!--
+            ⚠️ المؤشّرُ **شقيقُ** الصفحات لا ابنُها: ابنٌ داخل حاويةٍ
+               تنزلق أفقيًّا ينزلق معها فلا يبقى في مكانه.
+          -->
+          <div class="sh-pager" data-pager hidden>
+            <button data-sh="page-go" data-v="0" aria-label="صفحة الورقة"></button>
+            <button data-sh="page-go" data-v="1" aria-label="صفحة التدريب"></button>
+          </div>
+
+          <div class="sh-pages" data-pages>
 
             <!-- ─────── الورقة ─────── -->
             <div class="sh-page sh-left">
@@ -3684,6 +3694,63 @@ function setTuner(key, raw, { silent = false } = {}) {
 }
 
 
+
+/* ------------------------------------------------------------------ *
+ * مُقلِّبُ الصفحتين على الموبايل (WS38)
+ * ------------------------------------------------------------------ */
+
+/**
+ * يربط المؤشّر بالانزلاق — والانزلاقَ بالمؤشّر.
+ *
+ * ⚠️ **ولا يُصنَع السحبُ بيدي.** `scroll-snap` تعطي الزخمَ والتوقّفَ
+ *    على الحافّة مجّانًا، وتعمل بالإصبع وبالعجلة وبقارئ الشاشة.
+ *    ودَوري هنا أن **أقرأ** أين وصلتَ لا أن أحرّكك.
+ *
+ * ⚠️ **ولا يظهر المؤشّرُ على اللوح**: هناك الصفحتان معًا أمامك،
+ *    فنقطتان تقولان «واحدةٌ من اثنتين» كذبٌ صغير.
+ */
+function wirePager(main) {
+  const pages = main.querySelector('[data-pages]');
+  const pager = main.querySelector('[data-pager]');
+  if (!pages || !pager) return;
+
+  const stacked = () => pages.scrollWidth > pages.clientWidth + 8;
+
+  const paint = () => {
+    const on = stacked();
+    pager.hidden = !on;
+    if (!on) return;
+    /* ⚠️ بالنسبة لا بالبكسل: العرضُ يختلف بين جهازٍ وجهاز. */
+    const at = Math.round(Math.abs(pages.scrollLeft) / Math.max(1, pages.clientWidth));
+    for (const b of pager.querySelectorAll('[data-sh="page-go"]')) {
+      b.classList.toggle('on', Number(b.dataset.v) === at);
+    }
+  };
+
+  pages.addEventListener('scroll', paint, wired({ passive: true }));
+  window.addEventListener('resize', paint, wired());
+  paint();
+}
+
+/** يذهب إلى صفحةٍ بالرقم — من المؤشّر أو من أي زرّ آخر. */
+function goToPage(index) {
+  const pages = $('[data-pages]');
+  if (!pages) return;
+  /*
+   * ⚠️ **بـ`.sh-page` لا بترتيب الأبناء.** `pages.children` تضمّ
+   *    الكعبَ (`.sh-spine`) بين الصفحتين، فـ`children[1]` كانت تلتقط
+   *    الكعبَ لا الصفحةَ اليمنى — والضغطُ على المؤشّر لا يحرّك شيئًا.
+   *    **قِيس**: ضغطُ «صفحة التدريب» لا يبدّل المؤشّر ولا الانزلاق.
+   */
+  const page = pages.querySelectorAll('.sh-page')[index];
+  /*
+   * ⚠️ **الاتّجاه يُقرأ من التخطيط لا يُفترَض.** الصفحةُ عربيّة (RTL)
+   *    فـ`scrollLeft` سالبةٌ أو معكوسةٌ حسب المحرّك. و`scrollIntoView`
+   *    على العنصر نفسِه تتكفّل بذلك في كلّ الاتّجاهات.
+   */
+  page?.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
+}
+
 /* ------------------------------------------------------------------ *
  * مفتاحُ الخطّ الصغير — واحدٌ لكلّ صفحة، معروضٌ دائمًا (WS36)
  * ------------------------------------------------------------------ */
@@ -4943,6 +5010,9 @@ function wireInteractions(main) {
 
       case 'font-pick':
         return pickFont(btn.dataset.page, btn.dataset.font);
+
+      case 'page-go':
+        return void goToPage(Number(btn.dataset.v));
 
       /* مفتاحُ الخطّ الصغير المعروض دائمًا على كلّ صفحة. */
       case 'fontpop':

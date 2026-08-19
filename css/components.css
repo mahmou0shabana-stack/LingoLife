@@ -3660,3 +3660,27 @@ body.tr-focused .tr-text { font-size: var(--fs-md); line-height: 2.15; }
 }
 .voice-row .role::after { content: ''; position: absolute; inset: -12px -8px; }
 .voice-row .role:hover { color: var(--accent); border-bottom-color: var(--accent); }
+
+/*
+ * زرُّ الظلّ السريع — عائمٌ في كلّ الشاشات (WS38).
+ * ⚠️ فوق زرّ «طوّر ده» لا مكانه: كلاهما عائمٌ، وتراكبُهما يخفي أحدَهما.
+ */
+.quick-fab {
+  position: fixed;
+  inset-block-end: calc(var(--nav-h) + var(--sp-4) + 56px + env(safe-area-inset-bottom, 0px));
+  inset-inline-end: var(--sp-4);
+  z-index: var(--z-sticky);
+  inline-size: 48px; block-size: 48px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--accent-line);
+  background: var(--accent);
+  color: var(--ink-invert);
+  cursor: pointer;
+  box-shadow: var(--shadow-lg);
+}
+.quick-fab:hover { filter: brightness(1.08); }
+.quick-fab svg { inline-size: 22px; block-size: 22px; }
+
+/* داخل كتاب الظلّ لا معنى له — أنت هناك بالفعل. */
+body:has(.shadow-app) .quick-fab { display: none; }
