@@ -88,6 +88,7 @@ export const PLACES = {
     name: 'الظلّ',
     of: async ({ id }) => (await shadowSessions.get(id))?.title || '',
   },
+  '/shadow-history': { name: 'كل جلسات الظلّ' },
 
   /* ---- الأدوات ---- */
   '/search': { name: 'بحث' },

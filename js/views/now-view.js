@@ -134,6 +134,7 @@ export async function renderNow(main) {
               <section class="sec">
                 <div class="sec-head">
                   <h2>${raw(icon('play'))} كمّل الظلّ</h2>
+                  <button class="add" data-action="go-shadow-history">كل الجلسات</button>
                 </div>
                 ${raw(
                   shadowRows

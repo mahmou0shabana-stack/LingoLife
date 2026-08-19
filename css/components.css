@@ -679,8 +679,15 @@
 
 .resume-row:active { transform: scale(.99); }
 .resume-row:hover { border-color: var(--accent-line); background: var(--accent-wash); }
+/* زرٌّ نصّيٌّ صغير داخل سطر — لتبديل «شوف النصّ الخام» في معاينة التنظيف (WS42). */
+.btn-link {
+  background: none; border: none; padding: 0; margin: 0;
+  color: var(--accent); font: inherit; font-size: inherit;
+  text-decoration: underline; cursor: pointer;
+}
+
 .resume-row .t { flex: 1; font-weight: 600; min-width: 0; }
-.resume-row .p { font-size: var(--fs-sm); color: var(--accent); white-space: nowrap; }
+.resume-row .p, .resume-row .s { font-size: var(--fs-sm); color: var(--accent); white-space: nowrap; }
 .resume-row .w { font-size: var(--fs-sm); color: var(--ink-soft); white-space: nowrap; }
 
 /* صفّ اختيار الجمل قبل بدء الظلّ */

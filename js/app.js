@@ -41,6 +41,7 @@ import { mountMiniPlayer } from './components/mini-player.js';
 
 /* ---- الشاشات ---- */
 import { renderNow } from './views/now-view.js';
+import { renderShadowHistory } from './views/shadow-history-view.js';
 import { renderLife } from './views/life-view.js';
 import {
   renderLanguage, renderExpression, renderWord, handleLanguageAction,
@@ -279,6 +280,7 @@ function wireActions() {
       /* ---- الظلّ ---- */
       case 'shadow-script': return openShadowForScript(id, sceneId);
       case 'open-shadow': return navigate(`/shadow/${id}`);
+      case 'go-shadow-history': return navigate('/shadow-history');
       case 'shadow-conversation': return openShadowForConversation(sceneId);
       case 'shadow-selection': return openShadowSelection(id, sceneId);
       case 'shadow-image': return openShadowFromImage(id, sceneId);
@@ -732,6 +734,7 @@ async function boot() {
   route('/scene/:id', view(renderScene, { passUi: true }));
   route('/settings', view(renderSettings));
   route('/shadow/:id', view(renderShadow));
+  route('/shadow-history', view(renderShadowHistory));
   route('/search', view(renderSearch));
   route('/trash', view(renderTrash));
   route('/duplicates', view(renderDuplicates));

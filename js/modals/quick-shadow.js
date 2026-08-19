@@ -77,14 +77,24 @@ export async function openQuickShadow() {
         note.textContent = 'بنقرا الصورة…';
         try {
           const { extractText } = await import('../services/shadow/ocr.js');
-          const { cleanExtractedText } = await import('../services/shadow/text-cleanup.js');
-          const { text: raw } = await extractText(picked);
-          /* ⚠️ تنظيفٌ قبل المراجعة اليدويّة لا بديلًا عنها (بند 9، WS40). */
-          const text = cleanExtractedText(raw);
+          const { cleanExtractedTextDetailed } = await import('../services/shadow/text-cleanup.js');
+          const { text: rawText } = await extractText(picked);
+          /* ⚠️ تنظيفٌ قبل المراجعة اليدويّة لا بديلًا عنها (بند 9، WS40 · WS42). */
+          const cleanup = cleanExtractedTextDetailed(rawText);
           const box = modal.querySelector('[name="text"]');
-          box.value = [box.value.trim(), text.trim()].filter(Boolean).join('\n');
+          box.value = [box.value.trim(), cleanup.cleaned.trim()].filter(Boolean).join('\n');
           /* ⚠️ النصُّ يُلحَق لا يُستبدَل: قد تكون لصقتَ شيئًا قبلها. */
-          note.textContent = text.trim() ? 'اتقرا — راجعه قبل ما تبدأ' : 'مالقيتش نصّ في الصورة';
+          const changed = cleanup.removedLines.length > 0 || cleanup.symbolRunsCollapsed > 0 || cleanup.spacingFixes > 0;
+          /*
+           * ⚠️ **لا زرَّ تبديلٍ للخام هنا — عمدًا.** النصُّ المستخرَج
+           *    يُلحَق بصندوقٍ قد يحوي ما لصقتَه أنت قبله، فلا حدّ واضح
+           *    يُميّز «مساهمة الصورة» ليُستبدَل وحدها بأمان بعد تعديلك.
+           *    الإخبارُ بما تغيَّر يكفي هنا؛ المعاينة الكاملة (خامٌ
+           *    مقابل منظَّف) في «صورة ← ظلّ» حيث الصندوق مخصَّصٌ لها وحدها.
+           */
+          note.textContent = !cleanup.cleaned.trim()
+            ? 'مالقيتش نصّ في الصورة'
+            : changed ? 'اتقرا ونُظِّف — راجعه قبل ما تبدأ' : 'اتقرا — راجعه قبل ما تبدأ';
         } catch (error) {
           note.textContent = `تعذّر استخراج النصّ: ${error.message}`;
         }

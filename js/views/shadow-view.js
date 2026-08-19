@@ -981,7 +981,16 @@ function wireChips(main) {
     }
 
     if (player.state.running && !player.state.paused) player.pause();
-    const word = splitWords(ctx.segments[player.state.index]?.sourceTextSnapshot || '')[at];
+    /*
+     * ⚠️ **WS42 · بند 1 — `player.words` لا إعادة تقسيمٍ من `ctx.segments`.**
+     *    كانت هذه تُعيد `splitWords` على `ctx.segments[player.state.index]`
+     *    بمعزلٍ عن `renderWords()` التي بَنَت رقائق الكلمات أصلًا — حسابٌ
+     *    ثانٍ لنفس الشيء، وهو بالضبط نمط «منطقٍ مواز» الذي حذّر منه
+     *    بلاغُك (بند 9). المصدرُ الوحيدُ للكلمات هو `player.words`،
+     *    التي يملأها `renderWords()` بالفعل لكلّ مقطعٍ حاليٍّ — أصليًّا
+     *    كان أو خارجيًّا — فتقرأ الرقاقةُ من حيث بُنيت لا من حسابٍ آخر.
+     */
+    const word = player.words[at];
     if (word) {
       speakOnce(word.spoken, {
         rate: ctx.session.speed ?? 1,
@@ -4775,9 +4784,27 @@ function wireInteractions(main) {
       case 'play':
         return togglePlay();
 
-      // التنقّل يخصّ جمل الجلسة، فالخروج من النصّ الخارجي جزءٌ منه.
-      case 'prev': exitExternalText(); return player.previous();
-      case 'next': exitExternalText(); return player.next();
+      /*
+       * ⚠️ **WS42 · بند 1 — كانا يُخرِجان من النصّ الخارجي قبل أن
+       *    يتحرّكا، بلا شرط.** والمقطعُ الخارجيُّ، منذ WS40، مقطعٌ
+       *    حقيقيٌّ كأيّ مقطعٍ آخر — فـ`player.next()`/`previous()`
+       *    يعرفان أصلًا كيف يتنقّلان **داخل كلماته** في وضع الكلمة
+       *    قبل أن يعبرا إلى مقطعٍ آخر (منطقٌ موجودٌ في
+       *    `playback-controller.js` بالفعل). فاستدعاءُ `exitExternalText()`
+       *    هنا كان يهدم المقطع الخارجيَّ نفسَه في كلّ ضغطة — قبل أن
+       *    يُتاح للمحرّك أن يقرّر هل التنقّل داخليٌّ أصلًا.
+       *
+       *    **قِستُه**: نصٌّ خارجيٌّ من 7 كلمات، ضغطةُ «التالي» الأولى
+       *    في وضع الكلمة تُسقطه فورًا وتنقل التشغيلَ إلى جملة السكريبت
+       *    التالية — أي أن كلمتك الثانية لم تصلها إطلاقًا.
+       *
+       *    فصار التنقّلُ يمرّ من نفس بابَي المحرّك بلا حَذفٍ استباقيّ.
+       *    والمقطعُ الخارجيُّ يبقى في القائمة حتى تُغادره صراحةً (شارة
+       *    «رجوع للنصّ الأصلي») أو تلصق نصًّا آخر فوقه — لا لأنك ضغطتَ
+       *    زرَّ تنقّلٍ عاديًّا (بند 9: محرّكٌ واحد، لا مسارٌ مواز).
+       */
+      case 'prev': return player.previous();
+      case 'next': return player.next();
 
       case 'scratch-open': {
         const box = $('[data-scratch]');

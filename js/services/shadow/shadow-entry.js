@@ -279,16 +279,16 @@ export async function openShadowFromImage(mediaId, sceneId) {
     duration: 10 * 60 * 1000,
   });
 
-  let extracted = '';
+  let cleanup = null;
   try {
     const result = await extractText(record.blob, {
       onProgress: ({ status, progress }) => {
         console.info(`[ocr] ${status} ${Math.round(progress * 100)}%`);
       },
     });
-    /* ⚠️ تنظيفٌ قبل المراجعة اليدويّة لا بديلًا عنها (بند 9، WS40). */
-    const { cleanExtractedText } = await import('./text-cleanup.js');
-    extracted = cleanExtractedText(result.text);
+    /* ⚠️ تنظيفٌ قبل المراجعة اليدويّة لا بديلًا عنها (بند 9، WS40 · WS42). */
+    const { cleanExtractedTextDetailed } = await import('./text-cleanup.js');
+    cleanup = cleanExtractedTextDetailed(result.text);
   } catch (error) {
     dismiss();
     console.error(error);
@@ -296,7 +296,21 @@ export async function openShadowFromImage(mediaId, sceneId) {
   }
   dismiss();
 
-  if (!extracted.trim()) return toastError('مالقيتش نصّ في الصورة دي');
+  if (!cleanup.cleaned.trim()) return toastError('مالقيتش نصّ في الصورة دي');
+
+  /*
+   * ⚠️ **المعاينة تظهر فقط لو التنظيف غيّر شيئًا فعلًا (WS42، بند 8).**
+   *    نصٌّ لم يمسّه التنظيفُ لا داعي لعرض مقارنةٍ فارغة له — تعقيدٌ
+   *    بلا فائدة. والتبديلُ بين الخام والمنظَّف زرٌّ واحد، لا حوارٌ ثانٍ.
+   */
+  const changed = cleanup.removedLines.length > 0 || cleanup.symbolRunsCollapsed > 0 || cleanup.spacingFixes > 0;
+  const cleanupNote = changed
+    ? [
+        cleanup.removedLines.length ? `${cleanup.removedLines.length} سطر ضوضاء اتشال` : '',
+        cleanup.symbolRunsCollapsed ? `${cleanup.symbolRunsCollapsed} سلسلة رموز اتطوت` : '',
+        cleanup.spacingFixes ? `${cleanup.spacingFixes} فراغ اتصلّح` : '',
+      ].filter(Boolean).join(' · ')
+    : '';
 
   let form = null;
   await showModal({
@@ -307,10 +321,27 @@ export async function openShadowFromImage(mediaId, sceneId) {
         القراءة الآلية بتغلط في الخطّ اليدوي. صحّح اللي محتاج تصحيح —
         <strong>الصورة نفسها مش هتتغيّر</strong>.
       </p>
+      ${raw(
+        changed
+          ? html`<p class="field-hint" data-cleanup-note style="margin-bottom:var(--sp-2)">
+              🧹 ${cleanupNote} — <button type="button" class="btn-link" data-cleanup-toggle>شوف النصّ الخام</button>
+            </p>`
+          : ''
+      )}
       <div class="field">
         <textarea name="text" dir="ltr" lang="ru" rows="9"
-          style="font-size:15px;line-height:1.9">${extracted}</textarea>
+          style="font-size:15px;line-height:1.9">${cleanup.cleaned}</textarea>
       </div>`,
+    onMount(modal) {
+      const toggle = modal.querySelector('[data-cleanup-toggle]');
+      if (!toggle) return;
+      let showingRaw = false;
+      toggle.addEventListener('click', () => {
+        showingRaw = !showingRaw;
+        modal.querySelector('textarea[name="text"]').value = showingRaw ? cleanup.raw : cleanup.cleaned;
+        toggle.textContent = showingRaw ? 'رجّع المنظَّف' : 'شوف النصّ الخام';
+      });
+    },
     onSubmit(data, close) {
       form = data;
       close();
@@ -318,7 +349,7 @@ export async function openShadowFromImage(mediaId, sceneId) {
   });
   if (!form) return;
 
-  const reviewed = (form.text || '').trim() || extracted;
+  const reviewed = (form.text || '').trim() || cleanup.cleaned;
   const scene = sceneId ? await scenes.get(sceneId) : null;
 
   try {

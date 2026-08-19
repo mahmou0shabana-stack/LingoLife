@@ -2630,7 +2630,22 @@ body.shadow-open { overflow: hidden; }
 .sh-chip {
   display: flex; flex-direction: column; gap: 9px; align-items: stretch;
   cursor: pointer; padding: 11px 11px 10px; border-radius: 4px;
-  min-width: 54px; min-height: 44px; touch-action: none;
+  min-width: 54px; min-height: 44px;
+  /*
+   * ⚠️ **WS42 · بند 2 — `pan-y` لا `none`.** كان `none` يمنع المتصفّح
+   *    من أن يبدأ تمريرًا رأسيًّا إن بدأ اللمسُ فوق كلمة — فيضطرّ
+   *    المستخدم أن يجد شريطًا ضيّقًا بين الرقائق ليمرّر منه. والرقائقُ
+   *    تحتلّ أغلب المساحة اللمسيّة، فصار التمريرُ صعبًا (بلاغٌ من
+   *    تابلت حقيقي).
+   *
+   *    و`wireChips` (shadow-view.js) **لا تحتاج `none` أصلًا**: تستمع
+   *    لـ`pointercancel` بالفعل، والمتصفّح يُطلقه هو نفسه حين يقرّر أن
+   *    السحبَ الرأسيّ تمريرٌ لا نقرة — فتُلغى مهلة الضغط المطوّل تلقائيًّا
+   *    ويكمل المتصفّحُ تمريره الأصليّ. `pan-y` يفوّض هذا القرارَ لمحرّك
+   *    لفتِ النيّة في المتصفّح نفسه (أدقّ من أيّ عتبةٍ نكتبها يدويًّا)،
+   *    بينما يمنع السحبَ الأفقيّ/القرص — لا حاجة لهما هنا فلا خسارة.
+   */
+  touch-action: pan-y;
   border: 1px solid transparent; background: none;
   font: inherit; transition: background .35s ease, border-color .35s ease;
 }

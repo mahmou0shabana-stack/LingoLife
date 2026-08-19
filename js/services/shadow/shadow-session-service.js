@@ -293,6 +293,22 @@ export async function resumableSessions(limit = 5) {
 }
 
 /**
+ * كل جلسات الظلّ المحفوظة — بلا سقف (WS42، بند 4).
+ *
+ * ⚠️ **`resumableSessions(3)` في «كمّل الظلّ» عرضٌ لا حذف.** ذاك الرقم
+ *    كان يُقرأ خطأً كأنه سقف ذاكرة — وهو `slice()` بعد قراءةٍ كاملة
+ *    (`getAll()`) لعرض معاينةٍ صغيرة فقط. هذه الدالّة هي الطريق إلى
+ *    البقيّة: **كل** جلسةٍ نشِطة (غير المحذوفة)، مكتملةً كانت أم لا،
+ *    مرتّبةً بالأحدث أوّلًا — بلا `slice`.
+ */
+export async function allShadowSessions() {
+  const all = await shadowSessions.getAll();
+  return all
+    .filter((s) => s.state === STATE.ACTIVE)
+    .sort((a, b) => (b.lastPracticedAt || b.createdAt) - (a.lastPracticedAt || a.createdAt));
+}
+
+/**
  * سلسلة الأيام المتتالية التي تدرّبت فيها.
  *
  * ⚠️ محسوبة من `practiceEvidence` الحقيقي لا من عدّاد يُزاد يدويًا.
