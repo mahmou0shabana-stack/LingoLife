@@ -58,6 +58,9 @@ export const PREFIX = Object.freeze({
   /** مسودّة المذاكرة (v12) */
   STUDY_DRAFT: 'STD',
   AUDIO_ROLE: 'ARL',
+
+  /** ذاكرة النطق المولَّد آليًّا (WS41) */
+  GENERATED_AUDIO: 'GAU',
 });
 
 function encodeTime(ms, len = 10) {

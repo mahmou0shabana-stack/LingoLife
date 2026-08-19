@@ -48,6 +48,10 @@ export const savedItems = createRepository('savedItems', PREFIX.SAVED);
 // مفتاحه الكلمة نفسها (`keyPath: 'word'`) لا معرّف مولَّد: الكلمة هي
 // الهويّة هنا، فجلبها مرّتين يجب أن يصيب نفس السجل.
 export const nativeAudio = createRepository('nativeAudio', PREFIX.NATIVE_AUDIO);
+// مفتاحه هاش مركّب (`keyPath: 'cacheKey'`) من النصّ المطبَّع واللغة
+// والمزوّد والصوت وإعداداته — نفس الصوت من أي مصدرٍ يصيب نفس السجل
+// فلا يتكرّر التوليد (WS41).
+export const generatedAudio = createRepository('generatedAudio', PREFIX.GENERATED_AUDIO);
 
 /* ---- المراجعة ---- */
 export const reviewItems = createRepository('reviewItems', PREFIX.REVIEW);
@@ -133,6 +137,7 @@ export const ALL_REPOS = {
   practiceEvidence,
   savedItems,
   nativeAudio,
+  generatedAudio,
   reviewItems,
   reviewHistory,
   analysisRuns,

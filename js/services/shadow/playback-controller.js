@@ -117,6 +117,13 @@ export function createPlaybackController({
    * @type {null | ((text: string) => Promise<{url?: string, speaker?: string|null, status?: string}|null>)}
    */
   nativeResolver = null,
+  /**
+   * يوقف أي نطقٍ جارٍ فورًا (بند 25 WS41: مزوّدو النطق المولَّد
+   * يشغّلون ملفّ صوتٍ لا `speechSynthesis`، فإلغاؤهم إلغاءٌ مختلف).
+   * مَحقونة كـ`speaker` بالضبط ولنفس السبب: `halt()` لا يجب أن يعرف
+   * أيّ مزوّدٍ نشِط الآن.
+   */
+  canceler = cancelSpeech,
 }) {
   const state = {
     index: 0,
@@ -246,7 +253,7 @@ export function createPlaybackController({
   function halt() {
     runToken++;
     clearTimer();
-    cancelSpeech();
+    canceler();
     if (humanEl) {
       humanEl.pause();
       humanEl.currentTime = 0;

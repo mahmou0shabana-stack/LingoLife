@@ -87,9 +87,17 @@ import {
   nativeCacheStats,
   NATIVE_HOSTS,
 } from '../services/shadow/native-audio.js';
+import { ensureTTSProvidersRegistered, BROWSER_PROVIDER_ID } from '../services/shadow/tts/bootstrap.js';
+import { createTTSSpeaker } from '../services/shadow/tts/speaker-adapter.js';
+import { allAvailability } from '../services/shadow/tts/registry.js';
+
+/** المزوّد المختار — يعمّ كل الجلسات حتى يُبنى مختارٌ لكلّ جلسة (WS41-E). */
+const TTS_PROVIDER_KEY = 'shadow.ttsProvider';
 
 /** حالة الشاشة الحيّة. */
 let player = null;
+/** مغلَّف مزوّد النطق النشِط — يُبدَّل حيًّا من لوحة «مصدر النطق» (WS41-E). */
+let ttsSpeaker = null;
 let ctx = null;
 let recorder = null;
 /** مستمع على `document` لأن نوافذ اللوحات تُلحَق خارج `main`. */
@@ -754,13 +762,17 @@ export async function renderShadow(main, sessionId) {
 
   const { session, segments } = loaded;
   await loadVoices();
+  /* ⚠️ قبل الفحص لا بعده — `allAvailability()` تحته تحتاج سجلًّا مسجَّلًا (WS41). */
+  ensureTTSProvidersRegistered();
 
-  const [current, scene, cover, voices, source] = await Promise.all([
+  const [current, scene, cover, voices, source, ttsProviders, ttsProviderId] = await Promise.all([
     readCurrentSource(session),
     session.sceneId ? scenes.get(session.sceneId) : null,
     coverImage(session.sceneId, session),
     listVoices(),
     resolveSource(session, segments),
+    allAvailability(),
+    settings.get(TTS_PROVIDER_KEY, BROWSER_PROVIDER_ID),
   ]);
 
   const change = current ? detectSourceChange(session, current) : { changed: false };
@@ -789,6 +801,9 @@ export async function renderShadow(main, sessionId) {
     cover,
     voices,
     source,
+    /* مزوّدو النطق المسجَّلون وحالة توفّرهم الآن — للوحة «مصدر النطق» (WS41-E). */
+    ttsProviders,
+    ttsProviderId,
     /*
      * ⚠️ **والافتراضُ «مصري» لا «روسي فقط».** لمّا صار «روسي فقط»
      *    يُخفي الترجمةَ فعلًا — كما يقول اسمُه — صارت الجلسةُ الجديدة
@@ -847,6 +862,13 @@ export async function renderShadow(main, sessionId) {
     })
     .catch(() => {});
 
+  /*
+   * ⚠️ **مزوّد النطق يُحقَن هنا — لا تغيير في `playback-controller.js`
+   *    نفسه (بند 19، WS41).** الافتراضُ `BROWSER_PROVIDER_ID`: نفس
+   *    سلوك ما قبل WS41 بالضبط طالما لم يُختَر مزوّدٌ آخر صراحةً.
+   */
+  ttsSpeaker = createTTSSpeaker({ providerId: ctx.ttsProviderId });
+
   player = createPlaybackController({
     segments: segments.map((s) => ({
       id: s.id,
@@ -856,6 +878,8 @@ export async function renderShadow(main, sessionId) {
     settings: { ...session, volume: ctx.volume, audioSource: ctx.audioSource },
     onEvent: handleEvent,
     nativeResolver: resolveNative,
+    speaker: ttsSpeaker.speak,
+    canceler: ttsSpeaker.cancel,
   });
 
   player.goTo(session.currentSegmentIndex || 0);
@@ -2424,10 +2448,28 @@ function panelFor(id) {
        * مكتوبةٌ بيدٍ بجانب سجلٍّ يعرف أكثر منها.** فالقاعدة: مَن له
        * سجلٌّ يُرسَم منه.
        */
-      groups: [{ title: 'المصدر', items:
-        audioChoices().map((id) =>
-          pick('audio-src', id, AUDIO_SHORT[id] || id, ctx.audioSource === id)).join('') }],
-      after: `<div class="sh-pgroup"><span>صوت الجهاز</span>${voiceOptions(ctx.voices, s.voiceURI)}</div>`,
+      groups: [
+        { title: 'المصدر', items:
+          audioChoices().map((id) =>
+            pick('audio-src', id, AUDIO_SHORT[id] || id, ctx.audioSource === id)).join('') },
+        /*
+         * ⚠️ **مصدر النطق الآلي — بند 9 (WS41).** يختصّ هذا بأيّ
+         *    محرّكٍ ينطق حين يكون المصدرُ أعلاه «آليّ»؛ لا علاقة له
+         *    باختيار «تسجيلي/أصليّ». وحالةُ كلّ مزوّدٍ صادقةٌ من
+         *    `isAvailable()` الحقيقية — لا زرَّ تشغيلٍ ميّتًا لمزوّدٍ
+         *    غير موجود (بند 9: "Do not show dead Play buttons").
+         */
+        { title: 'محرّك النطق الآلي', items:
+          (ctx.ttsProviders || []).map(({ provider, availability }) => `
+            <button data-sh="tts-provider" data-v="${esc(provider.id)}"
+              class="${ctx.ttsProviderId === provider.id ? 'on' : ''}"
+              ${availability.available ? '' : 'disabled'}
+              title="${esc(availability.reason || '')}">
+              ${esc(provider.name)}
+            </button>`).join('') },
+      ],
+      after: `<div class="sh-pgroup"><span>صوت الجهاز</span>${voiceOptions(ctx.voices, s.voiceURI)}</div>
+        <div class="sh-pgroup"><button data-sh="voice-lab" class="btn btn-ghost">مختبر الأصوات A/B/C</button></div>`,
     };
   }
   if (id === 'mode') {
@@ -2521,6 +2563,28 @@ async function setAudioSource(next) {
 
   renderRail();
   return saveSessionSettings(ctx.session.id, { audioSource: next }).catch(() => {});
+}
+
+/**
+ * يبدّل محرّك النطق الآلي: الشاشةُ والمُغلَّف الحيّ والإعدادات معًا (WS41-E).
+ *
+ * ⚠️ **لا يُعيد بناء `player`.** `ttsSpeaker.setProviderId()` يبدّل ما
+ *    يستعمله النداءُ القادم فقط — الموضعُ وعدّادُ التكرار والتحديد
+ *    تبقى كما هي تمامًا (بند 19: لا لمسَ لمنطق `playback-controller.js`).
+ */
+async function setTTSProvider(next) {
+  const known = ctx.ttsProviders?.some(({ provider }) => provider.id === next);
+  if (!known) return undefined;
+
+  ctx.ttsProviderId = next;
+  ttsSpeaker?.setProviderId(next);
+
+  document.querySelectorAll('[data-sh="tts-provider"]').forEach((node) => {
+    node.classList.toggle('on', node.dataset.v === next);
+  });
+
+  renderRail();
+  return settings.set(TTS_PROVIDER_KEY, next).catch(() => {});
 }
 
 /** نصُّ الكلمة المختارة — أو فراغ. */
@@ -4836,6 +4900,15 @@ function wireInteractions(main) {
        */
       case 'audio-src':
         return setAudioSource(btn.dataset.v);
+
+      /* محرّك النطق الآلي (WS41-E) — راجع `setTTSProvider` أعلى الملفّ. */
+      case 'tts-provider':
+        return setTTSProvider(btn.dataset.v);
+
+      case 'voice-lab': {
+        const { openVoiceLab } = await import('../modals/voice-lab.js');
+        return openVoiceLab();
+      }
 
       /* وجهُ المصدر: نصٌّ أو صورةٌ أو صوت — الشرحُ فوق FACES. */
       case 'face':
