@@ -14,6 +14,7 @@ import { createBrowserTTSProvider, BROWSER_PROVIDER_ID } from './browser-provide
 import { createRHVoiceProvider } from './rhvoice-provider.js';
 import { createXTTSBridgeProvider } from './xtts-bridge-provider.js';
 import { createCloudAIProvider } from './cloud-provider.js';
+import { createPiperProvider } from './piper-provider.js';
 
 let initialized = false;
 
@@ -34,10 +35,22 @@ export function ensureTTSProvidersRegistered() {
   registerProvider(createXTTSBridgeProvider());
   registerProvider(createCloudAIProvider());
   /*
-   * Piper Web/WASM يُسجَّل هنا حين يثبت إثباتُ المفهوم استقراره —
-   * راجع WS41-F. غيابه الآن لا يكسر شيئًا: `registry.js` يسقط إلى
-   * المتصفّح متى لم يتوفّر مزوّدٌ مفضَّل.
+   * ⚠️ **Piper خلف علَم ميزة — لا يُسجَّل هنا افتراضيًّا (بند 4).**
+   *    إثباتُ المفهوم أثبت أن ONNX Runtime Web يعمل فعليًّا، لكن لا
+   *    نموذج صوتٍ ولا محوّل صوتيّاتٍ متاحان في هذا البناء — تسجيلُه
+   *    تلقائيًّا يعني عرض زرٍّ يبدو حيًّا وهو ليس كذلك (بند 89، ونفس
+   *    مبدأ «Do NOT fake support»). استدعِ `registerPiperProviderIfFlagged()`
+   *    صراحةً لتفعيله — راجع تعليق رأس `piper-provider.js`.
    */
+}
+
+/**
+ * تفعيلٌ صريحٌ ليس جزءًا من `ensureTTSProvidersRegistered()` — علَمُ
+ * الميزة هو غيابُ هذا الاستدعاء افتراضيًّا (بند 4، WS41-F).
+ * @param {{voiceId?: string}} [options]
+ */
+export function registerPiperProviderIfFlagged(options) {
+  registerProvider(createPiperProvider(options));
 }
 
 export { BROWSER_PROVIDER_ID };
