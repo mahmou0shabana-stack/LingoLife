@@ -1331,16 +1331,19 @@ describe('الكتاب · صفحتان تُقلَّبان على الموباي�
 
   it('⚠️ الحارس: الانزلاقُ من `scroll-snap` لا من سحبٍ يدويّ', async () => {
     const css = await (await fetch('/css/shadow.css')).text();
-    const at = css.indexOf('WS38');
-    expect(at > 0).toBe(true);
     /*
-     * ⚠️ حدٌّ عدديٌّ لا نهايةَ بنيويّة — نفسُ الفخّ الذي حذّر منه تعليقٌ
-     *    آخر في هذا الملفّ: «حارسٌ بنمطٍ خاطئ». الشرحُ فوق هذه الكتلة
-     *    طال بعد إصلاح 699/899، فـ1600 حرفًا عادت تقطع قبل القاعدة.
-     *    فنقرأ إلى أوّل `}` يغلق كتلة الوسائط — نهايةٌ بنيويّة لا رقمٌ
-     *    خمّنّاه.
+     * ⚠️ **`WS39` لا `WS38` — العنوانُ تغيّر مع الآلية (بند 1).**
+     *    وحدٌّ بنيويٌّ لا رقمٌ حروفيّ ثابت: القاعدتان صارتا اثنتين
+     *    منفصلتين (`.sh-pages` ثم `.sh-pages > .sh-page`)، فنقرأ إلى
+     *    أوّل قاعدةٍ لا تخصّ الصفحاتِ بعدهما — نهايةٌ بنيويّة لا رقمٌ
+     *    خمّنّاه، نفسُ الفخّ الذي حذّر منه تعليقٌ آخر في هذا الملفّ:
+     *    «حارسٌ بنمطٍ خاطئ».
      */
-    const block = css.slice(at, css.indexOf('\n}\n', at) + 3);
+    const at = css.indexOf('WS39');
+    expect(at > 0).toBe(true);
+    const end = css.indexOf('.sh-book[data-layout="single"] .sh-spine', at);
+    expect(end > at).toBe(true);
+    const block = css.slice(at, end);
     /*
      * `scroll-snap` تعطي الزخمَ والتوقّفَ على الحافّة مجّانًا، وتعمل
      * بالإصبع وبالعجلة وبقارئ الشاشة — أيُّ سحبٍ نكتبه بيدنا أسوأُ
@@ -1350,21 +1353,48 @@ describe('الكتاب · صفحتان تُقلَّبان على الموباي�
     expect(block.includes('scroll-snap-align: start')).toBe(true);
   });
 
-  it('⚠️ وحدُّ الموبايل 699px لا 899px — الأخيرُ يبتلع التابلت الرأسيّ', async () => {
+  it('⚠️ الوضعُ (WS39) جافاسكربتيٌّ بالعرض الفعليّ — لا نقطة عرضٍ عامّة', async () => {
     const css = await (await fetch('/css/shadow.css')).text();
-    const at = css.indexOf('WS38');
-    const end = css.indexOf('.sh-pages {', at);
-    const block = css.slice(at, end + 40);
     /*
-     * 899px نقطةُ تحوّلٍ عامّة في هذا الملفّ، تشمل **التابلت الرأسيّ**
-     * (700–899px) الذي له قاعدةٌ صريحةٌ أقدم: «الكتاب يبقى كتابًا —
-     * بندٌ ٧ يطلب بقاء فكرة الصفحتين المتقابلتين على التابلت». قاعدةٌ
-     * بـ899px هنا (الأحدث) تكسر تلك الأقدم لكلّ تابلتٍ رأسيّ.
-     * **قِيس**: 820×1180 (تابلت) فقد زرَّ التشغيل عن مكانه المُختبَر.
-     * وطلبُك كان صريحًا: «تطبيق الموبايل» لا التابلت.
+     * ⚠️ **699px كانت هي الأخرى نقطة عرضٍ عامّة** — أصلحت خللَ 899px
+     *    (كانت تبتلع التابلت الرأسيّ) بحدٍّ آخر من نفس النوع، لا
+     *    بإزالة فكرة «حدٍّ عامّ» نفسِها. وطلبُ WS39 صريحٌ: القرارُ
+     *    بالعرض **الفعليّ المقيس** لا بأيّ نقطة عرضٍ ثابتة، فتنقّل هذا
+     *    القرارُ إلى `wireBookLayout` في الجافاسكربت.
      */
-    expect(block.includes('@media (max-width: 699px)')).toBe(true);
-    expect(block.includes('@media (max-width: 899px)')).toBe(false);
+    const at = css.indexOf('WS39');
+    expect(at > 0).toBe(true);
+    const rowRuleAt = css.indexOf('.sh-book[data-layout="single"] .sh-pages {', at);
+    expect(rowRuleAt > at).toBe(true);
+    /* بين عنوان الكتلة وقاعدة الصفّ نفسِها لا تُوجد @media تقرّر الأمر بدلًا من JS. */
+    expect(css.slice(at, rowRuleAt).includes('@media')).toBe(false);
+
+    const js = codeOnly(await (await fetch('/js/views/shadow-view.js')).text());
+    expect(js.includes('function wireBookLayout')).toBe(true);
+    expect(js.includes('new ResizeObserver')).toBe(true);
+    /*
+     * ⚠️ **والقياسُ على `.sh-book` نفسِه — لا `window.innerWidth`.**
+     *    لوحةُ الأدوات والسكّةُ الجانبيّة تقتطعان من عرض الكتاب دون
+     *    أن تضيق الشاشةُ نفسُها (بند ١، ١٣).
+     */
+    const roAt = js.indexOf('function wireBookLayout');
+    const roBlock = js.slice(roAt, js.indexOf('\n}', js.indexOf('bookRO.observe', roAt)));
+    expect(roBlock.includes('window.innerWidth')).toBe(false);
+    expect(roBlock.includes("querySelector('.sh-book')")).toBe(true);
+  });
+
+  it('⚠️ وسحبُ الكعب يقرأ اتّجاهه من `data-layout` — لا من `matchMedia`', async () => {
+    /*
+     * ⚠️ **قاعدةٌ ثابتةٌ (900px شاشة) لا تطابق نقطةَ تحوّل الكتاب
+     *    الفعليّة** في نطاق التابلت الرأسيّ — فكان السحبُ هناك يُحسَب
+     *    بمحورٍ خطأ. الآن يسأل `wireSpine` القرارَ نفسَه الذي كتبته
+     *    `wireBookLayout`، فلا يمكن أن يختلفا.
+     */
+    const js = codeOnly(await (await fetch('/js/views/shadow-view.js')).text());
+    const at = js.indexOf('function wireSpine');
+    const block = js.slice(at, js.indexOf('\n}', js.indexOf('const apply = (event)', at)));
+    expect(block.includes("matchMedia('(min-width: 900px)')")).toBe(false);
+    expect(block.includes("book.dataset.layout")).toBe(true);
   });
 
   it('⚠️ ومُقلِّبٌ يذهب بالصفّ لا بترتيب الأبناء', async () => {
@@ -1385,6 +1415,36 @@ describe('الكتاب · صفحتان تُقلَّبان على الموباي�
     const pager = code.indexOf('data-pager');
     const pages = code.indexOf('data-pages');
     expect(pager > 0 && pages > 0 && pager < pages).toBe(true);
+  });
+});
+
+/* ================================================================== */
+/* WS39 — كتابٌ متكيّف: صفحةٌ واحدةٌ حين يضيق العرضُ الفعليّ              */
+/* ================================================================== */
+
+describe('الكتاب · تخطيطٌ متكيّفٌ بالعرض الفعليّ (WS39)', () => {
+  it('⚠️ والمؤشّرُ يحمل اسمَ الصفحة — لا نقطتين صامتتين', async () => {
+    const html = codeOnly(await (await fetch('/js/views/shadow-view.js')).text());
+    const at = html.indexOf('data-pager');
+    const block = html.slice(at, html.indexOf('</div>', at));
+    expect(block.includes('SOURCE')).toBe(true);
+    expect(block.includes('SHADOWING')).toBe(true);
+  });
+
+  it('⚠️ ومغادرةُ الشاشة تفصل رقيبَ القياس — لا تُبقيه معلَّقًا', async () => {
+    const code = codeOnly(await (await fetch('/js/views/shadow-view.js')).text());
+    const at = code.indexOf('export function disposeShadow');
+    const block = code.slice(at, code.indexOf('\nfunction readCurrentSource', at));
+    /* في الفرعين معًا: مغادرةٌ والصوتُ يتكلّم، ومغادرةٌ عاديّة (بند 14). */
+    const occurrences = block.split('bookRO?.disconnect()').length - 1;
+    expect(occurrences).toBe(2);
+  });
+
+  it('⚠️ والافتراضُ صفحةُ التدريب عند أوّل دخولٍ لوضع الصفحة الواحدة', async () => {
+    const code = codeOnly(await (await fetch('/js/views/shadow-view.js')).text());
+    const at = code.indexOf('function wireBookLayout');
+    const block = code.slice(at, code.indexOf('\n}', code.indexOf('bookRO.observe', at)));
+    expect(block.includes('activePage == null) activePage = 1')).toBe(true);
   });
 });
 

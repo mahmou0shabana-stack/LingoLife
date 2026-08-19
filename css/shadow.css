@@ -4210,73 +4210,97 @@ body.shadow-open { overflow: hidden; }
 .sh-vbar { touch-action: none; }
 
 /* ==================================================================
-   WS38 — على الموبايل: صفحتان جنبَ بعضهما تُقلَّبان بالسحب
+   WS39 — كتابٌ متكيّف: صفحةٌ واحدةٌ حين يضيق العرضُ الفعليّ
 
-   ⚠️ **بلاغُك**: «بدل ما تخلّي الصفحتين في بعض، خليهم جنب بعض على
-      الموبايل وأقدر أقلب بينهم — واحدة معروضة والتانية جنبها أسحب
-      أجيبها، وكل صفحة واخدة المساحة الكاملة لشاشة الموبايل».
+   ⚠️ **بلاغُك (إنجليزيٌّ هذه المرّة)**: لا تُكدَّس الصفحتان رأسيًّا
+      أبدًا، ولا تُقرَّر صفحةٌ واحدةٌ بنقطة عرضٍ عامّة (breakpoint) —
+      بل بالعرض **الفعليّ المتاح** للكتاب نفسِه، حيًّا مع تغيّر حجم
+      النافذة لا عند التحميل فقط. جهازُك الأساسيّ Galaxy Tab S10+:
+      أفقيٌّ وواسعٌ = كتابٌ بصفحتين؛ ضاق = صفحةٌ واحدة؛ رأسيٌّ = صفحةٌ
+      واحدة؛ موبايل = صفحةٌ واحدة.
 
-   وكانتا عمودًا واحدًا يُمرَّر: الورقةُ فوق والكونُ تحتها. وهو حلٌّ
-   يجعل شاشةَ الموبايل **نصفَ شاشتين** لا شاشةً كاملة — تقرأ الجملة
-   وتحتها فراغٌ ثم تمرّر لترى ما يخصّها.
+   ⚠️ **فالقرارُ الآن جافاسكربتيٌّ لا CSS.** `wireBookLayout()` تراقب
+      عرضَ `.sh-book` نفسِه بـ`ResizeObserver` — لا عرضَ الشاشة، فلوحةُ
+      الأدوات والسكّةُ الجانبيّة تقتطعان منه وقد تدفعانه دون عرض
+      الشاشة إلى وضع الصفحة الواحدة — وتكتب `data-layout="single"`
+      أو `"two"` على `.sh-book`. وهذا يَبتلع أيضًا خللًا كان قائمًا:
+      تابلتٌ رأسيٌّ بعرض 700–899px كان يقع بين قاعدتين متعارضتين
+      (كعبٌ أفقيٌّ من قاعدة orientation، وعمودٌ رأسيٌّ من قاعدة
+      max-899 عامّة) — الآن لا فرقَ من أين أتى الضيق، القياسُ الفعليّ
+      وحده هو الحَكَم.
 
-   ⚠️ **والسحبُ من المتصفّح لا من يدي.** `scroll-snap` تفعلها بسطرين:
-      حركةٌ بزخمٍ طبيعيّ، وتوقّفٌ على حافّة الصفحة دائمًا، وتعملُ
-      بالإصبع وبعجلة الفأرة وبقارئ الشاشة. وأيُّ سحبٍ أكتبه بيدي
-      سيكون أسوأَ منها في كل واحدةٍ من هذه.
+   ⚠️ **ولا تُمَسّ صفحتا الكتاب القديمتان.** كلُّ ما هنا إضافةٌ
+      تُخصَّص بـ`.sh-book[data-layout="single"]` — تخصيصٌ يعلو أيَّ
+      قاعدةٍ بسيطةٍ من الطبقات الثلاث القديمة أيًّا كان ترتيبُ
+      ورودها، فلا حاجةَ لفهم تلك الطبقات كلِّها أو إعادة كتابتها —
+      وهذا نفسُ الدرس الذي كلّفني خطأَ 699/899 في WS38: قاعدةٌ عامّةٌ
+      تتعارض مع أخرى قديمة صامتةً. الإضافةُ هنا لا تتقاطع مع شيء.
 
-   ⚠️ **و699px لا 899px.** كتبتُها أوّلَ مرّةٍ على نقطة التحوّل العامّة
-      في هذا الملفّ (899px) — وهي تشمل **التابلت الرأسيّ** (700–899px)،
-      الذي له قاعدةٌ صريحةٌ فوق بالحرف: «الكتاب يبقى كتابًا… بندٌ ٧
-      يطلب بقاء فكرة الصفحتين المتقابلتين على التابلت». فكانت هذه
-      القاعدةُ — الأحدثُ في الملفّ — تكسر تلك الأقدمَ لكل تابلتٍ رأسيّ
-      (768 · 810 · 834 · تابلتُك 8xx). **قِيس**: على 820×1180 اختفى
-      زرُّ التشغيل عن مكانه المُختبَر — لأن الصفحةَ صارت طيّةً أفقيّةً
-      لا عمودين متقابلين. وطلبُك كان صريحًا: «بالنسبة لتطبيق
-      **الموبايل**» — لا التابلت. فالحدُّ 699px، نفسُ نقطة «على
-      الموبايل الصفحتان فوق بعضهما» المستعملة أعلاه لغرضٍ مشابه.
+   ⚠️ **وتَخلُف هذه القاعدةُ حدَّ 699px القديم** (كان هنا) — لأنه
+      نفسُ «نقطة العرض العامّة» التي طلبتَ استبدالها بالعرض الفعليّ.
    ================================================================== */
-@media (max-width: 699px) {
-  .sh-pages {
-    flex-direction: row;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    /* ⚠️ لئلّا يجرّ سحبُ الصفحة الصفحةَ الأمَّ خلفها فيهتزّ التطبيق كلّه. */
-    overscroll-behavior-x: contain;
-    scrollbar-width: none;
-  }
-  .sh-pages::-webkit-scrollbar { display: none; }
+.sh-book[data-layout="single"] .sh-pages {
+  flex-direction: row;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  /* ⚠️ لئلّا يجرّ سحبُ الصفحة الصفحةَ الأمَّ خلفها فيهتزّ التطبيق كلّه. */
+  overscroll-behavior-x: contain;
+  /*
+   * ⚠️ **بلا `touch-action` صريح — عمدًا (بند ١٢).** كنتُ سأكتب
+   *    `pan-x` هنا، لكنها تُخصَّم من أبنائها بالتقاطع (لا تُستثنى
+   *    الحاويةُ الفرعيّة القابلة للتمرير الرأسيّ من القاعدة)، فتخاطر
+   *    بمنع تمرير `.sh-page` الرأسيّ نفسِه — وهذا هو التعارضَ الذي
+   *    يحذّر منه البند لا الحلَّ له. فتُرِك الأمرُ لما كان يعمل فعلًا
+   *    ويُختبَر بلمسٍ حقيقيّ منذ WS38: `overflow-x` هنا و`overflow-y`
+   *    داخل كل صفحةٍ، حاويتان متداخلتان يفصل المتصفّحُ بينهما وحدَه.
+   */
+  scrollbar-width: none;
+}
+.sh-book[data-layout="single"] .sh-pages::-webkit-scrollbar { display: none; }
 
-  .sh-pages > .sh-page {
-    flex: 0 0 100%;
-    inline-size: 100%;
-    scroll-snap-align: start;
-    scroll-snap-stop: always;
-  }
-
-  /* الكعبُ يقسم عرضًا مشتركًا — ولا عرضَ مشتركًا هنا. */
-  .sh-spine { display: none; }
-
-  /* والصفحةُ اليمنى لم تعد تحتاج هامشًا للسكّة فوق عرضٍ كامل. */
-  .sh-right { padding-inline-end: 16px; }
+.sh-book[data-layout="single"] .sh-pages > .sh-page {
+  flex: 0 0 100%;
+  inline-size: 100%;
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
 }
 
-/* مؤشّرُ الصفحتين — نقطتان تُضغطان أيضًا. */
+/*
+ * ⚠️ **الكعبُ يبقى في الشجرة — زخرفةً لا مقبضًا (بند ٥).** حذفُه
+ *    بالكامل كان يمحو آخرَ ما يوحي بأن هذه صفحةٌ من كتاب، فتصير
+ *    مجرّد بطاقةٍ مستطيلة. يبقى رفيعًا هنا، ولا يُسحَب
+ *    (pointer-events:none) لأن لا عرضَ مشتركًا بين صفحتين ليُقسَّم.
+ */
+.sh-book[data-layout="single"] .sh-spine {
+  min-inline-size: 3px;
+  flex: 0 0 3px;
+  pointer-events: none;
+  cursor: default;
+}
+
+/* والصفحةُ اليمنى لم تعد تحتاج هامشًا للسكّة فوق عرضٍ كامل. */
+.sh-book[data-layout="single"] .sh-page.sh-right { padding-inline-end: 16px; }
+
+/* مؤشّرُ الصفحتين — نقطتان تُضغطان أيضًا وتحملان اسمَ الصفحة (بند ٧-٨). */
 .sh-pager {
   display: none;
   position: absolute;
   inset-block-end: calc(var(--sh-controls, 196px) - 26px);
   inset-inline: 0;
   justify-content: center;
-  gap: 8px;
+  align-items: center;
+  gap: 10px;
   z-index: 12;
   pointer-events: none;
 }
 .sh-pager button {
   pointer-events: auto;
-  inline-size: 34px; block-size: 34px;
-  display: grid; place-items: center;
-  background: none; border: 0; cursor: pointer; padding: 0;
+  min-inline-size: 34px; block-size: 34px;
+  display: flex; align-items: center; gap: 6px; justify-content: center;
+  background: none; border: 0; cursor: pointer; padding: 0 4px;
+  font: inherit; font-size: 10px; letter-spacing: .04em; white-space: nowrap;
+  color: rgba(239, 231, 216, .55);
+  transition: color .25s ease;
 }
 .sh-pager button::before {
   content: '';
@@ -4284,6 +4308,7 @@ body.shadow-open { overflow: hidden; }
   background: rgba(239, 231, 216, .3);
   transition: background .25s ease, transform .25s ease;
 }
+.sh-pager button.on { color: var(--sh-accent-2); }
 .sh-pager button.on::before { background: var(--sh-accent-2); transform: scale(1.35); }
 
-@media (max-width: 699px) { .sh-pager { display: flex; } }
+.sh-book[data-layout="single"] .sh-pager { display: flex; }

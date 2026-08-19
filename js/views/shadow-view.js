@@ -107,6 +107,14 @@ let scratchPlayer = null;
 let selecting = false;
 let picked = new Set();
 
+/**
+ * طبقةُ قياس عرض الكتاب الحيّة، ومَن الصفحةُ النشِطة في وضع الصفحة
+ * الواحدة — 0 الورقة، 1 التدريب. `null` تعني «لم تُقرَّر بعد هذه
+ * الجلسة»، فيُختار الافتراضُ (التدريب) عند أوّل دخولٍ فعليّ (WS39).
+ */
+let bookRO = null;
+let activePage = null;
+
 /** أوضاع عرض النصّ. */
 const DISPLAY = Object.freeze({ RU: 'ru', EGY: 'egy', HIDDEN: 'hidden' });
 
@@ -321,6 +329,9 @@ export function disposeShadow() {
     recorder?.cancel?.();
     recorder = null;
     clearExpressionIndex();
+    /* ⚠️ `.sh-book` تُهدَم مع الشاشة — رقيبٌ عليها بعدها تسرّبٌ لا قياس. */
+    bookRO?.disconnect();
+    bookRO = null;
     return;
   }
 
@@ -340,6 +351,11 @@ export function disposeShadow() {
   recorder?.cancel?.();
   recorder = null;
   clearExpressionIndex();
+  /* ⚠️ `.sh-book` تُهدَم مع الشاشة — رقيبٌ عليها بعدها تسرّبٌ لا قياس. */
+  bookRO?.disconnect();
+  bookRO = null;
+  /* ⚠️ صفحةٌ فُضِّلت في جلسةٍ لا تُفرَض على التالية (بند 6: الافتراضُ التدريب). */
+  activePage = null;
   /*
    * ⚠️ **قطعُ الحبل قبل أيّ شيء آخر**: مستمعٌ باقٍ على `#app-main`
    *    يعمل على شاشةٍ لم تعد له.
@@ -880,6 +896,12 @@ export async function renderShadow(main, sessionId) {
   /* رجعتَ والزرُّ عاد أمامك — فالشريطُ يرفع نفسَه. */
   paintVoiceBar();
   wireChips(main);
+  /*
+   * ⚠️ **قبل المُقلِّب — قرارُه أوّلًا.** `wirePager` تقرأ
+   *    `book.dataset.layout` عند أوّل رسمٍ لها، فلا بدّ أن تكون
+   *    `wireBookLayout` قد كتبته قبل ذلك (بند 1، WS39).
+   */
+  wireBookLayout(main);
   wirePager(main);
 }
 
@@ -1060,8 +1082,8 @@ function shell() {
                تنزلق أفقيًّا ينزلق معها فلا يبقى في مكانه.
           -->
           <div class="sh-pager" data-pager hidden>
-            <button data-sh="page-go" data-v="0" aria-label="صفحة الورقة"></button>
-            <button data-sh="page-go" data-v="1" aria-label="صفحة التدريب"></button>
+            <button data-sh="page-go" data-v="0" aria-label="اذهب لصفحة الأصل">‹ SOURCE</button>
+            <button data-sh="page-go" data-v="1" aria-label="اذهب لصفحة التدريب">SHADOWING ›</button>
           </div>
 
           <div class="sh-pages" data-pages>
@@ -3712,30 +3734,53 @@ function setTuner(key, raw, { silent = false } = {}) {
 function wirePager(main) {
   const pages = main.querySelector('[data-pages]');
   const pager = main.querySelector('[data-pager]');
-  if (!pages || !pager) return;
-
-  const stacked = () => pages.scrollWidth > pages.clientWidth + 8;
+  const book = main.querySelector('.sh-book');
+  if (!pages || !pager || !book) return;
 
   const paint = () => {
-    const on = stacked();
+    /*
+     * ⚠️ **الوضعُ يُقرأ من `data-layout` لا يُحزَر من عرض التمرير.**
+     *    `wireBookLayout` هي وحدَها من تقرّر «واحدةٌ أم اثنتان» —
+     *    فيقرأ المُقلِّبُ قرارَها بدل أن يعيد استنتاجه بطريقةٍ أخرى
+     *    قد تختلف عند حافّة القياس (بند 1، WS39).
+     */
+    const on = book.dataset.layout === 'single';
     pager.hidden = !on;
     if (!on) return;
     /* ⚠️ بالنسبة لا بالبكسل: العرضُ يختلف بين جهازٍ وجهاز. */
     const at = Math.round(Math.abs(pages.scrollLeft) / Math.max(1, pages.clientWidth));
+    activePage = at;
     for (const b of pager.querySelectorAll('[data-sh="page-go"]')) {
       b.classList.toggle('on', Number(b.dataset.v) === at);
     }
   };
 
   pages.addEventListener('scroll', paint, wired({ passive: true }));
+  /*
+   * ⚠️ **`sh-layout` لا `resize` وحده.** حدثُ تغيير حجم النافذة وقراءةُ
+   *    `ResizeObserver` لعرض `.sh-book` غيرُ مضمونَي الترتيب — فقد يُعاد
+   *    رسمُ هذا المؤشّر بـ`resize` وهو لا يزال يقرأ `data-layout` القديم
+   *    قبل أن تكتب `wireBookLayout` القيمة الجديدة. **قِيس**: تصغيرٌ حيٌّ
+   *    من عريضٍ إلى ضيّق كان يُبقي المؤشّرَ مختفيًا لدورةٍ واحدة. فتُطلِق
+   *    `wireBookLayout` هذا الحدثَ **بعد** كتابة `data-layout` مباشرةً،
+   *    فلا سباق.
+   */
+  book.addEventListener('sh-layout', paint, wired());
   window.addEventListener('resize', paint, wired());
   paint();
 }
 
-/** يذهب إلى صفحةٍ بالرقم — من المؤشّر أو من أي زرّ آخر. */
-function goToPage(index) {
+/**
+ * يذهب إلى صفحةٍ بالرقم — من المؤشّر أو من أي زرّ آخر أو من تخطيط
+ * الكتاب نفسه عند التحوّل إلى وضع الصفحة الواحدة.
+ *
+ * `instant`: بلا انزلاقٍ مرئيّ — لتحوّل التخطيط (بند 14) لا لضغطة
+ * المستخدم، التي تبقى ناعمةً (بند 3-4).
+ */
+function goToPage(index, { instant = false } = {}) {
   const pages = $('[data-pages]');
   if (!pages) return;
+  activePage = index;
   /*
    * ⚠️ **بـ`.sh-page` لا بترتيب الأبناء.** `pages.children` تضمّ
    *    الكعبَ (`.sh-spine`) بين الصفحتين، فـ`children[1]` كانت تلتقط
@@ -3748,7 +3793,72 @@ function goToPage(index) {
    *    فـ`scrollLeft` سالبةٌ أو معكوسةٌ حسب المحرّك. و`scrollIntoView`
    *    على العنصر نفسِه تتكفّل بذلك في كلّ الاتّجاهات.
    */
-  page?.scrollIntoView({ behavior: 'smooth', inline: 'start', block: 'nearest' });
+  page?.scrollIntoView({ behavior: instant ? 'auto' : 'smooth', inline: 'start', block: 'nearest' });
+}
+
+/* ------------------------------------------------------------------ *
+ * تخطيطُ الكتاب المتكيّف — صفحةٌ واحدةٌ حين يضيق العرضُ الفعليّ (WS39)
+ * ------------------------------------------------------------------ */
+
+/**
+ * ⚠️ **العرضُ الفعليّ لا عرضُ الشاشة.** `.sh-book` نفسُه — لا
+ *    `window.innerWidth` — لأن لوحةَ الأدوات والسكّةَ الجانبيّة
+ *    تقتطعان منه، فقد يضيق الكتابُ دون أن تضيق الشاشة (بند 1، 13).
+ *
+ * ⚠️ **وحدُّ تذبذبٍ (hysteresis) لا رقمٌ واحد.** عرضٌ يتأرجح حول حدٍّ
+ *    واحد يقلّب الوضعَ ذهابًا وإيابًا لأقلّ تغييرٍ (شريطُ تمريرٍ ظهر
+ *    أو اختفى). فالتحوّل إلى «واحدة» عند <900، ولا عودة إلى «اثنتين»
+ *    إلّا بعد ≥924 — نطاقٌ ميّتٌ يمتصّ الاهتزاز (بند 14).
+ */
+const BOOK_SINGLE_BELOW = 900;
+const BOOK_TWO_ABOVE = 924;
+
+/**
+ * يراقب عرضَ الكتاب حيًّا ويكتب `data-layout` على `.sh-book` —
+ * `"single"` أو `"two"` — التي تقود كلَّ قواعد CSS الجديدة في
+ * `shadow.css`، وتُعلِم `wireSpine` باتّجاه السحب الصحيح.
+ */
+function wireBookLayout(main) {
+  const book = main.querySelector('.sh-book');
+  const pages = main.querySelector('[data-pages]');
+  if (!book || !pages) return;
+
+  let layout = null;
+
+  const apply = (width) => {
+    const next = layout === 'single'
+      ? (width >= BOOK_TWO_ABOVE ? 'two' : 'single')
+      : (width < BOOK_SINGLE_BELOW ? 'single' : 'two');
+    if (next === layout) return;
+    const prev = layout;
+    layout = next;
+    book.dataset.layout = next;
+
+    if (next === 'single') {
+      /*
+       * ⚠️ **افتراضيًّا صفحةُ التدريب — إلّا أن يكون قد اختير غيرُها
+       *    فعلًا هذه الجلسة (بند 6).** أوّل دخولٍ بلا قرارٍ سابق يذهب
+       *    للشادوينج مباشرةً؛ وأيُّ دخولٍ بعده يُبقيك حيث كنتَ، ولو
+       *    جئتَ من عرض الصفحتين معًا.
+       */
+      if (activePage == null) activePage = 1;
+      goToPage(activePage, { instant: true });
+    } else if (prev === 'single') {
+      /* رجعتا صفحتين معًا؛ الانزلاقُ الأفقيّ للمُقلِّب لا معنى له الآن. */
+      pages.scrollLeft = 0;
+    }
+
+    /* ⚠️ يُطلَق **بعد** كتابة `data-layout` — انظر التعليق في `wirePager`. */
+    book.dispatchEvent(new Event('sh-layout'));
+  };
+
+  apply(book.getBoundingClientRect().width);
+
+  bookRO = new ResizeObserver((entries) => {
+    const width = entries[0]?.contentRect?.width;
+    if (width) apply(width);
+  });
+  bookRO.observe(book);
 }
 
 /* ------------------------------------------------------------------ *
@@ -5225,7 +5335,15 @@ function wireSpine(main) {
   }).catch(() => {});
 
   const apply = (event) => {
-    const horizontal = window.matchMedia('(min-width: 900px)').matches;
+    /*
+     * ⚠️ **من `data-layout` لا من `matchMedia` (WS39).** كانت تسأل
+     *    الشاشةَ مباشرةً عن 900px، وهو غيرُ نقطة تحوّل الكتاب فعليًّا
+     *    في نطاق التابلت الرأسيّ (700-899) — فيسحب السحبُ هناك بمحورٍ
+     *    خطأ. والآن تسأل قرارَ `wireBookLayout` نفسَه، فلا يمكن أن
+     *    يختلفا. (وفي وضع الصفحة الواحدة الكعبُ غيرُ قابلٍ للسحب أصلًا
+     *    عبر `pointer-events:none` في CSS، فهذا احتياطٌ إضافيّ فقط.)
+     */
+    const horizontal = book.dataset.layout !== 'single';
     const pages = book.querySelector('.sh-pages');
     const rect = pages.getBoundingClientRect();
     let ratio = horizontal
