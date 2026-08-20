@@ -7,8 +7,35 @@
  * مختلفان. وبلا معرفة موضع النبر ينطق المتعلّم الكلمة خطأً وإن حفظ
  * حروفها كلها.
  *
- * القاموس محلّي بالكامل فيعمل offline. الكلمات غير الموجودة تُترك بلا
- * علامة بدل تخمين موضع خاطئ — التخمين هنا أسوأ من الصمت.
+ * الكلمات غير المعروفة تُترك بلا علامة بدل تخمين موضع خاطئ — التخمين
+ * هنا أسوأ من الصمت.
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * WS50 — والمصدر الثاني الذي كان في التطبيق القديم، وعاد
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * ⚠️ **بلاغُك**: «أي نصّ بحطّه بيجيبله الأودارينيا عادي حتى لو مش
+ *    متسجّل». وكان حقًّا — وفتحتُ ملفّك فوجدتُ **مصدرين** لا واحدًا:
+ *
+ *      _getStressLocal()  → قاموس `_LS` المحلّي (٨٢ كلمة)
+ *      _getStressNet()    → **ويكاموس عبر الإنترنت** — لأيّ كلمة
+ *
+ *    ونحن نقلنا الأوّل حرفيًّا ونسينا الثاني. لا سهوًا فقط: قرارُ نقلِ
+ *    المحرّك كتب صراحةً أن APIs الخارجية لا تُنقل («لا شيء ينتظر
+ *    الإنترنت»)، فسقط معها هذا — **ولم يُقَل لك**. وهذا هو العطب:
+ *    ليس القاموسَ الصغير، بل مصدرًا كاملًا اختفى بلا إعلان.
+ *
+ * ⚠️ **ويعود بشرطين يحفظان المبدأ الذي حذفه:**
+ *
+ *    ١ · **بإذنك وحدك.** مطفأٌ افتراضيًّا، ويُفعَّل من لوحة العرض —
+ *        كالترجمة عبر الإنترنت تمامًا وبنفس النمط. فلا تخرج كلمةٌ من
+ *        جهازك إلّا وأنت طالبٌ ذلك.
+ *
+ *    ٢ · **ولا ينتظره شيء.** الطلبُ يقع في الخلفية بمهلةٍ قصيرة،
+ *        والجملةُ تُرسَم فورًا بما هو معروفٌ محلّيًّا. وما يصل يُخزَّن في
+ *        قاموسك — فالكلمةُ تُطلَب مرّةً واحدةً في العمر، وبعدها تعمل
+ *        بلا إنترنت للأبد. وهو نفسُ ما كان يفعله `_wc2` و`_saveWC`
+ *        عندك.
  */
 
 import { settings } from '../../db/repositories.js';
@@ -18,6 +45,20 @@ const VOWELS = 'аеёиоуыэюяАЕЁИОУЫЭЮЯ';
 
 /** مفتاح القاموس الذي يبنيه المستخدم بنفسه. */
 const USER_DICT_KEY = 'shadow.stressDictionary';
+
+/** مفتاح تفعيل مصدر ويكاموس — كـ`shadow.onlineTranslation` تمامًا. */
+const NET_KEY = 'shadow.onlineStress';
+
+/** هل أذنتَ بجلب النبر من ويكاموس؟ */
+export async function netStressEnabled() {
+  return Boolean(await settings.get(NET_KEY, false));
+}
+
+/** يفعّل أو يعطّل جلب النبر من ويكاموس. */
+export async function setNetStressEnabled(on) {
+  await settings.set(NET_KEY, Boolean(on));
+  return Boolean(on);
+}
 
 /**
  * القاموس المدمج — منقول حرفيًا من التطبيق القديم.
@@ -95,6 +136,91 @@ export function stressOf(word) {
 
   // غير معروفة — الصمت أصدق من تخمين موضع خاطئ.
   return null;
+}
+
+/* ------------------------------------------------------------------ *
+ * مصدر ويكاموس (WS50) — منقول عن `_getStressNet` في التطبيق القديم
+ * ------------------------------------------------------------------ */
+
+/**
+ * الأنماط الثلاثة التي يستخرج بها ملفُّك النبرَ من wikitext.
+ * منقولةٌ كما هي — هي التي جُرِّبت على آلاف الكلمات عندك.
+ */
+const NET_PATTERNS = [
+  /\|([а-яёА-ЯЁ́]+)\|/g,
+  /head=([а-яёА-ЯЁ́]+)/g,
+  /'''([а-яёА-ЯЁ́]+)'''/g,
+];
+
+/** كلماتٌ سُئل عنها ولم تُوجد — فلا تُسأل مرّتين في الجلسة نفسها. */
+const netMisses = new Set();
+
+/**
+ * يجلب نبر كلمةٍ من ويكاموس ويحفظه في قاموسك.
+ *
+ * ⚠️ **يرجع `null` بصمتٍ عند أيّ تعثّر** — لا شبكة، مهلةٌ انتهت، كلمةٌ
+ *    غير موجودة. النبرُ زينةٌ مفيدة، وفشلُ جلبِه لا يجوز أن يوقف
+ *    جملةً ولا أن يرمي خطأً في وجهك.
+ *
+ * @param {string} word كلمةٌ بلا علامات
+ * @returns {Promise<string|null>} الكلمة معلَّمةً، أو `null`
+ */
+export async function fetchStress(word) {
+  const clean = String(word || '').toLowerCase().replace(/[.,!?;:—«»""'']/g, '');
+  if (!clean || netMisses.has(clean)) return null;
+  if (userDict[clean] || BUILT_IN[clean]) return userDict[clean] || BUILT_IN[clean];
+  if (!(await netStressEnabled())) return null;
+
+  try {
+    const url = 'https://en.wiktionary.org/w/api.php?action=parse&page='
+      + encodeURIComponent(clean) + '&prop=wikitext&format=json&origin=*';
+    const response = await fetch(url, { signal: AbortSignal.timeout(4000) });
+    if (!response.ok) throw new Error(String(response.status));
+    const data = await response.json();
+    const wikitext = data?.parse?.wikitext?.['*'] || '';
+
+    for (const pattern of NET_PATTERNS) {
+      pattern.lastIndex = 0;
+      let hit;
+      while ((hit = pattern.exec(wikitext)) !== null) {
+        const candidate = hit[1];
+        /* ⚠️ ولا نقبل إلّا ما كان **نفسَ الكلمة** بعلامةٍ زائدة: صفحةُ
+              ويكاموس فيها صيغٌ وأمثلةٌ كثيرة، وقبولُ أوّلِ ما يلمع يضع
+              نبرَ كلمةٍ أخرى على كلمتك. */
+        if (candidate.includes('́')
+          && candidate.replace(/́/g, '').toLowerCase() === clean) {
+          await rememberStress(clean, candidate);
+          return candidate;
+        }
+      }
+    }
+  } catch {
+    /* الشبكةُ ليست شرطًا — نصمت ونكمل بالمحلّيّ. */
+  }
+  netMisses.add(clean);
+  return null;
+}
+
+/**
+ * يجلب ما ينقص من نبر جملةٍ كاملة، ويقول هل تغيّر شيء.
+ *
+ * ⚠️ **بالتوازي لا واحدةً واحدة**: جملةٌ من عشر كلماتٍ مجهولة تعني
+ *    عشرَ رحلاتٍ متتابعةٍ = ثوانٍ تنتظرها. و`allSettled` تجعلها رحلةً
+ *    واحدةً بعرضٍ عشرة، ولا تُسقِط الباقيَ لو تعثّرت واحدة.
+ *
+ * @returns {Promise<boolean>} هل أضيفت علامةٌ جديدة؟
+ */
+export async function fetchSentenceStress(sentence) {
+  if (!(await netStressEnabled())) return false;
+
+  const unknown = String(sentence || '')
+    .split(/\s+/)
+    .map((token) => token.toLowerCase().replace(/[.,!?;:—«»""'']/g, ''))
+    .filter((word) => word && !stressOf(word) && !netMisses.has(word));
+
+  if (!unknown.length) return false;
+  const results = await Promise.allSettled([...new Set(unknown)].map(fetchStress));
+  return results.some((r) => r.status === 'fulfilled' && r.value);
 }
 
 /**

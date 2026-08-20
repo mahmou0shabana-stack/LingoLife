@@ -51,7 +51,10 @@ import {
   describeSource,
   SOURCE_TYPE,
 } from '../services/shadow/shadow-session-service.js';
-import { markSentence, loadUserDictionary, rememberStress, stressOf } from '../services/shadow/stress.js';
+import {
+  markSentence, loadUserDictionary, rememberStress, stressOf,
+  netStressEnabled, setNetStressEnabled, fetchSentenceStress,
+} from '../services/shadow/stress.js';
 import {
   loadExpressionIndex, clearExpressionIndex, expressionsIn, expressionDetail,
 } from '../services/shadow/analysis-link.js';
@@ -865,6 +868,8 @@ export async function renderShadow(main, sessionId) {
   // الخطوط تُحقن مرّة واحدة هنا فلا تُثقل بقية التطبيق.
   ensureFontsLoaded();
   await loadUserDictionary();
+  /* ⚠️ WS50 — حالةُ مصدر ويكاموس تُقرأ مرّةً لترسمها اللوحة بلا انتظار. */
+  if (ctx) ctx.netStress = await netStressEnabled().catch(() => false);
   await loadExpressionIndex();
 
   // الشعلة رقم محسوب من دليل ممارسة حقيقي — لا عدّاد يُزاد يدويًا.
@@ -1988,6 +1993,26 @@ function syncSegment() {
   });
 
   /*
+   * ⚠️ **WS50 — وما ينقص من النبر يُجلَب في الخلفية.**
+   *
+   *    بعد أن تُرسَم الجملةُ كاملةً بما نعرفه محلّيًّا — لا قبلها. فإن
+   *    كانت الشبكةُ بطيئةً أو غائبةً لم تتأخّر جملةٌ واحدة، وإن وصل
+   *    شيءٌ أُعيد الرسمُ فظهرت العلامات. `void` صراحةً: هذه دالّةٌ
+   *    متزامنةٌ ولا يجوز أن تصير `async` لأجل زينة.
+   *
+   *    والحارسُ `index === player.state.index` يمنع أثرًا متأخّرًا من
+   *    الوصول بعد أن تكون قد انتقلتَ لجملةٍ أخرى.
+   */
+  if (ctx.stress) {
+    const at = index;
+    void fetchSentenceStress(segment.sourceTextSnapshot || '')
+      .then((changed) => {
+        if (changed && player?.state?.index === at) syncSegment();
+      })
+      .catch(() => {});
+  }
+
+  /*
    * ⚠️ **الرقائق تُرسَم دائمًا** — كانت `if (!words.hidden)`.
    *
    * في التخطيط القديم كانت لوحةً تُفتح بزرّ، فيصحّ ألّا تُرسَم وهي
@@ -2467,6 +2492,14 @@ function panelFor(id) {
         { title: 'النبر', items:
           `${pick('stress', '1', 'ظاهر', Boolean(ctx.stress))}
            ${pick('stress', '0', 'مخفي', !ctx.stress)}` },
+        /*
+         * ⚠️ **WS50 — المصدر الثاني، وكان في تطبيقك القديم.**
+         *    القاموس المدمج ٨٢ كلمة؛ وويكاموس يعرف أيّ كلمة. مطفأٌ
+         *    افتراضيًّا لأنه يُخرج الكلمة من جهازك — فالإذنُ إذنك،
+         *    كالترجمة عبر الإنترنت بالضبط.
+         */
+        { title: 'جيب النبر من ويكاموس', items:
+          `<button data-sh="net-stress">${ctx.netStress ? 'مفعّل — اطفيه' : 'مطفي — فعّله'}</button>` },
       ],
     };
   }
@@ -5570,6 +5603,39 @@ function wireInteractions(main) {
        *    ⚠️ وتُعاد رسمةُ الجملة فورًا (`syncSegment`) لتراه واقعًا
        *       تحت عينك، لا وعدًا يظهر عند الجملة التالية.
        */
+      /*
+       * ⚠️ **WS50 — إذنٌ صريحٌ قبل أن تخرج كلمةٌ من جهازك.**
+       *    نفسُ حوار «الترجمة عبر الإنترنت» ونفسُ صراحته: نقول ماذا
+       *    يخرج وإلى أين، ثم نسأل. ولو فُعِّل، نجلب نبرَ الجملة الحاليّة
+       *    فورًا لترى الأثر تحت يدك لا في الجملة التالية.
+       */
+      case 'net-stress': {
+        const on = await netStressEnabled();
+        const agreed = await confirmAction({
+          title: 'جيب النبر من ويكاموس',
+          message:
+            `دلوقتي <strong>${on ? 'مفعّل' : 'مطفي'}</strong>.<br><br>`
+            + 'القاموس اللي جوّه التطبيق فيه ٨٢ كلمة بس. ده بيسأل ويكاموس '
+            + 'عن أي كلمة مش معروفة — يعني <strong>الكلمة بتخرج من جهازك</strong> '
+            + 'لِـ<code>en.wiktionary.org</code>.<br><br>'
+            + 'اللي بيجي بيتحفظ في قاموسك، فالكلمة بتتسأل مرّة واحدة بس '
+            + 'وبعدها بتشتغل أوفلاين.',
+          confirmLabel: on ? 'اطفيه' : 'فعّله',
+        });
+        if (!agreed) return undefined;
+        ctx.netStress = await setNetStressEnabled(!on);
+        renderRail();
+        if (ctx.netStress) {
+          toast('بيدوّر على النبر…');
+          const seg = ctx.segments[player.state.index];
+          if (await fetchSentenceStress(seg?.sourceTextSnapshot || '')) syncSegment();
+          toastOk('النبر اتفعّل');
+        } else {
+          toast('اتطفى — القاموس المحليّ بس');
+        }
+        return undefined;
+      }
+
       case 'stress-set': {
         const marked = btn.dataset.v || '';
         const bare = marked.split(STRESS_MARK).join('');
