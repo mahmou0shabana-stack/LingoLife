@@ -906,6 +906,8 @@ export async function renderShadow(main, sessionId) {
   /* ارتفاعُ المستند المحفوظ، ثم السكّة في وضعها الابتدائي. */
   applyDoc(Number(await settings.get(DOC_KEY, 250)) || 0);
   await applySky();
+  /* عتمةُ الكون المحفوظة — قبل أوّل رسمةٍ تراها العين (WS46). */
+  await loadSkyDark();
   await readFaces(ctx.session);
   renderFaces();
   await renderWells();
@@ -1219,6 +1221,19 @@ function shell() {
               <div class="sh-stars-far" aria-hidden="true"></div>
               <div class="sh-stars-near" aria-hidden="true"></div>
               <div class="sh-spill" aria-hidden="true"></div>
+              <!--
+                ⚠️ **سوادٌ متجانسٌ فوق الكون وتحت المحتوى (WS46).**
+                   آخرُ طبقات الخلفية ترتيبًا — فيعتّم ما قبله كلَّه
+                   (الصورة والنجوم والسديم) ولا يمسّ ما بعده. وشدّتُه
+                   من المتغيّر sky-dark الذي يكتبه منزلقُك في لوحة
+                   الخلفيّة.
+
+                   ⚠️ ولا backtick هنا ولا اسمَ متغيّرٍ بشَرطتين: كلاهما
+                      يكسر القالب — الأولى تُنهيه، والثانية تصير عندئذٍ
+                      عاملَ إنقاصٍ في الكود. وهو الفخُّ نفسُه المكتوبُ
+                      فوق مفتاح الأوضاع، ووقعتُ فيه هنا رابعةً.
+              -->
+              <div class="sh-sky-dim" aria-hidden="true"></div>
 
               <div class="sh-stage-top">
                 <div class="sh-mono sh-count">
@@ -2544,12 +2559,36 @@ function panelFor(id) {
      * بلا أن يختار أحد. فالصورةُ تُرفَع من جهازك مرّةً وتُخزَّن في
      * القاعدة — تعمل بلا شبكة، وتغيّرها متى شئت، ولا تثقل الحزمة.
      */
+    /*
+     * ⚠️ **ومنزلقُ العتمة هنا لا في درجٍ آخر (WS46)** — هذه لوحةُ
+     *    «الخلفيّة»، والعتمةُ صفةٌ من صفاتها. فيقع الضبطُ حيث تنظر
+     *    إلى ما تضبطه، وترى أثرَه على الفور خلف اللوحة نفسِها.
+     *
+     * ⚠️ **ولا يمرّ بـ`TUNERS`/`setTuner`** — تلك سكّةُ إعداداتِ
+     *    **التشغيل** (`player.updateSettings`)، وهذه صفةُ عرضٍ لا
+     *    تمسّ المحرّك. فلها معالِجُها الخاصّ على `data-sky-dark-*`،
+     *    كما لحجم الخطّ معالِجُه على `data-font-size` تمامًا.
+     */
+    const dark = ctx.skyDark ?? SKY_DARK.def;
     return {
       title: 'الخلفيّة',
       foot: 'الصورة تُخزَّن على جهازك — بلا إنترنت',
-      groups: [{ title: 'سماء الجلسة', items:
-        `<button data-sh="sky-pick">ارفع صورة…</button>
-         ${ctx.sky ? '<button data-sh="sky-clear">رجّع النجوم</button>' : ''}` }],
+      groups: [
+        { title: 'سماء الجلسة', items:
+          `<button data-sh="sky-pick">ارفع صورة…</button>
+           ${ctx.sky ? '<button data-sh="sky-clear">رجّع النجوم</button>' : ''}` },
+        { title: 'عتمة الكون', items: `
+          <div class="sh-tuner" data-tuner="sky-dark">
+            <div class="sh-tuner-head">
+              <span class="sh-tuner-lbl">قدّ إيه تغمق</span>
+              <span class="sh-tuner-box"><b data-sky-dark-out>${dark}%</b></span>
+            </div>
+            <input type="range" class="sh-range" data-sky-dark-range
+              min="${SKY_DARK.min}" max="${SKY_DARK.max}" step="${SKY_DARK.step}"
+              value="${dark}" aria-label="عتمة الخلفيّة الكونيّة" />
+            <div class="sh-tuner-hint">٠٪ الصورة بسطوعها الأصليّ · ٤٠٪ أغمق بكتير</div>
+          </div>` },
+      ],
     };
   }
   if (id === 'draft') {
@@ -2742,6 +2781,57 @@ function pickTool(id) {
  */
 const SKY_KEY = 'shadow.sky';
 let skyUrl = null;
+
+/* ------------------------------------------------------------------ *
+ * عتمةُ الكون — تفضيلٌ لك، لا رقمٌ في الكود (WS46)
+ * ------------------------------------------------------------------ */
+
+/**
+ * ⚠️ **تفضيلٌ عامٌّ لا إعدادُ جلسة.** قلتَها: «لمّا أفتح الشادوينج
+ *    تفتكر العتمة اللي أنا مريّحني» — أي أنها صفةُ عينك لا صفةُ جلسةٍ
+ *    بعينها. فتُخزَّن في `settings` كأختيها `shadow.sky` و`shadow.doc`،
+ *    وتنطبق على كلّ جلسةٍ تفتحها.
+ *
+ * ⚠️ **وتُحفَظ بالنسبة المئويّة الصحيحة (٠–٤٠)** كما تراها وتقولها،
+ *    لا بكسرٍ عشريّ. والتحويلُ إلى ألفا يقع في مكانٍ واحدٍ عند التطبيق —
+ *    فلا يختلف تفسيرُ الرقم بين قارئٍ وآخر.
+ */
+const SKY_DARK_KEY = 'shadow.skyDark';
+const SKY_DARK = Object.freeze({ min: 0, max: 40, step: 1, def: 18 });
+
+/** يقصّ أيَّ مدخلٍ إلى المدى المسموح، ويردّ الافتراضَ لما لا يُقرأ. */
+function clampSkyDark(raw) {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return SKY_DARK.def;
+  return Math.max(SKY_DARK.min, Math.min(SKY_DARK.max, Math.round(n)));
+}
+
+/**
+ * يكتب الشدّة على الجذر — فتتحدّث الطبقةُ **حيًّا** أثناء السحب.
+ *
+ * ⚠️ ولا يلمس القاعدة: الكتابةُ في `settings` تقع عند رفع الإصبع
+ *    (`change`) لا مع كلّ بكسل (`input`) — وإلّا كتبنا عشرين مرّةً
+ *    في IndexedDB لسحبةٍ واحدة.
+ */
+function applySkyDark(pct) {
+  const app = document.querySelector('.shadow-app');
+  const value = clampSkyDark(pct);
+  if (ctx) ctx.skyDark = value;
+  app?.style.setProperty('--sky-dark', String(value / 100));
+
+  /* والرقمُ المعروضُ يتبع المنزلقَ فورًا — «١٨٪» تحت إصبعك. */
+  const out = document.querySelector('[data-sky-dark-out]');
+  if (out) out.textContent = `${value}%`;
+  const range = document.querySelector('[data-sky-dark-range]');
+  if (range && Number(range.value) !== value) range.value = String(value);
+  return value;
+}
+
+/** يقرأ التفضيلَ المحفوظ ويطبّقه — يُنادى مرّةً عند فتح الشاشة. */
+async function loadSkyDark() {
+  const saved = await settings.get(SKY_DARK_KEY, SKY_DARK.def).catch(() => SKY_DARK.def);
+  applySkyDark(saved);
+}
 
 async function applySky() {
   const app = document.querySelector('.shadow-app');
@@ -4895,6 +4985,15 @@ function wireInteractions(main) {
       applyFonts();
     }
 
+    /*
+     * ⚠️ **حيًّا مع الإصبع (WS46)**: `input` تُطلَق مع كلّ بكسلٍ من
+     *    السحب، فترى الكونَ يغمق ويفتح تحت يدك قبل أن ترفعها. والكتابةُ
+     *    في القاعدة ليست هنا — انظر `change` تحت.
+     */
+    if (event.target.hasAttribute('data-sky-dark-range')) {
+      applySkyDark(event.target.value);
+    }
+
     /* صندوقُ المسودّة يحفظ نفسَه — راجع `scheduleDraftSave`. */
     if (event.target.hasAttribute('data-draft-box')) {
       scheduleDraftSave(event.target.value);
@@ -4907,6 +5006,12 @@ function wireInteractions(main) {
 
     if (event.target.hasAttribute('data-font-size')) {
       return void saveSessionSettings(ctx.session.id, { fontSize: ctx.fontSize }).catch(() => {});
+    }
+
+    /* ⚠️ الحفظُ عند رفع الإصبع لا مع كلّ بكسل (WS46) — كتبةٌ واحدة لسحبة. */
+    if (event.target.hasAttribute('data-sky-dark-range')) {
+      const value = applySkyDark(event.target.value);
+      return void settings.set(SKY_DARK_KEY, value).catch(() => {});
     }
 
     if (event.target.dataset.sh === 'voice-select') {
