@@ -1267,7 +1267,8 @@ function shell() {
                   -->
                   <span class="sh-current-tools">
                     <button data-sh="save-item" aria-label="احفظها">🔖</button>
-                    <button data-sh="copy-item" aria-label="انسخها">⧉</button>
+                    <button data-sh="copy-item" title="انسخ الجملة كلها"
+                      aria-label="انسخ الجملة كلها">⧉</button>
                     <!--
                       ⚠️ **لوحةٌ كاملةٌ بلا بابٍ إليها (بند 5).** openPanel('difficult')
                          كانت مبنيّةً بكل تفصيلها — تصنيفاتٌ، حذفٌ، والآن
@@ -2308,6 +2309,12 @@ const TOOLS = [
   /* ---- أدواتُ الكلمة: أوّلًا حين تكون في يدك كلمة ---- */
   { id: 'hear', glyph: '♪', label: 'اسمعها', when: hasPickedWord },
   { id: 'save', glyph: '✦', label: 'احفظها', when: hasPickedWord },
+  /*
+   * ⚠️ **نسخُ الكلمة بابُه هنا وحدَه (WS45، بند 2).** كان مخبوءًا في
+   *    زرّ الشريط يظهر ويختفي بحسب `.selected` — والآن فعلٌ مستقلٌّ
+   *    باسمه، لا يظهر إلّا وفي يدك كلمة، ولا يزاحم نسخَ الجملة.
+   */
+  { id: 'copy', glyph: '⧉', label: 'انسخها', when: hasPickedWord },
   { id: 'hard', glyph: '△', label: 'صعبة', when: hasPickedWord },
   { id: 'meaning', glyph: '⌥', label: 'معناها', when: hasPickedWord },
 
@@ -2712,6 +2719,13 @@ function pickTool(id) {
     rail.open = false;
     renderRail();
     return openSaveDialog(chip);
+  }
+  /* ⚠️ الكلمةُ الممسوكةُ صراحةً — كأختها «احفظها» تمامًا (WS43/WS45). */
+  if (id === 'copy') {
+    const at = rail.word;
+    rail.open = false;
+    renderRail();
+    return copyWord(at);
   }
   if (id === 'hard') { document.querySelector('[data-sh="difficult"]')?.click(); rail.open = false; return renderRail(); }
 
@@ -4477,26 +4491,105 @@ function exitExternalText() {
   player.dropSegment(seg.id, Math.min(back, Math.max(0, ctx.segments.length - 1)));
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   النسخ — **مدًى صريحٌ لا حالةٌ خفيّة** (WS45)
+   ══════════════════════════════════════════════════════════════════
+
+   ⚠️ **بلاغُك بحرفه**: «افتح جملة → انسخ → تمام. اختر كلمة → انسخ →
+      الكلمة بس. ومن ساعتها مبقاش أقدر أنسخ الجملة كاملة من نفس الزرّ.»
+
+   ⚠️ **والسببُ كان بالضبط ما خمّنتَه**: `copyCurrentText` القديمة كانت
+      تشتقّ المدى من `document.querySelector('[data-word].selected')` —
+      أي من **حالةِ رقاقةٍ خفيّة** لا من الزرّ الذي ضغطتَه:
+
+          const selectedWord = document.querySelector('[data-word].selected');
+          const text = selectedWord ? selectedWord.textContent.trim()
+                                    : segment?.sourceTextSnapshot;
+
+      وأسوأُ ما فيه أن `.selected` **لا تُمسَح أبدًا**: `wireChips` تنقلها
+      من رقاقةٍ إلى أخرى ولا ترفعها عن الجملة (`end()`). فأوّلُ نقرةٍ على
+      أيّ كلمةٍ تخطف زرَّ النسخ **إلى آخر الجملة**، ولا سبيلَ لاستعادته
+      إلا بالانتقال لجملةٍ أخرى (فتُبنى الرقائقُ من جديد بلا `.selected`).
+      زرٌّ واحدٌ بمعنيين، والمعنى يتبدّل بما لا تراه.
+
+   ⚠️ **والقاعدةُ الجديدة**: كلُّ نسخةٍ تقول مداها في **اسمها** —
+      والمستدعي يمرّره صراحةً. لا `querySelector` يخمّن، ولا حالةَ
+      انتقاءٍ تُغيّر معنى زرٍّ ثابت. وهو نفسُ الدرس الذي كلّفنا
+      `openSaveDialog` في WS43، فيُكتَب هنا مرّةً واحدةً للاثنين.
+*/
+
 /**
- * ينسخ النصّ الحاليّ — جملةً أو كلمةً مختارة — إلى الحافظة (بند 11).
+ * مدَياتُ النسخ — سطرٌ لكلّ مدًى، ومعه لافتةُ تأكيده.
  *
- * ⚠️ **نفسُ منطق اختيار «ماذا» في `openSaveDialog` تمامًا** — لا
- *    قاعدةً ثانية تُكتَب هنا فتختلف يومًا عن أختها.
+ * ⚠️ **واللافتةُ تقول المدى لا «اتنسخت» وحدها** (بند 5): أنت تريد أن
+ *    ترى **أيَّ نطاقٍ** استُعمل دون أن تفتح الحافظة لتتأكّد.
  */
-async function copyCurrentText() {
-  const segment = ctx.segments[player.state.index];
-  const selectedWord = document.querySelector('[data-word].selected');
-  const text = selectedWord
-    ? selectedWord.textContent.trim()
-    : segment?.sourceTextSnapshot || '';
-  if (!text) return toast('مفيش نصّ نسخه');
+const COPY_SCOPE = Object.freeze({
+  SENTENCE: { id: 'sentence', done: 'الجملة اتنسخت', empty: 'مفيش جملة نسخها' },
+  WORD: { id: 'word', done: 'الكلمة اتنسخت', empty: 'مفيش كلمة مختارة' },
+  EXPRESSION: { id: 'expression', done: 'التعبير اتنسخ', empty: 'مفيش تعبير محدَّد' },
+});
+
+/**
+ * ما لا يُوصَل اليوم — **بسببٍ مكتوب** (كعادة `NOT_A_PLACE` و`NOT_IN_RAIL`).
+ *
+ * `EXPRESSION` معرَّفٌ كاملًا أعلاه ولا زرَّ له، لأن **انتقاءَ تعبيرٍ
+ * متعدّدِ الكلمات غيرُ موجودٍ في الشاشة أصلًا**: `[data-expr]` علاماتٌ
+ * مكتشَفةٌ تفتح درجَ التحليل، لا تحديدٌ يصنعه المستخدم بإصبعه. فاختراعُ
+ * واجهةِ تحديدٍ الآن توسيعٌ لم تطلبه — وأنت قلتَها: «إن وُجد أو أُضيف
+ * لاحقًا». فحين يُضاف، يصير الوصلُ سطرًا واحدًا:
+ * `copyScoped(COPY_SCOPE.EXPRESSION, text)`.
+ */
+const COPY_NOT_WIRED = Object.freeze({
+  expression: 'لا يوجد انتقاءُ تعبيرٍ متعدّدِ الكلمات في الشاشة بعد — العلاماتُ مكتشَفةٌ لا مُنتقاة',
+});
+
+/** ينسخ نصًّا بمدًى **مُعلَن**، ويقول أيَّ مدًى نسخ. */
+async function copyScoped(scope, text) {
+  const clean = (text || '').trim();
+  if (!clean) return toast(scope.empty);
 
   try {
-    await navigator.clipboard.writeText(text);
-    toastOk('اتنسخت');
+    await navigator.clipboard.writeText(clean);
+    toastOk(scope.done);
   } catch {
     toastError('المتصفّح مارضاش ينسخ');
   }
+  return undefined;
+}
+
+/**
+ * ينسخ **المقطعَ الجاريَ كاملًا** — أيًّا كانت الكلمةُ المنتقاة.
+ *
+ * ⚠️ **ومن `ctx.segments[player.state.index]` وحدَها** — وهي المقطعُ
+ *    الفعّالُ الآن سواءٌ كان جملةَ سكريبتٍ أو نصًّا خارجيًّا أو مقطعًا
+ *    مؤقّتًا (WS40). فالتكافؤُ عبر المصادر (بند 4) ليس فرعًا يُكتَب
+ *    هنا، بل نتيجةُ أن المصدرَ واحدٌ للجميع أصلًا.
+ */
+function copySentence() {
+  const segment = ctx.segments[player.state.index];
+  return copyScoped(COPY_SCOPE.SENTENCE, segment?.sourceTextSnapshot || '');
+}
+
+/**
+ * ينسخ **كلمةً بعينها** — يُمرَّر فهرسُها صراحةً من حيث وقعت الضغطة.
+ *
+ * ⚠️ ولا تقرأ `.selected` ولا `rail.word` من داخلها: المستدعي يعرف
+ *    أيَّ كلمةٍ يقصد، فيقولها. (درسُ WS43 نفسُه.)
+ *
+ * ⚠️ **ومن `player.words` لا من نصّ الرقاقة** — وهذا فرقٌ يُرى في
+ *    الحافظة: الرقاقةُ تعرض الكلمةَ **مُشكَّلةً بالنبر** ومُصغَّرةَ
+ *    الحرف (`по́сле` · `докуме́нт`)، وهو زخرفُ عرضٍ لا نصُّ المصدر.
+ *    فنسخُ `textContent` يلصق علاماتِ نبرٍ مركّبةً (U+0301) في أيّ
+ *    قاموسٍ أو محرّرٍ تذهب إليه. و`display` هو الرمزُ كما كُتب في
+ *    المقطع نفسِه — `документ` كما في مثالك بحرفه.
+ *
+ *    وهو أيضًا نفسُ مصدرِ `wireChips` منذ WS42 (بند 9): مصدرٌ واحدٌ
+ *    للكلمات لا اشتقاقٌ موازٍ من الـDOM.
+ */
+function copyWord(wordIndex) {
+  const word = player?.words?.[wordIndex];
+  return copyScoped(COPY_SCOPE.WORD, word?.display || '');
 }
 
 /**
@@ -4941,8 +5034,12 @@ function wireInteractions(main) {
       case 'scratch-clear':
         return exitExternalText();
 
+      /*
+       * ⚠️ **زرُّ الشريط = الجملةُ دائمًا (WS45، بند 1).** لا يقرأ
+       *    انتقاءَ الكلمة ولا يتأثّر به — نسخُ الكلمة بابُه السكّة.
+       */
       case 'copy-item':
-        return copyCurrentText();
+        return copySentence();
 
       case 'drawer':       return toggleDrawer(true);
       case 'drawer-close': return toggleDrawer(false);
