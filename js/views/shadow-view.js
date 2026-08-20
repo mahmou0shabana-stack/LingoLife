@@ -51,7 +51,7 @@ import {
   describeSource,
   SOURCE_TYPE,
 } from '../services/shadow/shadow-session-service.js';
-import { markSentence, loadUserDictionary } from '../services/shadow/stress.js';
+import { markSentence, loadUserDictionary, rememberStress, stressOf } from '../services/shadow/stress.js';
 import {
   loadExpressionIndex, clearExpressionIndex, expressionsIn, expressionDetail,
 } from '../services/shadow/analysis-link.js';
@@ -2345,6 +2345,18 @@ const TOOLS = [
   { id: 'copy', glyph: '⧉', label: 'انسخها', when: hasPickedWord },
   { id: 'hard', glyph: '△', label: 'صعبة', when: hasPickedWord },
   { id: 'meaning', glyph: '⌥', label: 'معناها', when: hasPickedWord },
+  /*
+   * ⚠️ **WS49 — البابُ الناقص إلى `rememberStress`.**
+   *    القاموسُ المدمج ٨٢ كلمةً منقولةً حرفيًّا من `_LS` في التطبيق
+   *    القديم — أي أن التطبيقين متساويان في التغطية تمامًا. والفرقُ
+   *    أنك كنتَ تتدرّب هناك على دروسٍ داخل هذه الـ٨٢، وتتدرّب هنا على
+   *    نصوصِ شغلك الحقيقيّة فلا يعرفها القاموس.
+   *
+   *    و`rememberStress()` مكتوبةٌ في `stress.js` منذ أوّل يوم — ولا
+   *    زرَّ واحدًا في الشاشة يناديها. فهذا هو الزرّ: تحدّد النبرَ
+   *    مرّةً، فيُحفَظ عندك للأبد ويظهر في كلّ جملةٍ فيها الكلمة.
+   */
+  { id: 'stressmark', glyph: '´', label: 'حدّد النبر', when: hasPickedWord },
 
   /* ---- أدواتُ المسرح: دائمًا ---- */
   { id: 'display', glyph: '◐', label: 'العرض', value: () => DISPLAY_SHORT[ctx.display] || '' },
@@ -2384,6 +2396,14 @@ const NOT_IN_RAIL = Object.freeze({
 /** اختصاراتٌ تُقرأ على السكّة — لا تسع اللافتةَ كاملةً. */
 const DISPLAY_SHORT = { ru: 'روسي', egy: 'مصري', hidden: 'مخفي' };
 const MODE_SHORT = { sentence: 'جملة', word: 'كلمة', continuous: 'متّصل' };
+
+/*
+ * ⚠️ **WS49** — حروفُ العلّة الروسية وعلامةُ النبر المركّبة (U+0301).
+ *    مكرَّرةٌ هنا عمدًا للعرض فقط: `stress.js` يملك النسخةَ الحاكمة
+ *    للمنطق، وهذه لبناء أزرار الاختيار لا للحكم على شيء.
+ */
+const STRESS_VOWELS = 'аеёиоуыэюяАЕЁИОУЫЭЮЯ';
+const STRESS_MARK = '\u0301';
 
 /** حالةُ السكّة — خارج الـDOM كباقي حالات هذه الشاشة. */
 const rail = { open: false, tool: 'display', word: -1 };
@@ -2626,6 +2646,50 @@ function panelFor(id) {
       foot: 'المعنى يُقرأ من تعبيراتك ومحفوظاتك',
       groups: [{ title: 'ابحث عنها', items:
         `<button data-sh="word-go" data-v="${esc(w)}">افتح صفحة الكلمة</button>` }],
+    };
+  }
+  /*
+   * ⚠️ **WS49 — تحدّد النبرَ بإصبعك، فيُحفَظ للأبد.**
+   *
+   *    القاعدةُ في `stress.js`: «الكلماتُ غير الموجودة تُترَك بلا علامة
+   *    بدل تخمين موضعٍ خاطئ — التخمينُ هنا أسوأُ من الصمت». وهي صحيحة،
+   *    فلا يُخمِّن التطبيقُ نيابةً عنك. لكنّ الصمتَ كان **نهائيًّا**:
+   *    لا سبيلَ لتُخبره أنت بما تعرفه. فصار له بابٌ — أنت المصدر.
+   *
+   *    ⚠️ وحروفُ العلّة وحدَها تُعرَض: النبرُ لا يقع إلّا عليها، فعرضُ
+   *       الحروف الساكنة يزحم اليدَ بخياراتٍ لا تصحّ أصلًا.
+   */
+  if (id === 'stressmark') {
+    const w = currentWordText();
+    const chars = [...String(w || '')];
+    const vowels = chars
+      .map((ch, i) => ({ ch, i }))
+      .filter(({ ch }) => STRESS_VOWELS.includes(ch));
+
+    if (!w) return { title: 'النبر', foot: 'امسك كلمةً أوّلًا', groups: [] };
+    if (vowels.length <= 1) {
+      return {
+        title: w,
+        foot: 'حرفُ علّةٍ واحد — لا لبسَ في موضع النبر، والتطبيقُ يعرفه وحدَه',
+        groups: [],
+      };
+    }
+    const current = stressOf(w) || '';
+    return {
+      title: w,
+      foot: current
+        ? `المحفوظ الآن: ${current} — اضغط حرفًا آخر لتصحيحه`
+        : 'اضغط حرفَ العلّة اللي عليه النبر — هيتحفظ عندك للأبد',
+      groups: [{
+        title: 'فين النبر؟',
+        items: vowels.map(({ ch, i }) => {
+          /* الكلمةُ معلَّمةً لو وقع النبرُ على هذا الحرف — معاينةٌ حيّة. */
+          const preview = chars.slice(0, i + 1).join('') + STRESS_MARK + chars.slice(i + 1).join('');
+          const on = current === preview ? ' on' : '';
+          return `<button data-sh="stress-set" data-v="${esc(preview)}" class="${on.trim()}"
+                    lang="ru" dir="ltr">${esc(ch)}${STRESS_MARK}</button>`;
+        }).join(''),
+      }],
     };
   }
   return { title: 'الأدوات', foot: '', groups: [] };
@@ -5492,6 +5556,28 @@ function wireInteractions(main) {
       case 'word-go': {
         const word = btn.dataset.v;
         if (word) navigate(`/word/${encodeURIComponent(word)}`);
+        return undefined;
+      }
+
+      /*
+       * ⚠️ **WS49 — تحفظ نبرَ الكلمة عندك، فيظهر في كلّ جملةٍ بعدها.**
+       *
+       *    `rememberStress` تكتب في `settings` تحت `shadow.stressDictionary`،
+       *    فهو قاموسُك أنت: يتراكم مع الاستعمال، ويعمل بلا إنترنت،
+       *    ويسبق القاموسَ المدمج في `stressOf` — فتصحيحُك يعلو أيَّ
+       *    مدخلٍ جاهزٍ لو اختلفتما.
+       *
+       *    ⚠️ وتُعاد رسمةُ الجملة فورًا (`syncSegment`) لتراه واقعًا
+       *       تحت عينك، لا وعدًا يظهر عند الجملة التالية.
+       */
+      case 'stress-set': {
+        const marked = btn.dataset.v || '';
+        const bare = marked.split(STRESS_MARK).join('');
+        if (!bare) return undefined;
+        await rememberStress(bare, marked);
+        syncSegment();
+        renderRail();
+        toastOk(`النبر اتحفظ: ${marked}`);
         return undefined;
       }
 
