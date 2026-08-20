@@ -38,6 +38,9 @@ import {
 import { listVoices, loadVoices, RATE_MIN, RATE_MAX, speak as speakOnce } from '../services/shadow/tts-controller.js';
 import { claimAudio, releaseAudio, ownsAudio } from '../services/shadow/audio-bus.js';
 import {
+  holdBackgroundAudio, releaseBackgroundAudio, disposeBackgroundAudio,
+} from '../services/shadow/background-audio.js';
+import {
   completeSession,
   detectSourceChange,
   loadSession,
@@ -279,6 +282,9 @@ function stopParked() {
   parkedBar?.remove();
   parkedBar = null;
   releaseAudio('session');
+  /* ⚠️ وقفتَها بيدك من الشريط العائم — فلا داعيَ لإبقاء الصفحة حيّة (WS47). */
+  holdingBackground = false;
+  disposeBackgroundAudio();
 }
 
 export function disposeShadow() {
@@ -341,6 +347,13 @@ export function disposeShadow() {
     navigator.mediaSession.metadata = null;
     navigator.mediaSession.playbackState = 'none';
   }
+  /*
+   * ⚠️ **ولا تُبقي الصفحةَ حيّةً بلا سبب (WS47).** مِسكةُ الخلفية
+   *    وسيلةٌ لجلسةٍ تنطق؛ فإذا ماتت الجلسةُ تُفَكّ ويُحرَّر رابطُ
+   *    الكائن — وإلّا استنزفنا البطاريةَ لصوتٍ لم يعد موجودًا.
+   */
+  holdingBackground = false;
+  disposeBackgroundAudio();
   closeFontPop();
   selecting = false;
   picked = new Set();
@@ -3569,6 +3582,32 @@ function paintTransport() {
   document.querySelector('.shadow-app')?.classList.toggle('is-speaking', on);
   paintFloating();
   if ('mediaSession' in navigator) navigator.mediaSession.playbackState = on ? 'playing' : 'paused';
+
+  /*
+   * ⚠️ **وتُمسَك الصفحةُ حيّةً ما دامت تنطق (WS47).** بلاغُك: «لما
+   *    بخرج من البرنامج أو أروح لل sleep الصوت بيتقفل». والسببُ أن
+   *    المتصفّح يُجمّد الصفحةَ في الخلفية فتموت مؤقّتاتُ الجلسة —
+   *    والشرحُ الكامل في `background-audio.js`.
+   *
+   *    وهنا مكانُ الربط لأن هذه الدالّةَ هي التي تعرف الحقيقةَ
+   *    الواحدة «هل ننطق الآن؟»، وتُنادى من كلّ طريقٍ يبدّلها. فلا
+   *    مِسكةٌ تُنسى ولا أخرى لا تُفَكّ.
+   */
+  syncBackgroundHold(on);
+}
+
+/*
+ * مِسكةٌ واحدةٌ لا أكثر — `paintTransport` تُنادى عشراتِ المرّات في
+ * الجلسة، وعدُّ الطالبين في الوحدة يمنع تراكمَها، لكنّ حارسًا هنا
+ * أصدق: نطلب مرّةً عند بدء النطق، ونُفلت مرّةً عند توقّفه.
+ */
+let holdingBackground = false;
+
+function syncBackgroundHold(on) {
+  if (on === holdingBackground) return;
+  holdingBackground = on;
+  if (on) holdBackgroundAudio().catch(() => {});
+  else releaseBackgroundAudio();
 }
 
 /**
