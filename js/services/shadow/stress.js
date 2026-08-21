@@ -116,6 +116,67 @@ export async function rememberStress(word, marked) {
 }
 
 /**
+ * مصادرُ النبر — **ونسبُ كلِّ علامةٍ إلى مصدرها شرط** (WS52).
+ *
+ * ⚠️ **ولا يُخلَط تأكيدُك بقاموسٍ ولا بويكاموس.** محرّكُ النطق يبني
+ *    تحليلًا كاملًا فوق موضع النبر؛ فإن كان مصدرُه أنت وجب أن يُقال
+ *    ذلك، وإن كان مجهولًا وجب أن **يُعلَن الجهلُ** لا أن يُخمَّن.
+ *    وهذا هو الفرقُ بين محرّكٍ تثق به وآخرَ يُجمِّل.
+ */
+export const STRESS_SOURCE = Object.freeze({
+  EXPLICIT: 'explicit_text',
+  USER: 'user_confirmed',
+  DICTIONARY: 'dictionary',
+  YO: 'rule_yo',
+  MONOSYLLABLE: 'rule_monosyllable',
+  UNKNOWN: 'unknown',
+});
+
+/**
+ * كـ`stressOf` لكن **يقول من أين جاءت العلامة**.
+ *
+ * ⚠️ **ولا يُنشئ قاموسًا ثانيًا**: يقرأ نفسَ `userDict` ونفسَ `BUILT_IN`
+ *    اللذَين تقرأ منهما `stressOf` — الفرقُ في الإفصاح لا في البيانات.
+ *
+ * @returns {{ marked: string|null, source: string }}
+ */
+export function stressWithSource(word) {
+  const raw = String(word || '');
+  const clean = raw.toLowerCase().replace(/[.,!?;:—«»""'']/g, '');
+  if (!clean) return { marked: null, source: STRESS_SOURCE.UNKNOWN };
+
+  const bare = clean.replace(/́/g, '');
+
+  /*
+   * علامةٌ في النصّ نفسِه تسبق كلَّ قاموس — **لكن أيَّ نصّ؟**
+   *
+   * ⚠️ الشاشةُ ترسم الرقائقَ **معلَّمةً** بما في القاموس (`markSentence`).
+   *    فحين تُسأل عن كلمةٍ مأخوذةٍ من الرقاقة تكون العلامةُ موجودةً
+   *    فيها أصلًا — ولو أعلنّاها «مكتوبةً في النصّ» لنسبنا إلى المؤلِّف
+   *    ما هو **من عندك أنت**. وقد رأيتُها بعيني: صحّحتُ نبرَ «замок»
+   *    فقالت اللوحةُ «مصدر النبر: مكتوب في النصّ» بعد ثانيةٍ من كتابتي
+   *    له بيدي.
+   *
+   *    فالمطابقةُ تحسم النسب: علامةٌ تطابق مدخَلك فهي لك، وتطابق
+   *    المدمجَ فهي للقاموس، وما عدا ذلك فهو مكتوبٌ في النصّ حقًّا.
+   */
+  if (clean.includes('́')) {
+    if (userDict[bare] === clean) return { marked: raw, source: STRESS_SOURCE.USER };
+    if (BUILT_IN[bare] === clean) return { marked: raw, source: STRESS_SOURCE.DICTIONARY };
+    return { marked: raw, source: STRESS_SOURCE.EXPLICIT };
+  }
+
+  if (userDict[bare]) return { marked: userDict[bare], source: STRESS_SOURCE.USER };
+  if (BUILT_IN[bare]) return { marked: BUILT_IN[bare], source: STRESS_SOURCE.DICTIONARY };
+  if (/ё/i.test(bare)) return { marked: raw, source: STRESS_SOURCE.YO };
+
+  const vowelCount = [...bare].filter((ch) => VOWELS.includes(ch)).length;
+  if (vowelCount === 1) return { marked: raw, source: STRESS_SOURCE.MONOSYLLABLE };
+
+  return { marked: null, source: STRESS_SOURCE.UNKNOWN };
+}
+
+/**
  * يعيد الكلمة معلّمةً بالنبر، أو `null` إن كانت غير معروفة.
  *
  * ثلاث حالات لا تحتاج بحثًا:

@@ -4697,3 +4697,88 @@ body.shadow-open { overflow: hidden; }
   text-align: start;
 }
 .sh-debug-hud:empty { display: none; }
+
+/* ================================================================== *
+ * WS52 · لوحةُ «ليه بتتنطق كده؟»
+ *
+ * ⚠️ **بنفس لغة الظلّ الكونيّة لا بشاشةِ أداةٍ غريبة.** الذهبيُّ
+ *    للنبر، والعاجيُّ الخافتُ للنصّ، والحدودُ شعرةٌ واحدة — كباقي
+ *    اللوحة. وميزةٌ تبدو من تطبيقٍ آخر تُشعرك أنك غادرتَ الكتاب.
+ * ================================================================== */
+
+.sh-pron { padding: 4px 12px 8px; display: grid; gap: 12px; }
+
+/* المقاطع: أوّلُ ما تحتاجه العين */
+.sh-pron-syl {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  font-size: 20px; color: rgba(239, 231, 216, .55);
+}
+.sh-pron-syl span { padding: 2px 6px; border-radius: 3px; }
+.sh-pron-syl span.on { color: rgba(240, 220, 176, .98); background: rgba(217, 182, 114, .12); }
+.sh-pron-syl i { color: rgba(239, 231, 216, .18); font-style: normal; }
+
+.sh-pron-row {
+  display: flex; align-items: baseline; gap: 10px; justify-content: space-between;
+  font-size: 13px; color: rgba(239, 231, 216, .5);
+}
+.sh-pron-row > b { font-weight: 500; color: rgba(239, 231, 216, .35); }
+.sh-pron-say { font-size: 19px; color: rgba(240, 220, 176, .95); letter-spacing: .02em; }
+
+/*
+ * خريطةُ الكلمة — **وليست قوسَ قزح**: الأصواتُ الرماديّةُ هي الأصل،
+ * واللونُ استثناءٌ يعني «هنا حصل حاجة».
+ */
+.sh-pron-map { display: flex; flex-wrap: wrap; gap: 4px; }
+.sh-pron-sound {
+  min-width: 30px; min-height: 44px; padding: 0 6px; cursor: pointer;
+  font-size: 17px; border-radius: 4px; transition: all .2s ease;
+  border: 1px solid rgba(239, 231, 216, .07); background: transparent;
+  color: rgba(239, 231, 216, .42);
+}
+.sh-pron-sound.k-stress { color: rgba(240, 220, 176, .98); border-color: rgba(217, 182, 114, .45); }
+.sh-pron-sound.k-red1 { color: rgba(150, 190, 220, .85); border-color: rgba(150, 190, 220, .22); }
+.sh-pron-sound.k-red2 { color: rgba(150, 190, 220, .5); border-color: rgba(150, 190, 220, .12); }
+.sh-pron-sound.k-devoiced { color: rgba(226, 150, 140, .85); border-color: rgba(226, 150, 140, .25); }
+.sh-pron-sound.k-voiced { color: rgba(150, 210, 170, .85); border-color: rgba(150, 210, 170, .25); }
+.sh-pron-sound.is-open { background: rgba(239, 231, 216, .07); }
+
+.sh-pron-note, .sh-pron-warn {
+  font-size: 12.5px; line-height: 1.75; padding: 9px 11px; border-radius: 4px;
+  color: rgba(239, 231, 216, .58); background: rgba(255, 255, 255, .03);
+  border-inline-start: 2px solid rgba(239, 231, 216, .14);
+}
+.sh-pron-note b { color: rgba(240, 220, 176, .9); margin-inline-end: 8px; }
+.sh-pron-warn {
+  color: rgba(233, 196, 140, .82); border-inline-start-color: rgba(217, 182, 114, .45);
+  background: rgba(217, 182, 114, .06); font-style: normal;
+}
+
+/* السؤالُ حين لا نعرف النبر — أصدقُ من جوابٍ مخمَّن */
+.sh-pron-ask p { margin: 0 0 9px; font-size: 12.5px; color: rgba(239, 231, 216, .55); line-height: 1.7; }
+.sh-pron-pick { display: flex; flex-wrap: wrap; gap: 6px; }
+.sh-pron-pick button {
+  min-width: 46px; min-height: 46px; font-size: 19px; cursor: pointer; border-radius: 4px;
+  border: 1px solid rgba(217, 182, 114, .28); background: rgba(217, 182, 114, .05);
+  color: rgba(240, 220, 176, .9);
+}
+
+.sh-pron-why > b { display: block; font-size: 12px; color: rgba(239, 231, 216, .38); padding-bottom: 7px; }
+.sh-pron-why ul { margin: 0; padding-inline-start: 16px; display: grid; gap: 7px; }
+.sh-pron-why li { font-size: 12.5px; line-height: 1.8; color: rgba(239, 231, 216, .62); }
+.sh-pron-why li code {
+  display: block; font-family: var(--sh-mono); font-size: 9.5px; letter-spacing: .1em;
+  color: rgba(217, 182, 114, .55); padding-top: 3px; direction: ltr;
+}
+.sh-pron-why li small { display: block; font-size: 10px; color: rgba(239, 231, 216, .26); direction: ltr; }
+.sh-pron-why em { display: block; padding-top: 8px; font-size: 11.5px; color: rgba(239, 231, 216, .3); }
+
+.sh-pron-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
+.sh-pron-tbl td { padding: 7px 6px; border-block-end: 1px solid rgba(255, 255, 255, .04); color: rgba(239, 231, 216, .55); }
+.sh-pron-tbl td:first-child { width: 34px; font-size: 15px; color: rgba(240, 220, 176, .85); }
+.sh-pron-tbl td:nth-child(2) { width: 40px; color: rgba(150, 190, 220, .8); }
+
+.sh-pron-ipa {
+  font-size: 20px; text-align: center; padding: 12px; border-radius: 4px;
+  color: rgba(240, 220, 176, .95); background: rgba(217, 182, 114, .06);
+  border: 1px solid rgba(217, 182, 114, .16);
+}

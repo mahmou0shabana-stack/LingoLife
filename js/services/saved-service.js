@@ -115,6 +115,14 @@ export async function saveItem({
   segmentId = null,
   sceneId = null,
   sessionId = null,
+  /*
+   * ⚠️ **بياناتُ نطقٍ اختياريّةٌ — والقديمُ يبقى مقروءًا (WS52، §37).**
+   *
+   *    `null` افتراضًا، فالصفوفُ المحفوظةُ قبل هذه الميزة لا ينقصها
+   *    شيءٌ ولا تحتاج ترقيةً ولا تُمَسّ. وقارئُها يسأل «هل هي موجودة؟»
+   *    لا «ما قيمتها؟» — وهذا هو الفرقُ بين إضافةٍ آمنةٍ وهجرةِ بيانات.
+   */
+  pronunciation = null,
 }) {
   const clean = (text || '').trim();
   if (!clean) throw new Error('مفيش نصّ نحفظه');
@@ -133,6 +141,8 @@ export async function saveItem({
       tagIds: merged,
       note: note || twin.note,
       translation: translation || twin.translation,
+      /* تحليلٌ أحدثُ يحلّ محلّ أقدم؛ وغيابُه لا يمسح ما كان. */
+      pronunciation: pronunciation || twin.pronunciation || null,
     });
   }
 
@@ -148,6 +158,7 @@ export async function saveItem({
     segmentId,
     sceneId,
     sessionId,
+    pronunciation,
     /* ⚠️ الحفظ انتباهٌ لا إتقان (بند 19). */
     impliesMastery: false,
     impliesRealUsage: false,

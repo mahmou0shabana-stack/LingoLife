@@ -37,6 +37,16 @@ import {
 } from '../services/shadow/playback-controller.js';
 import { listVoices, loadVoices, RATE_MIN, RATE_MAX, speak as speakOnce } from '../services/shadow/tts-controller.js';
 import { claimAudio, releaseAudio, ownsAudio } from '../services/shadow/audio-bus.js';
+/*
+ * ⚠️ **تحليلُ النطق ونظامُ الصوت نظامان لا يلتقيان (WS52).**
+ *    هذا يشرح اللغةَ وذاك يُخرج صوتًا. يتشاركان نصًّا مُطبَّعًا ونبرًا
+ *    موثوقًا، ولا يتشاركان ذاكرةً ولا مزوّدًا ولا حالة. فتحسينُ قاعدةٍ
+ *    لغويّةٍ لا يُبطل صوتًا مولَّدًا، وتبديلُ المزوّد لا يمسّ تحليلًا.
+ */
+import {
+  analyzeWord, clearPronunciationCache, pronunciationMetadata,
+  DISPLAY_MODE, FLAG as PRON_FLAG,
+} from '../services/pronunciation/engine.js';
 import {
   holdBackgroundAudio, releaseBackgroundAudio, disposeBackgroundAudio,
 } from '../services/shadow/background-audio.js';
@@ -2382,6 +2392,15 @@ const TOOLS = [
    *    مرّةً، فيُحفَظ عندك للأبد ويظهر في كلّ جملةٍ فيها الكلمة.
    */
   { id: 'stressmark', glyph: '´', label: 'حدّد النبر', when: hasPickedWord },
+  /*
+   * ⚠️ **WS52 — «ليه بتتنطق كده؟» بابُها هنا، في نفس سكّة الكلمة.**
+   *
+   *    ولا شاشةَ جديدة ولا مسارَ ثانٍ: الأداةُ تقرأ `player.words[rail.word]`
+   *    كأخواتها، فتعمل من تلقاء نفسها على السكريبت والمحادثة والـOCR
+   *    والمسودّة والظلّ السريع والنصّ الخارجيّ — لأن المصدرَ واحدٌ منذ
+   *    WS40. **التكافؤُ هنا بنيويٌّ لا مُختبَرٌ حالةً حالة.**
+   */
+  { id: 'pron', glyph: '◍', label: 'ليه بتتنطق كده؟', when: hasPickedWord },
 
   /* ---- أدواتُ المسرح: دائمًا ---- */
   { id: 'display', glyph: '◐', label: 'العرض', value: () => DISPLAY_SHORT[ctx.display] || '' },
@@ -2431,7 +2450,13 @@ const STRESS_VOWELS = 'аеёиоуыэюяАЕЁИОУЫЭЮЯ';
 const STRESS_MARK = '\u0301';
 
 /** حالةُ السكّة — خارج الـDOM كباقي حالات هذه الشاشة. */
-const rail = { open: false, tool: 'display', word: -1 };
+const rail = {
+  open: false, tool: 'display', word: -1,
+  /* ⚠️ الافتراضُ `SIMPLE` دائمًا — والكشفُ تدريجيٌّ بطلبك (§38). */
+  pronMode: DISPLAY_MODE.SIMPLE,
+  /** أيُّ صوتٍ في خريطة الكلمة مفتوحٌ شرحُه؟ `-1` = لا شيء. */
+  pronSound: -1,
+};
 
 /**
  * هل في يدك كلمة؟
@@ -2725,8 +2750,207 @@ function panelFor(id) {
       }],
     };
   }
+  if (id === 'pron') return pronPanel();
+
   return { title: 'الأدوات', foot: '', groups: [] };
 }
+
+/* ------------------------------------------------------------------ *
+ * لوحةُ «ليه بتتنطق كده؟» (WS52)
+ * ------------------------------------------------------------------ */
+
+/**
+ * ⚠️ **أيُّ صوتٍ يستحقّ لونًا؟ — القليلُ منها وحدَه.**
+ *
+ * الطلبُ صريح: «لا تجعل الكلمةَ قوسَ قزح». فلا نُلوّن كلَّ حرفٍ لأن
+ * لكلٍّ وصفًا؛ نُلوّن ما **تغيّر عمّا كُتب**: المشدَّد، والمختزَل،
+ * والذي فقد جهرَه أو اكتسبه. والليونةُ وحدَها لا تكفي لونًا — لأنها
+ * حالُ نصفِ سواكن اللغة، ولو لُوّنت لما بقي في الكلمة ما يلفت.
+ */
+function pronAccent(sound) {
+  if (sound.stressed) return 'stress';
+  if (sound.rules.includes('RU_FINAL_DEVOICING')
+    || sound.rules.includes('RU_REGRESSIVE_DEVOICING')) return 'devoiced';
+  if (sound.rules.includes('RU_REGRESSIVE_VOICING')) return 'voiced';
+  if (sound.reduction?.quality === 'qualitative') {
+    return sound.reduction.degree === 1 ? 'red1' : 'red2';
+  }
+  return '';
+}
+
+/** خريطةُ الكلمة: أصواتٌ يُلمَس المميَّزُ منها ليشرح نفسَه. */
+function pronMapHtml(analysis) {
+  return analysis.sounds.map((sound, i) => {
+    const accent = pronAccent(sound);
+    const open = rail.pronSound === i ? ' is-open' : '';
+    const shown = sound.type === 'silent' ? sound.letter : (sound.cyrillic || sound.letter);
+    return `<button class="sh-pron-sound${accent ? ` k-${accent}` : ''}${open}"
+              data-sh="pron-sound" data-v="${i}" lang="ru" dir="ltr"
+              aria-label="${esc(sound.letter)} — ${esc(sound.labels.join('، ') || 'كما هو')}"
+            >${esc(shown)}</button>`;
+  }).join('');
+}
+
+/** أزرارُ اختيار حرف العلّة حين يكون النبرُ مجهولًا. */
+function pronStressPicker(word) {
+  const chars = [...String(word || '')];
+  const vowels = chars.map((ch, i) => ({ ch, i })).filter(({ ch }) => STRESS_VOWELS.includes(ch));
+  return vowels.map(({ ch, i }, ordinal) => {
+    const marked = chars.slice(0, i + 1).join('') + STRESS_MARK + chars.slice(i + 1).join('');
+    return `<button data-sh="pron-stress" data-v="${ordinal}" data-marked="${esc(marked)}"
+              lang="ru" dir="ltr">${esc(ch)}${STRESS_MARK}</button>`;
+  }).join('');
+}
+
+const PRON_MODE_LABEL = Object.freeze({
+  [DISPLAY_MODE.SIMPLE]: 'مبسّط',
+  [DISPLAY_MODE.SOUNDS]: 'الأصوات',
+  [DISPLAY_MODE.IPA]: 'IPA',
+  [DISPLAY_MODE.RULES]: 'القواعد',
+});
+
+function pronPanel() {
+  const word = currentWordText();
+  if (!word) return { title: 'النطق', foot: 'امسك كلمةً أوّلًا', groups: [] };
+
+  const analysis = analyzeWord(word);
+  if (!analysis.supported) {
+    return { title: word, foot: 'الكلمة دي مافيهاش حروف روسية نحلّلها', groups: [] };
+  }
+
+  const unknown = analysis.flags.includes(PRON_FLAG.UNKNOWN_STRESS);
+  const parts = [];
+
+  /* ---- المقاطع: دائمًا، وهي أوّلُ ما يحتاجه المتعلّم ---- */
+  parts.push(`<div class="sh-pron-syl" lang="ru" dir="ltr">${
+    analysis.syllables.map((s, i) => `<span class="${
+      i === analysis.stress.ordinal ? 'on' : ''}">${esc(s)}</span>`).join('<i>|</i>')
+  }</div>`);
+
+  /* ---- النبر ---- */
+  parts.push(`<div class="sh-pron-row"><b>🎯 النبر</b><span>${
+    unknown
+      ? '<em class="sh-pron-warn">النبر غير مؤكد</em>'
+      : esc(`المقطع ${['الأول', 'التاني', 'التالت', 'الرابع', 'الخامس', 'السادس'][analysis.stress.ordinal] || (analysis.stress.ordinal + 1)}`)
+  }</span></div>`);
+
+  /*
+   * ⚠️ **وبلا نبرٍ لا نطقَ — ونقولها بدل أن نعرض تقريبًا.**
+   *    «замок» بلا نبرٍ قلعةٌ أو قُفل، ونطقٌ واثقٌ لأحدهما يعلّمك
+   *    الخطأَ ولا تشكّ فيه. فالسؤالُ أصدقُ من الجواب.
+   */
+  if (unknown) {
+    parts.push(`<div class="sh-pron-ask">
+      <p>عشان أعرف أقولك بتتنطق إزاي، محتاج أعرف النبر. دوس على حرف العلّة الصح:</p>
+      <div class="sh-pron-pick" >${pronStressPicker(analysis.normalizedText)}</div>
+    </div>`);
+  } else {
+    parts.push(`<div class="sh-pron-row"><b>🔊 النطق</b>
+      <span class="sh-pron-say" lang="ru" dir="ltr">[${esc(analysis.pronunciation.simple)}]</span></div>`);
+    parts.push(`<div class="sh-pron-map">${pronMapHtml(analysis)}</div>`);
+
+    if (rail.pronSound >= 0 && analysis.sounds[rail.pronSound]) {
+      const s = analysis.sounds[rail.pronSound];
+      parts.push(`<div class="sh-pron-note"><b lang="ru" dir="ltr">${esc(s.letter)}</b>
+        ${esc(s.labels.join(' · ') || 'زيّ ما هو مكتوب')}</div>`);
+    }
+  }
+
+  /* ---- «ليه؟» — الشرحُ، وهو لبُّ الميزة ---- */
+  const reasons = analysis.appliedRules
+    .filter((step) => step.why)
+    .filter((step, i, all) => all.findIndex((o) => o.ruleId === step.ruleId) === i);
+
+  if (reasons.length) {
+    const shown = rail.pronMode === DISPLAY_MODE.SIMPLE ? reasons.slice(0, 3) : reasons;
+    parts.push(`<div class="sh-pron-why"><b>ليه بتتنطق كده؟</b><ul>${
+      shown.map((step) => `<li>${esc(step.why)}${
+        rail.pronMode === DISPLAY_MODE.RULES
+          ? `<code>${esc(step.ruleId)}</code><small>${esc(step.source)}</small>`
+          : ''
+      }</li>`).join('')
+    }</ul>${
+      rail.pronMode === DISPLAY_MODE.SIMPLE && reasons.length > 3
+        ? `<em>+${reasons.length - 3} قاعدة تانية — شوف «القواعد»</em>` : ''
+    }</div>`);
+  }
+
+  /* ---- الأصوات: جدولٌ حرفًا حرفًا ---- */
+  if (rail.pronMode === DISPLAY_MODE.SOUNDS) {
+    parts.push(`<table class="sh-pron-tbl"><tbody>${
+      analysis.sounds.map((s) => `<tr><td lang="ru" dir="ltr">${esc(s.letter)}</td>
+        <td lang="ru" dir="ltr">${esc(s.cyrillic || '—')}</td>
+        <td>${esc(s.labels.join('، ') || 'زيّ ما هو')}</td></tr>`).join('')
+    }</tbody></table>`);
+  }
+
+  /* ---- IPA: ولا يُسمَّى IPA إلّا حين يكون كذلك ---- */
+  if (rail.pronMode === DISPLAY_MODE.IPA) {
+    parts.push(analysis.pronunciation.ipa
+      ? `<div class="sh-pron-ipa" dir="ltr">[${esc(analysis.pronunciation.ipa)}]</div>`
+      : `<div class="sh-pron-note">مفيش IPA كامل للكلمة دي — فيه أصوات لسه مش مغطّاة بقواعد،
+         وأحسن أقولك كده من إني أخترع رموز.</div>`);
+  }
+
+  /* ---- تحذيراتٌ صادقة ---- */
+  for (const warn of analysis.warnings) {
+    if (unknown && warn.includes('النبر')) continue;   /* مقولٌ فوق بالفعل */
+    parts.push(`<div class="sh-pron-warn">${esc(warn)}</div>`);
+  }
+  if (analysis.lexical && analysis.lexical.category !== 'VARIANT') {
+    parts.push('<div class="sh-pron-note">دي حالة معجمية خاصة — مش قاعدة تقدر تعمّمها.</div>');
+  }
+
+  const modes = Object.values(DISPLAY_MODE).map((m) =>
+    `<button data-sh="pron-mode" data-v="${m}" class="${rail.pronMode === m ? 'on' : ''}"
+     >${esc(PRON_MODE_LABEL[m])}</button>`).join('');
+
+  return {
+    title: word,
+    foot: unknown
+      ? 'اللي تختاره هيتحفظ عندك للأبد، وهيظهر في كل جملة فيها الكلمة دي'
+      : `مصدر النبر: ${PRON_SOURCE_LABEL[analysis.stress.source] || analysis.stress.source}`,
+    groups: [{ title: 'العرض', items: modes }],
+    after: `<div class="sh-pron">${parts.join('')}</div>`,
+  };
+}
+
+/**
+ * يعيد رسمَ الجملة **دون أن يُفلت الكلمةَ التي في يدك**.
+ *
+ * ⚠️ **و`syncSegment` تُفلتها عمدًا — وهي محقّة.** `rail.word = -1`
+ *    هناك تحمي من بقاء أدواتٍ تعمل على كلمةٍ في جملةٍ غادرتَها. لكنّ
+ *    تصحيحَ النبر **لا يغادر جملةً**: أنت واقفٌ على نفس الكلمة، وكلُّ
+ *    ما تغيّر أنك علّمتَ التطبيقَ كيف يقرؤها.
+ *
+ *    وبلا هذا: تضغط حرفَ العلّة، فتُعاد الجملةُ، فتختفي أدواتُ الكلمة،
+ *    فترتدّ السكّةُ إلى أوّل أداةٍ متاحة — **فتجد نفسك في لوحة «العرض»
+ *    بدل أن ترى ثمرةَ تصحيحك**. أمسكتُها من اختبارِ واجهةٍ حقيقيّ، ولم
+ *    تكن لتظهر في اختبارِ خدمةٍ أبدًا: الخدمةُ حفظت النبرَ بنجاح.
+ *
+ * ⚠️ وهي تُصلح `stress-set` (WS49) أيضًا — العطبُ نفسُه كان فيها منذ
+ *    كُتبت، صامتًا لأن لوحتَها كانت تُغلَق على أيّ حال.
+ */
+function resyncKeepingWord() {
+  const held = rail.word;
+  const tool = rail.tool;
+  syncSegment();
+  if (held >= 0 && document.querySelectorAll('[data-word]')[held]) {
+    rail.word = held;
+    rail.tool = tool;
+  }
+  renderRail();
+}
+
+/** من أين جاءت علامةُ النبر — يُقال ولا يُخفى. */
+const PRON_SOURCE_LABEL = Object.freeze({
+  explicit_text: 'مكتوب في النصّ',
+  user_confirmed: 'إنت اللي حدّدته',
+  dictionary: 'قاموس التطبيق',
+  rule_yo: 'حرف ё (النبر عليه دايمًا)',
+  rule_monosyllable: 'حرف علّة واحد',
+  unknown: 'مش معروف',
+});
 
 /**
  * يضبط مصدرَ الصوت: الشاشةُ والمحرّكُ والقاعدة معًا.
@@ -4944,6 +5168,21 @@ async function openSaveDialog(explicitWordEl) {
         segmentId: segment?.id || null,
         sceneId: ctx.session.sceneId,
         sessionId: ctx.session.id,
+        /*
+         * ⚠️ **بياناتُ نطقٍ مضغوطةٌ للكلمة — لا شرحٌ مكرَّر (WS52، §24).**
+         *
+         *    نحفظ الكلمةَ المُطبَّعة، وموضعَ النبر ومصدرَه، ومعرِّفاتِ
+         *    القواعد، **وإصدارَ مجموعة القواعد**. ولا نحفظ سطرًا عربيًّا
+         *    واحدًا من الشرح: الشرحُ يُشتقّ عند العرض، فلو تحسّنت قاعدةٌ
+         *    غدًا تحسّنت كلُّ كلماتك معها. ونسخُ الشرح في كلّ صفٍّ كان
+         *    سيُجمِّده عند لحظة حفظه — ويجعل تحسينَ المحرّك ترقيةَ بيانات.
+         *
+         * ⚠️ وهو **اختياريّ**: صفوفُك القديمةُ بلا هذا الحقل تبقى مقروءةً
+         *    كما هي، ولا ترقيةَ ولا مساسَ بها.
+         */
+        pronunciation: kind === SAVED_KIND.WORD
+          ? pronunciationMetadata(analyzeWord(text))
+          : null,
       });
 
       close();
@@ -5647,8 +5886,39 @@ function wireInteractions(main) {
         const bare = marked.split(STRESS_MARK).join('');
         if (!bare) return undefined;
         await rememberStress(bare, marked);
-        syncSegment();
-        renderRail();
+        clearPronunciationCache();
+        resyncKeepingWord();
+        toastOk(`النبر اتحفظ: ${marked}`);
+        return undefined;
+      }
+
+      /* ---- «ليه بتتنطق كده؟» (WS52) ---- */
+
+      case 'pron-mode':
+        rail.pronMode = btn.dataset.v || DISPLAY_MODE.SIMPLE;
+        return renderRail();
+
+      /* لمسةٌ ثانيةٌ على نفس الصوت تُغلق شرحَه — لا زرَّ إغلاقٍ إضافيّ. */
+      case 'pron-sound': {
+        const at = Number(btn.dataset.v);
+        rail.pronSound = rail.pronSound === at ? -1 : at;
+        return renderRail();
+      }
+
+      /*
+       * ⚠️ **وتصحيحُك يُحفَظ في نفس المكان الذي تحفظ فيه أداةُ النبر.**
+       *    `rememberStress` واحدةٌ للاثنتين، فما تُصحّحه من لوحة النطق
+       *    يظهر في الرقائق وفي كلّ جملةٍ فيها الكلمة — ولا «قاموسَ نطقٍ»
+       *    ثانٍ يفترق عن قاموس النبر بعد شهر.
+       */
+      case 'pron-stress': {
+        const marked = btn.dataset.marked || '';
+        const bare = marked.split(STRESS_MARK).join('');
+        if (!bare) return undefined;
+        await rememberStress(bare, marked);
+        clearPronunciationCache();
+        rail.pronSound = -1;
+        resyncKeepingWord();
         toastOk(`النبر اتحفظ: ${marked}`);
         return undefined;
       }
