@@ -82,9 +82,53 @@ export function resolveVoice(voiceName) {
   return voices.find((v) => v.lang.startsWith('ru')) || null;
 }
 
+/**
+ * نبضةُ إبقاءِ النطق حيًّا (WS51).
+ *
+ * ⚠️ **عيبان في `speechSynthesis` على كروم، وكلاهما يضربك أنت تحديدًا:**
+ *
+ *  ١ · **البترُ بعد ~١٥ ثانية.** نطقٌ طويلٌ يقف في منتصفه ولا يُطلق
+ *      `onend` — فيتعلّق الوعدُ في `speak` ولا يبدأ التكرارُ التالي.
+ *      وسرعتُك الافتراضيّة `0.8` تُطيل الجملَ، فالحدُّ أقربُ إليك من
+ *      غيرك. والعلاجُ المعروف: `pause()` ثم `resume()` قبل الحدّ.
+ *
+ *  ٢ · **التعليقُ في الخلفيّة.** حين تُقفَل الشاشة قد يُعلّق المتصفّحُ
+ *      المحرّكَ بدل أن يوقفه، فيصير `paused` صادقًا والنطقُ ساكنًا.
+ *      و`resume()` وحدها تُعيده.
+ *
+ * وكان أعلى هذا الملفّ يقول إن «بعضها يُبتَر النطقُ الطويل، وكلّ ذلك
+ * معالَجٌ هنا في مكانٍ واحد» — **ولم يكن مُعالَجًا.** تعليقٌ يصف نيّةً
+ * لا سلوكًا، وهو أسوأُ من لا تعليق: يجعلني أمرّ عليه واثقًا.
+ */
+const KEEPALIVE_MS = 9000;
+let keepAliveTimer = null;
+
+/** الجملةُ المنطوقةُ الآن — لتمييز نهايتها عن نهاية ما قبلها. */
+let current = null;
+
+function stopKeepAlive() {
+  clearInterval(keepAliveTimer);
+  keepAliveTimer = null;
+}
+
+function startKeepAlive() {
+  stopKeepAlive();
+  keepAliveTimer = setInterval(() => {
+    const synth = window.speechSynthesis;
+    if (!synth.speaking) return stopKeepAlive();
+    try {
+      /* معلَّقٌ في الخلفيّة؟ استئنافٌ وحده يكفي — بلا نبضة. */
+      if (synth.paused) synth.resume();
+      else { synth.pause(); synth.resume(); }
+    } catch { /* متصفّحٌ يرفض النبضة — لا نُسقط الجلسة لأجلها */ }
+  }, KEEPALIVE_MS);
+}
+
 /** يوقف أي نطق جارٍ فورًا. */
 export function cancel() {
   if (!isSupported()) return;
+  current = null;
+  stopKeepAlive();
   try {
     window.speechSynthesis.cancel();
   } catch {
@@ -130,6 +174,15 @@ export function speak(
     const finish = (result) => {
       if (settled) return;
       settled = true;
+      /*
+       * ⚠️ **ولا نُطفئ النبضةَ إلّا إن كنّا نحن أصحابَها.**
+       *
+       * `speak` تبدأ بـ`cancel()`، وإلغاءُ النطقِ السابق يُطلق
+       * `onerror: interrupted` **بعد** أن تكون الجملةُ الجديدة قد بدأت
+       * نبضتَها. فلو أطفأ كلُّ منتهٍ النبضةَ بلا شرط، لأطفأ الميّتُ
+       * نبضةَ الحيّ — وعاد البترُ من حيث أتى، متقطّعًا يصعب تفسيره.
+       */
+      if (current === utterance) { current = null; stopKeepAlive(); }
       signal?.removeEventListener('abort', onAbort);
       resolve(result);
     };
@@ -147,7 +200,9 @@ export function speak(
     };
 
     signal?.addEventListener('abort', onAbort, { once: true });
+    current = utterance;
     window.speechSynthesis.speak(utterance);
+    startKeepAlive();
   });
 }
 
