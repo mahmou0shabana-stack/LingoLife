@@ -15,9 +15,12 @@
  */
 
 import {
-  registerRule, RULE_CATEGORY, STAGE, CONFIDENCE, EVIDENCE,
+  registerRule, RULE_CATEGORY, STAGE, STATUS, EVIDENCE,
 } from '../rule-registry.js';
 import { isGoEndingExcluded, isChnShn } from '../pronunciation-lexicon.js';
+
+/** ساكنان متماثلان متجاوران — يصيران صوتًا واحدًا طويلًا. */
+const GEMINATE = /([бвгджзклмнпрстфхц])\1/g;
 
 /** أداةٌ صغيرة: استبدالٌ يسجّل ما غيّره. */
 function swap(word, pattern, replacer) {
@@ -40,7 +43,7 @@ registerRule({
   summary: 'نهايةُ المضاف إليه ‎-ого/-его تُنطَق ‎-ово/-ево',
   explain: 'آخر الصفات والضمائر «-ого» و«-его» بتتنطق «-ово» و«-ево» — الـ«г» بتبقى «в».',
   source: 'orfogrammka.ru · «Буква г в окончаниях -ого/-его»',
-  confidence: CONFIDENCE.HIGH,
+  status: STATUS.VERIFIED,
   evidence: EVIDENCE.SNIPPET,
   /*
    * ⚠️ **والشرطُ المانعُ أهمُّ من الشرط المُطلِق هنا.**
@@ -60,7 +63,7 @@ registerRule({
   summary: 'чн تُنطَق شн في مجموعةٍ معجميّةٍ مغلقة',
   explain: 'دي حالة معجمية خاصة: «конечно» بتتنطق «конешно» — مش قاعدة لكل «чн».',
   source: 'МГУ · orfoepija/tabl/chn_cht_zhd.htm + russkiymir.ru',
-  confidence: CONFIDENCE.HIGH,
+  status: STATUS.LEXICAL,
   evidence: EVIDENCE.SNIPPET,
   /* ⚠️ قائمةٌ مغلقةٌ لا نمطٌ عامّ: `точный` و`прочный` تبقيان كما هما. */
   applies: (word) => isChnShn(word) && word.includes('чн'),
@@ -75,7 +78,7 @@ registerRule({
   summary: 'гк/гч تُنطَقان хк/хч في جذرَي لёг- ومяг-',
   explain: '«мягкий» بتتنطق «мяхкий» — الـ«г» بتبقى «х» عشان تسهّل النطق.',
   source: 'أورثوإبيا · «Сочетания гк, гч произносятся как [хк], [хч\']»',
-  confidence: CONFIDENCE.HIGH,
+  status: STATUS.PROVISIONAL,
   evidence: EVIDENCE.SNIPPET,
   /*
    * ⚠️ **مقيَّدةٌ بالجذر لا بالعنقود.** الظاهرةُ تخالفٌ (диссимиляция)
@@ -94,7 +97,7 @@ registerRule({
   summary: 'ساكنٌ لا يُنطَق داخل عناقيدَ بعينها',
   explain: 'فيه حرف مكتوب ومش بيتنطق — «местный» بتتقال «месный».',
   source: 'МГУ · orfoepija/sochetan.htm',
-  confidence: CONFIDENCE.HIGH,
+  status: STATUS.VERIFIED,
   evidence: EVIDENCE.SNIPPET,
   applies: (word) => /стн|здн|нтск|ндск|рдц|лнц/.test(word)
     || (word.indexOf('стл') > 0),
@@ -124,6 +127,93 @@ registerRule({
 });
 
 registerRule({
+  id: 'RU_CLUSTER_SH_LONG',
+  category: RULE_CATEGORY.ASSIMILATION,
+  stage: STAGE.ORTHOEPIC_REWRITE,
+  priority: 332,
+  summary: 'сш/зш على حدّ السابقة أو اللاحقة → [ʂː] طويلةٌ صلبة',
+  explain: '«сш» و«зш» بيتنطقوا «ш» واحدة طويلة — «несший» بتتقال «нешший».',
+  source: 'أورثوإبيا · «Сочетания сж, зж, сш, зш … произносятся как долгие твердые [ж], [ш]: несший — не[ш]ий»',
+  status: STATUS.VERIFIED,
+  evidence: EVIDENCE.SNIPPET,
+  applies: (word) => /[сз]ш/.test(word),
+  transform: (word) => swap(word, /[сз]ш/g, () => 'шш'),
+});
+
+registerRule({
+  id: 'RU_CLUSTER_ZH_LONG',
+  category: RULE_CATEGORY.ASSIMILATION,
+  stage: STAGE.ORTHOEPIC_REWRITE,
+  priority: 333,
+  summary: 'сж/зж على حدّ السابقة → [ʐː] طويلةٌ صلبة',
+  explain: '«сж» و«зж» بيتنطقوا «ж» واحدة طويلة — «сжать» بتتقال «жжать».',
+  source: 'أورثوإبيا · «сжать – [ж]ать, разжать – ра[ж]ать»',
+  status: STATUS.VERIFIED,
+  evidence: EVIDENCE.SNIPPET,
+  /*
+   * ⚠️ **حدُّ السابقة وحدَه — و`зж`/`жж` داخل الجذر مؤجَّلة.**
+   *    المصدرُ يعطي للجذر وجهين («долгий мягкий [ж'ж'] или твёрдый
+   *    [жж]») ولا يحسم. فنكتفي بما حُسِم: `сж`/`зж` في أوّل الكلمة أو
+   *    بعد سابقة. راجع `RU_ZH_LONG_IN_ROOT` في المؤجَّل.
+   */
+  applies: (word) => /^[сз]ж/.test(word) || /^(?:раз|из|воз|без|над|под)ж/.test(word),
+  transform: (word) => swap(word, /^([сз])ж|^((?:раз|из|воз|без|над|под))ж/,
+    (_m, a, pre) => (a ? 'жж' : `${pre.slice(0, -1)}жж`)),
+});
+
+registerRule({
+  id: 'RU_CLUSTER_TS_DS',
+  category: RULE_CATEGORY.ASSIMILATION,
+  stage: STAGE.ORTHOEPIC_REWRITE,
+  priority: 334,
+  summary: 'тс/дс قبل لاحقة ‎-ск- تُنطَقان [ц]',
+  explain: '«советский» بتتقال «совецкий» — الـ«тс» بتبقى «ц».',
+  source: 'أورثوإبيا · «Сочетания тс, дс на стыке корня и суффикса произносится как [ц]: заво[ц]кой»',
+  status: STATUS.VERIFIED,
+  evidence: EVIDENCE.SNIPPET,
+  /* ⚠️ مقيَّدةٌ بلاحقةِ النسبة — لا كلُّ `тс` في اللغة. */
+  applies: (word) => /[тд]ск/.test(word),
+  transform: (word) => swap(word, /[тд]ск/g, () => 'цк'),
+});
+
+registerRule({
+  id: 'RU_GEMINATION',
+  category: RULE_CATEGORY.CONSONANT_CLUSTER,
+  stage: STAGE.ORTHOEPIC_REWRITE,
+  priority: 335,
+  summary: 'الساكنان المتماثلان يُنطَقان صوتًا واحدًا طويلًا',
+  explain: 'الحرف المكرَّر بيتنطق صوت واحد بس أطول — «ванна» مش «ван-на».',
+  source: 'МГУ · orfoepija/dolgije.htm «Двойные согласные произносятся как один долгий звук»',
+  /*
+   * ⚠️ **مبدئيّةٌ لأن المصدرَ نفسَه يستثني:** «Не во всех иноязычных
+   *    словах двойным согласным на письме соответствует долгое
+   *    звучание». فالقاعدةُ صحيحةٌ في الأصيل، ومداها في المُعرَّب
+   *    غيرُ محسوم. ولذلك نُعلّمها `PROVISIONAL` لا `VERIFIED`.
+   */
+  status: STATUS.PROVISIONAL,
+  evidence: EVIDENCE.SNIPPET,
+  applies: (word) => GEMINATE.test(word),
+  /*
+   * ⚠️ **تُسجِّل ولا تُعيد الكتابة — والدمجُ في بناء الأصوات.**
+   *
+   * جرّبتُ أوّلًا أن أكتب `нн` ← `нː` هنا، فخرجت `ː` حرفًا لا يعرفه
+   * جدولُ الأصوات فسقط المقطعُ كلُّه إلى «غير مغطّى». والصوابُ أن
+   * إعادةَ الكتابة تعمل على **حروفٍ روسيّة** فقط، وأن الطولَ صفةُ
+   * صوتٍ لا حرفٌ في الكلمة. فيبقى الحرفان هنا، ويجمعهما
+   * `buildSegments` في صوتٍ واحدٍ موسومٍ بـ`long`.
+   */
+  transform: (word) => {
+    const hits = [];
+    GEMINATE.lastIndex = 0;
+    let m;
+    while ((m = GEMINATE.exec(word)) !== null) {
+      hits.push({ at: m.index, from: m[0], to: `${m[1]}ː` });
+    }
+    return hits.length ? { word, hits } : null;
+  },
+});
+
+registerRule({
   id: 'RU_CLUSTER_SCH_ZCH',
   category: RULE_CATEGORY.ASSIMILATION,
   stage: STAGE.ORTHOEPIC_REWRITE,
@@ -131,7 +221,7 @@ registerRule({
   summary: 'сч/зч تُنطَقان صوتًا واحدًا طويلًا ليّنًا [ɕː]',
   explain: '«сч» بتتنطق زيّ «щ» — صوت واحد طويل وليّن.',
   source: 'МГУ · orfoepija/tabl/sch.htm',
-  confidence: CONFIDENCE.HIGH,
+  status: STATUS.VERIFIED,
   evidence: EVIDENCE.SNIPPET,
   applies: (word) => /[сз]ч/.test(word),
   transform: (word) => swap(word, /[сз]ч/g, () => 'щ'),
@@ -145,7 +235,7 @@ registerRule({
   summary: 'نهايةُ الفعل ‎-тся/-ться تُنطَق [ца]',
   explain: '«-тся» و«-ться» الاتنين بيتنطقوا «-ца».',
   source: 'МГУ · orfoepija/sochetan.htm',
-  confidence: CONFIDENCE.HIGH,
+  status: STATUS.VERIFIED,
   evidence: EVIDENCE.SNIPPET,
   /* ⚠️ نهايةُ كلمةٍ حصرًا — ولا تُطلَق في وسطها. */
   applies: (word) => /(?:ться|тся)$/.test(word),
@@ -160,7 +250,7 @@ registerRule({
   summary: 'тч/дч تندمجان في ч واحدة',
   explain: 'الحرفين «тч» بيندمجوا في صوت «ч» واحد — «лётчик» بتتقال «лёчик».',
   source: 'МГУ · orfoepija/tabl/tch.htm',
-  confidence: CONFIDENCE.HIGH,
+  status: STATUS.PROVISIONAL,
   evidence: EVIDENCE.SNIPPET,
   /*
    * ⚠️ **ولا ندّعي طولًا.** المصدرُ يصف [ч':] طويلة، ونحن نُخرج `ч`

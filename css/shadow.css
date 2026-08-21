@@ -4698,87 +4698,191 @@ body.shadow-open { overflow: hidden; }
 }
 .sh-debug-hud:empty { display: none; }
 
+
 /* ================================================================== *
- * WS52 · لوحةُ «ليه بتتنطق كده؟»
+ * WS54 · ورقةُ تحليل النطق — الصفحةُ اليسرى تصير دفترَ دراسة
  *
- * ⚠️ **بنفس لغة الظلّ الكونيّة لا بشاشةِ أداةٍ غريبة.** الذهبيُّ
- *    للنبر، والعاجيُّ الخافتُ للنصّ، والحدودُ شعرةٌ واحدة — كباقي
- *    اللوحة. وميزةٌ تبدو من تطبيقٍ آخر تُشعرك أنك غادرتَ الكتاب.
+ * ⚠️ **الإخفاءُ هنا هو المعمار كلُّه.** الورقةُ لا تُهدَم ولا تُبنى:
+ *    وسمٌ واحدٌ على `.sh-left` يُخفي إخوةَ ورقة التحليل ويُظهرها.
+ *    فالعودةُ تستعيد التبويبَ والمقبضَ والصورةَ واللوحةَ المنسدلة —
+ *    **لأنها لم تُمَسّ**، لا لأننا تذكّرنا حفظَها.
  * ================================================================== */
 
-.sh-pron { padding: 4px 12px 8px; display: grid; gap: 12px; }
+.sh-left[data-analysis-on] > *:not([data-analysis]) { display: none !important; }
+.sh-left[data-analysis-on] { overflow-y: auto; }
 
-/* المقاطع: أوّلُ ما تحتاجه العين */
-.sh-pron-syl {
-  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
-  font-size: 20px; color: rgba(239, 231, 216, .55);
+.sh-analysis {
+  display: flex; flex-direction: column; min-block-size: 100%;
+  padding: 0 clamp(18px, 5vw, 54px) 48px;
 }
-.sh-pron-syl span { padding: 2px 6px; border-radius: 3px; }
-.sh-pron-syl span.on { color: rgba(240, 220, 176, .98); background: rgba(217, 182, 114, .12); }
-.sh-pron-syl i { color: rgba(239, 231, 216, .18); font-style: normal; }
 
-.sh-pron-row {
-  display: flex; align-items: baseline; gap: 10px; justify-content: space-between;
-  font-size: 13px; color: rgba(239, 231, 216, .5);
+/* الرأس: طريقُ العودة أوّلًا — فعلٌ واحدٌ واضح (§13) */
+.sh-an-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding-block: 16px 10px; position: sticky; inset-block-start: 0; z-index: 2;
+  background: linear-gradient(180deg, var(--sh-paper) 70%, transparent);
 }
-.sh-pron-row > b { font-weight: 500; color: rgba(239, 231, 216, .35); }
-.sh-pron-say { font-size: 19px; color: rgba(240, 220, 176, .95); letter-spacing: .02em; }
+.sh-an-head .sh-mono {
+  font-size: 9.5px; letter-spacing: .24em; color: rgba(90, 72, 44, .38);
+}
+.sh-an-back {
+  min-block-size: 44px; padding: 0 16px; cursor: pointer; font: inherit;
+  font-size: 13px; border-radius: 3px; color: var(--sh-paper-ink);
+  border: 1px solid rgba(122, 95, 44, .28); background: rgba(122, 95, 44, .06);
+}
+.sh-an-back:hover { background: rgba(122, 95, 44, .12); }
 
-/*
- * خريطةُ الكلمة — **وليست قوسَ قزح**: الأصواتُ الرماديّةُ هي الأصل،
- * واللونُ استثناءٌ يعني «هنا حصل حاجة».
- */
-.sh-pron-map { display: flex; flex-wrap: wrap; gap: 4px; }
+/* مِرساةُ السياق: الجملةُ الأصليّة، والكلمةُ فيها مُبرَزة (§9) */
+.sh-an-source {
+  margin: 0 0 6px; font-size: clamp(15px, 1.9vw, 19px); line-height: 2.1;
+  color: rgba(90, 72, 44, .62); padding-block-end: 18px;
+  border-block-end: 1px solid rgba(122, 95, 44, .16);
+}
+.sh-an-here {
+  background: linear-gradient(180deg, transparent 58%, rgba(217, 182, 114, .48) 58%);
+  color: var(--sh-paper-ink); font-weight: 600; padding: 0 2px; border-radius: 2px;
+}
+
+.sh-an-body { flex: 1; padding-block-start: clamp(20px, 4vh, 44px); }
+
+/* الكلمةُ تاجُ الصفحة */
+.sh-an-word {
+  font-size: clamp(34px, 6.2vw, 62px); line-height: 1.15; text-align: center;
+  color: var(--sh-paper-ink); letter-spacing: .01em;
+}
+.sh-an-syl {
+  display: flex; justify-content: center; align-items: baseline; gap: 8px;
+  flex-wrap: wrap; margin-block-start: 14px;
+  font-size: clamp(18px, 2.6vw, 26px); color: rgba(90, 72, 44, .5);
+}
+.sh-an-syl span { padding: 2px 10px; border-radius: 3px; }
+.sh-an-syl span.on {
+  color: var(--sh-paper-ink);
+  background: linear-gradient(180deg, transparent 62%, rgba(217, 182, 114, .42) 62%);
+}
+.sh-an-syl i { color: rgba(122, 95, 44, .25); font-style: normal; }
+
+/* سطورُ الدفتر: مفتاحٌ في الهامش وقيمةٌ في المتن */
+.sh-an-line {
+  display: flex; align-items: baseline; gap: 16px; justify-content: center;
+  margin-block-start: clamp(18px, 3vh, 32px); flex-wrap: wrap;
+}
+.sh-an-line .k {
+  font-size: 11px; letter-spacing: .18em; color: rgba(90, 72, 44, .42);
+}
+.sh-an-line .v { font-size: clamp(16px, 2vw, 20px); color: var(--sh-paper-ink); }
+.sh-an-line .v small { color: rgba(90, 72, 44, .45); margin-inline-start: 6px; }
+.sh-an-say .v {
+  font-size: clamp(22px, 3.4vw, 34px);
+  color: #6d5220;
+  border-block-end: 2px solid rgba(217, 182, 114, .55);
+  padding-block-end: 3px;
+}
+
+/* عناوينُ الأقسام — كملاحظاتِ هامشٍ لا كترويسات لوحة */
+.sh-analysis h4 {
+  font-size: 11px; font-weight: 500; letter-spacing: .2em; margin: 0 0 14px;
+  color: rgba(90, 72, 44, .42); text-align: center;
+}
+.sh-an-map, .sh-an-why, .sh-an-ask, .sh-an-adv {
+  margin-block-start: clamp(26px, 5vh, 46px);
+  padding-block-start: clamp(20px, 3vh, 30px);
+  border-block-start: 1px solid rgba(122, 95, 44, .14);
+}
+
+/* خريطةُ الأصوات — ولا قوسَ قزح: اللونُ يعني «هنا حصل حاجة» */
+.sh-an-sounds { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; }
 .sh-pron-sound {
-  min-width: 30px; min-height: 44px; padding: 0 6px; cursor: pointer;
-  font-size: 17px; border-radius: 4px; transition: all .2s ease;
-  border: 1px solid rgba(239, 231, 216, .07); background: transparent;
-  color: rgba(239, 231, 216, .42);
+  min-inline-size: 42px; min-block-size: 52px; padding: 0 8px; cursor: pointer;
+  font-size: clamp(19px, 2.6vw, 25px); border-radius: 4px; transition: all .2s ease;
+  border: 1px solid rgba(122, 95, 44, .14); background: transparent;
+  color: rgba(90, 72, 44, .55);
 }
-.sh-pron-sound.k-stress { color: rgba(240, 220, 176, .98); border-color: rgba(217, 182, 114, .45); }
-.sh-pron-sound.k-red1 { color: rgba(150, 190, 220, .85); border-color: rgba(150, 190, 220, .22); }
-.sh-pron-sound.k-red2 { color: rgba(150, 190, 220, .5); border-color: rgba(150, 190, 220, .12); }
-.sh-pron-sound.k-devoiced { color: rgba(226, 150, 140, .85); border-color: rgba(226, 150, 140, .25); }
-.sh-pron-sound.k-voiced { color: rgba(150, 210, 170, .85); border-color: rgba(150, 210, 170, .25); }
-.sh-pron-sound.is-open { background: rgba(239, 231, 216, .07); }
+.sh-pron-sound.k-stress {
+  color: #6d5220; border-color: rgba(217, 182, 114, .6); background: rgba(217, 182, 114, .12);
+}
+.sh-pron-sound.k-red1 { color: #3f6a86; border-color: rgba(63, 106, 134, .28); }
+.sh-pron-sound.k-red2 { color: rgba(63, 106, 134, .62); border-style: dashed; }
+.sh-pron-sound.k-devoiced { color: #9c4a3c; border-color: rgba(156, 74, 60, .3); }
+.sh-pron-sound.k-voiced { color: #3f7a52; border-color: rgba(63, 122, 82, .3); }
+.sh-pron-sound.is-open { background: rgba(122, 95, 44, .1); }
 
-.sh-pron-note, .sh-pron-warn {
-  font-size: 12.5px; line-height: 1.75; padding: 9px 11px; border-radius: 4px;
-  color: rgba(239, 231, 216, .58); background: rgba(255, 255, 255, .03);
-  border-inline-start: 2px solid rgba(239, 231, 216, .14);
+.sh-an-note, .sh-an-warn {
+  margin: 16px auto 0; max-inline-size: 62ch; font-size: 14px; line-height: 1.9;
+  padding: 12px 16px; border-radius: 3px; color: rgba(74, 65, 51, .82);
+  background: rgba(122, 95, 44, .05);
+  border-inline-start: 2px solid rgba(122, 95, 44, .3);
 }
-.sh-pron-note b { color: rgba(240, 220, 176, .9); margin-inline-end: 8px; }
-.sh-pron-warn {
-  color: rgba(233, 196, 140, .82); border-inline-start-color: rgba(217, 182, 114, .45);
-  background: rgba(217, 182, 114, .06); font-style: normal;
-}
-
-/* السؤالُ حين لا نعرف النبر — أصدقُ من جوابٍ مخمَّن */
-.sh-pron-ask p { margin: 0 0 9px; font-size: 12.5px; color: rgba(239, 231, 216, .55); line-height: 1.7; }
-.sh-pron-pick { display: flex; flex-wrap: wrap; gap: 6px; }
-.sh-pron-pick button {
-  min-width: 46px; min-height: 46px; font-size: 19px; cursor: pointer; border-radius: 4px;
-  border: 1px solid rgba(217, 182, 114, .28); background: rgba(217, 182, 114, .05);
-  color: rgba(240, 220, 176, .9);
+.sh-an-note b { color: #6d5220; margin-inline-end: 10px; font-size: 17px; }
+.sh-an-warn {
+  color: #7a5a22; border-inline-start-color: rgba(184, 134, 43, .6);
+  background: rgba(217, 182, 114, .1);
 }
 
-.sh-pron-why > b { display: block; font-size: 12px; color: rgba(239, 231, 216, .38); padding-bottom: 7px; }
-.sh-pron-why ul { margin: 0; padding-inline-start: 16px; display: grid; gap: 7px; }
-.sh-pron-why li { font-size: 12.5px; line-height: 1.8; color: rgba(239, 231, 216, .62); }
-.sh-pron-why li code {
-  display: block; font-family: var(--sh-mono); font-size: 9.5px; letter-spacing: .1em;
-  color: rgba(217, 182, 114, .55); padding-top: 3px; direction: ltr;
+/* «ليه؟» — هامشٌ مرقَّم كملاحظاتِ دراسة */
+.sh-an-why ol {
+  margin: 0 auto; max-inline-size: 64ch; padding-inline-start: 0; list-style: none;
+  counter-reset: why;
 }
-.sh-pron-why li small { display: block; font-size: 10px; color: rgba(239, 231, 216, .26); direction: ltr; }
-.sh-pron-why em { display: block; padding-top: 8px; font-size: 11.5px; color: rgba(239, 231, 216, .3); }
-
-.sh-pron-tbl { width: 100%; border-collapse: collapse; font-size: 12px; }
-.sh-pron-tbl td { padding: 7px 6px; border-block-end: 1px solid rgba(255, 255, 255, .04); color: rgba(239, 231, 216, .55); }
-.sh-pron-tbl td:first-child { width: 34px; font-size: 15px; color: rgba(240, 220, 176, .85); }
-.sh-pron-tbl td:nth-child(2) { width: 40px; color: rgba(150, 190, 220, .8); }
-
-.sh-pron-ipa {
-  font-size: 20px; text-align: center; padding: 12px; border-radius: 4px;
-  color: rgba(240, 220, 176, .95); background: rgba(217, 182, 114, .06);
-  border: 1px solid rgba(217, 182, 114, .16);
+.sh-an-why li {
+  counter-increment: why; position: relative;
+  padding: 0 0 20px 0; padding-inline-start: 42px;
 }
+.sh-an-why li::before {
+  content: counter(why); position: absolute; inset-inline-start: 0; inset-block-start: 1px;
+  inline-size: 26px; block-size: 26px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 11px;
+  color: #7a5f2c; border: 1px solid rgba(122, 95, 44, .3);
+}
+.sh-an-why li p { margin: 0; font-size: 15px; line-height: 1.95; color: rgba(74, 65, 51, .9); }
+
+.sh-an-flag {
+  display: inline-block; margin-block-start: 7px; font-size: 10.5px;
+  letter-spacing: .1em; padding: 2px 9px; border-radius: 2px;
+}
+.s-DISPUTED { color: #8a5a2a; background: rgba(184, 134, 43, .16); }
+.s-PROVISIONAL { color: #4a6a80; background: rgba(63, 106, 134, .13); }
+.s-VERIFIED { color: #3f7a52; background: rgba(63, 122, 82, .13); }
+.s-LEXICAL { color: #7a5f2c; background: rgba(122, 95, 44, .12); }
+
+.sh-an-meta {
+  margin-block-start: 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  font-size: 10.5px;
+}
+.sh-an-meta code { color: #7a5f2c; letter-spacing: .06em; }
+.sh-an-meta span { padding: 2px 8px; border-radius: 2px; }
+.sh-an-meta em { color: rgba(90, 72, 44, .5); font-style: normal; }
+
+/* سؤالُ النبر حين لا نعرفه — أصدقُ من جوابٍ مخمَّن */
+.sh-an-ask { text-align: center; }
+.sh-an-ask p {
+  margin: 0 auto 16px; max-inline-size: 52ch; font-size: 14.5px; line-height: 1.95;
+  color: rgba(74, 65, 51, .82);
+}
+.sh-an-pick { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
+.sh-an-pick button {
+  min-inline-size: 54px; min-block-size: 54px; font-size: 24px; cursor: pointer;
+  border-radius: 4px; color: #6d5220;
+  border: 1px solid rgba(217, 182, 114, .5); background: rgba(217, 182, 114, .1);
+}
+
+.sh-an-ipa {
+  text-align: center; font-size: clamp(20px, 3vw, 28px); color: #6d5220;
+  padding: 14px; margin: 0 0 16px;
+}
+.sh-an-adv dl {
+  margin: 0 auto; max-inline-size: 46ch; display: grid;
+  grid-template-columns: auto 1fr; gap: 8px 18px; font-size: 12.5px;
+}
+.sh-an-adv dt { color: rgba(90, 72, 44, .45); }
+.sh-an-adv dd { margin: 0; color: rgba(74, 65, 51, .85); }
+
+.sh-an-modes {
+  margin-block-start: clamp(28px, 5vh, 48px); display: flex; justify-content: center;
+}
+.sh-an-modes button {
+  min-block-size: 44px; padding: 0 20px; cursor: pointer; font: inherit; font-size: 12.5px;
+  border-radius: 3px; color: rgba(90, 72, 44, .7);
+  border: 1px solid rgba(122, 95, 44, .22); background: transparent;
+}
+.sh-an-modes button.on { background: rgba(122, 95, 44, .1); color: var(--sh-paper-ink); }

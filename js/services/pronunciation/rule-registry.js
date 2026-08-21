@@ -22,8 +22,49 @@
  *  · المعجمُ (٩٠٠) **آخرًا** — لأنه تجاوزٌ لا مدخَل.
  */
 
-/** إصدارُ مجموعة القواعد — يُخزَّن مع كلّ تحليلٍ محفوظ (§24 من الطلب). */
-export const RULESET_VERSION = '1.0.0';
+/**
+ * إصدارُ مجموعة القواعد — يُخزَّن مع كلّ تحليلٍ محفوظ.
+ *
+ * ⚠️ **وهو ما يجعل التحليلَ قابلًا للنقض.** الكلمةُ المحفوظةُ تحمل
+ *    إصدارَ القواعد الذي حُلِّلت به؛ فحين تُصحَّح قاعدةٌ ويرتفع الإصدار،
+ *    تُعرَف كلُّ الكلمات المتأثّرة وتُعاد تحليلًا بلا أن تُحرّر واحدةً
+ *    بيدك. راجع `reanalysis.js`.
+ */
+export const RULESET_VERSION = '2.0.0';
+
+/**
+ * حالةُ نضج القاعدة — **وليست نسبةَ ثقةٍ مزيّفة**.
+ *
+ * ⚠️ **لماذا حالاتٌ مسمّاةٌ لا رقمٌ من مئة؟**
+ *    لأن «٨٧٪» لا تقول شيئًا يُتصرَّف بناءً عليه. أمّا «مُختلَفٌ فيها»
+ *    فتقول: لا تُصدّقها وحدَها، وانظر البديل. و«مبدئيّة» تقول: مبنيّةٌ
+ *    على دليلٍ معتبَر ولم تُراجَع على النصّ الكامل بعد. الحالةُ
+ *    **تصف ما نعرفه عن معرفتنا**، والرقمُ يُخفيه خلف دقّةٍ موهومة.
+ */
+export const STATUS = Object.freeze({
+  /** رُوجعت على دليلٍ كافٍ من مصدرٍ معياريّ. */
+  VERIFIED: 'VERIFIED',
+  /** مبنيّةٌ على دليلٍ معتبَر، ومراجعةُ النصّ الكامل ما زالت معلَّقة. */
+  PROVISIONAL: 'PROVISIONAL',
+  /** المصادرُ المعياريّة تختلف، أو النطقُ نفسُه متغيّر. */
+  DISPUTED: 'DISPUTED',
+  /** سلوكٌ يخصّ كلماتٍ بعينها لا يُعمَّم. */
+  LEXICAL: 'LEXICAL',
+  /** ظاهرةٌ معروفةٌ لم تُنفَّذ بأمانٍ بعد. */
+  DEFERRED: 'DEFERRED',
+});
+
+/** الحالاتُ التي يجوز لقاعدةٍ **مُنفَّذة** أن تحملها. */
+const IMPLEMENTABLE = [STATUS.VERIFIED, STATUS.PROVISIONAL, STATUS.DISPUTED, STATUS.LEXICAL];
+
+/** شرحٌ عربيٌّ للحالة — يُعرَض في الوضع المتقدّم. */
+export const STATUS_LABEL = Object.freeze({
+  VERIFIED: 'مُتحقَّق منها',
+  PROVISIONAL: 'مبدئيّة — لسه محتاجة مراجعة على المصدر الكامل',
+  DISPUTED: 'مُختلَفٌ فيها — المصادر مش متّفقة أو النطق نفسه بيختلف',
+  LEXICAL: 'معجميّة — بتخصّ كلمات بعينها',
+  DEFERRED: 'مؤجَّلة — معروفة وما اتنفّذتش لسه',
+});
 
 /** فئاتُ القواعد. */
 export const RULE_CATEGORY = Object.freeze({
@@ -55,19 +96,13 @@ export const STAGE = Object.freeze({
   VOICING: 'VOICING',
 });
 
-/** درجاتُ الثقة كما في المواصفة. */
-export const CONFIDENCE = Object.freeze({
-  HIGH: 'high',
-  MEDIUM: 'medium',
-});
-
 /** مستوى الدليل — راجع `§20.0` في المواصفة. */
 export const EVIDENCE = Object.freeze({
   SNIPPET: 'SOURCE_SNIPPET',
   PENDING: 'SOURCE_PENDING',
 });
 
-const REQUIRED = ['id', 'category', 'stage', 'priority', 'summary', 'source', 'confidence', 'evidence'];
+const REQUIRED = ['id', 'category', 'stage', 'priority', 'summary', 'source', 'status', 'evidence'];
 
 /** السجلُّ الحقيقيّ — `Map` لأن ترتيبَ الإدراج لا يعنينا، الفرزُ يعني. */
 const rules = new Map();
@@ -86,6 +121,16 @@ export function registerRule(rule) {
     }
   }
   if (rules.has(rule.id)) throw new Error(`مُعرِّفٌ مكرَّر: ${rule.id}`);
+
+  /*
+   * ⚠️ **ولا تدخل قاعدةٌ مؤجَّلةٌ المحرّكَ.** `DEFERRED` وصفٌ لظاهرةٍ
+   *    نعرفها ولم نُنفّذها — مكانُها `DEFERRED_PHENOMENA` أدناه لا
+   *    السجلُّ التنفيذيّ. ولو سُجِّلت هنا لصارت تنطق باسم اللغة وهي
+   *    معلَنةٌ غيرَ جاهزة.
+   */
+  if (!IMPLEMENTABLE.includes(rule.status)) {
+    throw new Error(`حالةٌ لا تصلح لقاعدةٍ مُنفَّذة: ${rule.id} → ${rule.status}`);
+  }
 
   for (const other of rules.values()) {
     if (other.stage === rule.stage && other.priority === rule.priority) {
@@ -115,6 +160,33 @@ export function ruleById(id) {
 export function allRuleIds() {
   return orderedRules().map((r) => r.id);
 }
+
+/** القواعدُ حسب الحالة — للتقرير وللوضع المتقدّم. */
+export function rulesByStatus() {
+  const out = { VERIFIED: [], PROVISIONAL: [], DISPUTED: [], LEXICAL: [] };
+  for (const rule of orderedRules()) out[rule.status]?.push(rule.id);
+  return out;
+}
+
+/**
+ * ظواهرُ نعرفها ولم نُنفّذها — **بيانٌ لا نثرٌ في وثيقة**.
+ *
+ * ⚠️ **ولماذا تُخزَّن بدل أن تُكتَب في ملفّ markdown؟**
+ *    لأن المؤجَّلَ المكتوبَ في وثيقةٍ يُنسى، والمؤجَّلَ في بنيةِ بيانات
+ *    يظهر في التقرير ويُعَدّ ويُراجَع. وهو أيضًا ما يمنع أن يُعاد
+ *    «اكتشافُ» ظاهرةٍ قرّرنا تأجيلها بوعيٍ، فتُنفَّذ على عجل.
+ */
+export const DEFERRED_PHENOMENA = Object.freeze([
+  { id: 'RU_ZH_LONG_IN_ROOT', why: 'зж/жж داخل الجذر: طويلةٌ ليّنةٌ أو صلبةٌ بحسب المتحدّث — والمصدرُ نفسُه يعطي الوجهين' },
+  { id: 'RU_RED_A_AFTER_HUSHING', why: 'жалеть → [жыл\'эт\'] — معيارٌ موسكوفيٌّ قديمٌ متغيّرٌ اليوم' },
+  { id: 'RU_UNSTRESSED_E_CARET', why: 'э غيرُ المشدَّدة (этаж, экран): لم يصل مقتطفٌ يحدّد قيمتَها — تبقى بلا ادّعاء' },
+  { id: 'RU_LOANWORD_UNREDUCED_O', why: 'радио/боа/какао: تحتاج معجمًا موسومًا بالأصل الأجنبيّ لا نملكه' },
+  { id: 'RU_LOANWORD_HARD_E_BROAD', why: 'المصدرُ صريح: «لا قواعدَ ثابتة، والمعيارُ متغيّر، ويُرجَع للمعاجم الأورثوإبيّة» — فالقائمةُ العريضة تحتاج معجمًا لا يجوز نسخُه' },
+  { id: 'RU_CROSS_WORD_PROSODY', why: 'أثرُ الوقف والتنغيم على المماثلة عبر الحدود — المصدرُ يشترط «بلا وقفة» ونحن لا نعرف أين تقف' },
+  { id: 'RU_PREPOSITION_I_TO_Y', why: 'в Италии → [вытал\'ии]: يحتاج معرفةَ أن الكلمةَ السابقة حرفُ جرٍّ ينتهي بساكنٍ صلب — بنيةٌ موجودةٌ وتنفيذٌ لم يُختبَر' },
+  { id: 'RU_INTONATION_IK', why: 'التنغيم (ИК-1…ИК-7) خارج سؤال «لماذا تُنطق الكلمةُ هكذا»' },
+  { id: 'RU_CHT_BROAD', why: 'чт←шт خارج что/чтобы: قائمةٌ ضيّقةٌ ومختلَفٌ فيها — والكلمتان في المعجم مباشرةً' },
+]);
 
 /** ⚠️ للاختبارات وحدَها: تفريغُ السجلّ. لا يُنادى من كودِ إنتاج. */
 export function __resetRegistry() {

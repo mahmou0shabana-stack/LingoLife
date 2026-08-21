@@ -45,7 +45,7 @@ import { claimAudio, releaseAudio, ownsAudio } from '../services/shadow/audio-bu
  */
 import {
   analyzeWord, clearPronunciationCache, pronunciationMetadata,
-  DISPLAY_MODE, FLAG as PRON_FLAG,
+  DISPLAY_MODE, FLAG as PRON_FLAG, ruleById,
 } from '../services/pronunciation/engine.js';
 import {
   holdBackgroundAudio, releaseBackgroundAudio, disposeBackgroundAudio,
@@ -1161,6 +1161,14 @@ function shell() {
             <!-- ─────── الورقة ─────── -->
             <div class="sh-page sh-left">
 
+              <!--
+                ورقةُ التحليل (WS54) — تعيش هنا **أختًا** لبقيّة الورقة
+                لا بديلًا عنها. حين تُفتَح يُخفى إخوتُها بالـCSS وحدَه،
+                فلا يُهدَم شيءٌ ولا تُفقَد حالة: العودةُ إزالةُ وسمٍ
+                واحد. راجع الشرح فوق openAnalysis.
+              -->
+              <div class="sh-analysis" data-analysis hidden></div>
+
               <div class="sh-sec-head">
                 <span class="sh-mono">SOURCE · ${source?.label || 'TEXT'}</span>
                 <span class="sh-pgbtns">
@@ -2046,6 +2054,12 @@ function syncSegment() {
    *    وهي تعمل على رقمٍ في جملةٍ غادرتَها.
    */
   rail.word = -1;
+  /*
+   * ⚠️ **وورقةُ التحليل تتبع الجملة.** تحليلُ كلمةٍ من جملةٍ غادرتَها
+   *    يعرض سياقًا ليس أمامك — وهو أسوأُ من ألّا يُعرَض، لأن مِرساةَ
+   *    الورقة كلِّها هي «الجملةُ اللي الكلمة دي جت منها».
+   */
+  if (analysis.on && ctx.segments[index]?.id !== analysis.segmentId) closeAnalysis();
   renderRail();
   if (rail.open && rail.tool === 'draft') renderDraft().catch(() => {});
   savePosition(ctx.session.id, index).catch(() => {});
@@ -2452,10 +2466,6 @@ const STRESS_MARK = '\u0301';
 /** حالةُ السكّة — خارج الـDOM كباقي حالات هذه الشاشة. */
 const rail = {
   open: false, tool: 'display', word: -1,
-  /* ⚠️ الافتراضُ `SIMPLE` دائمًا — والكشفُ تدريجيٌّ بطلبك (§38). */
-  pronMode: DISPLAY_MODE.SIMPLE,
-  /** أيُّ صوتٍ في خريطة الكلمة مفتوحٌ شرحُه؟ `-1` = لا شيء. */
-  pronSound: -1,
 };
 
 /**
@@ -2750,7 +2760,8 @@ function panelFor(id) {
       }],
     };
   }
-  if (id === 'pron') return pronPanel();
+  /* ⚠️ **ولا لوحةَ نطقٍ في السكّة بعد اليوم (WS54).** التحليلُ صار
+        ورقةً كاملةً على اليسار — ونظامان للشيء نفسِه يفترقان. */
 
   return { title: 'الأدوات', foot: '', groups: [] };
 }
@@ -2782,7 +2793,7 @@ function pronAccent(sound) {
 function pronMapHtml(analysis) {
   return analysis.sounds.map((sound, i) => {
     const accent = pronAccent(sound);
-    const open = rail.pronSound === i ? ' is-open' : '';
+    const open = analysis.sound === i ? ' is-open' : '';
     const shown = sound.type === 'silent' ? sound.letter : (sound.cyrillic || sound.letter);
     return `<button class="sh-pron-sound${accent ? ` k-${accent}` : ''}${open}"
               data-sh="pron-sound" data-v="${i}" lang="ru" dir="ltr"
@@ -2802,117 +2813,87 @@ function pronStressPicker(word) {
   }).join('');
 }
 
-const PRON_MODE_LABEL = Object.freeze({
-  [DISPLAY_MODE.SIMPLE]: 'مبسّط',
-  [DISPLAY_MODE.SOUNDS]: 'الأصوات',
-  [DISPLAY_MODE.IPA]: 'IPA',
-  [DISPLAY_MODE.RULES]: 'القواعد',
-});
+/* ================================================================== *
+ * وضعُ التحليل — الورقةُ اليسرى تصير دفترَ دراسة (WS54)
+ * ================================================================== */
 
-function pronPanel() {
+/**
+ * ⚠️ **الإخفاءُ عرضٌ لا هدم — وهذا هو كلُّ المعمار.**
+ *
+ * ورقةُ التحليل عنصرٌ **أخٌ** لبقيّة أقسام الورقة، لا بديلٌ يحلّ محلَّها.
+ * وحين تُفتَح لا نُفرِّغ `innerHTML` ولا نُبدّل قسمًا بقسم — نضع وسمًا
+ * واحدًا على `.sh-left`، والـCSS يُخفي الإخوةَ ويُظهر الورقة.
+ *
+ * والفرقُ ليس ذوقًا في التنفيذ: لو هدمنا لبنينا من جديدٍ عند العودة،
+ * ولضاع **كلُّ ما لا نتذكّر أن نحفظه**: أيُّ تبويبِ منبعٍ كان مفتوحًا،
+ * وأين كان مقبضُ تقسيم المستند، وأيُّ صورةٍ كانت مكبَّرة، وأيُّ لوحةِ
+ * خطٍّ كانت منسدلة. أمّا الإخفاءُ فيستعيد كلَّ ذلك **لأنه لم يمسّه**.
+ * والشيءُ الوحيدُ الذي يضيع فعلًا هو موضعُ التمرير — فنحفظه بيدنا،
+ * لأنه الوحيدُ الذي يملكه المتصفّحُ لا الـDOM.
+ */
+const analysis = {
+  on: false,
+  wordIndex: -1,
+  word: '',
+  sentence: '',
+  segmentId: null,
+  mode: DISPLAY_MODE.SIMPLE,
+  sound: -1,
+  advanced: false,
+  /** موضعُ تمرير الورقة قبل الدخول — الشيءُ الوحيدُ الذي لا يحفظه الـDOM. */
+  scrollTop: 0,
+};
+
+function analysisHost() { return document.querySelector('[data-analysis]'); }
+function leftPage() { return document.querySelector('.sh-left'); }
+
+/** يفتح وضعَ التحليل على الكلمة الممسوكة الآن. */
+function openAnalysis() {
   const word = currentWordText();
-  if (!word) return { title: 'النطق', foot: 'امسك كلمةً أوّلًا', groups: [] };
+  if (!word) return toastError('امسك كلمة الأوّل');
 
-  const analysis = analyzeWord(word);
-  if (!analysis.supported) {
-    return { title: word, foot: 'الكلمة دي مافيهاش حروف روسية نحلّلها', groups: [] };
-  }
+  const page = leftPage();
+  analysis.on = true;
+  analysis.wordIndex = rail.word;
+  analysis.word = word;
+  analysis.sentence = currentSentenceText();
+  analysis.segmentId = ctx.segments[player?.state?.index ?? 0]?.id || null;
+  analysis.sound = -1;
+  analysis.scrollTop = page?.scrollTop || 0;
 
-  const unknown = analysis.flags.includes(PRON_FLAG.UNKNOWN_STRESS);
-  const parts = [];
+  /* ⚠️ والسكّةُ تُغلَق: التحليلُ صار الورقةَ كلَّها، فلا لوحةَ تزاحمه. */
+  rail.open = false;
+  renderRail();
 
-  /* ---- المقاطع: دائمًا، وهي أوّلُ ما يحتاجه المتعلّم ---- */
-  parts.push(`<div class="sh-pron-syl" lang="ru" dir="ltr">${
-    analysis.syllables.map((s, i) => `<span class="${
-      i === analysis.stress.ordinal ? 'on' : ''}">${esc(s)}</span>`).join('<i>|</i>')
-  }</div>`);
+  page?.setAttribute('data-analysis-on', '');
+  renderAnalysis();
+  page?.scrollTo({ top: 0 });
+  return undefined;
+}
 
-  /* ---- النبر ---- */
-  parts.push(`<div class="sh-pron-row"><b>🎯 النبر</b><span>${
-    unknown
-      ? '<em class="sh-pron-warn">النبر غير مؤكد</em>'
-      : esc(`المقطع ${['الأول', 'التاني', 'التالت', 'الرابع', 'الخامس', 'السادس'][analysis.stress.ordinal] || (analysis.stress.ordinal + 1)}`)
-  }</span></div>`);
+/**
+ * يغلق وضعَ التحليل ويستعيد الورقةَ كما كانت.
+ * ⚠️ ولا يُعيد بناءَ شيء — الاستعادةُ إزالةُ وسمٍ وإرجاعُ تمرير.
+ */
+function closeAnalysis() {
+  const page = leftPage();
+  analysis.on = false;
+  page?.removeAttribute('data-analysis-on');
+  const host = analysisHost();
+  if (host) { host.setAttribute('hidden', ''); host.innerHTML = ''; }
+  if (page) page.scrollTop = analysis.scrollTop;
+}
 
-  /*
-   * ⚠️ **وبلا نبرٍ لا نطقَ — ونقولها بدل أن نعرض تقريبًا.**
-   *    «замок» بلا نبرٍ قلعةٌ أو قُفل، ونطقٌ واثقٌ لأحدهما يعلّمك
-   *    الخطأَ ولا تشكّ فيه. فالسؤالُ أصدقُ من الجواب.
-   */
-  if (unknown) {
-    parts.push(`<div class="sh-pron-ask">
-      <p>عشان أعرف أقولك بتتنطق إزاي، محتاج أعرف النبر. دوس على حرف العلّة الصح:</p>
-      <div class="sh-pron-pick" >${pronStressPicker(analysis.normalizedText)}</div>
-    </div>`);
-  } else {
-    parts.push(`<div class="sh-pron-row"><b>🔊 النطق</b>
-      <span class="sh-pron-say" lang="ru" dir="ltr">[${esc(analysis.pronunciation.simple)}]</span></div>`);
-    parts.push(`<div class="sh-pron-map">${pronMapHtml(analysis)}</div>`);
-
-    if (rail.pronSound >= 0 && analysis.sounds[rail.pronSound]) {
-      const s = analysis.sounds[rail.pronSound];
-      parts.push(`<div class="sh-pron-note"><b lang="ru" dir="ltr">${esc(s.letter)}</b>
-        ${esc(s.labels.join(' · ') || 'زيّ ما هو مكتوب')}</div>`);
-    }
-  }
-
-  /* ---- «ليه؟» — الشرحُ، وهو لبُّ الميزة ---- */
-  const reasons = analysis.appliedRules
-    .filter((step) => step.why)
-    .filter((step, i, all) => all.findIndex((o) => o.ruleId === step.ruleId) === i);
-
-  if (reasons.length) {
-    const shown = rail.pronMode === DISPLAY_MODE.SIMPLE ? reasons.slice(0, 3) : reasons;
-    parts.push(`<div class="sh-pron-why"><b>ليه بتتنطق كده؟</b><ul>${
-      shown.map((step) => `<li>${esc(step.why)}${
-        rail.pronMode === DISPLAY_MODE.RULES
-          ? `<code>${esc(step.ruleId)}</code><small>${esc(step.source)}</small>`
-          : ''
-      }</li>`).join('')
-    }</ul>${
-      rail.pronMode === DISPLAY_MODE.SIMPLE && reasons.length > 3
-        ? `<em>+${reasons.length - 3} قاعدة تانية — شوف «القواعد»</em>` : ''
-    }</div>`);
-  }
-
-  /* ---- الأصوات: جدولٌ حرفًا حرفًا ---- */
-  if (rail.pronMode === DISPLAY_MODE.SOUNDS) {
-    parts.push(`<table class="sh-pron-tbl"><tbody>${
-      analysis.sounds.map((s) => `<tr><td lang="ru" dir="ltr">${esc(s.letter)}</td>
-        <td lang="ru" dir="ltr">${esc(s.cyrillic || '—')}</td>
-        <td>${esc(s.labels.join('، ') || 'زيّ ما هو')}</td></tr>`).join('')
-    }</tbody></table>`);
-  }
-
-  /* ---- IPA: ولا يُسمَّى IPA إلّا حين يكون كذلك ---- */
-  if (rail.pronMode === DISPLAY_MODE.IPA) {
-    parts.push(analysis.pronunciation.ipa
-      ? `<div class="sh-pron-ipa" dir="ltr">[${esc(analysis.pronunciation.ipa)}]</div>`
-      : `<div class="sh-pron-note">مفيش IPA كامل للكلمة دي — فيه أصوات لسه مش مغطّاة بقواعد،
-         وأحسن أقولك كده من إني أخترع رموز.</div>`);
-  }
-
-  /* ---- تحذيراتٌ صادقة ---- */
-  for (const warn of analysis.warnings) {
-    if (unknown && warn.includes('النبر')) continue;   /* مقولٌ فوق بالفعل */
-    parts.push(`<div class="sh-pron-warn">${esc(warn)}</div>`);
-  }
-  if (analysis.lexical && analysis.lexical.category !== 'VARIANT') {
-    parts.push('<div class="sh-pron-note">دي حالة معجمية خاصة — مش قاعدة تقدر تعمّمها.</div>');
-  }
-
-  const modes = Object.values(DISPLAY_MODE).map((m) =>
-    `<button data-sh="pron-mode" data-v="${m}" class="${rail.pronMode === m ? 'on' : ''}"
-     >${esc(PRON_MODE_LABEL[m])}</button>`).join('');
-
-  return {
-    title: word,
-    foot: unknown
-      ? 'اللي تختاره هيتحفظ عندك للأبد، وهيظهر في كل جملة فيها الكلمة دي'
-      : `مصدر النبر: ${PRON_SOURCE_LABEL[analysis.stress.source] || analysis.stress.source}`,
-    groups: [{ title: 'العرض', items: modes }],
-    after: `<div class="sh-pron">${parts.join('')}</div>`,
-  };
+/** الجملةُ الأصليّةُ مع إبرازِ الكلمة المُحلَّلة — مِرساةُ السياق (§9). */
+function analysisAnchorHtml() {
+  const words = splitWords(analysis.sentence || '');
+  if (!words.length) return esc(analysis.sentence || '');
+  return words.map((w, i) => {
+    const text = w.display ?? w.spoken ?? String(w);
+    return i === analysis.wordIndex
+      ? `<mark class="sh-an-here">${esc(text)}</mark>`
+      : esc(text);
+  }).join(' ');
 }
 
 /**
@@ -2940,6 +2921,134 @@ function resyncKeepingWord() {
     rail.tool = tool;
   }
   renderRail();
+}
+
+/**
+ * يرسم ورقةَ التحليل.
+ *
+ * ⚠️ **دفترٌ لا لوحةُ قيادة (§8).** التسلسلُ الطباعيُّ هو ما يحمل
+ *    المعنى: الجملةُ الأصليّةُ في الأعلى كعنوانِ صفحة، ثم الكلمةُ
+ *    كبيرةً في وسط الورقة، ثم مقاطعُها، ثم «ليه» في هامشٍ مرقَّم.
+ *    ولا بطاقاتٍ ولا صناديقَ ذاتَ حدود — الورقةُ نفسُها هي الإطار.
+ */
+function renderAnalysis() {
+  const host = analysisHost();
+  if (!host || !analysis.on) return;
+
+  const result = analyzeWord(analysis.word, {
+    /* ⚠️ الجارُ يُمرَّر — فالمماثلةُ عبر الحدّ تظهر في مكانها الطبيعيّ. */
+    nextWord: splitWords(analysis.sentence || '')[analysis.wordIndex + 1]?.spoken || null,
+    previousWord: splitWords(analysis.sentence || '')[analysis.wordIndex - 1]?.spoken || null,
+  });
+
+  const unknown = result.flags.includes(PRON_FLAG.UNKNOWN_STRESS);
+  const ordinalWord = ['الأول', 'التاني', 'التالت', 'الرابع', 'الخامس', 'السادس', 'السابع'];
+
+  /* ---- الرأس: الجملةُ الأصليّة + طريقُ العودة ---- */
+  const head = `
+    <div class="sh-an-head">
+      <button class="sh-an-back" data-sh="analysis-close">← ارجع للنصّ</button>
+      <span class="sh-mono">تحليل النطق</span>
+    </div>
+    <p class="sh-an-source" lang="ru" dir="ltr">${analysisAnchorHtml()}</p>`;
+
+  /* ---- الكلمةُ ومقاطعُها ---- */
+  const syllables = result.syllables.length
+    ? result.syllables.map((s, i) =>
+      `<span class="${i === result.stress.ordinal ? 'on' : ''}">${esc(s)}</span>`).join('<i>|</i>')
+    : '';
+
+  const crown = `
+    <div class="sh-an-word" lang="ru" dir="ltr">${esc(analysis.word)}</div>
+    ${syllables ? `<div class="sh-an-syl" lang="ru" dir="ltr">${syllables}</div>` : ''}`;
+
+  /* ---- النبر ---- */
+  const stressBlock = unknown
+    ? `<section class="sh-an-ask">
+         <h4>النبر مش مأكّد</h4>
+         <p>عشان أقدر أقولك بتتنطق إزاي، محتاج أعرف النبر واقع على أنهي حرف علّة.
+            دوس عليه — وهيتحفظ عندك للأبد.</p>
+         <div class="sh-an-pick">${pronStressPicker(result.normalizedText)}</div>
+       </section>`
+    : `<section class="sh-an-line">
+         <span class="k">النبر</span>
+         <span class="v">المقطع ${esc(ordinalWord[result.stress.ordinal] || String(result.stress.ordinal + 1))}
+           <small>من ${esc(String(result.stress.total))}</small></span>
+       </section>
+       <section class="sh-an-line sh-an-say">
+         <span class="k">بتتنطق</span>
+         <span class="v" lang="ru" dir="ltr">[${esc(result.pronunciation.simple)}]</span>
+       </section>`;
+
+  /* ---- خريطةُ الأصوات ---- */
+  const map = unknown ? '' : `
+    <section class="sh-an-map">
+      <h4>الأصوات — دوس على أيّ صوت</h4>
+      <div class="sh-an-sounds">${pronMapHtml(result)}</div>
+      ${analysis.sound >= 0 && result.sounds[analysis.sound] ? `
+        <p class="sh-an-note"><b lang="ru" dir="ltr">${esc(result.sounds[analysis.sound].letter)}</b>
+          ${esc(result.sounds[analysis.sound].labels.join(' · ') || 'زيّ ما هو مكتوب')}</p>` : ''}
+    </section>`;
+
+  /* ---- «ليه؟» — هامشٌ مرقَّم ---- */
+  const reasons = result.appliedRules
+    .filter((s) => s.why)
+    .filter((s, i, all) => all.findIndex((o) => o.ruleId === s.ruleId) === i);
+
+  const why = reasons.length ? `
+    <section class="sh-an-why">
+      <h4>ليه بتتنطق كده؟</h4>
+      <ol>${reasons.map((step) => {
+    const rule = ruleById(step.ruleId);
+    const st = rule?.status || (step.lexical ? 'LEXICAL' : '');
+    return `<li>
+          <p>${esc(step.why)}</p>
+          ${analysis.advanced ? `
+            <div class="sh-an-meta" dir="ltr">
+              <code>${esc(step.ruleId)}</code>
+              <span class="s-${esc(st)}">${esc(st)}</span>
+              <em>${esc(step.source)}</em>
+            </div>` : (st === 'DISPUTED' || st === 'PROVISIONAL'
+      ? `<span class="sh-an-flag s-${esc(st)}">${
+        st === 'DISPUTED' ? 'فيها خلاف' : 'مبدئيّة'}</span>` : '')}
+        </li>`;
+  }).join('')}</ol>
+    </section>` : '';
+
+  /* ---- تحذيراتٌ صادقة ---- */
+  const warns = result.warnings
+    .filter((w) => !(unknown && w.includes('النبر')))
+    .map((w) => `<p class="sh-an-warn">${esc(w)}</p>`).join('');
+
+  /* ---- المتقدّم: IPA وإصدارُ القواعد ---- */
+  const advanced = !analysis.advanced ? '' : `
+    <section class="sh-an-adv">
+      <h4>تفاصيل تقنية</h4>
+      ${result.pronunciation.ipa
+    ? `<p class="sh-an-ipa" dir="ltr">${esc(result.pronunciation.ipa)}</p>`
+    : '<p class="sh-an-warn">مفيش IPA كامل — فيه أصوات لسه مش مغطّاة بقواعد، وأحسن أقولك كده من إني أخترع رموز.</p>'}
+      <dl>
+        <dt>مصدر النبر</dt><dd>${esc(PRON_SOURCE_LABEL[result.stress.source] || result.stress.source)}</dd>
+        <dt>إصدار القواعد</dt><dd dir="ltr">${esc(result.rulesetVersion)}</dd>
+        <dt>الحالة</dt><dd dir="ltr">${esc(result.flags.join(' · '))}</dd>
+      </dl>
+    </section>`;
+
+  host.innerHTML = head + `
+    <div class="sh-an-body">
+      ${crown}
+      ${stressBlock}
+      ${map}
+      ${why}
+      ${warns}
+      ${advanced}
+      <div class="sh-an-modes">
+        <button data-sh="analysis-adv" class="${analysis.advanced ? 'on' : ''}">
+          ${analysis.advanced ? 'إخفاء التفاصيل التقنية' : 'تفاصيل تقنية'}
+        </button>
+      </div>
+    </div>`;
+  host.removeAttribute('hidden');
 }
 
 /** من أين جاءت علامةُ النبر — يُقال ولا يُخفى. */
@@ -3079,6 +3188,12 @@ function renderRail() {
 
 /** يفتح السكّة على أداةٍ بعينها، أو يغلقها إن كانت مفتوحةً عليها. */
 function pickTool(id) {
+  /*
+   * ⚠️ **«ليه بتتنطق كده؟» فعلٌ لا لوحة (WS54).** يفتح ورقةَ التحليل
+   *    على اليسار ويُغلق السكّة — فالتحليلُ صار مكانًا تذهب إليه، لا
+   *    درجًا ينزلق فوق ما تقرأ.
+   */
+  if (id === 'pron') return openAnalysis();
   /* أفعالٌ فوريّة لا لوحةَ لها: تُنفَّذ وتُغلق. */
   if (id === 'hear') { if (rail.word >= 0) player.selectWord(rail.word); rail.open = false; return renderRail(); }
   /*
@@ -5894,15 +6009,21 @@ function wireInteractions(main) {
 
       /* ---- «ليه بتتنطق كده؟» (WS52) ---- */
 
-      case 'pron-mode':
-        rail.pronMode = btn.dataset.v || DISPLAY_MODE.SIMPLE;
-        return renderRail();
+      /* ---- ورقةُ التحليل (WS54) ---- */
+
+      case 'analysis-close':
+        closeAnalysis();
+        return undefined;
+
+      case 'analysis-adv':
+        analysis.advanced = !analysis.advanced;
+        return renderAnalysis();
 
       /* لمسةٌ ثانيةٌ على نفس الصوت تُغلق شرحَه — لا زرَّ إغلاقٍ إضافيّ. */
       case 'pron-sound': {
         const at = Number(btn.dataset.v);
-        rail.pronSound = rail.pronSound === at ? -1 : at;
-        return renderRail();
+        analysis.sound = analysis.sound === at ? -1 : at;
+        return renderAnalysis();
       }
 
       /*
@@ -5917,8 +6038,14 @@ function wireInteractions(main) {
         if (!bare) return undefined;
         await rememberStress(bare, marked);
         clearPronunciationCache();
-        rail.pronSound = -1;
-        resyncKeepingWord();
+        analysis.sound = -1;
+        /*
+         * ⚠️ **الجملةُ تُعاد رسمًا والورقةُ تبقى مفتوحة.** الرقائقُ
+         *    تتغيّر (صارت تحمل العلامة)، والتحليلُ يتغيّر معها — لكنّك
+         *    لم تغادر الورقة، فلا يجوز أن تُقذَف منها.
+         */
+        if (analysis.on) { syncSegment(); renderAnalysis(); }
+        else resyncKeepingWord();
         toastOk(`النبر اتحفظ: ${marked}`);
         return undefined;
       }

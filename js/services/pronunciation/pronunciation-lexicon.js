@@ -23,7 +23,7 @@
  * تفعله مدخلاتُ `VARIANT`: تُعلِّم النتيجةَ ولا تمسّها.
  */
 
-import { RULE_CATEGORY, CONFIDENCE, EVIDENCE } from './rule-registry.js';
+import { RULE_CATEGORY, STATUS, EVIDENCE } from './rule-registry.js';
 
 /** تصنيفُ سببِ الاستثناء. */
 export const LEXICAL_CATEGORY = Object.freeze({
@@ -47,7 +47,7 @@ export const LEXICON = Object.freeze({
     reason: 'сочетание чт يُنطَق [шт] في هذه الكلمة ومشتقّاتها وحدَها',
     explain: '«что» بتتنطق «што» — دي حالة خاصة، مش قاعدة لكل «чт».',
     source: 'МГУ · orfoepija/tabl/chn_cht_zhd.htm',
-    confidence: CONFIDENCE.HIGH,
+    status: STATUS.LEXICAL,
     evidence: EVIDENCE.SNIPPET,
   },
   чтобы: {
@@ -56,7 +56,7 @@ export const LEXICON = Object.freeze({
     reason: 'كـ«что»',
     explain: '«чтобы» بتتنطق «штобы».',
     source: 'МГУ · orfoepija/tabl/chn_cht_zhd.htm',
-    confidence: CONFIDENCE.HIGH,
+    status: STATUS.LEXICAL,
     evidence: EVIDENCE.SNIPPET,
   },
   сегодня: {
@@ -65,7 +65,7 @@ export const LEXICON = Object.freeze({
     reason: 'г←в في نهايةٍ صرفيّةٍ **داخل** الكلمة، فلا تلتقطها قاعدةُ -ого النهائيّة',
     explain: '«сегодня» فيها «г» بتتنطق «в» — «севодня».',
     source: 'orfogrammka.ru · «Буква г в окончаниях -ого/-его»',
-    confidence: CONFIDENCE.HIGH,
+    status: STATUS.LEXICAL,
     evidence: EVIDENCE.SNIPPET,
   },
   здравствуйте: {
@@ -74,7 +74,7 @@ export const LEXICON = Object.freeze({
     reason: 'вств: أوّلُ الساكنَين لا يُنطَق',
     explain: 'الـ«в» الأولى في «здравствуйте» مبتتنطقش.',
     source: 'МГУ · orfoepija/sochetan.htm',
-    confidence: CONFIDENCE.HIGH,
+    status: STATUS.LEXICAL,
     evidence: EVIDENCE.SNIPPET,
   },
   чувство: {
@@ -83,7 +83,7 @@ export const LEXICON = Object.freeze({
     reason: 'вств: أوّلُ الساكنَين لا يُنطَق',
     explain: 'الـ«в» الأولى في «чувство» مبتتنطقش.',
     source: 'МГУ · orfoepija/sochetan.htm',
-    confidence: CONFIDENCE.HIGH,
+    status: STATUS.LEXICAL,
     evidence: EVIDENCE.SNIPPET,
   },
 
@@ -104,7 +104,7 @@ function variant(display) {
     reason: 'المصادرُ المعياريّة تقبل النطقين، والنطقُ بـ[шн] قديمٌ موسكوفيٌّ ينحسر',
     explain: 'الكلمة دي ليها نطقين، الاتنين مقبولين.',
     source: 'russkiymir.ru · «Ску[чн]о или ску[шн]о?»',
-    confidence: CONFIDENCE.MEDIUM,
+    status: STATUS.DISPUTED,
     evidence: EVIDENCE.SNIPPET,
   };
 }

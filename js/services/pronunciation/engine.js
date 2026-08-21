@@ -165,6 +165,21 @@ function buildSegments(word) {
     }
 
     if (isConsonant(ch)) {
+      /*
+       * ⚠️ **الساكنان المتماثلان صوتٌ واحدٌ طويل** (`RU_GEMINATION`).
+       *    `ванна` صوتُ `н` واحدٌ ممدود، لا `н` مرّتين. والطولُ **صفةُ
+       *    صوتٍ** لا حرفٌ في الكلمة — ولذلك يُجمَع هنا لا في إعادة
+       *    الكتابة، فتبقى إعادةُ الكتابة على حروفٍ روسيّةٍ خالصة.
+       */
+      if (chars[i + 1] === ch) {
+        segments.push({
+          letter: ch, sourceIndex: i, type: 'consonant', ipa: CONSONANT_HARD[ch],
+          soft: false, voiced: isPairedVoiced(ch) || isSonorant(ch),
+          sonorant: isSonorant(ch), long: true, rules: [],
+        });
+        i += 1;               /* الحرفُ الثاني ابتُلع في الصوت نفسِه */
+        continue;
+      }
       segments.push({
         letter: ch, sourceIndex: i, type: 'consonant', ipa: CONSONANT_HARD[ch],
         soft: false, voiced: isPairedVoiced(ch) || isSonorant(ch),
@@ -183,15 +198,29 @@ function buildSegments(word) {
  * ⑧ الصلابةُ والليونة
  * ================================================================== */
 
-function applyHardness(segments, chars, trace) {
+function applyHardness(segments, chars, trace, word) {
   const rules = rulesForStage(STAGE.HARDNESS);
   for (const seg of segments) {
     if (seg.type !== 'consonant' || seg.synthetic) continue;
-    const ctx = { letter: seg.letter, next: chars[seg.sourceIndex + 1] || '' };
+    /*
+     * ⚠️ `afterNext` للقواعد التي تسأل عن ليونةِ **الجار** لا عن حرفٍ
+     *    واحدٍ بعدها: `снег` تحتاج أن ترى `е` بعد `н` لتعرف أن `н`
+     *    ليّنة، فتقرّر هل تُطلق التليينَ المماثِل.
+     */
+    const ctx = {
+      letter: seg.letter,
+      next: chars[seg.sourceIndex + 1] || '',
+      afterNext: chars[seg.sourceIndex + 2] || '',
+      soft: seg.soft,
+      word,
+    };
 
     for (const rule of rules) {
       if (!rule.applies(ctx)) continue;
-      const { soft } = rule.transform(ctx);
+      const out = rule.transform(ctx);
+      const { soft } = out;
+      /* وسمٌ لا تحويل — القواعدُ المُختلَفُ فيها تقول ولا تفرض. */
+      if (out.variant) seg.variant = out.variant;
       seg.soft = soft;
       seg.ipa = soft
         ? (CONSONANT_SOFT[seg.letter] || CONSONANT_HARD[seg.letter])
@@ -267,7 +296,7 @@ function applyReduction(segments, stress, trace) {
  * ⑩ الجهرُ والهمس — يمينًا ← يسارًا
  * ================================================================== */
 
-function applyVoicing(segments, trace) {
+function applyVoicing(segments, trace, nextWordFirst) {
   const rules = rulesForStage(STAGE.VOICING);
   const sounding = segments.filter((s) => s.type === 'consonant' || s.type === 'vowel');
 
@@ -282,6 +311,8 @@ function applyVoicing(segments, trace) {
       nextLetter: next?.letter || '',
       nextVoiced: next ? Boolean(next.voiced) : null,
       nextIsConsonant: next?.type === 'consonant',
+      /* أوّلُ صوتٍ في الكلمة التالية — للمماثلة عبر الحدّ. */
+      nextWordFirst: next ? '' : (nextWordFirst || ''),
     };
 
     for (const rule of rules) {
@@ -301,6 +332,7 @@ function applyVoicing(segments, trace) {
       const before = seg.ipa;
       seg.letter = out.letter;
       seg.voiced = out.voiced;
+      if (out.crossWord) seg.crossWord = true;
       seg.ipa = seg.soft
         ? (CONSONANT_SOFT[out.letter] || CONSONANT_HARD[out.letter])
         : CONSONANT_HARD[out.letter];
@@ -358,6 +390,8 @@ function buildOutputs(segments, syllables, stress) {
      */
     if (seg.type === 'vowel' && seg.ipa === 'ɪ' && seg.reduction?.degree === 2) simple += 'ь';
     else simple += toCyrillic(seg.ipa);
+    /* الطولُ يُرى في التقريب أيضًا — لا في الـIPA وحدَه. */
+    if (seg.long) { ipa += 'ː'; simple += 'ː'; }
 
     if (seg.type === 'vowel' && seg.stressed) simple += STRESS_MARK;
   }
@@ -393,6 +427,9 @@ function buildSounds(segments) {
         labels.push(seg.reduction.degree === 1 ? 'مختزل (درجة أولى)' : 'مختزل (درجة تانية)');
       }
       if (seg.reduction?.quality === 'quantitative') labels.push('أقصر بس متغيّرش');
+      if (seg.long) labels.push('طويل (حرفين صوت واحد)');
+      if (seg.crossWord) labels.push('اتأثّر بالكلمة اللي بعدها');
+      if (seg.variant) labels.push(seg.variant);
       if (seg.unresolved) labels.push(seg.unresolved === 'stress' ? 'محتاج النبر' : 'مش مغطّى');
       return {
         letter: seg.letter,
@@ -488,9 +525,17 @@ export function analyzeWord(raw, {
   const segments = buildSegments(rewritten);
   const syllables = syllabify(rewritten);
 
-  applyHardness(segments, chars, trace);
+  /*
+   * ⚠️ **والكلامُ المتّصلُ صار مدعومًا — جزئيًّا وبإعلان.**
+   *    أوّلُ حرفٍ روسيٍّ في الكلمة التالية يكفي للمماثلة عبر الحدّ،
+   *    ولا نحتاج تحليلَها كاملةً. وما لا نعرفه (أين تقف أنت) معلَنٌ
+   *    في `RU_CROSS_WORD_PROSODY` المؤجَّلة.
+   */
+  const nextFirst = normalizeWord(nextWord || '').replace(/[^а-яё]/g, '')[0] || '';
+
+  applyHardness(segments, chars, trace, rewritten);
   applyReduction(segments, stress, trace);
-  applyVoicing(segments, trace);
+  applyVoicing(segments, trace, nextFirst);
 
   const outputs = buildOutputs(segments, syllables, stress);
   const sounds = buildSounds(segments);
@@ -537,7 +582,14 @@ export function analyzeWord(raw, {
     lexical: lexical
       ? { category: lexical.category, reason: lexical.reason, source: lexical.source }
       : null,
-    context: { previousWord, nextWord, crossWordSupported: false },
+    context: {
+      previousWord,
+      nextWord,
+      /* المماثلةُ الجهريّةُ عبر الحدّ مدعومة؛ وما عداها (الوقف، ы بعد
+         حرف الجرّ، الليونة عبر الحدّ) لا — والتمييزُ مقصود. */
+      crossWordSupported: Boolean(nextFirst),
+      crossWordApplied: segments.some((s) => s.crossWord),
+    },
     rulesetVersion: RULESET_VERSION,
   });
 

@@ -26,7 +26,7 @@
  */
 
 import {
-  registerRule, RULE_CATEGORY, STAGE, CONFIDENCE, EVIDENCE,
+  registerRule, RULE_CATEGORY, STAGE, STATUS, EVIDENCE,
 } from '../rule-registry.js';
 import { VOWEL_SOUND, ALWAYS_HARD } from '../alphabet.js';
 
@@ -53,7 +53,7 @@ registerRule({
   summary: 'الحركةُ المشدَّدةُ لا تُختزَل',
   explain: 'حرف العلّة المشدّد بيتنطق كامل وواضح.',
   source: 'studme.org · «Современный русский язык. Фонетика»',
-  confidence: CONFIDENCE.HIGH,
+  status: STATUS.VERIFIED,
   evidence: EVIDENCE.SNIPPET,
   applies: (ctx) => usable(ctx) && stressed(ctx),
   transform: (ctx) => ({ ipa: ctx.baseIpa, stressed: true }),
@@ -67,7 +67,7 @@ registerRule({
   summary: 'а/о بعد صلبٍ قبل النبر مباشرةً أو في بداية الكلمة → [ɐ]',
   explain: 'الـ«о» اللي قبل المشدّدة على طول بتتنطق قريبة من «а».',
   source: 'studme.org · «В первом предударном слоге и в абсолютном начале слова безударные А, О обозначают звук [ʌ]»',
-  confidence: CONFIDENCE.HIGH,
+  status: STATUS.VERIFIED,
   evidence: EVIDENCE.SNIPPET,
   applies: (ctx) => usable(ctx) && !stressed(ctx)
     && 'ао'.includes(ctx.letter) && !ctx.prevSoft && degreeOf(ctx) === 1,
@@ -82,7 +82,7 @@ registerRule({
   summary: 'а/о بعد صلبٍ في بقيّة المواضع → [ə]',
   explain: 'الـ«о» البعيدة عن النبر بتبقى أخفت — صوت غامض قصير.',
   source: 'studme.org · «во втором предударном и заударном слогах — [ъ]»',
-  confidence: CONFIDENCE.HIGH,
+  status: STATUS.VERIFIED,
   evidence: EVIDENCE.SNIPPET,
   applies: (ctx) => usable(ctx) && !stressed(ctx)
     && 'ао'.includes(ctx.letter) && !ctx.prevSoft,
@@ -97,7 +97,7 @@ registerRule({
   summary: 'إيكانيه: е/я/а بعد ليّنٍ غيرَ مشدَّدةٍ تتوحّد في [ɪ]',
   explain: 'بعد حرف ليّن، الـ«е» والـ«я» غير المشدّدين بيقربوا من «и» — عشان كده «лиса» و«леса» بيتنطقوا زيّ بعض.',
   source: 'МФШ/иканье · «лес, лис — [л\'иса]; нёс — [н\'ису]; пять — [п\'итак]» + пятак [pʲɪˈtak]',
-  confidence: CONFIDENCE.HIGH,
+  status: STATUS.VERIFIED,
   evidence: EVIDENCE.SNIPPET,
   /*
    * ⚠️ و`а` منها — وهذا ما يفسّر `часы` → [tɕɪˈsɨ]. `ч` ليّنةٌ دائمًا،
@@ -138,7 +138,7 @@ registerRule({
   summary: 'е غيرُ المشدَّدة بعد ж/ш/ц → [ɨ]',
   explain: 'بعد «ж» و«ш» و«ц»، الـ«е» غير المشدّدة بتقرب من «ы» — «жена» بتتقال «жына».',
   source: 'diktory.com · «После твердых шипящих [ж], [ш] и после [ц] на месте е произносится [ыэ]»',
-  confidence: CONFIDENCE.HIGH,
+  status: STATUS.PROVISIONAL,
   evidence: EVIDENCE.SNIPPET,
   /*
    * ⚠️ **و`а`/`о` بعد الهسيسيّات لا تدخل هنا** — تُعامَل معاملةَ ما بعد
@@ -168,7 +168,7 @@ registerRule({
   summary: 'е بعد ж/ш/ц في المواضع البعيدة عن النبر → [ə]',
   explain: 'بعيد عن النبر بعد «ж ш ц»، الـ«е» بتبقى صوت غامض قصير — «солнце» بتتقال «сонцъ».',
   source: 'studme.org · «во втором предударном и заударном слогах — [ъ]» (تطبيقًا على ما بعد الصلب عمومًا)',
-  confidence: CONFIDENCE.MEDIUM,
+  status: STATUS.PROVISIONAL,
   evidence: EVIDENCE.SNIPPET,
   applies: (ctx) => usable(ctx) && !stressed(ctx)
     && ctx.letter === 'е' && ALWAYS_HARD.includes(ctx.prevLetter),
@@ -190,7 +190,7 @@ registerRule({
    *    أن تكون قد كذبت على المتعلّم. وهذا هو الفرقُ بين «لا أعرف» و
    *    «أعرف خطأً».
    */
-  confidence: CONFIDENCE.MEDIUM,
+  status: STATUS.PROVISIONAL,
   evidence: EVIDENCE.SNIPPET,
   /*
    * ⚠️ **و`ю` معها — وكانت ساقطةً فخرجت `любовь` ناقصةً حرفًا.**
@@ -199,7 +199,16 @@ registerRule({
    *    ناتجًا مشوَّهًا لا رسالةَ خطأ** — ولذلك يمرّ الكوربوسُ على كلّ
    *    حروف العلّة العشرة لا على المشهورة منها.
    */
-  applies: (ctx) => usable(ctx) && !stressed(ctx) && 'ыую'.includes(ctx.letter),
+  /*
+   * ⚠️ **و`и` بعد `ж ш ц` منها — وكانت تسقط بين قاعدتين.**
+   *    نقلتُ `и` إلى الإيكانيه (٥٣٠) وهي مشروطةٌ بـ`baseIpa !== 'ɨ'`،
+   *    فبقيت `и` التي صارت `[ɨ]` بعد هسيسيّةٍ **بلا قاعدةٍ إطلاقًا**:
+   *    `нешший` تخرج ناقصةً حرفًا. فجوةٌ لم يصنعها خطأٌ في قاعدة، بل
+   *    **حدٌّ بين قاعدتين لم ينظر إليه أحد**. وهي أخفى من الخطأ لأن
+   *    كلَّ قاعدةٍ على حدة صحيحة.
+   */
+  applies: (ctx) => usable(ctx) && !stressed(ctx)
+    && ('ыую'.includes(ctx.letter) || (ctx.letter === 'и' && ctx.baseIpa === 'ɨ')),
   transform: (ctx) => ({
     ipa: ctx.baseIpa || VOWEL_SOUND[ctx.letter],
     reduction: { degree: degreeOf(ctx), quality: 'quantitative' },

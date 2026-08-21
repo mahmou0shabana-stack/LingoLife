@@ -17,7 +17,10 @@ import {
   clearPronunciationCache, pronunciationCacheSize,
   FLAG, RULESET_VERSION,
 } from '../js/services/pronunciation/engine.js';
-import { orderedRules, allRuleIds, rulesForStage, STAGE } from '../js/services/pronunciation/rule-registry.js';
+import {
+  orderedRules, allRuleIds, rulesForStage, rulesByStatus,
+  DEFERRED_PHENOMENA, STAGE,
+} from '../js/services/pronunciation/rule-registry.js';
 import { syllabify } from '../js/services/pronunciation/syllabifier.js';
 import { resolveStress, STRESS_STATUS } from '../js/services/pronunciation/stress-resolver.js';
 import {
@@ -41,13 +44,19 @@ describe('النطق · سجلُّ القواعد وترتيبُها', () => {
       'RU_ORTHO_CHN_SHN',
       'RU_ORTHO_GK_HK',
       'RU_CLUSTER_UNPRONOUNCED',
+      'RU_CLUSTER_SH_LONG',
+      'RU_CLUSTER_ZH_LONG',
+      'RU_CLUSTER_TS_DS',
+      'RU_GEMINATION',
       'RU_CLUSTER_SCH_ZCH',
       'RU_CLUSTER_TSYA',
       'RU_CLUSTER_TCH_DCH',
       'RU_CONS_ALWAYS_HARD',
       'RU_CONS_ALWAYS_SOFT',
+      'RU_LOANWORD_HARD_BEFORE_E',
       'RU_PALATALIZATION_BY_VOWEL',
       'RU_PALATALIZATION_BY_SOFT_SIGN',
+      'RU_SOFTNESS_ASSIMILATION',
       'RU_VOWEL_STRESSED',
       'RU_RED_A_O_PRETONIC1',
       'RU_RED_A_O_WEAK',
@@ -60,6 +69,8 @@ describe('النطق · سجلُّ القواعد وترتيبُها', () => {
       'RU_VOICING_V_NEUTRAL',
       'RU_REGRESSIVE_DEVOICING',
       'RU_REGRESSIVE_VOICING',
+      'RU_CROSS_WORD_VOICING',
+      'RU_CROSS_WORD_DEVOICING',
     ]);
   });
 
@@ -81,8 +92,8 @@ describe('النطق · سجلُّ القواعد وترتيبُها', () => {
     expect(lastHardness < firstReduction).toBe(true);
   });
 
-  it('ولكلّ قاعدةٍ مصدرٌ وثقةٌ ومستوى دليل — لا قاعدةَ بلا مرجع', () => {
-    const naked = orderedRules().filter((r) => !r.source || !r.confidence || !r.evidence);
+  it('ولكلّ قاعدةٍ مصدرٌ وحالةٌ ومستوى دليل — لا قاعدةَ بلا مرجع', () => {
+    const naked = orderedRules().filter((r) => !r.source || !r.status || !r.evidence);
     expect(naked.map((r) => r.id)).toEqual([]);
   });
 
@@ -256,11 +267,20 @@ describe('النطق · الجملةُ والسياق', () => {
     expect(unknown.every((w) => w.pronunciation.ipa === null)).toBe(true);
   });
 
-  it('⚠️ والجارَان محفوظان — والكلامُ المتّصلُ مُعلَنٌ غيرَ مدعوم', () => {
+  it('⚠️ والجارَان محفوظان — والمماثلةُ عبر الحدّ صارت مدعومةً بحدود (WS54)', () => {
     const out = analyzeSentence('после того как');
     expect(out[1].context.previousWord).toBe('после');
     expect(out[1].context.nextWord).toBe('как');
-    expect(out[1].context.crossWordSupported).toBe(false);
+    /*
+     * ⚠️ **كان هذا السطرُ يؤكّد `false` — وتغيّر السلوكُ عن قصد.**
+     *    المماثلةُ الجهريّةُ عبر الحدّ مُنفَّذةٌ الآن، فالادّعاءُ بأنها
+     *    غيرُ مدعومةٍ صار كذبًا في الاتّجاه المعاكس. والدعمُ **بحدود**:
+     *    الجهرُ نعم، والوقفُ والليونةُ وы بعد حرف الجرّ لا — وكلُّها
+     *    مُعلَنةٌ في `DEFERRED_PHENOMENA`.
+     */
+    expect(out[1].context.crossWordSupported).toBe(true);
+    /* وآخرُ كلمةٍ بلا جارٍ بعدها: لا يُدّعى لها اتّصال. */
+    expect(out[2].context.crossWordSupported).toBe(false);
   });
 });
 
@@ -450,5 +470,168 @@ describe('النطق · لا ازدواجَ مع ما هو قائم', () => {
   it('والكوربوسُ فيه موجبٌ وسالبٌ بعددٍ معتبر', () => {
     expect(CORPUS_SIZE.positive >= 35).toBe(true);
     expect(CORPUS_SIZE.negative >= 20).toBe(true);
+  });
+});
+
+/* ================================================================== *
+ * ١٠) حالاتُ النضج — الصدقُ عن حدود معرفتنا (WS54)
+ * ================================================================== */
+
+describe('النطق · حالاتُ نضج القواعد', () => {
+  it('لكلّ قاعدةٍ حالةٌ صريحة — ولا نسبةَ ثقةٍ في المحرّك كلِّه', async () => {
+    for (const rule of orderedRules()) {
+      expect(['VERIFIED', 'PROVISIONAL', 'DISPUTED', 'LEXICAL'].includes(rule.status)).toBe(true);
+      expect(Object.hasOwn(rule, 'confidence')).toBe(false);
+    }
+  });
+
+  it('⚠️ ولا تدخل قاعدةٌ `DEFERRED` السجلَّ التنفيذيّ', () => {
+    expect(orderedRules().some((r) => r.status === 'DEFERRED')).toBe(false);
+    /* والمؤجَّلُ بيانٌ يُعَدّ ويُراجَع لا نثرٌ في وثيقة. */
+    expect(DEFERRED_PHENOMENA.length >= 8).toBe(true);
+    for (const d of DEFERRED_PHENOMENA) expect(d.why.length > 20).toBe(true);
+  });
+
+  it('التوزيعُ معلَنٌ ولا يدّعي تحقّقًا لم يقع', () => {
+    const by = rulesByStatus();
+    expect(by.VERIFIED.length + by.PROVISIONAL.length
+      + by.DISPUTED.length + by.LEXICAL.length).toBe(orderedRules().length);
+    /* ما زال في المحرّك مبدئيٌّ — ولا نُخفيه. */
+    expect(by.PROVISIONAL.length > 0).toBe(true);
+  });
+
+  it('⚠️ والمُختلَفُ فيه **لا يحوّل صوتًا** — يقول ولا يفرض', () => {
+    /* `снег`: التليينُ المماثِل ينطلق ويُسجَّل، والـ`с` تبقى صلبة. */
+    const a = analyzeWord('снег');
+    expect(a.ruleIds.includes('RU_SOFTNESS_ASSIMILATION')).toBe(true);
+    const s = a.sounds.find((x) => x.letter === 'с');
+    expect(s.soft).toBe(false);
+    expect(s.labels.some((l) => l.includes('اختياريّ') || l.includes('بعض المتحدّثين'))).toBe(true);
+  });
+});
+
+/* ================================================================== *
+ * ١١) القواعدُ الجديدة — موجبٌ وسالب
+ * ================================================================== */
+
+describe('النطق · تغطيةٌ موسَّعة (WS54)', () => {
+  it('الساكنان المتماثلان صوتٌ واحدٌ طويل', () => {
+    const a = analyzeWord('ва́нна');
+    expect(a.pronunciation.ipa).toBe('ˈvanːə');
+    expect(a.ruleIds.includes('RU_GEMINATION')).toBe(true);
+  });
+
+  it('⚠️ ولا يُطلقها حرفان مختلفان', () => {
+    expect(analyzeWord('ла́па').ruleIds.includes('RU_GEMINATION')).toBe(false);
+  });
+
+  it('сш تصير ш واحدةً طويلة', () => {
+    const a = analyzeWord('не́сший');
+    expect(a.ruleIds.includes('RU_CLUSTER_SH_LONG')).toBe(true);
+    expect(a.pronunciation.ipa).toBe('ˈnʲeʂːɨj');
+  });
+
+  it('сж في أوّل الكلمة تصير ж واحدةً طويلة', () => {
+    expect(analyzeWord('сжать').ruleIds.includes('RU_CLUSTER_ZH_LONG')).toBe(true);
+  });
+
+  it('тс قبل لاحقة ‎-ск- تصير ц', () => {
+    const a = analyzeWord('сове́тский');
+    expect(a.ruleIds.includes('RU_CLUSTER_TS_DS')).toBe(true);
+    expect(a.rewrittenText.includes('цк')).toBe(true);
+  });
+
+  it('⚠️ ولا تُطلَق على тс خارج تلك اللاحقة', () => {
+    expect(analyzeWord('отсу́тствие').rewrittenText.startsWith('ац')).toBe(false);
+  });
+
+  it('المُعرَّبُ يبقى صلبًا قبل е — وترتيبُ القاعدة هو ما يُنجحها', () => {
+    const a = analyzeWord('пасте́ль');
+    expect(a.ruleIds.includes('RU_LOANWORD_HARD_BEFORE_E')).toBe(true);
+    expect(a.pronunciation.ipa).toBe('pɐˈstelʲ');
+  });
+
+  it('⚠️ وكلمةٌ روسيّةٌ أصيلةٌ تلين كالمعتاد', () => {
+    expect(analyzeWord('лес').ruleIds.includes('RU_LOANWORD_HARD_BEFORE_E')).toBe(false);
+    expect(analyzeWord('лес').pronunciation.ipa).toBe('ˈlʲes');
+  });
+
+  it('المماثلةُ عبر حدّ الكلمة تعمل', () => {
+    const a = analyzeWord('к', { nextWord: 'де́лу' });
+    expect(a.ruleIds.includes('RU_CROSS_WORD_VOICING')).toBe(true);
+    expect(a.context.crossWordApplied).toBe(true);
+  });
+
+  it('⚠️ واستثناءُ в يعبر الحدَّ معها — «докуме́нт все» تبقى بـт', () => {
+    const a = analyzeWord('докуме́нт', { nextWord: 'все' });
+    expect(a.ruleIds.includes('RU_CROSS_WORD_VOICING')).toBe(false);
+    expect(a.pronunciation.ipa.endsWith('t')).toBe(true);
+  });
+
+  it('⚠️ والرنّانةُ في أوّل الكلمة التالية لا تُجهِّر كذلك', () => {
+    expect(analyzeWord('от', { nextWord: 'мамы' }).ruleIds.includes('RU_CROSS_WORD_VOICING')).toBe(false);
+  });
+
+  it('وبلا جارٍ لا يُدّعى كلامٌ متّصل', () => {
+    expect(analyzeWord('к').context.crossWordSupported).toBe(false);
+  });
+});
+
+/* ================================================================== *
+ * ١٢) إعادةُ التحليل — التحليلُ ليس حقيقةً مجمَّدة
+ * ================================================================== */
+
+describe('النطق · إعادةُ التحليل تحت إصدارٍ جديد', () => {
+  it('⚠️ صفٌّ حُلِّل بإصدارٍ قديمٍ يُعرَف ويُعاد — بلا تحريرٍ يدويّ', async () => {
+    const { openDB } = await import('../js/db/database.js');
+    const { savedItems } = await import('../js/db/repositories.js');
+    const { saveItem, SAVED_KIND } = await import('../js/services/saved-service.js');
+    const { findStale, reanalyzeSaved, isStale } =
+      await import('../js/services/pronunciation/reanalysis.js');
+    await openDB();
+
+    const text = `вода́-${Date.now()}`;
+    const row = await saveItem({
+      text, kind: SAVED_KIND.WORD,
+      pronunciation: { normalizedWord: text, stressOrdinal: 1, stressSource: 'dictionary',
+        ruleIds: ['RU_RED_A_O_PRETONIC1'], rulesetVersion: '1.0.0' },
+    });
+    expect(isStale(row.pronunciation)).toBe(true);
+
+    const stale = await findStale();
+    expect(stale.some((r) => r.id === row.id)).toBe(true);
+
+    const out = await reanalyzeSaved();
+    expect(out.version).toBe(RULESET_VERSION);
+    const after = await savedItems.get(row.id);
+    expect(after.pronunciation.rulesetVersion).toBe(RULESET_VERSION);
+    /* ولم يُمَسّ نصُّك ولا تصنيفاتُك. */
+    expect(after.text).toBe(text);
+    await savedItems.destroy(row.id);
+  });
+
+  it('⚠️ والنبرُ الذي أكّدتَه بنفسك يبقى نبرَك بعد الترقية', async () => {
+    const { openDB } = await import('../js/db/database.js');
+    const { savedItems } = await import('../js/db/repositories.js');
+    const { saveItem, SAVED_KIND } = await import('../js/services/saved-service.js');
+    const { reanalyzeSaved } = await import('../js/services/pronunciation/reanalysis.js');
+    await openDB();
+
+    const row = await saveItem({
+      text: 'замок', kind: SAVED_KIND.WORD,
+      pronunciation: { normalizedWord: 'замок', stressOrdinal: 0, stressSource: 'user_confirmed',
+        ruleIds: [], rulesetVersion: '0.9.0' },
+    });
+    await reanalyzeSaved();
+    const after = await savedItems.get(row.id);
+    expect(after.pronunciation.stressSource).toBe('user_confirmed');
+    expect(after.pronunciation.stressOrdinal).toBe(0);
+    await savedItems.destroy(row.id);
+  });
+
+  it('وقاعدةٌ بعينها تُحدَّد كلماتُها بلا مسحٍ شامل', async () => {
+    const { findStale } = await import('../js/services/pronunciation/reanalysis.js');
+    const hits = await findStale({ ruleId: 'RU_FINAL_DEVOICING' });
+    expect(Array.isArray(hits)).toBe(true);
   });
 });
