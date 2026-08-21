@@ -137,6 +137,23 @@ const isAsset = (url) =>
   /\.(?:woff2?|ttf|otf|png|jpe?g|svg|webp|ico)$/i.test(url.pathname) ||
   url.hostname === 'fonts.gstatic.com';
 
+/**
+ * معجمُ النبر — بياناتٌ ساكنةٌ ثقيلة، تُعامَل معاملةَ الخطّ لا الكود (WS55).
+ *
+ * ⚠️ **ولماذا «الكاش أولًا» وهو ملفُّ `.json`؟**
+ *    لأنه ليس بياناتٍ متغيّرة: يُولَّد مرّةً في البناء ولا يتبدّل بعده.
+ *    و«الشبكة أولًا» كانت ستُنزّل ١٫٥ ميغابايت في كلّ جلسةِ ظلٍّ تفتحها
+ *    — على لوحٍ ببياناتٍ محدودة، هذا ثمنٌ بلا مقابل.
+ *
+ * ⚠️ **ولا يتقادم:** اسمُ الكاش مربوطٌ بـ`BUILD`، فأيُّ نشرٍ جديد يبدأ
+ *    كاشًا جديدًا ويحذف القديم — فيُجلَب المعجمُ المُحدَّثُ مرّةً واحدة.
+ *
+ * ⚠️ **وليس في `SHELL` عمدًا.** التخزينُ المسبق يعني تنزيلَه على كلّ
+ *    جهازٍ يفتح التطبيق ولو لم يفتح الظلَّ قطّ. فيُخزَّن **عند أوّل
+ *    استعمالٍ حقيقيّ** — وبعدها يعمل بلا شبكةٍ إلى الأبد.
+ */
+const isLexicon = (url) => url.pathname.endsWith('/assets/stress-lexicon.json');
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
 
@@ -150,7 +167,7 @@ self.addEventListener('fetch', (event) => {
   if (!sameOrigin && !isFont) return;
 
   // الأصول الثابتة: الكاش أولًا
-  if (isAsset(url) || isFont) {
+  if (isAsset(url) || isFont || (sameOrigin && isLexicon(url))) {
     event.respondWith(cacheFirst(request));
     return;
   }

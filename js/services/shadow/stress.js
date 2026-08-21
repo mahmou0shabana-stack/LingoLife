@@ -102,6 +102,20 @@ export const BUILT_IN = Object.freeze({
 /** قاموس المستخدم — يُحمّل مرة ويُحدَّث عند الإضافة. */
 let userDict = {};
 
+/**
+ * مصدرُ نبرٍ إضافيٌّ يُركَّب من فوق — اليومَ المعجمُ الكبير، وغدًا ما يجيء.
+ *
+ * ⚠️ **ويجب أن يعيد `null` عند الالتباس لا أن يختار.** كلمةٌ بقراءتين
+ *    صحيحتين لا تُعلَّم في الرقائق أصلًا: العلامةُ تقول «هذا هو النبر»،
+ *    وقولُها عن ملتبسةٍ كذبٌ صغيرٌ يتعلّمه المتعلّمُ نطقًا خاطئًا.
+ */
+let externalLookup = null;
+
+/** @param {(bare: string) => string|null} fn — راجع `stressOf` أسفلَه. */
+export function registerStressLookup(fn) {
+  externalLookup = typeof fn === 'function' ? fn : null;
+}
+
 /** يحمّل ما أضافه المستخدم من علامات. */
 export async function loadUserDictionary() {
   userDict = (await settings.get(USER_DICT_KEY, {})) || {};
@@ -127,6 +141,8 @@ export const STRESS_SOURCE = Object.freeze({
   EXPLICIT: 'explicit_text',
   USER: 'user_confirmed',
   DICTIONARY: 'dictionary',
+  /** المعجمُ الكبيرُ المُصدَّر — يُحسَم في `StressResolver` لا هنا (WS55). */
+  OFFLINE: 'offline_lexicon',
   YO: 'rule_yo',
   MONOSYLLABLE: 'rule_monosyllable',
   UNKNOWN: 'unknown',
@@ -163,6 +179,25 @@ export function stressWithSource(word) {
   if (clean.includes('́')) {
     if (userDict[bare] === clean) return { marked: raw, source: STRESS_SOURCE.USER };
     if (BUILT_IN[bare] === clean) return { marked: raw, source: STRESS_SOURCE.DICTIONARY };
+    /*
+     * ⚠️ **والمعجمُ الكبيرُ يُنسَب إليه ما هو له — وإلّا تكرّر عطبُ WS52.**
+     *
+     *    العطبُ نفسُه أمسكتُه مرّتين الآن: أوّلًا مع القاموس المدمج، ثم
+     *    هنا مع المعجم. والسببُ واحد: الرقائقُ تُرسَم **معلَّمةً** بما
+     *    نعرفه، فحين تُسأل عن كلمةٍ مأخوذةٍ من رقاقةٍ تكون العلامةُ
+     *    فيها أصلًا — فيقول التحليلُ «مكتوب في النصّ» عن علامةٍ كتبناها
+     *    نحن قبل ثانية. رأيتُها بعيني في `высо́ком`.
+     *
+     *    ⚠️ **ولا يُعاد `DICTIONARY` هنا** — تلك نسبةٌ إلى ٨٢ كلمةً
+     *       راجعناها بأعيننا، وهذه من نصف مليون صيغةٍ آليّة. فيُعاد
+     *       وسمٌ خاصٌّ، ويحسمه `offlineProvider` في **رتبته الصحيحة**
+     *       من سلسلة الأولويّة لا في رتبة المُراجَع.
+     */
+    if (externalLookup) {
+      let fromLexicon = null;
+      try { fromLexicon = externalLookup(bare); } catch { fromLexicon = null; }
+      if (fromLexicon === clean) return { marked: raw, source: STRESS_SOURCE.OFFLINE };
+    }
     return { marked: raw, source: STRESS_SOURCE.EXPLICIT };
   }
 
@@ -194,6 +229,22 @@ export function stressOf(word) {
 
   const vowelCount = [...clean].filter((ch) => VOWELS.includes(ch)).length;
   if (vowelCount <= 1) return word;
+
+  /*
+   * ⚠️ **آخرُ رتبةٍ: المعجمُ الكبير — إن كان قد وصل** (WS55).
+   *
+   *    وهو مُسجَّلٌ من فوق (`registerStressLookup`) لا مستورَدٌ من هنا،
+   *    وذلك عمدًا: `stress/providers.js` يستورد هذا الملفَّ بالفعل،
+   *    فاستيرادُه منه يصنع دائرةً بين وحدتين. والتسجيلُ يجعل اتّجاهَ
+   *    الاعتماد واحدًا: البياناتُ الخامُّ هنا، والتركيبُ فوقها.
+   *
+   *    ⚠️ **وبعد القاموس المدمج لا قبلَه** — ٨٢ كلمةً راجعناها بأعيننا
+   *       تعلو على نصفِ مليونِ صيغةٍ آليّة، وهو نفسُ ترتيبِ الأولويّة
+   *       في `StressResolver` بالضبط، لا ترتيبٌ ثانٍ يفترق عنه.
+   */
+  if (externalLookup) {
+    try { return externalLookup(clean) || null; } catch { return null; }
+  }
 
   // غير معروفة — الصمت أصدق من تخمين موضع خاطئ.
   return null;

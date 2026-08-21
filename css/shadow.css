@@ -4784,7 +4784,7 @@ body.shadow-open { overflow: hidden; }
   font-size: 11px; font-weight: 500; letter-spacing: .2em; margin: 0 0 14px;
   color: rgba(90, 72, 44, .42); text-align: center;
 }
-.sh-an-map, .sh-an-why, .sh-an-ask, .sh-an-adv {
+.sh-an-map, .sh-an-why, .sh-an-ask, .sh-an-adv, .sh-an-trace {
   margin-block-start: clamp(26px, 5vh, 46px);
   padding-block-start: clamp(20px, 3vh, 30px);
   border-block-start: 1px solid rgba(122, 95, 44, .14);
@@ -4861,10 +4861,41 @@ body.shadow-open { overflow: hidden; }
 }
 .sh-an-pick { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; }
 .sh-an-pick button {
-  min-inline-size: 54px; min-block-size: 54px; font-size: 24px; cursor: pointer;
+  /* أزرارُ المتجانِسة تحمل كلمةً كاملةً لا حرفًا — فالحشوُ أفقيٌّ لا مربَّع. */
+  min-inline-size: 54px; min-block-size: 54px; padding: 0 14px;
+  font-size: 24px; cursor: pointer;
   border-radius: 4px; color: #6d5220;
   border: 1px solid rgba(217, 182, 114, .5); background: rgba(217, 182, 114, .1);
 }
+
+/* من أين جاء النبر — سطرٌ صغيرٌ تحت الجواب، لا شارةٌ تُزاحمه */
+.sh-an-from {
+  display: block; font-style: normal; font-size: 11.5px;
+  color: rgba(90, 72, 44, .5); margin-block-start: 3px;
+}
+
+/*
+ * أثرُ حلّ النبر (WS55) — **سُلَّمٌ يُقرأ من فوق لتحت**، لا قائمةَ نقاط:
+ * الترتيبُ هو المعلومة. وكلُّ سطرٍ يقول: سألتُ فلانًا فأجاب بكذا.
+ */
+.sh-an-trace ol {
+  margin: 0 auto; max-inline-size: 46ch; padding: 0; list-style: none;
+  font-size: 12px; display: grid; gap: 4px;
+}
+.sh-an-trace li {
+  display: grid; grid-template-columns: 13ch 1fr auto; gap: 10px; align-items: center;
+  padding: 6px 10px; border-radius: 3px; background: rgba(122, 95, 44, .04);
+  color: rgba(90, 72, 44, .55);
+}
+.sh-an-trace li code { color: rgba(122, 95, 44, .75); letter-spacing: .04em; }
+.sh-an-trace li em { font-style: normal; color: rgba(90, 72, 44, .45); }
+/* الرتبةُ التي أجابت هي الوحيدةُ التي تُضاء — والباقي سياقٌ لا نتيجة. */
+.sh-an-trace li.o-hit {
+  background: rgba(63, 122, 82, .1); color: #3f7a52;
+}
+.sh-an-trace li.o-hit code { color: #3f7a52; }
+.sh-an-trace li.o-ambiguous { background: rgba(184, 134, 43, .12); color: #8a5a2a; }
+.sh-an-trace li.o-disagrees-ignored { background: rgba(156, 74, 60, .1); color: #9c4a3c; }
 
 .sh-an-ipa {
   text-align: center; font-size: clamp(20px, 3vw, 28px); color: #6d5220;

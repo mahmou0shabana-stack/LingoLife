@@ -48,6 +48,10 @@ import {
   DISPLAY_MODE, FLAG as PRON_FLAG, ruleById,
 } from '../services/pronunciation/engine.js';
 import {
+  warmStressResolver, onStressLexiconReady, lexiconMeta,
+} from '../services/pronunciation/stress-resolver.js';
+import { rememberStressContext } from '../services/pronunciation/stress/providers.js';
+import {
   holdBackgroundAudio, releaseBackgroundAudio, disposeBackgroundAudio,
 } from '../services/shadow/background-audio.js';
 import {
@@ -301,6 +305,15 @@ function stopParked() {
 }
 
 export function disposeShadow() {
+  /*
+   * ⚠️ **ومراقبُ المعجم يُلغى هنا لا في `closeAnalysis` وحدَها.** مغادرةُ
+   *    الشاشة والورقةُ مفتوحةٌ لا تمرّ بـ`closeAnalysis`، فلو تُرك
+   *    الاشتراكُ حيًّا لنادى `renderAnalysis()` على DOM مهدوم.
+   */
+  unwatchLexicon?.();
+  unwatchLexicon = null;
+  analysis.on = false;
+
   /*
    * ⚠️ **والتسجيلُ يقف مع مغادرة الشاشة — دائمًا.** وهو خارج شرط
    *    «الجلسة تُبقى شغّالة»: ما يُبقى هو **نطقُ التدريب** لأن له
@@ -787,6 +800,21 @@ export async function renderShadow(main, sessionId) {
   }
 
   const { session, segments } = loaded;
+
+  /*
+   * ⚠️ **بلا `await` — عن قصد.** معجمُ النبر ملفٌّ ساكنٌ ثقيلٌ نسبيًّا،
+   *    وانتظارُه هنا يعني شاشةً بيضاءَ قبل الكتاب. فيُطلَب الآن ويصل
+   *    متى وصل، والجلسةُ تفتح وتُنطَق في أثناء ذلك بالقاموس المدمج
+   *    كما كانت تمامًا قبل WS55.
+   */
+  warmStressResolver();
+  /*
+   * وحين يصل: الرقائقُ تُعاد رسمًا **بلا أن تُفلت الكلمةَ التي في يدك**،
+   * فتظهر العلاماتُ الجديدة ويتغيّر عدّادُ «كام كلمة نعرف نبرها» —
+   * ولا يتحرّك شيءٌ آخرُ تحت إصبعك.
+   */
+  onStressLexiconReady(() => { if (ctx) resyncKeepingWord(); });
+
   await loadVoices();
   /* ⚠️ قبل الفحص لا بعده — `allAvailability()` تحته تحتاج سجلًّا مسجَّلًا (WS41). */
   ensureTTSProvidersRegistered();
@@ -2813,6 +2841,60 @@ function pronStressPicker(word) {
   }).join('');
 }
 
+/**
+ * أزرارُ حسمِ المتجانِسة — **القراءاتُ المعروفةُ وحدَها، لا كلُّ الحروف**.
+ *
+ * ⚠️ **والفرقُ بينها وبين `pronStressPicker` فرقٌ في المعرفة لا في الشكل.**
+ *
+ *    `pronStressPicker` تُعرَض حين **لا نعرف** النبر، فتعطيك كلَّ حروف
+ *    العلّة لأن أيَّها قد يكون صحيحًا. وهذه تُعرَض حين **نعرفه بأكثرَ من
+ *    وجهٍ صحيح** — `за́мок` قلعةٌ و`замо́к` قُفل — فعرضُ حرفٍ ثالثٍ فيها
+ *    دعوةٌ إلى خطأٍ نعلم أنه خطأ.
+ *
+ * ⚠️ **واختيارُك يُحفَظ للسياق لا للكلمة** (راجع `rememberStressContext`):
+ *    الكلمتان متجانستان في الإملاء ومفترقتان في المعنى، فحفظُ اختيارك
+ *    عامًّا يجعل القلعةَ قفلًا في كلّ نصٍّ قادم.
+ */
+function pronHomographPicker(stress) {
+  const variants = stress.variants || [];
+  return variants.map((marked, i) => {
+    const ordinal = stress.variantOrdinals?.[i];
+    if (!Number.isInteger(ordinal)) return '';
+    return `<button data-sh="pron-homograph" data-v="${ordinal}"
+              data-marked="${esc(marked)}" lang="ru" dir="ltr">${esc(marked)}</button>`;
+  }).join('');
+}
+
+/**
+ * أثرُ حلّ النبر — **قبل أثرِ القواعد**، لأنه شرطُها لا نظيرُها.
+ *
+ * ⚠️ **ولا يُعرَض في الوضع البسيط.** المتعلّمُ يريد أن يعرف أين يقع
+ *    النبر، لا أيُّ مزوّدٍ في السلسلة أجاب. فالسطرُ الوحيدُ الذي يستحقّ
+ *    الظهورَ دائمًا هو **من أين جاء** — وهو في كتلة النبر نفسِها.
+ */
+function stressTraceHtml(stress) {
+  if (!analysis.advanced) return '';
+  const steps = stress.trace || [];
+  const outcome = {
+    hit: 'لقيها', miss: 'مالقاش', ambiguous: 'ملتبسة',
+    'no-vowel': 'مفيش حرف علّة', unknown: 'مجهولة',
+    'disagrees-ignored': 'خالف المُراجَع — اتسجّل واتجاهل',
+  };
+  return `
+    <section class="sh-an-trace">
+      <h4>إزاي عرفنا النبر؟</h4>
+      <ol dir="ltr">${steps.map((s) => `
+        <li class="o-${esc(s.outcome)}">
+          <code>${esc(s.provider)}</code>
+          <span>${esc(outcome[s.outcome] || s.outcome)}</span>
+          ${Number.isInteger(s.ordinal) ? `<em>#${s.ordinal + 1}</em>` : ''}
+        </li>`).join('')}</ol>
+      ${stress.disagreement ? `<p class="sh-an-warn">المعجم الكبير بيقول المقطع
+        ${stress.disagreement.external + 1}، وقاموسنا المُراجَع بيقول
+        ${stress.disagreement.kept + 1} — والمُراجَع هو اللي اتنفّذ.</p>` : ''}
+    </section>`;
+}
+
 /* ================================================================== *
  * وضعُ التحليل — الورقةُ اليسرى تصير دفترَ دراسة (WS54)
  * ================================================================== */
@@ -2844,6 +2926,9 @@ const analysis = {
   scrollTop: 0,
 };
 
+/** إلغاءُ الاشتراك في «وصل المعجم» — واحدٌ لا أكثر، ويُلغى عند الإغلاق. */
+let unwatchLexicon = null;
+
 function analysisHost() { return document.querySelector('[data-analysis]'); }
 function leftPage() { return document.querySelector('.sh-left'); }
 
@@ -2868,6 +2953,20 @@ function openAnalysis() {
   page?.setAttribute('data-analysis-on', '');
   renderAnalysis();
   page?.scrollTo({ top: 0 });
+
+  /*
+   * ⚠️ **ورقةٌ رُسمت قبل وصول المعجم لا تعرف أنه وصل.**
+   *
+   *    تفتح الورقةَ في الثانية الأولى فتقول «النبر مش مأكّد»، ويصل
+   *    المعجمُ بعدها بلحظة — ولو لم نُعِد الرسمَ لبقيت الورقةُ كاذبةً
+   *    أمامك حتى تغلقها وتفتحها. فنشترك مرّةً، ونُعيد الرسمَ إن كنتَ
+   *    ما زلتَ فيها.
+   */
+  warmStressResolver();
+  unwatchLexicon?.();
+  unwatchLexicon = onStressLexiconReady(() => {
+    if (analysis.on) renderAnalysis();
+  });
   return undefined;
 }
 
@@ -2878,6 +2977,8 @@ function openAnalysis() {
 function closeAnalysis() {
   const page = leftPage();
   analysis.on = false;
+  unwatchLexicon?.();
+  unwatchLexicon = null;
   page?.removeAttribute('data-analysis-on');
   const host = analysisHost();
   if (host) { host.setAttribute('hidden', ''); host.innerHTML = ''; }
@@ -2935,13 +3036,20 @@ function renderAnalysis() {
   const host = analysisHost();
   if (!host || !analysis.on) return;
 
+  const neighbours = splitWords(analysis.sentence || '');
+  /* يُحفظان لأن حسمَ المتجانِسة يُخزَّن **بجاريه** لا بالكلمة وحدَها. */
+  analysis.prevWord = neighbours[analysis.wordIndex - 1]?.spoken || null;
+  analysis.nextWord = neighbours[analysis.wordIndex + 1]?.spoken || null;
+
   const result = analyzeWord(analysis.word, {
     /* ⚠️ الجارُ يُمرَّر — فالمماثلةُ عبر الحدّ تظهر في مكانها الطبيعيّ. */
-    nextWord: splitWords(analysis.sentence || '')[analysis.wordIndex + 1]?.spoken || null,
-    previousWord: splitWords(analysis.sentence || '')[analysis.wordIndex - 1]?.spoken || null,
+    nextWord: analysis.nextWord,
+    previousWord: analysis.prevWord,
   });
 
   const unknown = result.flags.includes(PRON_FLAG.UNKNOWN_STRESS);
+  /* ملتبسةٌ ≠ مجهولة: نعرفها بوجهين، والفرقُ يستحقّ نصًّا مختلفًا. */
+  const ambiguous = unknown && Boolean(result.stress.ambiguous);
   const ordinalWord = ['الأول', 'التاني', 'التالت', 'الرابع', 'الخامس', 'السادس', 'السابع'];
 
   /* ---- الرأس: الجملةُ الأصليّة + طريقُ العودة ---- */
@@ -2963,18 +3071,35 @@ function renderAnalysis() {
     ${syllables ? `<div class="sh-an-syl" lang="ru" dir="ltr">${syllables}</div>` : ''}`;
 
   /* ---- النبر ---- */
+  const askAmbiguous = `
+    <section class="sh-an-ask">
+      <h4>الكلمة دي ليها نُطقين — والاتنين صحّ</h4>
+      <p>مش إني مش عارف: الكلمة نفسها بتتكتب زيّ ما هي وبتتنطق بنبرين
+         بمعنيين مختلفين. إنت اللي تعرف المقصود من الجملة — اختار،
+         وهفتكر اختيارك <b>في السياق ده</b> بس، مش في كلّ جملة.</p>
+      <div class="sh-an-pick">${pronHomographPicker(result.stress)}</div>
+    </section>`;
+
+  const askUnknown = `
+    <section class="sh-an-ask">
+      <h4>النبر مش مأكّد</h4>
+      <p>عشان أقدر أقولك بتتنطق إزاي، محتاج أعرف النبر واقع على أنهي حرف علّة.
+         دوس عليه — وهيتحفظ عندك للأبد.</p>
+      <div class="sh-an-pick">${pronStressPicker(result.normalizedText)}</div>
+    </section>`;
+
   const stressBlock = unknown
-    ? `<section class="sh-an-ask">
-         <h4>النبر مش مأكّد</h4>
-         <p>عشان أقدر أقولك بتتنطق إزاي، محتاج أعرف النبر واقع على أنهي حرف علّة.
-            دوس عليه — وهيتحفظ عندك للأبد.</p>
-         <div class="sh-an-pick">${pronStressPicker(result.normalizedText)}</div>
-       </section>`
+    ? (ambiguous ? askAmbiguous : askUnknown)
     : `<section class="sh-an-line">
          <span class="k">النبر</span>
          <span class="v">المقطع ${esc(ordinalWord[result.stress.ordinal] || String(result.stress.ordinal + 1))}
-           <small>من ${esc(String(result.stress.total))}</small></span>
+           <small>من ${esc(String(result.stress.total))}</small>
+           <i class="sh-an-from">${esc(PRON_ORIGIN_LABEL[result.stress.origin]
+    || PRON_SOURCE_LABEL[result.stress.source] || '')}</i></span>
        </section>
+       ${result.stress.alternates?.length ? `
+       <p class="sh-an-note">فيه قراءة تانية نادرة:
+         <b lang="ru" dir="ltr">${esc(result.stress.alternates.join(' · '))}</b></p>` : ''}
        <section class="sh-an-line sh-an-say">
          <span class="k">بتتنطق</span>
          <span class="v" lang="ru" dir="ltr">[${esc(result.pronunciation.simple)}]</span>
@@ -3028,9 +3153,13 @@ function renderAnalysis() {
     ? `<p class="sh-an-ipa" dir="ltr">${esc(result.pronunciation.ipa)}</p>`
     : '<p class="sh-an-warn">مفيش IPA كامل — فيه أصوات لسه مش مغطّاة بقواعد، وأحسن أقولك كده من إني أخترع رموز.</p>'}
       <dl>
-        <dt>مصدر النبر</dt><dd>${esc(PRON_SOURCE_LABEL[result.stress.source] || result.stress.source)}</dd>
+        <dt>مصدر النبر</dt><dd>${esc(PRON_ORIGIN_LABEL[result.stress.origin]
+    || PRON_SOURCE_LABEL[result.stress.source] || result.stress.source)}</dd>
+        <dt>حالة النبر</dt><dd dir="ltr">${esc(result.stress.maturity || '—')}</dd>
+        <dt>المزوّد</dt><dd dir="ltr">${esc(result.stress.provider || '—')}</dd>
         <dt>إصدار القواعد</dt><dd dir="ltr">${esc(result.rulesetVersion)}</dd>
         <dt>الحالة</dt><dd dir="ltr">${esc(result.flags.join(' · '))}</dd>
+        <dt>المعجم الكبير</dt><dd>${esc(lexiconStatusText())}</dd>
       </dl>
     </section>`;
 
@@ -3039,6 +3168,7 @@ function renderAnalysis() {
       ${crown}
       ${stressBlock}
       ${map}
+      ${stressTraceHtml(result.stress)}
       ${why}
       ${warns}
       ${advanced}
@@ -3051,11 +3181,43 @@ function renderAnalysis() {
   host.removeAttribute('hidden');
 }
 
+/**
+ * حالةُ المعجم الكبير — **تُقال بصراحة**، لأن التغطيةَ تختلف باختلافها،
+ * والمستعمِلُ الذي يرى «مش معروف» يستحقّ أن يعرف إن كان المعجمُ لم يصل
+ * بعدُ أم وصل ولم يجد الكلمة. وبينهما فرقٌ في ما ينبغي أن يفعله.
+ */
+function lexiconStatusText() {
+  const meta = lexiconMeta();
+  if (meta.ready) return `جاهز · ${(meta.forms || 0).toLocaleString('ar-EG')} صيغة`;
+  if (meta.failed) return 'مش متحمّل — التطبيق شغّال بالقاموس المدمج بس';
+  return 'بيتحمّل…';
+}
+
+/**
+ * من أين جاءت علامةُ النبر — بمفردات `STRESS_ORIGIN` الجديدة.
+ *
+ * ⚠️ **ومكرَّرةٌ هنا عمدًا بدل استيراد `ORIGIN_LABEL`.** الصياغةُ في
+ *    `types.js` صياغةُ مطوّرٍ يقرأ سجلًّا، وهذه صياغةُ متعلّمٍ يقرأ
+ *    دفترَه — و«المعجم الكبير (بلا إنترنت)» في مكانها هناك، أمّا هنا
+ *    فالمهمّ أن يعرف أن هذه معرفةٌ معجميّةٌ لا تخمين.
+ */
+const PRON_ORIGIN_LABEL = Object.freeze({
+  USER_OVERRIDE: 'إنت اللي حدّدته',
+  EXPLICIT_TEXT: 'مكتوب في النصّ',
+  BUILT_IN_VERIFIED: 'قاموس التطبيق المُراجَع',
+  OFFLINE_KNOWN: 'المعجم الروسي المدمج',
+  CONTEXT_HOMOGRAPH: 'إنت حسمتها في السياق ده',
+  RULE: 'قاعدة (ё أو حرف علّة واحد)',
+  PREDICTED: 'تنبّؤ — مش معرفة مؤكّدة',
+  UNKNOWN: 'مش معروف',
+});
+
 /** من أين جاءت علامةُ النبر — يُقال ولا يُخفى. */
 const PRON_SOURCE_LABEL = Object.freeze({
   explicit_text: 'مكتوب في النصّ',
   user_confirmed: 'إنت اللي حدّدته',
   dictionary: 'قاموس التطبيق',
+  offline_lexicon: 'المعجم الروسي المدمج',
   rule_yo: 'حرف ё (النبر عليه دايمًا)',
   rule_monosyllable: 'حرف علّة واحد',
   unknown: 'مش معروف',
@@ -6047,6 +6209,32 @@ function wireInteractions(main) {
         if (analysis.on) { syncSegment(); renderAnalysis(); }
         else resyncKeepingWord();
         toastOk(`النبر اتحفظ: ${marked}`);
+        return undefined;
+      }
+
+      /*
+       * ⚠️ **حسمُ المتجانِسة لا يمرّ بـ`rememberStress` — وهذا مقصود.**
+       *
+       *    `rememberStress` قاموسُ تصحيحاتٍ عامّ: «الكلمة دي نبرُها كذا
+       *    في كلّ مكان». وهو الصوابُ حين نكون أخطأنا؛ وهو **الخطأ**
+       *    حين تكون الكلمةُ كلمتين: `за́мок` قلعةٌ و`замо́к` قُفل.
+       *    فحفظُ اختيارك عامًّا هنا يجعل كلَّ قلعةٍ قفلًا بعد اليوم.
+       *
+       *    فيُحفَظ **بجاريه** في `shadow.stressContext`، ويُستشار حين
+       *    تعود نفسُ الكلمة بين نفسِ الجارين. وحين تظهر في سياقٍ آخر
+       *    يُسأل من جديد — لأنها فعلًا سؤالٌ جديد.
+       */
+      case 'pron-homograph': {
+        const marked = btn.dataset.marked || '';
+        const ordinal = Number(btn.dataset.v);
+        const bare = marked.split(STRESS_MARK).join('');
+        if (!bare || !Number.isInteger(ordinal)) return undefined;
+        await rememberStressContext(bare, analysis.prevWord, analysis.nextWord, ordinal);
+        clearPronunciationCache();
+        analysis.sound = -1;
+        if (analysis.on) { syncSegment(); renderAnalysis(); }
+        else resyncKeepingWord();
+        toastOk(`اتحفظ للسياق ده: ${marked}`);
         return undefined;
       }
 

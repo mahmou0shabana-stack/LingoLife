@@ -485,9 +485,11 @@ export function pronunciationCacheSize() {
  *   previousWord?: string|null,
  *   nextWord?: string|null,
  * }} options
- *   ⚠️ `previousWord`/`nextWord` **يُحفظان ولا يُستعملان بعد**: البنيةُ
- *      جاهزةٌ للكلام المتّصل (المرحلة الثالثة)، والادّعاءُ بأننا
- *      نحلّله اليوم كذب. راجع §20.8 في المواصفة.
+ *   ⚠️ `previousWord`/`nextWord` **يُستعملان في موضعين لا موضع**:
+ *      المماثلةُ الصوتيّةُ عبر حدّ الكلمة (WS54)، وحسمُ المتجانِسات
+ *      في `StressResolver` (WS55). وما زال غيرَ مدعومٍ هو **العروضُ**
+ *      نفسُه — أين تقف أنت في الجملة — ومُعلَنٌ في
+ *      `RU_CROSS_WORD_PROSODY` المؤجَّلة. راجع §20.8 في المواصفة.
  */
 export function analyzeWord(raw, {
   overrideStressOrdinal = null, previousWord = null, nextWord = null,
@@ -512,7 +514,15 @@ export function analyzeWord(raw, {
     };
   }
 
-  const stress = resolveStress(normalized, { overrideOrdinal: overrideStressOrdinal });
+  /*
+   * ⚠️ **والجارَان يُمرَّران إلى حلّال النبر أيضًا — لا إلى القواعد وحدَها.**
+   *    حسمُ المتجانسات يحتاج السياق: `замок` في «за́мок на горе» غيرُها
+   *    في «замо́к на двери». فالسياقُ الذي بُني للمماثلة الصوتيّة يخدم
+   *    النبرَ كذلك، بلا بنيةٍ ثانية.
+   */
+  const stress = resolveStress(normalized, {
+    overrideOrdinal: overrideStressOrdinal, previousWord, nextWord,
+  });
   const contextKey = `${previousWord || ''}>${nextWord || ''}`;
   const key = cacheKey(bare, stress, contextKey);
   if (cache.has(key)) return cache.get(key);
@@ -569,6 +579,16 @@ export function analyzeWord(raw, {
       status: stress.status,
       ordinal: stress.ordinal,
       source: stress.source,
+      /* ⚠️ أثرُ النبر **سابقٌ** لأثر القواعد — ومن أصلٍ مختلف. */
+      origin: stress.detail?.origin || null,
+      maturity: stress.detail?.status || null,
+      ambiguous: Boolean(stress.detail?.ambiguous),
+      variants: stress.detail?.variants || null,
+      variantOrdinals: stress.detail?.variantOrdinals || null,
+      alternates: stress.detail?.alternates || null,
+      provider: stress.detail?.provider || null,
+      trace: stress.detail?.trace || [],
+      disagreement: stress.detail?.disagreement || null,
       syllableNumber: stress.ordinal >= 0 ? stress.ordinal + 1 : null,
       total: stress.syllables,
     },

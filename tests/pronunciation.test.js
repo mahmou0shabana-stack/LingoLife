@@ -635,3 +635,232 @@ describe('النطق · إعادةُ التحليل تحت إصدارٍ جديد
     expect(Array.isArray(hits)).toBe(true);
   });
 });
+
+/* ================================================================== *
+ * ١٠) حلّالُ النبر — الأولويّةُ والنسبةُ والالتباس (WS55)
+ *
+ * ⚠️ **ولا اختبارَ واحدٌ منها يعتمد على الملفّ الحقيقيّ.**
+ *    `assets/stress-lexicon.json` عشرةُ ميغابايتاتٍ من بياناتٍ خارجيّة؛
+ *    وربطُ الاختبارات به يجعلها بطيئةً وهشّةً ومرهونةً بتحديثِ مصدرٍ لا
+ *    نملكه. فيُحقَن معجمٌ صغيرٌ مصنوعٌ باليد، والمُختبَرُ هو **المنطق**
+ *    لا حجمُ البيانات: الأولويّة، والنسبة، والالتباس، والسقوطُ الآمن.
+ * ================================================================== */
+
+describe('النبر · الحلّالُ الموحَّد (WS55)', () => {
+  /*
+   * ⚠️ **ولا كلمةَ منها في `BUILT_IN`.** أوّلُ صياغةٍ لهذه الاختبارات
+   *    استعملت `документ`، فسقط اختباران — لا لعطبٍ في المعجم، بل لأن
+   *    الكلمةَ في القاموس المدمج أصلًا فلم تصل السلسلةُ إلى المعجم
+   *    قطّ. والدرس: كوربوسُ اختبارِ طبقةٍ يجب أن يخلوَ ممّا تعرفه
+   *    الطبقاتُ فوقها، وإلّا اختبر ترتيبَ الأولويّة وهو يظنّ أنه
+   *    يختبر البحث.
+   */
+  const TINY = {
+    _license: 'test',
+    forms: {
+      /* الرقمُ هو رتبةُ حرف العلّة المشدَّد (من صفر): боло́то · доро́га */
+      1: 'болото дорога',
+      /* молоко́ — الحركةُ الثالثة */
+      2: 'молоко',
+      /* ба́бушка */
+      0: 'бабушка',
+    },
+    ambiguous: { замок: [0, 1], мука: [0, 1] },
+    alt: { дорога: [0] },
+  };
+
+  async function withLexicon(fn) {
+    const store = await import('../js/services/pronunciation/stress/lexicon-store.js');
+    const { clearPronunciationCache: clear } =
+      await import('../js/services/pronunciation/engine.js');
+    store.__injectLexicon(TINY);
+    clear();
+    try { return await fn(); } finally { store.__resetLexicon(); clear(); }
+  }
+
+  it('١ · بلا معجمٍ يعمل المحرّكُ كما كان — والكلمةُ تبقى «مجهولة النبر»', async () => {
+    const store = await import('../js/services/pronunciation/stress/lexicon-store.js');
+    store.__resetLexicon();
+    clearPronunciationCache();
+    expect(store.lexiconReady()).toBe(false);
+    expect(analyzeWord('болото').flags.includes(FLAG.UNKNOWN_STRESS)).toBe(true);
+  });
+
+  it('٢ · وبالمعجم تُعرَف — ويُنسَب النبرُ إلى المعجم لا إلى قاموسنا', async () => {
+    await withLexicon(async () => {
+      const out = analyzeWord('болото');
+      expect(out.flags.includes(FLAG.UNKNOWN_STRESS)).toBe(false);
+      expect(out.stress.ordinal).toBe(1);
+      expect(out.stress.origin).toBe('OFFLINE_KNOWN');
+      /*
+       * ⚠️ **بيانٌ معجميٌّ ≠ تنبّؤ.** الحالةُ `VERIFIED` لأنها مأخوذةٌ من
+       *    معجمٍ يُنسَب إلى مؤلّفيه، لا لأن نموذجًا رجّحها.
+       */
+      expect(out.stress.maturity).toBe('VERIFIED');
+    });
+  });
+
+  it('٣ · ⚠️ والمُراجَعُ يدويًّا لا يُزاحمه المعجمُ — ولو خالفه', async () => {
+    await withLexicon(async () => {
+      const { BUILT_IN } = await import('../js/services/shadow/stress.js');
+      const word = Object.keys(BUILT_IN)[0];
+      const out = analyzeWord(word);
+      expect(out.stress.origin).toBe('BUILT_IN_VERIFIED');
+    });
+  });
+
+  it('٤ · وتصحيحُك يعلو على الاثنين — ويُنسَب إليك', async () => {
+    await withLexicon(async () => {
+      const out = analyzeWord('болото', { overrideStressOrdinal: 2 });
+      expect(out.stress.ordinal).toBe(2);
+      expect(out.stress.origin).toBe('USER_OVERRIDE');
+      expect(out.stress.source).toBe('user_confirmed');
+    });
+  });
+
+  it('٥ · ⚠️ والمتجانِسةُ تبقى ملتبسةً — لا تُحسَم بالتخمين', async () => {
+    await withLexicon(async () => {
+      const out = analyzeWord('замок');
+      /* «ملتبسة» تُترجَم للمحرّك «مجهولة» لأن الاختزالَ يحتاج موضعًا واحدًا. */
+      expect(out.flags.includes(FLAG.UNKNOWN_STRESS)).toBe(true);
+      expect(out.stress.ambiguous).toBe(true);
+      expect(out.stress.variants.length).toBe(2);
+      /* والفرقُ عن المجهولة محفوظ: هذه لها قراءتان معروضتان. */
+      expect(out.stress.variants[0].includes('́')).toBe(true);
+    });
+  });
+
+  it('٦ · والسياقُ يحسم الالتباس — بجارَي الكلمة لا بالكلمة وحدَها', async () => {
+    await withLexicon(async () => {
+      const { rememberStressContext, loadStressContext } =
+        await import('../js/services/pronunciation/stress/providers.js');
+      await loadStressContext();
+      await rememberStressContext('замок', 'старый', 'на', 0);
+      clearPronunciationCache();
+
+      const inContext = analyzeWord('замок', { previousWord: 'старый', nextWord: 'на' });
+      expect(inContext.stress.ordinal).toBe(0);
+      expect(inContext.stress.origin).toBe('CONTEXT_HOMOGRAPH');
+
+      /* ⚠️ وفي سياقٍ آخرَ تعود ملتبسةً — لأنها فعلًا سؤالٌ آخر. */
+      const elsewhere = analyzeWord('замок', { previousWord: 'дверной', nextWord: 'сломан' });
+      expect(elsewhere.stress.ambiguous).toBe(true);
+    });
+  });
+
+  it('٧ · وأثرُ النبر يُسجَّل خطوةً خطوة — من سُئل وبماذا أجاب', async () => {
+    await withLexicon(async () => {
+      const out = analyzeWord('молоко');
+      expect(out.stress.ordinal).toBe(2);
+      expect(Array.isArray(out.stress.trace)).toBe(true);
+      const hit = out.stress.trace.find((s) => s.outcome === 'hit');
+      expect(hit.provider).toBe('offline-lexicon');
+      /* والمزوّدُ الأعلى رتبةً سُئل أوّلًا وأخفق — والترتيبُ محفوظ. */
+      expect(out.stress.trace[0].provider).toBe('reviewed');
+    });
+  });
+
+  it('٨ · ⚠️ ولا حقلَ `confidence` في أيّ مخرَجٍ من مخرجات النبر', async () => {
+    await withLexicon(async () => {
+      const seen = JSON.stringify(analyzeWord('болото').stress);
+      expect(seen.includes('confidence')).toBe(false);
+      const { resolveStressDetailed } =
+        await import('../js/services/pronunciation/stress/resolver.js');
+      expect(JSON.stringify(resolveStressDetailed('болото')).includes('confidence')).toBe(false);
+    });
+  });
+
+  it('٩ · والتنبّؤُ مطفأ — ولا يخرج نبرٌ متنبَّأٌ به اليوم بحال', async () => {
+    const { predictionProvider } =
+      await import('../js/services/pronunciation/stress/providers.js');
+    expect(predictionProvider.enabled).toBe(false);
+    expect(predictionProvider.resolve('незнакомоеслово')).toBe(null);
+  });
+
+  it('١٠ · ومسارُ العرض يقرأ نفسَ المعجم — لا معجمًا ثانيًا', async () => {
+    const store = await import('../js/services/pronunciation/stress/lexicon-store.js');
+    const { stressOf, registerStressLookup } = await import('../js/services/shadow/stress.js');
+    const { markWord } = await import('../js/services/pronunciation/stress/resolver.js');
+
+    expect(stressOf('болото')).toBe(null);          /* قبل التركيب */
+    store.__injectLexicon(TINY);
+    registerStressLookup((bare) => {
+      const hit = store.lookupStress(bare);
+      return !hit || hit.ambiguous ? null : markWord(bare, hit.ordinal);
+    });
+    try {
+      expect(stressOf('болото')).toBe('боло́то');
+      /* ⚠️ والملتبسةُ لا تُعلَّم — علامةٌ واحدةٌ عليها ادّعاءُ حسم. */
+      expect(stressOf('замок')).toBe(null);
+    } finally {
+      registerStressLookup(null);
+      store.__resetLexicon();
+    }
+  });
+
+  it('١١ · وإعادةُ التحليل تمرّ بنفس الحلّال — بلا مسارٍ ثانٍ', async () => {
+    const engine = await import('../js/services/pronunciation/engine.js');
+    const src = await (await fetch('../js/services/pronunciation/reanalysis.js')).text();
+    /* ⚠️ حراسةٌ بالنصّ: أيُّ قاموسِ نبرٍ يُستورَد هناك يعني مسارًا ثانيًا. */
+    expect(src.includes('stress-resolver')).toBe(false);
+    expect(src.includes('analyzeWord')).toBe(true);
+    expect(typeof engine.analyzeWord).toBe('function');
+  });
+
+  it('١٢ · وتعذُّرُ تحميل المعجم لا يُسقط تحليلَ النطق', async () => {
+    const store = await import('../js/services/pronunciation/stress/lexicon-store.js');
+    store.__resetLexicon();
+    const ok = await store.loadStressLexicon({
+      fetchImpl: async () => { throw new Error('لا شبكة'); },
+    });
+    expect(ok).toBe(false);
+    expect(store.lexiconMeta().failed).toBe(true);
+    /* والمحرّكُ يعمل — بالقاموس المدمج كما كان قبل WS55. */
+    expect(analyzeWord('вот').supported).toBe(true);
+    store.__resetLexicon();
+  });
+
+  it('١٤ · ⚠️ وعلامةٌ رسمناها نحن لا تُنسَب إلى «مكتوب في النصّ»', async () => {
+    /*
+     * العطبُ نفسُه أمسكتُه مرّتين: في WS52 مع القاموس المدمج، وهنا مع
+     * المعجم. الرقاقةُ تُرسَم معلَّمةً بما نعرفه، فتصل الكلمةُ إلى
+     * التحليل وفيها العلامةُ أصلًا — فيقول «مكتوب في النصّ» عن علامةٍ
+     * كتبناها قبل ثانية. ولا يظهر إلّا في الواجهة الحيّة، فيُثبَّت هنا.
+     */
+    const store = await import('../js/services/pronunciation/stress/lexicon-store.js');
+    const { registerStressLookup } = await import('../js/services/shadow/stress.js');
+    const { markWord } = await import('../js/services/pronunciation/stress/resolver.js');
+    store.__injectLexicon(TINY);
+    registerStressLookup((bare) => {
+      const hit = store.lookupStress(bare);
+      return !hit || hit.ambiguous ? null : markWord(bare, hit.ordinal);
+    });
+    clearPronunciationCache();
+    try {
+      const asChipRenders = analyzeWord('боло́то');
+      expect(asChipRenders.stress.origin).toBe('OFFLINE_KNOWN');
+      expect(asChipRenders.stress.source).toBe('offline_lexicon');
+
+      /* ⚠️ وعلامةٌ **تخالف** المعجم تبقى «مكتوبةً في النصّ» بحقّ. */
+      const authorMark = analyzeWord('бо́лото');
+      expect(authorMark.stress.origin).toBe('EXPLICIT_TEXT');
+    } finally {
+      registerStressLookup(null);
+      store.__resetLexicon();
+      clearPronunciationCache();
+    }
+  });
+
+  it('١٣ · والبحثُ الثنائيّ يجد الأوّلَ والأخيرَ ولا يخترع ما ليس فيه', async () => {
+    const store = await import('../js/services/pronunciation/stress/lexicon-store.js');
+    store.__injectLexicon(TINY);
+    try {
+      expect(store.lookupStress('болото').ordinal).toBe(1);   /* الأوّل في دلوه */
+      expect(store.lookupStress('дорога').ordinal).toBe(1);   /* الأخير في دلوه */
+      expect(store.lookupStress('бабушка').ordinal).toBe(0);  /* دلوٌ آخر */
+      expect(store.lookupStress('молоко').ordinal).toBe(2);   /* دلوٌ ثالث */
+      expect(store.lookupStress('колбаса')).toBe(null);       /* ليست فيه */
+      expect(store.lookupStress('доку')).toBe(null);          /* بادئةٌ ليست كلمة */
+    } finally { store.__resetLexicon(); }
+  });
+});
