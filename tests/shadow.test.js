@@ -1604,3 +1604,70 @@ describe('مصدر الصوت — الزرّ لا يعد بما لا يملكه'
     expect(effectiveAudioSource('native', false)).toBe(AUDIO_SOURCE.NATIVE);
   });
 });
+
+/* ================================================================== *
+ * WS53 — حارسُ «لا مؤقّتَ يلمس نطقًا جاريًا»
+ *
+ * ⚠️ **هذه الحزمةُ موجودةٌ لأنني كسرتُ الشيءَ الذي تحرسه.**
+ *
+ *    أضفتُ في WS51 نبضةَ `pause()`/`resume()` كلَّ تسع ثوانٍ ظنًّا
+ *    أنني أمنع بترًا — فصنعتُه. الجملةُ على سرعة 0.5 تحتاج 13000ms
+ *    فانقطعت عند 9002ms، وعلى 0.8 و2.0 نجت لأنها لم تبلغ العتبة.
+ *    ولذلك كانت السرعةُ هي ما يقرّر، وهو ما أبلغتَ به بالحرف.
+ *
+ *    ورفعُ العتبة كان سيُخفيه لا يُزيله. فالحارسُ على **البنية** لا
+ *    على الرقم: لا `pause()` ولا `setInterval` في مسار النطق، مهما
+ *    بدا الداعي وجيهًا في اللحظة.
+ * ================================================================== */
+
+describe('النطق — لا مؤقّتَ يقطع نطقًا جاريًا (WS53)', () => {
+  /** الكودُ وحدَه بلا تعليقات — فلا يُخدَع الحارسُ بشرحٍ يذكر الكلمة. */
+  const codeOnly = (text) =>
+    text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+  it('⚠️ مسارُ النطق لا يستدعي speechSynthesis.pause() إطلاقًا', async () => {
+    const code = codeOnly(await (await fetch('/js/services/shadow/tts-controller.js')).text());
+    expect(/\.pause\s*\(/.test(code)).toBe(false);
+  });
+
+  it('⚠️ ولا يبني مؤقّتًا دوريًّا يعمل أثناء النطق', async () => {
+    const code = codeOnly(await (await fetch('/js/services/shadow/tts-controller.js')).text());
+    expect(/setInterval\s*\(/.test(code)).toBe(false);
+  });
+
+  it('⚠️ و`speak` تنتهي عند `speechSynthesis.speak` — لا سطرَ بعده', async () => {
+    const code = codeOnly(await (await fetch('/js/services/shadow/tts-controller.js')).text());
+    const CALL = 'window.speechSynthesis.speak(utterance);';
+    const at = code.lastIndexOf(CALL);
+    expect(at > 0).toBe(true);
+    /*
+     * ⚠️ **والنافذةُ تنتهي عند نهاية الدالّة لا بعد عددٍ من الحروف.**
+     *    كتبتُها أوّلًا `at + 220` فامتدّت إلى الدالّة التالية والتقطت
+     *    `stepRate(` — فأسقطت الحارسَ على كودٍ سليم. حارسٌ يُنذر كذبًا
+     *    يُدرَّب الناسُ على تجاهله، فيصمت يومَ يصدق.
+     */
+    const after = code.slice(at + CALL.length);
+    const end = after.search(/\n\}/);
+    const tail = end === -1 ? after : after.slice(0, end);
+    expect(/[A-Za-z_$][\w$]*\s*\(/.test(tail)).toBe(false);
+  });
+
+  it('⚠️ وإبقاءُ الخلفية لا يعرف speechSynthesis أصلًا', async () => {
+    const code = codeOnly(await (await fetch('/js/services/shadow/background-audio.js')).text());
+    expect(/speechSynthesis/.test(code)).toBe(false);
+  });
+
+  it('⚠️ ولا مؤقّتَ في محرّك التشغيل يعمل بالتوازي مع نطقٍ حيّ', async () => {
+    const code = codeOnly(await (await fetch('/js/services/shadow/playback-controller.js')).text());
+    /*
+     * كلُّ `setTimeout` هنا إمّا **قبل** النطق (منعُ التراكب، صمتُ
+     * دورك) وإمّا **بعد** `await speaker(...)` (فاصلُ التكرار، انتقالُ
+     * الكلمة). والمحرّكُ ينتظر وعدَ النطق ولا يسابقه — فأيُّ مؤقّتٍ
+     * جديدٍ يجب أن يبقى كذلك.
+     */
+    const timers = code.match(/setTimeout\s*\(/g) || [];
+    expect(timers.length).toBe(4);
+    /* ولا واحدَ منها يلمس محرّكَ النطق. */
+    expect(/setTimeout\s*\([^)]*speechSynthesis/.test(code)).toBe(false);
+  });
+});
