@@ -18,6 +18,7 @@
 import { describe, it, expect } from './test-runner.js';
 import {
   TEACHING_RULES, COVERAGE, PROVENANCE, SOURCE_STATUS, SOURCE_DOC, TERM,
+  PDF_SOURCES, SUPERSEDED, sourceItemsOf,
   curriculumAudit, curriculumStats, teachingRuleById, teachingRulesForEngineRule,
 } from '../js/services/pronunciation/curriculum.js';
 import { soundMap, contextChain } from '../js/services/pronunciation/sound-map.js';
@@ -71,18 +72,45 @@ describe('المنهج · البنية والتدقيق الآليّ', () => {
   it('الوثائقُ الثلاثُ كلُّها ممثَّلة', () => {
     const stats = curriculumStats();
     expect(stats.byDoc[SOURCE_DOC.NOTES]).toBe(14);
-    expect(stats.byDoc[SOURCE_DOC.STRESS]).toBe(8);
+    expect(stats.byDoc[SOURCE_DOC.STRESS]).toBe(14);
     expect(stats.byDoc[SOURCE_DOC.VOICING]).toBe(8);
   });
 
-  it('⚠️ كلُّ بنود ٥ و٦ و٧ في قائمة التدقيق لها بندٌ منهجيّ — بلا استثناء', () => {
-    const sections = TEACHING_RULES.map((t) => t.section);
+  it('⚠️ كلُّ عنوانٍ في الملفّات له بندٌ منهجيّ — والعناوينُ من الصفحات لا من الطلب', () => {
+    /*
+     * ⚠️ **وهذه القائمةُ نُسخت من الملفّات لا من قائمة التدقيق.** كانت
+     *    في WS58 «5A…7H» — رموزَ بنودٍ في الطلب لا عناوينَ في مصدر.
+     *    واليومَ كلُّ سطرٍ هنا نصٌّ مقروءٌ من صفحة.
+     */
+    const sections = new Set(TEACHING_RULES.map((t) => t.section));
     const required = [
-      '5A', '5B', '5C', '5D', '5E', '5F', '5G', '5H', '5I', '5J', '5K', '5L', '5M', '5N',
-      '6A', '6B', '6C', '6D', '6E', '6F', '6G', '6H',
-      '7A', '7B', '7C', '7D', '7E', '7F', '7G', '7H',
+      'الحروف التي ترقق الحرف الساكن الذي يأتي قبلها',
+      'الحروف ( ш - ж - ц ) دائما مفخمين',
+      'الحروف ( ч - щ ) دائما مرققين',
+      'حرف ( а ) بعد ( ч ) أو ( щ ) بدون نبر',
+      'حرف ( г ) بين е و о أو بين о و о',
+      '( гк ) يتم نطقهم ( хк )',
+      '( вх ) يتم نطقهم ( фх )',
+      '( сч ) يتم نطقهم ( щ )',
+      '( стл ) يتم نطقهم ( сл )',
+      '( вств ) يتم نطقهم ( ств )',
+      '( здн ) يتم نطقهم ( зн )',
+      '( лнц ) يتم نطقهم ( нц )',
+      '( рдц ) يتم نطقهم ( рц )',
+      '( жч ) يتم نطقهم ( щ )',
+      'النبر Ударе́ние',
+      'بعض الحروف المتحركة يتأثر نطقها حسب موقع النبر',
+      'حرف ( о )', 'حرف ( я )', 'حرف ( е )', 'ملحوظات مهمة',
+      'جدول الأصوات المجهورة والمهموسة',
+      'إذا توالى صوتان أحدهما مجهور و الآخر مهموس',
+      'مجهور + مهموس = مهموس + مهموس',
+      'مهموس + مجهور = مجهور + مجهور',
+      'ليس شرطا أن يتوالى الصوتان في نفس الكلمة',
+      'إذا توالى صوتان من نفس النوع',
+      'آخر صوت في الكلمة',
+      'ملحوظة مهمة',
     ];
-    expect(required.filter((s) => !sections.includes(s))).toEqual([]);
+    expect(required.filter((x) => !sections.has(x))).toEqual([]);
   });
 });
 
@@ -90,38 +118,88 @@ describe('المنهج · البنية والتدقيق الآليّ', () => {
  * ٢) صدقُ المصدر — البند ٦٧
  * ================================================================== */
 
-describe('المنهج · صدقُ المصدر', () => {
-  it('⚠️ ولا بندَ يدّعي أنه مقروءٌ من ملفّ PDF — الملفّاتُ لم تصل هذه الجلسة', () => {
+describe('المنهج · التحقّق من الملفّات الحقيقيّة (WS59)', () => {
+  it('⚠️ كلُّ بندٍ منهجيٍّ مقروءٌ من ملفّ — ولا بندَ باقٍ على «قائمة الطلب»', () => {
     /*
-     * ⚠️ **هذا الاختبارُ يسقط عمدًا يومَ تصل الملفّات.**
-     *    وسقوطُه حينئذٍ **مطلوب**: يذكّر مَن يرفع البنودَ إلى
-     *    `PDF_VERIFIED` أن يُحدِّث هذا السطرَ بوعي، لا أن تمرّ الترقيةُ
-     *    صامتةً كما مرّ ادّعاءُ التغطية من قبل.
+     * ⚠️ **وهذا الاختبارُ معكوسُ سلفِه عمدًا.** كان في WS58 يتأكّد أنّ
+     *    **صفرًا** من البنود يدّعي القراءةَ من ملفّ — لأن الملفّات لم
+     *    تكن قد وصلت. وقد وصلت وقُرئت، فصار يتأكّد أن **لا بندَ مصدرٍ
+     *    بقي بلا قراءة**. والانقلابُ نفسُه هو الدليلُ على أن التمريرةَ
+     *    وقعت فعلًا ولم تُدَّعَ.
      */
-    const claimed = TEACHING_RULES.filter((t) => t.sourceStatus === SOURCE_STATUS.PDF_VERIFIED);
-    expect(claimed.map((t) => t.id)).toEqual([]);
-  });
-
-  it('بنودُ المنهج المطلوبةُ مصدرُها قائمةُ التدقيق أو الملفّ — لا «توسيع محرّك»', () => {
-    const wrong = TEACHING_RULES
+    const unverified = TEACHING_RULES
       .filter((t) => t.provenance === PROVENANCE.SOURCE_REQUIRED)
-      .filter((t) => t.sourceStatus === SOURCE_STATUS.ENGINE_ORIGIN);
-    expect(wrong.map((t) => t.id)).toEqual([]);
+      .filter((t) => t.sourceStatus !== SOURCE_STATUS.PDF_VERIFIED)
+      .map((t) => `${t.id}:${t.sourceStatus}`);
+    expect(unverified).toEqual([]);
   });
 
-  it('وتوسيعاتُ المحرّك لا تدّعي أصلًا منهجيًّا (بند ٤٣)', () => {
-    const wrong = TEACHING_RULES
-      .filter((t) => t.provenance === PROVENANCE.ENGINE_EXPANSION)
-      .filter((t) => t.sourceStatus !== SOURCE_STATUS.ENGINE_ORIGIN
-        || t.doc !== SOURCE_DOC.ENGINE);
-    expect(wrong.map((t) => t.id)).toEqual([]);
+  it('⚠️ وكلُّ بندٍ مقروءٍ يقول **أين** — وثيقةً وصفحةً ونصًّا حرفيًّا', () => {
+    expect(curriculumAudit().verifiedWithoutPage).toEqual([]);
   });
 
-  it('الصنفان لا يختلطان في الإحصاء', () => {
+  it('والصفحاتُ داخل عدد صفحات الملفّ فعلًا — لا رقمًا مخترعًا', () => {
+    const limit = Object.fromEntries(PDF_SOURCES.map((p) => [p.doc, p.pages]));
+    const bad = TEACHING_RULES
+      .filter((t) => t.sourceStatus === SOURCE_STATUS.PDF_VERIFIED)
+      .filter((t) => t.page < 1 || t.page > limit[t.doc])
+      .map((t) => `${t.id} ص${t.page} > ${limit[t.doc]}`);
+    expect(bad).toEqual([]);
+  });
+
+  it('وتوسيعاتُ المحرّك لا تدّعي صفحةً ولا نصَّ مصدر (بند ٢٢)', () => {
+    expect(curriculumAudit().pageWithoutSource).toEqual([]);
+    const claiming = TEACHING_RULES
+      .filter((t) => t.provenance === PROVENANCE.ENGINE_EXPANSION && t.sourceText)
+      .map((t) => t.id);
+    expect(claiming).toEqual([]);
+  });
+
+  it('⚠️ ولا معرِّفَ من WS58 اختفى بصمت — إمّا باقٍ وإمّا مُستخلَفٌ بالاسم', () => {
+    /* بند ٢٤: القسمةُ إلى بنودٍ أدقّ ليست حذفًا، لكنها تُسجَّل. */
+    expect(curriculumAudit().brokenSupersession).toEqual([]);
+    expect(Object.keys(SUPERSEDED).length).toBe(2);
+  });
+
+  it('⚠️ وعددُ بنود كلّ وثيقةٍ = ما استُخرج منها فعلًا (بند ٢٥)', () => {
+    /*
+     * ⚠️ **والأرقامُ مشتقّةٌ من البنود لا مكتوبةٌ فوقها.** الرقمُ هنا
+     *    يصف ما في الملفّ (١٤ + ١٤ + ٨ = ٣٦)، لا ما قالته قائمةُ الطلب
+     *    (١٤ + ٨ + ٨ = ٣٠). والفرقُ ستّةُ بنودٍ ما كانت لتُعرَف بلا قراءة.
+     */
     const stats = curriculumStats();
-    expect(stats.bySourceStatus.PROMPT_CHECKLIST).toBe(30);
-    expect(stats.bySourceStatus.ENGINE_ORIGIN).toBe(10);
-    expect(stats.total).toBe(40);
+    expect(stats.byDoc[SOURCE_DOC.NOTES]).toBe(14);
+    expect(stats.byDoc[SOURCE_DOC.STRESS]).toBe(14);
+    expect(stats.byDoc[SOURCE_DOC.VOICING]).toBe(8);
+    expect(stats.pdfVerified).toBe(36);
+    /* ومجموعُ البنود المقروءة = مجموعُ ما في الوثائق الثلاث. */
+    const perDoc = PDF_SOURCES.reduce((n, p) => n + sourceItemsOf(p.doc).length, 0);
+    expect(perDoc).toBe(stats.pdfVerified);
+  });
+
+  it('⚠️ ومثالُ المعلّمة لا يُجمَع مع مثالٍ أضفتُه أنا (بند ٩)', () => {
+    const stats = curriculumStats();
+    expect(stats.sourceExamples + stats.engineExamples).toBe(stats.examples);
+    /* الأغلبيّةُ الساحقةُ من الملفّ — وإلّا فالتحقّقُ شكليّ. */
+    expect(stats.sourceExamples > stats.engineExamples * 2).toBe(true);
+    /* وكلُّ مثالٍ يعلن انتماءَه صراحةً. */
+    const vague = TEACHING_RULES.flatMap((t) => [...t.examples, ...t.counter])
+      .filter((e) => typeof e.fromSource !== 'boolean');
+    expect(vague.length).toBe(0);
+  });
+
+  it('وكلُّ مثالٍ من الملفّ يحمل معناه كما كتبته المعلّمة حيث ذكرته', () => {
+    /* لا نطلبه لكلّ مثال — الملفُّ نفسُه لا يترجم كلَّ كلمة. */
+    const glossed = TEACHING_RULES.flatMap((t) => t.examples)
+      .filter((e) => e.fromSource && e.gloss);
+    expect(glossed.length > 40).toBe(true);
+  });
+
+  it('الصنفان لا يختلطان في الإحصاء (بند ٤٣)', () => {
+    const stats = curriculumStats();
+    expect(stats.bySourceStatus.PDF_VERIFIED).toBe(36);
+    expect(stats.bySourceStatus.ENGINE_ORIGIN).toBe(11);
+    expect(stats.total).toBe(47);
   });
 });
 
@@ -160,6 +238,24 @@ describe('المنهج · أمثلةُ المصدر تمرّ على المحرّ
           continue;
         }
 
+        /*
+         * ⚠️ **والنصفُ المفخَّمُ من زوجِ المصدر يُثبَت بوصفه لا بقاعدةٍ تنطلق.**
+         *
+         *    المعلّمةُ تضع `ма́ма` مقابل `ме́ч` لتُسمِعك الفرق. والأولى
+         *    **لا تُطلِق قاعدةَ ترقيق** — وهذا هو معناها. فطلبُ قاعدةٍ
+         *    منها يُسقِط مثالًا صحيحًا؛ والصوابُ أن يُسأل المحرّك:
+         *    «ماذا تقول عن هذا الحرف؟» فيجيب «مفخم» أو «مرقق».
+         */
+        if (example.expectHardness) {
+          const { letter, label } = example.expectHardness;
+          const unit = soundMap(result).units.find((u) => u.written === letter);
+          const got = unit?.hardness?.label || '(مفيش)';
+          if (!got.startsWith(label)) {
+            failures.push(`${example.word}: «${letter}» ${got} لا ${label}`);
+          }
+          continue;
+        }
+
         /* مثالٌ يسمّي قاعدتَه بعينها يُفحَص بها — والباقي بقواعد البند. */
         const wanted = example.expectRule ? [example.expectRule] : item.engineRuleIds;
         if (!result.ruleIds.some((id) => wanted.includes(id))) {
@@ -189,6 +285,14 @@ describe('المنهج · الأمثلةُ المضادّة لا تُفرِط', 
          *    بحقّ: `жизнь` تُرقّق الـ`н` بـ`ь` وهي مثالٌ مضادٌّ لترقيق
          *    الـ`ж`. فمنعٌ شاملٌ هنا كان سيُسقِط اختبارًا صحيحًا.
          */
+        /* دعوى عن **النبر** لا عن التغيّر: «я مش هي المنبورة». */
+        if (example.notStressed) {
+          const unit = soundMap(result).units
+            .find((u) => u.written === example.notStressed && u.type === 'vowel');
+          if (unit?.stressed) failures.push(`${example.word}: «${example.notStressed}» طلعت منبورة`);
+          continue;
+        }
+
         if (example.unchanged) {
           /* دعوى عن **حرفٍ بعينه** لا عن الكلمة: `мя́гкий` تُختزَل
              نهايتُها بحقّ، والمنفيُّ أن تُختزَل الـ`я` المنبورة. */
