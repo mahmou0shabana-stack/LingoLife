@@ -4784,7 +4784,8 @@ body.shadow-open { overflow: hidden; }
   font-size: 11px; font-weight: 500; letter-spacing: .2em; margin: 0 0 14px;
   color: rgba(90, 72, 44, .42); text-align: center;
 }
-.sh-an-map, .sh-an-why, .sh-an-ask, .sh-an-adv, .sh-an-trace {
+.sh-an-map, .sh-an-why, .sh-an-ask, .sh-an-adv, .sh-an-trace,
+.sh-an-heard, .sh-an-drill, .sh-an-changed, .sh-an-terms, .sh-an-ctx {
   margin-block-start: clamp(26px, 5vh, 46px);
   padding-block-start: clamp(20px, 3vh, 30px);
   border-block-start: 1px solid rgba(122, 95, 44, .14);
@@ -4917,3 +4918,118 @@ body.shadow-open { overflow: hidden; }
   border: 1px solid rgba(122, 95, 44, .22); background: transparent;
 }
 .sh-an-modes button.on { background: rgba(122, 95, 44, .1); color: var(--sh-paper-ink); }
+
+
+/* ══════════════════════════════════════════════════════════════
+   دفترُ النطق — WS58
+   ══════════════════════════════════════════════════════════════
+
+   ⚠️ **ورقةٌ لا لوحةُ قيادة** (بند ٥٤). التسلسلُ الطباعيُّ يحمل المعنى:
+      كلمة ← صوت ← بنية ← تفسير ← سياق. ولا بطاقاتٍ ذاتَ حدودٍ ولا
+      صناديقَ عائمةٍ في فراغ — الفواصلُ خطوطٌ رفيعةٌ كهوامش الدفتر.
+
+   ⚠️ **وكلُّ ما يُلمَس ≥ ٤٤px** (بند ٥٣). اللوحُ يُستعمَل بالإبهام،
+      ورمزٌ صوتيٌّ صغيرٌ يحتاج دقّةَ فأرةٍ ليس هدفًا صالحًا للّمس.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ---- المقاطع: أزرارٌ لا نصّ ---- */
+.sh-an-syl { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 2px; }
+.sh-an-sylbtn {
+  min-block-size: 48px; min-inline-size: 48px; padding: 4px 12px;
+  font: inherit; font-size: clamp(20px, 2.8vw, 27px); cursor: pointer;
+  background: transparent; border: 1px solid transparent; border-radius: 4px;
+  color: var(--sh-paper-ink); transition: all .18s ease;
+}
+.sh-an-sylbtn:hover { background: rgba(122, 95, 44, .07); }
+.sh-an-sylbtn.on {
+  color: #6d5220; font-weight: 600;
+  box-shadow: inset 0 -2px 0 rgba(184, 134, 43, .55);
+}
+.sh-an-sylbtn.is-open {
+  background: rgba(122, 95, 44, .1); border-color: rgba(122, 95, 44, .22);
+}
+
+/* ---- مكتوب ← مسموع ---- */
+.sh-an-pairs { display: flex; flex-wrap: wrap; gap: 10px 18px; justify-content: center; }
+.sh-an-pair {
+  display: inline-flex; align-items: baseline; gap: 5px;
+  font-size: clamp(15px, 1.9vw, 19px); color: rgba(90, 72, 44, .55);
+}
+.sh-an-pair b { font-weight: 400; }
+.sh-an-pair i { font-style: normal; color: rgba(122, 95, 44, .32); font-size: 13px; }
+.sh-an-pair em { font-style: normal; color: rgba(90, 72, 44, .55); }
+.sh-an-pair.is-diff em { color: #8a5a2a; font-weight: 500; }
+
+.sh-an-syldetail { margin-block-start: 18px; }
+.sh-an-unit code {
+  margin-inline-start: 8px; color: rgba(122, 95, 44, .7);
+  font-size: 13px; letter-spacing: .04em;
+}
+
+/* ---- تدريب النطق: ثلاثةُ مستويات ---- */
+.sh-an-levels { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }
+.sh-an-level {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  min-block-size: 56px; min-inline-size: 108px; padding: 9px 16px; cursor: pointer;
+  font: inherit; border-radius: 4px; transition: all .2s ease;
+  border: 1px solid rgba(122, 95, 44, .2); background: transparent;
+}
+.sh-an-level b { font-size: 15px; font-weight: 500; color: var(--sh-paper-ink); }
+.sh-an-level small { font-size: 11px; color: rgba(90, 72, 44, .45); }
+.sh-an-level:hover { background: rgba(122, 95, 44, .06); }
+.sh-an-level.is-on {
+  background: rgba(184, 134, 43, .14); border-color: rgba(184, 134, 43, .45);
+}
+.sh-an-level.is-on b { color: #6d5220; }
+
+.sh-an-fine {
+  margin: 14px auto 0; max-inline-size: 46ch; text-align: center;
+  font-size: 12px; line-height: 1.8; color: rgba(90, 72, 44, .45);
+}
+
+/* ---- إيه اللي اتغيّر · مفخم/مرقق · مجهور/مهموس · مختزل ---- */
+.sh-an-changed ul, .sh-an-terms ul {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.sh-an-changed li, .sh-an-terms li {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 8px;
+  padding-block: 6px; font-size: 14px; line-height: 1.8;
+}
+.sh-an-changed .w, .sh-an-terms .w {
+  min-inline-size: 2ch; font-size: 19px; color: var(--sh-paper-ink);
+}
+.sh-an-changed .r, .sh-an-terms .r { font-size: 19px; color: #8a5a2a; }
+.sh-an-changed i, .sh-an-terms i { font-style: normal; color: rgba(122, 95, 44, .3); }
+.sh-an-changed .t, .sh-an-terms .t { color: rgba(74, 65, 51, .85); }
+.sh-an-terms .y { color: rgba(90, 72, 44, .5); font-size: 13px; }
+.sh-an-terms code {
+  color: rgba(122, 95, 44, .7); font-size: 12px; letter-spacing: .04em;
+}
+.sh-an-edge {
+  padding: 2px 8px; border-radius: 2px; font-size: 11px;
+  background: rgba(184, 134, 43, .13); color: #8a5a2a;
+}
+
+/* ---- كلمة ← تعبير ← جملة ---- */
+.sh-an-ctxrow {
+  display: flex; align-items: center; gap: 12px;
+  padding-block: 8px; border-block-end: 1px solid rgba(122, 95, 44, .08);
+}
+.sh-an-ctxrow:last-child { border-block-end: 0; }
+.sh-an-ctxrow .k {
+  flex: 0 0 auto; min-inline-size: 9ch;
+  font-size: 11px; letter-spacing: .12em; color: rgba(90, 72, 44, .42);
+}
+.sh-an-ctxrow .v {
+  flex: 1 1 auto; font-size: clamp(15px, 1.9vw, 18px);
+  color: rgba(74, 65, 51, .9); overflow-wrap: anywhere;
+}
+.sh-an-ctxrow.is-word .v { color: var(--sh-paper-ink); }
+.sh-an-play {
+  flex: 0 0 auto; inline-size: 44px; block-size: 44px; cursor: pointer;
+  font-size: 15px; border-radius: 50%; transition: all .2s ease;
+  border: 1px solid rgba(122, 95, 44, .2); background: transparent;
+  color: rgba(122, 95, 44, .7);
+}
+.sh-an-play:hover { background: rgba(122, 95, 44, .1); color: #6d5220; }

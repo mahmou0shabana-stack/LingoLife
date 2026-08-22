@@ -49,6 +49,7 @@ describe('النطق · سجلُّ القواعد وترتيبُها', () => {
       'RU_CLUSTER_TS_DS',
       'RU_GEMINATION',
       'RU_CLUSTER_SCH_ZCH',
+      'RU_CLUSTER_ZHCH_SHCH',
       'RU_CLUSTER_TSYA',
       'RU_CLUSTER_TCH_DCH',
       'RU_CONS_ALWAYS_HARD',
@@ -64,13 +65,17 @@ describe('النطق · سجلُّ القواعد وترتيبُها', () => {
       'RU_RED_AFTER_HUSHING_E',
       'RU_RED_AFTER_HUSHING_WEAK',
       'RU_VOWEL_QUANTITATIVE_ONLY',
+      /* ⚠️ **قاعدتا الحدّ قبل الهمس النهائيّ** (WS58): «أوّلُ مطابِقٍ
+         يفوز»، وشرطُ ٦٠٠ أوسعُ منهما — فلو تأخّرتا لَما انطلقتا أبدًا،
+         وهو ما كان يحدث فعلًا لـ`RU_CROSS_WORD_DEVOICING` عند ٦٦٠. */
+      'RU_CROSS_WORD_VOICED_KEPT',
+      'RU_CROSS_WORD_DEVOICING',
       'RU_FINAL_DEVOICING',
       'RU_VOICING_SONORANT_NEUTRAL',
       'RU_VOICING_V_NEUTRAL',
       'RU_REGRESSIVE_DEVOICING',
       'RU_REGRESSIVE_VOICING',
       'RU_CROSS_WORD_VOICING',
-      'RU_CROSS_WORD_DEVOICING',
     ]);
   });
 

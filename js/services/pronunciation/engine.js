@@ -173,15 +173,23 @@ function buildSegments(word) {
        */
       if (chars[i + 1] === ch) {
         segments.push({
-          letter: ch, sourceIndex: i, type: 'consonant', ipa: CONSONANT_HARD[ch],
+          letter: ch, written: ch, sourceIndex: i, type: 'consonant', ipa: CONSONANT_HARD[ch],
           soft: false, voiced: isPairedVoiced(ch) || isSonorant(ch),
           sonorant: isSonorant(ch), long: true, rules: [],
         });
         i += 1;               /* الحرفُ الثاني ابتُلع في الصوت نفسِه */
         continue;
       }
+      /*
+       * ⚠️ **و`written` نسخةٌ لا تُمَسّ — و`letter` تتبدّل** (WS58).
+       *
+       *    قواعدُ الجهر تكتب على `seg.letter` (`ж` ← `ш`) لأن القواعدَ
+       *    التاليةَ تسأل عن الحرف **بعد** التحويل. وكان أثرُ ذلك أنّ
+       *    «المكتوب» يضيع: `нож` تعرض «ш → ш» بدل «ж → ш» — أي أنها
+       *    تُخفي بالضبط الشيءَ الذي جاء المتعلّمُ ليراه (بند ٢٠).
+       */
       segments.push({
-        letter: ch, sourceIndex: i, type: 'consonant', ipa: CONSONANT_HARD[ch],
+        letter: ch, written: ch, sourceIndex: i, type: 'consonant', ipa: CONSONANT_HARD[ch],
         soft: false, voiced: isPairedVoiced(ch) || isSonorant(ch),
         sonorant: isSonorant(ch), rules: [],
       });
@@ -321,6 +329,11 @@ function applyVoicing(segments, trace, nextWordFirst) {
       seg.rules.push(rule.id);
 
       if (out.blocked) {
+        /* ⚠️ **والمانعُ قد يكون عابرًا للحدّ أيضًا** (WS58): `нож был`
+           يبقى مجهورًا **بسبب الكلمة التالية**، فالوسمُ حقٌّ للمانع
+           كما هو حقٌّ للمُحوِّل — وبدونه لا تعرف الواجهةُ أن الحدَّ فعل
+           شيئًا، فتصمت عن أوضح ما يعلّمه البند ٧هـ. */
+        if (out.crossWord) seg.crossWord = true;
         trace.push({
           ruleId: rule.id, category: rule.category, at: seg.sourceIndex,
           from: seg.letter, to: seg.ipa, why: rule.explain, source: rule.source,
@@ -360,8 +373,7 @@ function mapSyllables(syllables) {
   return ofLetter;
 }
 
-function buildOutputs(segments, syllables, stress) {
-  const ofLetter = mapSyllables(syllables);
+function buildOutputs(segments, syllables, stress, ofLetter) {
   const stressSyllable = stress.status === STRESS_STATUS.KNOWN ? stress.ordinal : -1;
 
   let ipa = '';
@@ -411,8 +423,14 @@ function buildOutputs(segments, syllables, stress) {
   };
 }
 
-/** جدولُ «الأصوات» — حرفٌ ← صوتٌ ← وصفٌ عربيّ. */
-function buildSounds(segments) {
+/**
+ * جدولُ «الأصوات» — حرفٌ ← صوتٌ ← وصفٌ عربيّ.
+ *
+ * ⚠️ **و`ofLetter` يُمرَّر ولا يُعاد حسابُه** (WS58). خريطةُ الصوت
+ *    (`sound-map.js`) تحتاج أن تعرف أيَّ مقطعٍ يقع فيه كلُّ صوت، ولو
+ *    حسبتها عندها لصار للتقطيع مصدران يفترقان أوّلَ مرّةٍ يتغيّر أحدُهما.
+ */
+function buildSounds(segments, ofLetter) {
   return segments
     .filter((s) => s.type !== 'other')
     .map((seg) => {
@@ -433,13 +451,21 @@ function buildSounds(segments) {
       if (seg.unresolved) labels.push(seg.unresolved === 'stress' ? 'محتاج النبر' : 'مش مغطّى');
       return {
         letter: seg.letter,
+        /** الحرفُ كما كُتب — قبل أيّ تحويلِ جهر. */
+        written: seg.written ?? seg.letter,
+        crossWord: Boolean(seg.crossWord),
         ipa: seg.ipa || null,
         cyrillic: seg.ipa ? toCyrillic(seg.ipa) : null,
         type: seg.type,
         at: seg.sourceIndex,
+        syllable: ofLetter?.[seg.sourceIndex] ?? null,
         stressed: Boolean(seg.stressed),
         soft: seg.type === 'consonant' ? Boolean(seg.soft) : null,
         reduction: seg.reduction,
+        /* ⚠️ **الحقيقةُ لا النصُّ وحدَه** (WS58): كانت `unresolved` تصل
+           إلى `labels` كجملةٍ عربيّةٍ ولا تصل كحقلٍ يُفحَص — فلم تستطع
+           خريطةُ الصوت أن تعرف أن مقطعًا نصفُه محلول، وعرضته كاملًا. */
+        unresolved: seg.unresolved || null,
         rules: [...seg.rules],
         labels,
       };
@@ -547,8 +573,9 @@ export function analyzeWord(raw, {
   applyReduction(segments, stress, trace);
   applyVoicing(segments, trace, nextFirst);
 
-  const outputs = buildOutputs(segments, syllables, stress);
-  const sounds = buildSounds(segments);
+  const ofLetter = mapSyllables(syllables);
+  const outputs = buildOutputs(segments, syllables, stress, ofLetter);
+  const sounds = buildSounds(segments, ofLetter);
 
   const flags = [];
   const warnings = [];

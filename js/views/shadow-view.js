@@ -50,6 +50,13 @@ import {
 import {
   warmStressResolver, onStressLexiconReady, lexiconMeta,
 } from '../services/pronunciation/stress-resolver.js';
+/*
+ * ⚠️ **والواجهةُ تستورد الخريطةَ ولا تحسبها** (WS58 · بند ٤٩).
+ *    كلُّ مصطلحٍ عربيٍّ وكلُّ سببٍ وكلُّ سرعةِ تشغيلٍ تأتي من
+ *    `sound-map.js`. ولا سطرَ `if (letter === …)` في هذا الملفّ —
+ *    واختبارٌ يفحص نصَّه فيسقط لو عاد جدولُ صلابةٍ إليه.
+ */
+import { soundMap, contextChain } from '../services/pronunciation/sound-map.js';
 import { rememberStressContext } from '../services/pronunciation/stress/providers.js';
 import {
   holdBackgroundAudio, releaseBackgroundAudio, disposeBackgroundAudio,
@@ -2798,37 +2805,15 @@ function panelFor(id) {
  * لوحةُ «ليه بتتنطق كده؟» (WS52)
  * ------------------------------------------------------------------ */
 
-/**
- * ⚠️ **أيُّ صوتٍ يستحقّ لونًا؟ — القليلُ منها وحدَه.**
+/*
+ * ⚠️ **خريطةُ الأصوات الكاملةُ حُذفت هنا — ولم تُفقَد** (WS58).
  *
- * الطلبُ صريح: «لا تجعل الكلمةَ قوسَ قزح». فلا نُلوّن كلَّ حرفٍ لأن
- * لكلٍّ وصفًا؛ نُلوّن ما **تغيّر عمّا كُتب**: المشدَّد، والمختزَل،
- * والذي فقد جهرَه أو اكتسبه. والليونةُ وحدَها لا تكفي لونًا — لأنها
- * حالُ نصفِ سواكن اللغة، ولو لُوّنت لما بقي في الكلمة ما يلفت.
+ * كانت `pronMapHtml` تعرض كلَّ أصوات الكلمة صفًّا واحدًا ملوَّنًا. وقد
+ * صار العرضُ **مقطعيًّا أوّلًا** (بند ١٧): تلمس مقطعًا فتُفتَح أصواتُه
+ * وحدَها داخل `sylDetailHtml`. ولونُ التمييز صار من `unit.changed`
+ * الآتي من خريطة الصوت لا من قائمةِ معرِّفاتِ قواعدَ مكتوبةٍ في الواجهة
+ * — وهو بالضبط ما يمنعه البند ٤٩.
  */
-function pronAccent(sound) {
-  if (sound.stressed) return 'stress';
-  if (sound.rules.includes('RU_FINAL_DEVOICING')
-    || sound.rules.includes('RU_REGRESSIVE_DEVOICING')) return 'devoiced';
-  if (sound.rules.includes('RU_REGRESSIVE_VOICING')) return 'voiced';
-  if (sound.reduction?.quality === 'qualitative') {
-    return sound.reduction.degree === 1 ? 'red1' : 'red2';
-  }
-  return '';
-}
-
-/** خريطةُ الكلمة: أصواتٌ يُلمَس المميَّزُ منها ليشرح نفسَه. */
-function pronMapHtml(analysis) {
-  return analysis.sounds.map((sound, i) => {
-    const accent = pronAccent(sound);
-    const open = analysis.sound === i ? ' is-open' : '';
-    const shown = sound.type === 'silent' ? sound.letter : (sound.cyrillic || sound.letter);
-    return `<button class="sh-pron-sound${accent ? ` k-${accent}` : ''}${open}"
-              data-sh="pron-sound" data-v="${i}" lang="ru" dir="ltr"
-              aria-label="${esc(sound.letter)} — ${esc(sound.labels.join('، ') || 'كما هو')}"
-            >${esc(shown)}</button>`;
-  }).join('');
-}
 
 /** أزرارُ اختيار حرف العلّة حين يكون النبرُ مجهولًا. */
 function pronStressPicker(word) {
@@ -2921,10 +2906,68 @@ const analysis = {
   segmentId: null,
   mode: DISPLAY_MODE.SIMPLE,
   sound: -1,
+  /** المقطعُ المفتوحُ شرحُه — التدريبُ مقطعيٌّ أوّلًا (WS58 · بند ١٧). */
+  syllable: -1,
   advanced: false,
+  /** وضعُ التشغيل الجاري — لإضاءة الزرّ وحدَه، لا لتغيير التحليل. */
+  playing: null,
   /** موضعُ تمرير الورقة قبل الدخول — الشيءُ الوحيدُ الذي لا يحفظه الـDOM. */
   scrollTop: 0,
 };
+
+/**
+ * إلغاءُ تشغيلٍ جارٍ — **إشارةٌ واحدةٌ لا مؤقّت** (WS58 · بند ٢٥).
+ *
+ * ⚠️ **ولماذا `AbortSignal` بالذات وليس `setTimeout` بين القطع؟**
+ *
+ *    لأن WS53 عَلّمتنا الدرسَ بثمنٍ باهظ: أيُّ مؤقّتٍ يلمس نطقًا جاريًا
+ *    على أندرويد يقطعه في منتصفه. فالقطعُ هنا تُنطَق **بالتتابع على
+ *    وعدٍ ينتهي**: ننتظر `speak` أن تُحلّ، ثم ننطق التالية. ولا شيءَ
+ *    يقاطع النطقَ إلّا أنت — بلمسةٍ ثانيةٍ ترفع هذه الإشارة.
+ */
+let playAbort = null;
+
+/** يوقف تدريبَ النطق إن كان جاريًا. */
+function stopAnalysisPlayback() {
+  playAbort?.abort();
+  playAbort = null;
+  analysis.playing = null;
+}
+
+/**
+ * ينطق قطعَ خطّةٍ من خريطة الصوت، واحدةً بعد الأخرى.
+ *
+ * ⚠️ **ولا يعرف هذا الكودُ ما هي القطع ولا لماذا.** الخريطةُ قرّرت
+ *    «هذه المقاطعُ ثم الكلمة، بسرعة ٠٫٧»؛ ونحن ننطق ما قيل لنا. فلو
+ *    تغيّرت سياسةُ التفكيك غدًا لم يُلمَس هذا السطر.
+ */
+async function playAnalysisPlan(plan) {
+  if (!plan?.steps?.length) return;
+  stopAnalysisPlayback();
+
+  const controller = new AbortController();
+  playAbort = controller;
+  analysis.playing = plan.id;
+  renderAnalysis();
+
+  for (const step of plan.steps) {
+    if (controller.signal.aborted) break;
+    /* eslint-disable-next-line no-await-in-loop -- التتابعُ هو المقصود */
+    const out = await speakOnce(step, {
+      rate: plan.rate,
+      voiceName: ctx.session?.voiceId || null,
+      volume: ctx.volume ?? 1,
+      signal: controller.signal,
+    });
+    if (!out.ok && out.reason !== 'aborted') break;
+  }
+
+  if (playAbort === controller) {
+    playAbort = null;
+    analysis.playing = null;
+    if (analysis.on) renderAnalysis();
+  }
+}
 
 /** إلغاءُ الاشتراك في «وصل المعجم» — واحدٌ لا أكثر، ويُلغى عند الإغلاق. */
 let unwatchLexicon = null;
@@ -2944,6 +2987,7 @@ function openAnalysis() {
   analysis.sentence = currentSentenceText();
   analysis.segmentId = ctx.segments[player?.state?.index ?? 0]?.id || null;
   analysis.sound = -1;
+  analysis.syllable = -1;
   analysis.scrollTop = page?.scrollTop || 0;
 
   /* ⚠️ والسكّةُ تُغلَق: التحليلُ صار الورقةَ كلَّها، فلا لوحةَ تزاحمه. */
@@ -2977,6 +3021,11 @@ function openAnalysis() {
 function closeAnalysis() {
   const page = leftPage();
   analysis.on = false;
+  /* ⚠️ **والتشغيلُ يقف مع الورقة.** نطقٌ يكمل بعد أن غادرتَ الصفحةَ
+     صوتٌ بلا صاحب — والمستخدمُ لا يعرف من أين يوقفه. */
+  stopAnalysisPlayback();
+  analysis.syllable = -1;
+  analysis.sound = -1;
   unwatchLexicon?.();
   unwatchLexicon = null;
   page?.removeAttribute('data-analysis-on');
@@ -3025,6 +3074,55 @@ function resyncKeepingWord() {
 }
 
 /**
+ * تفصيلُ المقطع المفتوح — **الحرفُ تحت المقطع لا مكانَه** (بند ١٩).
+ *
+ * ⚠️ **ولا يُعرَض إلّا حين تطلبه.** المتعلّم لا يحتاج أربعةَ أوصافٍ
+ *    لكلّ حرفٍ في كلّ كلمة؛ يحتاجها للحرف الذي استوقفه. فالمقطعُ
+ *    مفتوحٌ واحدٌ في المرّة، وأصواتُه وحدَها تُعرَض بأوصافها.
+ */
+function sylDetailHtml(syl, map) {
+  const own = syl.units.map((i) => map.units[i]).filter(Boolean);
+  return `
+    <div class="sh-an-syldetail">
+      <p class="sh-an-note">
+        <b lang="ru" dir="ltr">${esc(syl.written)}</b>
+        بتتسمع <b lang="ru" dir="ltr">${esc(syl.realized ?? '—')}</b>
+        ${syl.stressed ? '<span class="sh-an-edge">عليها النبر</span>' : ''}
+      </p>
+      <div class="sh-an-sounds">${own.map((u) => `
+        <button class="sh-pron-sound${u.changed ? ' k-devoiced' : ''}"
+          data-sh="pron-sound" data-v="${u.index}" lang="ru" dir="ltr"
+          aria-label="${esc(u.written)} — ${esc(u.teachingLabels.join('، ') || 'كما هو')}"
+        >${esc(u.realized || u.written)}</button>`).join('')}</div>
+      ${analysis.sound >= 0 && map.units[analysis.sound] ? `
+        <p class="sh-an-note sh-an-unit">
+          <b lang="ru" dir="ltr">${esc(map.units[analysis.sound].written)}</b>
+          ${esc(map.units[analysis.sound].teachingLabels.join(' · ') || 'زيّ ما هو مكتوب')}
+          ${analysis.advanced && map.units[analysis.sound].realizedIpa
+    ? `<code dir="ltr">[${esc(map.units[analysis.sound].realizedIpa)}]</code>` : ''}
+        </p>` : ''}
+    </div>`;
+}
+
+/**
+ * التعبيرُ الحقيقيُّ الذي تقع فيه الكلمة — أو `null`.
+ *
+ * ⚠️ **ولا يُصنَع تعبيرٌ بقصّ كلمتين حول الكلمة** (بند ٥١). المصدرُ
+ *    الوحيدُ هو فهرسُ التعبيرات المحلَّلة القائم (`expressionsIn`) —
+ *    أي تعبيرٌ **أنت** حلّلته من قبل ووردت الكلمةُ داخله. وإن لم يوجد
+ *    فالجملةُ الأصليّةُ سياقٌ صحيحٌ دائمًا، ولا حاجةَ لاختراع وسيط.
+ */
+function analysisChunk() {
+  const bare = String(analysis.word || '').split(STRESS_MARK).join('').toLowerCase();
+  if (!bare) return null;
+  const found = expressionsIn(analysis.sentence || '')
+    .filter((e) => String(e.text || '').toLowerCase().includes(bare));
+  /* أكثرُ من تعبيرٍ؟ الأقصرُ أقربُ إلى الكلمة — ولا تخمينَ فيه. */
+  found.sort((a, b) => String(a.text).length - String(b.text).length);
+  return found[0]?.text || null;
+}
+
+/**
  * يرسم ورقةَ التحليل.
  *
  * ⚠️ **دفترٌ لا لوحةُ قيادة (§8).** التسلسلُ الطباعيُّ هو ما يحمل
@@ -3047,6 +3145,16 @@ function renderAnalysis() {
     previousWord: analysis.prevWord,
   });
 
+  /*
+   * ⚠️ **والصفحةُ تقرأ من الخريطة لا من التحليل الخام** (بند ٤٩).
+   *    `analyzeWord` تُخرج `soft` و`voiced` و`reduction` — وهي حقائقُ
+   *    محرّكٍ لا جملٌ لمتعلّم. و`soundMap` هي التي تسمّيها «مرقق»
+   *    و«مهموس» و«مختزل — قبل النبر مباشرةً». فلو صاغت الواجهةُ هذه
+   *    الجملَ بنفسها لصار للمصطلح مصدران، ولاختلفا أوّلَ مرّةٍ يُعدَّل
+   *    أحدُهما.
+   */
+  const map = soundMap(result);
+
   const unknown = result.flags.includes(PRON_FLAG.UNKNOWN_STRESS);
   /* ملتبسةٌ ≠ مجهولة: نعرفها بوجهين، والفرقُ يستحقّ نصًّا مختلفًا. */
   const ambiguous = unknown && Boolean(result.stress.ambiguous);
@@ -3060,10 +3168,21 @@ function renderAnalysis() {
     </div>
     <p class="sh-an-source" lang="ru" dir="ltr">${analysisAnchorHtml()}</p>`;
 
-  /* ---- الكلمةُ ومقاطعُها ---- */
-  const syllables = result.syllables.length
-    ? result.syllables.map((s, i) =>
-      `<span class="${i === result.stress.ordinal ? 'on' : ''}">${esc(s)}</span>`).join('<i>|</i>')
+  /*
+   * ---- التاجُ: الكلمة، ثم مقاطعُها **ملموسةً** ----
+   *
+   * ⚠️ **والمقطعُ زرٌّ لا نصّ** (بند ١٧). وحدةُ التدريب في الروسيّة
+   *    مقطعٌ لا حرف: «ло | ги | сти́ | че | ской» تُبنى صاعدةً، ولا
+   *    يُطلَب منك أن تُركّب الكلمةَ ذهنيًّا من بطاقات حروفٍ متفرّقة.
+   *    والحرفُ يبقى متاحًا — تحت المقطع، لا مكانَه (بند ١٩).
+   */
+  const syllables = map.syllables.length
+    ? map.syllables.map((syl) => `
+        <button class="sh-an-sylbtn${syl.stressed ? ' on' : ''}${
+  analysis.syllable === syl.index ? ' is-open' : ''}"
+          data-sh="an-syl" data-v="${syl.index}" lang="ru" dir="ltr"
+          aria-label="${esc(syl.written)}${syl.stressed ? ' — عليها النبر' : ''}"
+        >${esc(syl.writtenMarked)}</button>`).join('<i>|</i>')
     : '';
 
   const crown = `
@@ -3105,15 +3224,73 @@ function renderAnalysis() {
          <span class="v" lang="ru" dir="ltr">[${esc(result.pronunciation.simple)}]</span>
        </section>`;
 
-  /* ---- خريطةُ الأصوات ---- */
-  const map = unknown ? '' : `
-    <section class="sh-an-map">
-      <h4>الأصوات — دوس على أيّ صوت</h4>
-      <div class="sh-an-sounds">${pronMapHtml(result)}</div>
-      ${analysis.sound >= 0 && result.sounds[analysis.sound] ? `
-        <p class="sh-an-note"><b lang="ru" dir="ltr">${esc(result.sounds[analysis.sound].letter)}</b>
-          ${esc(result.sounds[analysis.sound].labels.join(' · ') || 'زيّ ما هو مكتوب')}</p>` : ''}
+  /* ---- بتتسمع إزاي؟ · شرحُ المقطع المفتوح ---- */
+  const openSyl = map.syllables[analysis.syllable] || null;
+  const heard = unknown || !map.syllables.length ? '' : `
+    <section class="sh-an-heard">
+      <h4>بتتسمع إزاي؟</h4>
+      <div class="sh-an-pairs">${map.syllables.map((syl) => `
+        <span class="sh-an-pair${syl.changed ? ' is-diff' : ''}" lang="ru" dir="ltr">
+          <b>${esc(syl.written)}</b><i>←</i><em>${esc(syl.realized ?? '؟')}</em>
+        </span>`).join('')}</div>
+      ${openSyl ? sylDetailHtml(openSyl, map) : ''}
     </section>`;
+
+  /* ---- تدريب النطق: ثلاثةُ مستوياتٍ مختلفةٍ فعلًا (بند ٢٣) ---- */
+  const drill = !map.playback ? '' : `
+    <section class="sh-an-drill">
+      <h4>تدريب النطق</h4>
+      <div class="sh-an-levels">${['pieces', 'slow', 'natural'].map((id) => {
+    const plan = map.playback[id];
+    return `<button class="sh-an-level${analysis.playing === id ? ' is-on' : ''}"
+              data-sh="an-play" data-v="${id}">
+              <b>${esc(plan.label)}</b><small>${esc(plan.hint)}</small>
+            </button>`;
+  }).join('')}</div>
+      ${map.playback.pieces.disclaimer ? `
+        <p class="sh-an-fine">${esc(map.playback.pieces.disclaimer)}</p>` : ''}
+    </section>`;
+
+  /* ---- إيه اللي اتغيّر عن الكتابة؟ (بند ٢٠) ---- */
+  const changes = unknown || !map.changes.length ? '' : `
+    <section class="sh-an-changed">
+      <h4>إيه اللي اتغيّر عن الكتابة؟</h4>
+      <ul>${map.changes.map((u) => `
+        <li>
+          <span class="w" lang="ru" dir="ltr">${esc(u.written)}</span>
+          <i>←</i>
+          <span class="r" lang="ru" dir="ltr">${esc(u.realized ?? '؟')}</span>
+          <span class="t">${esc(u.teachingLabels.slice(1).join(' · '))}</span>
+          ${u.subtle ? '<span class="sh-an-fine">الفرق في الطول والوضوح — الحرف زيّ ما هو</span>' : ''}
+        </li>`).join('')}</ul>
+    </section>`;
+
+  /* ---- الأقسامُ الثلاثةُ الإلزاميّة: مفخم/مرقق · مجهور/مهموس · مختزل ---- */
+  const termSection = (title, rows) => (!rows.length ? '' : `
+    <section class="sh-an-terms">
+      <h4>${esc(title)}</h4>
+      <ul>${rows.join('')}</ul>
+    </section>`);
+
+  const hardness = unknown ? '' : termSection('مفخم / مرقق', map.hardness.map((u) => `
+    <li><span class="w" lang="ru" dir="ltr">${esc(u.written)}</span>
+      <span class="t">${esc(u.hardness.label)}</span>
+      ${analysis.advanced && u.realizedIpa
+    ? `<code dir="ltr">[${esc(u.realizedIpa)}]</code>` : ''}</li>`));
+
+  const voicing = unknown ? '' : termSection('مجهور / مهموس', map.voicing.map((u) => `
+    <li><span class="w" lang="ru" dir="ltr">${esc(u.written)}</span>
+      <span class="t">${esc(u.voicing.was)} في الأصل${
+  u.voicing.changed ? ` — بقى ${esc(u.voicing.now)} هنا` : ''}</span>
+      <span class="y">${esc(u.voicing.label)}</span>
+      ${u.crossWord ? '<span class="sh-an-edge">التأثير جاي من الكلمة اللي بعدها</span>' : ''}</li>`));
+
+  const reduced = unknown ? '' : termSection('مختزل', map.reductions.map((u) => `
+    <li><span class="w" lang="ru" dir="ltr">${esc(u.written)}</span>
+      <i>←</i><span class="r" lang="ru" dir="ltr">${esc(u.realized)}</span>
+      <span class="t">${esc(u.reduction.label)}</span>
+      <span class="y">${esc(u.reduction.why)}</span>
+      ${analysis.advanced ? `<code dir="ltr">[${esc(u.realizedIpa)}]</code>` : ''}</li>`));
 
   /* ---- «ليه؟» — هامشٌ مرقَّم ---- */
   const reasons = result.appliedRules
@@ -3163,14 +3340,48 @@ function renderAnalysis() {
       </dl>
     </section>`;
 
+  /* ---- كلمة ← تعبير ← الجملة الأصليّة (بندا ٢٦ و٥١) ---- */
+  const chain = contextChain({
+    word: analysis.word,
+    chunk: analysisChunk(),
+    sentence: analysis.sentence,
+  });
+  const context = chain.length < 2 ? '' : `
+    <section class="sh-an-ctx">
+      <h4>وبتتنطق إزاي جوّه السياق؟</h4>
+      ${chain.map((step, i) => `
+        <div class="sh-an-ctxrow${i === 0 ? ' is-word' : ''}">
+          <span class="k">${esc(step.label)}</span>
+          <span class="v" lang="ru" dir="ltr">${esc(step.text)}</span>
+          <button class="sh-an-play" data-sh="an-ctx" data-v="${i}"
+            aria-label="اسمع ${esc(step.label)}">▶</button>
+        </div>`).join('')}
+    </section>`;
+
+  /* ---- حدودٌ مُعلَنة (بندا ٣٧ و٤٦) ---- */
+  const limits = !map.limitations.length ? '' : map.limitations
+    .map((l) => `<p class="sh-an-warn">${esc(l)}</p>`).join('');
+
+  /*
+   * ⚠️ **والترتيبُ هو الدرس** (بندا ١٣ و١٥). اسمع ← لاحظ ← قلّد ←
+   *    افهم ← اسمع تاني. ولذلك «تدريب النطق» **قبل** «ليه بتتنطق كده؟»
+   *    لا بعدها: القاعدةُ تشرح صوتًا سمعتَه، ولا تسبقه.
+   */
   host.innerHTML = head + `
     <div class="sh-an-body">
       ${crown}
       ${stressBlock}
-      ${map}
-      ${stressTraceHtml(result.stress)}
+      ${heard}
+      ${drill}
+      ${changes}
+      ${hardness}
+      ${voicing}
+      ${reduced}
       ${why}
+      ${context}
       ${warns}
+      ${limits}
+      ${stressTraceHtml(result.stress)}
       ${advanced}
       <div class="sh-an-modes">
         <button data-sh="analysis-adv" class="${analysis.advanced ? 'on' : ''}">
@@ -3179,6 +3390,9 @@ function renderAnalysis() {
       </div>
     </div>`;
   host.removeAttribute('hidden');
+  /* الخطّةُ تُحفَظ للنقر — الواجهةُ لا تُعيد بناءها عند الضغط. */
+  analysis.plan = map.playback;
+  analysis.chain = chain;
 }
 
 /**
@@ -6174,12 +6388,57 @@ function wireInteractions(main) {
       /* ---- ورقةُ التحليل (WS54) ---- */
 
       case 'analysis-close':
+        stopAnalysisPlayback();
         closeAnalysis();
         return undefined;
 
       case 'analysis-adv':
         analysis.advanced = !analysis.advanced;
         return renderAnalysis();
+
+      /*
+       * ⚠️ **ولمسةٌ ثانيةٌ على الزرّ الجاري توقفه** — ولا زرَّ إيقافٍ
+       *    ثالثٌ يزاحم الثلاثة. والإيقافُ يرفع الإشارةَ ولا يستعمل
+       *    مؤقّتًا (بند ٢٥).
+       */
+      case 'an-play': {
+        const id = btn.dataset.v;
+        if (analysis.playing === id) { stopAnalysisPlayback(); return renderAnalysis(); }
+        await playAnalysisPlan(analysis.plan?.[id]);
+        return undefined;
+      }
+
+      /* المقطعُ يُفتَح ويُنطَق — لمسةٌ واحدةٌ تفعل الاثنين. */
+      case 'an-syl': {
+        const at = Number(btn.dataset.v);
+        const open = analysis.syllable === at;
+        analysis.syllable = open ? -1 : at;
+        analysis.sound = -1;
+        renderAnalysis();
+        if (!open) {
+          const text = analysis.plan?.pieces?.steps?.[at];
+          if (text) {
+            await speakOnce(text, {
+              rate: analysis.plan.pieces.rate,
+              voiceName: ctx.session?.voiceId || null,
+              volume: ctx.volume ?? 1,
+            });
+          }
+        }
+        return undefined;
+      }
+
+      case 'an-ctx': {
+        const step = analysis.chain?.[Number(btn.dataset.v)];
+        if (!step) return undefined;
+        stopAnalysisPlayback();
+        await speakOnce(step.text, {
+          rate: step.rate,
+          voiceName: ctx.session?.voiceId || null,
+          volume: ctx.volume ?? 1,
+        });
+        return undefined;
+      }
 
       /* لمسةٌ ثانيةٌ على نفس الصوت تُغلق شرحَه — لا زرَّ إغلاقٍ إضافيّ. */
       case 'pron-sound': {
