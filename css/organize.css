@@ -1,0 +1,370 @@
+/**
+ * LingoLife — وضعُ التنظيم والربط (WS56 · تجريبيّ)
+ *
+ * ⚠️ **نفسُ اللغة البصريّة، بكثافةٍ أعلى.** الألوانُ والخطوطُ من
+ *    `tokens.css` كما هي — لا هُويّةَ ثانية. ما يتغيّر: صناديقُ أصغر،
+ *    فراغاتٌ أقلّ، وأعمدةٌ بدل تكديسٍ رأسيّ.
+ *
+ * ⚠️ **وكلُّ هدفِ لمسٍ ≥ ٤٤px.** الجهازُ الحقيقيّ لوحٌ يُمسَك باليد،
+ *    ولا شيءَ هنا يعتمد على `:hover` وحدَه.
+ */
+
+.org-root {
+  --org-gap: var(--sp-4);
+  --org-line: color-mix(in srgb, var(--ink) 12%, transparent);
+  --org-soft: color-mix(in srgb, var(--ink) 5%, transparent);
+  padding-block-end: 96px;
+}
+
+/* ---------- جواز الذكرى ---------- */
+
+.org-passport {
+  display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: flex-start;
+  justify-content: space-between;
+  padding: var(--sp-4) 0 var(--sp-3);
+  border-block-end: 1px solid var(--org-line);
+  margin-block-end: var(--org-gap);
+}
+.org-passport h1 { margin: 0 0 6px; font-size: clamp(20px, 2.6vw, 27px); line-height: 1.3; }
+.org-pass-meta {
+  display: flex; flex-wrap: wrap; gap: 6px 14px;
+  font-size: 13px; color: var(--ink-soft);
+}
+.org-pass-meta span { display: inline-flex; align-items: center; gap: 5px; }
+.org-pass-meta svg { inline-size: 14px; block-size: 14px; opacity: .65; }
+.org-pass-side { display: flex; align-items: center; gap: var(--sp-2); }
+
+/* الوسمُ التجريبيّ — ظاهرٌ دائمًا ولا يُنسى (بند ٢٤). */
+.org-flag {
+  font-size: 11px; letter-spacing: .08em; padding: 4px 10px; border-radius: 999px;
+  color: #8a5a2a; background: rgba(184, 134, 43, .16);
+  border: 1px solid rgba(184, 134, 43, .3);
+}
+
+.org-exit {
+  min-block-size: 44px; padding: 0 16px; cursor: pointer; font: inherit; font-size: 14px;
+  display: inline-flex; align-items: center; gap: 7px; border-radius: var(--radius-sm);
+  color: var(--ink); background: var(--surface); border: 1px solid var(--org-line);
+}
+.org-exit svg { inline-size: 16px; block-size: 16px; }
+
+/* ---------- الأزرار ---------- */
+
+.org-btn, .org-add {
+  min-block-size: 46px; padding: 0 18px; cursor: pointer; font: inherit; font-size: 14.5px;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  border-radius: var(--radius-sm); border: 1px solid var(--org-line);
+  background: var(--surface); color: var(--ink);
+}
+.org-btn svg, .org-add svg { inline-size: 17px; block-size: 17px; }
+/*
+ * ⚠️ **٤٤px حدٌّ أدنى حتى للأزرار «الصغيرة».** قِستُها فوجدتُها ٤٠،
+ *    وهو أقلُّ من الحدّ الذي يقوله الطلب (بند ٣٠). و«صغير» هنا تعني
+ *    أقلَّ بروزًا بصريًّا لا أصعبَ في اللمس.
+ */
+.org-btn-sm { min-block-size: 44px; padding: 0 14px; font-size: 13px; }
+.org-btn-go { background: var(--accent, #6d5220); border-color: transparent; color: #fff; }
+.org-btn-go svg { color: #fff; }
+.org-btn.danger { color: #9c4a3c; border-color: rgba(156, 74, 60, .3); }
+
+.org-add {
+  min-block-size: 52px; padding: 0 26px; font-size: 16px; font-weight: 600;
+  background: var(--accent, #6d5220); border-color: transparent; color: #fff;
+}
+.org-actions { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-block-end: var(--org-gap); }
+
+/* ---------- ملخّص المحتوى ---------- */
+
+.org-summary {
+  display: grid; gap: var(--sp-2); margin-block-end: var(--org-gap);
+  grid-template-columns: repeat(auto-fit, minmax(124px, 1fr));
+}
+.org-sum {
+  min-block-size: 88px; padding: 12px 10px; cursor: pointer; font: inherit;
+  display: grid; justify-items: center; gap: 2px; text-align: center;
+  border-radius: var(--radius-sm); border: 1px solid var(--org-line);
+  background: var(--surface); color: var(--ink);
+}
+.org-sum .ic svg { inline-size: 18px; block-size: 18px; opacity: .55; }
+.org-sum b { font-size: 24px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.org-sum .t { font-size: 12.5px; color: var(--ink-soft); }
+.org-sum .all { font-size: 11px; color: var(--accent, #6d5220); }
+/* الصفرُ يُعرَض باهتًا لا مخفيًّا: غيابُ الخانة يخفي أن النوع ممكن. */
+.org-sum.is-zero { opacity: .5; }
+
+/* ---------- الكتل والسكريبتات ---------- */
+
+.org-block { margin-block-end: var(--org-gap); }
+.org-block-head {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2);
+  margin-block-end: var(--sp-2);
+}
+.org-block-head h2, .org-block-head h3 { margin: 0; font-size: 15px; font-weight: 600; }
+.org-block-head b {
+  font-size: 12px; padding: 2px 8px; border-radius: 999px;
+  background: var(--org-soft); color: var(--ink-soft); margin-inline-start: 6px;
+}
+.org-rowbtns { display: flex; gap: 6px; }
+
+.org-scripts, .org-parts, .org-linked { list-style: none; margin: 0; padding: 0; }
+.org-scripts > li { margin-block-end: 8px; }
+
+.org-script {
+  border: 1px solid var(--org-line); border-radius: var(--radius-sm);
+  background: var(--surface); overflow: hidden;
+}
+.org-script-main, .org-part {
+  inline-size: 100%; min-block-size: 56px; padding: 0 16px; cursor: pointer; font: inherit;
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3);
+  background: transparent; border: 0; color: var(--ink); text-align: start;
+}
+.org-script-t { font-size: 15.5px; font-weight: 500; }
+.org-parts { border-block-start: 1px solid var(--org-line); }
+.org-parts > li { border-block-start: 1px solid var(--org-line); }
+.org-parts > li:first-child { border-block-start: 0; }
+/*
+ * ⚠️ **علامةُ الجزء من CSS لا محرفٌ في النصّ.**
+ *    كان في الترميز `› ${title}`، فرأيتُه في اللقطة يُقرأ «، القياسات»:
+ *    `›` محرفٌ ذو اتجاهٍ ينعكس في العربيّة. والزخرفةُ مكانُها التنسيق،
+ *    والنصُّ يبقى نصًّا نظيفًا يُنسَخ ويُقرأ بالقارئ الصوتيّ كما هو.
+ */
+.org-part {
+  min-block-size: 48px; font-size: 14px; color: var(--ink-soft);
+  padding-inline-start: 30px; position: relative;
+}
+.org-part::before {
+  content: ''; position: absolute; inset-inline-start: 14px; inset-block-start: 50%;
+  inline-size: 8px; block-size: 1px; background: currentColor; opacity: .4;
+}
+.org-parts.is-detail > li { display: flex; align-items: center; gap: 6px; padding-inline-end: 10px; }
+.org-parts.is-detail .org-part { padding-inline-start: 14px; }
+
+.org-counts { display: inline-flex; align-items: center; gap: 10px; flex: none; }
+.org-counts b {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 13px; font-weight: 500; color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+.org-counts svg { inline-size: 14px; block-size: 14px; opacity: .6; }
+.org-counts i { font-style: normal; font-size: 12px; color: color-mix(in srgb, var(--ink) 35%, transparent); }
+
+.org-empty { margin: 0; padding: 14px 2px; font-size: 13.5px; color: var(--ink-soft); }
+
+/* ---------- غير مربوط ---------- */
+
+/*
+ * ⚠️ **محايدُ اللون عمدًا.** لا أحمرَ ولا مثلّثَ تحذير: «غير مربوط»
+ *    ليست حالةَ خطأ بل عملًا لم يبدأ، ووسمُها خطأً يجعلك تتجنّب
+ *    الشاشةَ بدل أن تفتحها.
+ */
+.org-unlinked {
+  padding: var(--sp-3) var(--sp-4); margin-block-end: var(--org-gap);
+  border: 1px dashed var(--org-line); border-radius: var(--radius-sm);
+  background: var(--org-soft);
+}
+.org-unlinked-head { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); }
+.org-unlinked h3 { margin: 0; font-size: 15px; }
+.org-unlinked p { margin: 6px 0 12px; font-size: 13px; color: var(--ink-soft); }
+.org-unlinked.is-clear {
+  display: flex; align-items: center; gap: 8px; font-size: 14px; color: #3f7a52;
+  border-style: solid; border-color: rgba(63, 122, 82, .25); background: rgba(63, 122, 82, .07);
+}
+.org-unlinked.is-clear svg { inline-size: 17px; block-size: 17px; }
+
+.org-strip { display: flex; flex-wrap: wrap; gap: 6px; margin-block-end: 12px; }
+.org-strip-cell, .org-strip-more {
+  inline-size: 52px; block-size: 52px; border-radius: 4px; overflow: hidden;
+  display: grid; place-items: center; background: var(--surface);
+  border: 1px solid var(--org-line);
+}
+.org-strip-cell img { inline-size: 100%; block-size: 100%; object-fit: cover; }
+.org-strip-more { font-size: 13px; color: var(--ink-soft); }
+.org-audioface svg { inline-size: 20px; block-size: 20px; opacity: .55; }
+
+/* ---------- النظرة السريعة ---------- */
+
+.org-overview {
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--org-line); border-radius: var(--radius-sm); background: var(--surface);
+}
+.org-overview h3 { margin: 0 0 10px; font-size: 13px; letter-spacing: .06em; color: var(--ink-soft); }
+.org-overview ul { list-style: none; margin: 0; padding: 0; }
+.org-overview li {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-3);
+  padding: 9px 0; font-size: 14px; border-block-start: 1px solid var(--org-line);
+}
+.org-overview li:first-child { border-block-start: 0; }
+.org-overview li.is-loose span:first-child { color: var(--ink-soft); }
+
+/* ---------- ورشة الربط ---------- */
+
+.org-bulkhead {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-3) 0; border-block-end: 1px solid var(--org-line);
+  margin-block-end: var(--org-gap);
+}
+.org-bulkhead h2 { margin: 0; font-size: 18px; flex: 1; }
+.org-back {
+  min-block-size: 44px; padding: 0 14px; cursor: pointer; font: inherit; font-size: 14px;
+  display: inline-flex; align-items: center; gap: 6px; border-radius: var(--radius-sm);
+  background: transparent; border: 1px solid var(--org-line); color: var(--ink);
+}
+.org-back svg { inline-size: 15px; block-size: 15px; }
+.org-crumb { margin: -8px 0 var(--sp-3); font-size: 13px; color: var(--ink-soft); }
+
+/*
+ * ⚠️ **عمودان في الأفقيّ، وتكديسٌ في الرأسيّ.** الربطُ الجماعيّ عملُ
+ *    وضعٍ أفقيٍّ على اللوح: الأهدافُ على الجنب والعناصرُ أمامك، فلا
+ *    تمرّر لأعلى وأسفل بين كل ربطتين.
+ */
+.org-bulk { display: grid; gap: var(--org-gap); grid-template-columns: minmax(200px, 260px) 1fr; }
+@media (max-width: 860px) { .org-bulk { grid-template-columns: 1fr; } }
+
+.org-targets h3 { margin: 0 0 10px; font-size: 13px; letter-spacing: .06em; color: var(--ink-soft); }
+.org-targets ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.org-target {
+  inline-size: 100%; min-block-size: 48px; padding: 0 14px; cursor: pointer; font: inherit;
+  font-size: 14.5px; text-align: start; border-radius: var(--radius-sm);
+  background: var(--surface); border: 1px solid var(--org-line); color: var(--ink);
+}
+.org-target.is-part { padding-inline-start: 26px; font-size: 13.5px; color: var(--ink-soft); }
+.org-target.on {
+  background: var(--accent, #6d5220); border-color: transparent; color: #fff; font-weight: 600;
+}
+
+.org-toolbar {
+  display: flex; flex-wrap: wrap; gap: var(--sp-2); align-items: center;
+  margin-block-end: var(--sp-3);
+}
+.org-filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.org-chip {
+  min-block-size: 44px; padding: 0 16px; cursor: pointer; font: inherit; font-size: 13.5px;
+  border-radius: 999px; background: transparent; color: var(--ink-soft);
+  border: 1px solid var(--org-line);
+}
+.org-chip.on { background: var(--ink); color: var(--surface); border-color: transparent; }
+.org-search {
+  flex: 1; min-inline-size: 160px; min-block-size: 44px; padding: 0 14px; font: inherit;
+  font-size: 14px; border-radius: var(--radius-sm);
+  border: 1px solid var(--org-line); background: var(--surface); color: var(--ink);
+}
+
+.org-grid {
+  display: grid; gap: var(--sp-2);
+  grid-template-columns: repeat(auto-fill, minmax(118px, 1fr));
+}
+.org-cell {
+  padding: 0 0 8px; cursor: pointer; font: inherit; text-align: center;
+  display: grid; gap: 5px; justify-items: center;
+  border-radius: var(--radius-sm); overflow: hidden;
+  background: var(--surface); border: 2px solid var(--org-line); color: var(--ink);
+}
+.org-cell-face {
+  position: relative; inline-size: 100%; aspect-ratio: 1; display: grid; place-items: center;
+  background: var(--org-soft); overflow: hidden;
+}
+.org-cell-face img { inline-size: 100%; block-size: 100%; object-fit: cover; }
+
+/*
+ * ⚠️ **العلامةُ مع الإطار لا الإطارُ وحدَه** — نفسُ درسِ WS34: إطارٌ
+ *    مضيءٌ يجعل المستعمِلَ **يستنتج** أنه اختار، والاستنتاجُ ليس تأكيدًا.
+ */
+.org-tick {
+  position: absolute; inset-block-start: 6px; inset-inline-end: 6px;
+  inline-size: 26px; block-size: 26px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 15px; opacity: 0;
+  background: var(--accent, #6d5220); color: #fff;
+}
+.org-cell.on { border-color: var(--accent, #6d5220); }
+.org-cell.on .org-tick { opacity: 1; }
+
+.org-cell-name {
+  font-size: 12px; padding: 0 6px; line-height: 1.4;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-inline-size: 100%;
+}
+.org-cell-link {
+  display: inline-flex; align-items: center; gap: 4px; padding: 0 6px;
+  font-size: 11px; color: var(--accent, #6d5220);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-inline-size: 100%;
+}
+.org-cell-link svg { inline-size: 11px; block-size: 11px; flex: none; }
+.org-cell-link.is-loose { color: color-mix(in srgb, var(--ink) 40%, transparent); }
+
+/*
+ * الشريطُ السفليّ ثابتٌ — لا تبحث عن «ربط المحدد» بعد أن تختار.
+ *
+ * ⚠️ **والزاويةُ السفلى محجوزةٌ لأزرار التطبيق العائمة.** رأيتُ في
+ *    اللقطة الزرَّ العائم يجلس **فوق** «ربط المحدد» فيمنع ضغطَه —
+ *    وهو أسوأُ ما يمكن أن يحدث لأهمّ زرٍّ في الشاشة. فيُحجَز مقدارُه
+ *    حشوًا بدل أن نُزحزح الزرَّ العائم (وهو ليس من شأن هذا الوضع).
+ */
+.org-bar {
+  position: sticky; inset-block-end: 0; z-index: 2;
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-2); padding-inline-start: 88px;
+  margin-block-start: var(--org-gap);
+  background: var(--surface); border-block-start: 1px solid var(--org-line);
+}
+/*
+ * ⚠️ **والفعلُ الأساسيّ بجوار العدّاد — في جهة البداية.**
+ *    اللوحُ يُمسَك بيدين، وجهةُ البداية هي التي يصلها الإبهام. وترتيبُ
+ *    «العدّاد … ثم أزرارٌ ثانويّة ثم الأساسيّ» كان يضع أهمَّ زرٍّ في
+ *    أبعد ركن.
+ */
+.org-bar-count { font-size: 14px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.org-bar [data-org="apply"] { order: -1; }
+.org-bar [data-org="pick-none"] { margin-inline-start: auto; }
+
+/* ---------- تفصيل السكريبت ---------- */
+
+.org-detail { display: grid; gap: var(--org-gap); }
+.org-text {
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--org-line); border-radius: var(--radius-sm); background: var(--surface);
+}
+.org-body {
+  margin: 0; font-size: 16px; line-height: 1.95; white-space: pre-wrap;
+  max-block-size: 42vh; overflow-y: auto;
+}
+.org-linked > li {
+  display: flex; align-items: center; gap: var(--sp-2);
+  padding: 8px 0; border-block-start: 1px solid var(--org-line);
+}
+.org-linked > li:first-child { border-block-start: 0; }
+.org-linked-face {
+  inline-size: 46px; block-size: 46px; flex: none; border-radius: 4px; overflow: hidden;
+  display: grid; place-items: center; background: var(--org-soft);
+}
+.org-linked-face img { inline-size: 100%; block-size: 100%; object-fit: cover; }
+.org-linked-name { flex: 1; font-size: 14px; }
+.org-detail-foot { display: flex; justify-content: flex-start; }
+
+/* ---------- نافذة الإضافة ---------- */
+
+.org-addmenu { display: grid; gap: 8px; }
+.org-addopt {
+  min-block-size: 62px; padding: 10px 16px; cursor: pointer; font: inherit; text-align: start;
+  display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 4px 14px;
+  border-radius: var(--radius-sm); border: 1px solid var(--org-line);
+  background: var(--surface); color: var(--ink);
+}
+.org-addopt .ic { grid-row: span 2; }
+.org-addopt .ic svg { inline-size: 22px; block-size: 22px; opacity: .6; }
+.org-addopt b { font-size: 15.5px; font-weight: 600; }
+.org-addopt span:last-child { font-size: 12.5px; color: var(--ink-soft); }
+
+.org-pickrows { display: grid; gap: 4px; }
+.org-pickrows .pick-row { min-block-size: 48px; }
+
+/* ---------- وسمُ «تجريبي» على زرّ الصفحة القديمة ---------- */
+
+/*
+ * ⚠️ **هنا لا في `journal.css`.** الوسمُ يخصّ الوضعَ التجريبيّ، فلو
+ *    شِيل الوضعُ غدًا شِيل معه ملفُّه — ولا يبقى صنفٌ يتيمٌ في تنسيق
+ *    الصفحة الأصليّة.
+ */
+.tool-btn .tool-flag {
+  font-size: 10px; letter-spacing: .06em; padding: 2px 7px; border-radius: 999px;
+  margin-inline-start: 6px;
+  color: #8a5a2a; background: rgba(184, 134, 43, .18);
+}

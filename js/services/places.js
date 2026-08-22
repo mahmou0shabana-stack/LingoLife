@@ -64,6 +64,17 @@ export const PLACES = {
       return scene?.titleAr || scene?.titleRu || '';
     },
   },
+  /*
+   * ⚠️ **وضعٌ ثانٍ على نفس الذكرى — تجريبيّ** (WS56). له اسمُه في
+   *    القشرة لأنه مكانٌ حقيقيٌّ تقف فيه، لا نافذةٌ فوق مكان.
+   */
+  '/organize/:id': {
+    name: 'تنظيم وربط',
+    of: async ({ id }) => {
+      const scene = await scenes.get(id);
+      return scene?.titleAr || scene?.titleRu || '';
+    },
+  },
   '/threads': { name: 'خيوط الأحداث' },
   '/thread/:id': {
     name: 'خيط',

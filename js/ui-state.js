@@ -53,9 +53,31 @@ export async function reloadScene(sceneId) {
   if (path.startsWith('/scene/')) {
     await renderScene($('#app-main'), sceneId, ui);
     refreshStorageCard();
-  } else {
-    navigate(`/scene/${sceneId}`);
+    return;
   }
+
+  /*
+   * ⚠️ **ووضعُ التنظيم يُنعَش في مكانه ولا يُغادَر** (WS56).
+   *
+   * الفرعُ الأخير ينقلك إلى `/scene/:id`، وهو صحيحٌ لتعديلٍ أجريتَه
+   * من شاشةٍ بعيدة. لكنّ وضعَ التنظيم **يستعمل نفسَ دوالّ الإضافة**
+   * (`handleAddImages` وأخواتها)، وكلُّها تنادي هذه الدالّة. فبلا هذا
+   * الفرع كانت كلُّ صورةٍ تضيفها من الوضع الجديد **تقذفك إلى القديم** —
+   * وهو بالضبط ما منعناه في `refreshSceneIfShowing` أدناه لعارض الصور.
+   *
+   * ⚠️ والاستيرادُ ديناميكيٌّ عمدًا: هذه الوحدة **لا تستورد من أحد**
+   *    (راجع رأسَ الملفّ)، و`organize-view` يستورد نماذجَ تستورد من
+   *    هنا. الاستيرادُ الساكن يصنع الدورةَ التي وُجد هذا الملفُّ
+   *    لتفاديها.
+   */
+  if (path.startsWith('/organize/')) {
+    const { renderOrganize } = await import('./views/organize-view.js');
+    await renderOrganize($('#app-main'), sceneId);
+    refreshStorageCard();
+    return;
+  }
+
+  navigate(`/scene/${sceneId}`);
 }
 
 /**
@@ -81,7 +103,17 @@ export async function reloadScene(sceneId) {
  */
 export async function refreshSceneIfShowing(sceneId) {
   const path = getCurrentRoute()?.path || '';
-  if (!sceneId || !path.startsWith('/scene/')) return;
+  if (!sceneId) return;
+
+  /* ⚠️ نفسُ المبدأ لوضع التنظيم: تُنعَش إن كانت هي المعروضة، ولا نقل. */
+  if (path.startsWith('/organize/')) {
+    const { renderOrganize } = await import('./views/organize-view.js');
+    await renderOrganize($('#app-main'), sceneId);
+    refreshStorageCard();
+    return;
+  }
+
+  if (!path.startsWith('/scene/')) return;
   await renderScene($('#app-main'), sceneId, ui);
   refreshStorageCard();
 }

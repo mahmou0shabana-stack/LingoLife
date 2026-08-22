@@ -801,6 +801,17 @@ export async function renderScene(main, sceneId, options = {}) {
         <button class="tool-btn" data-action="rehearse-request" data-id="${scene.id}">
           ${raw(icon('script'))} جهّزني
         </button>
+        <!--
+          ⚠️ **الإضافةُ الوحيدةُ إلى هذه الصفحة في WS56 — بابٌ لا تغيير.**
+
+          وضعُ التنظيم شاشةٌ أخرى على نفس الذكرى: تُفتَح من هنا وتُغلَق
+          بزرِّ «ارجع للعرض الحالي» فيها. ولا سطرَ آخرَ من هذا الملفّ
+          يعلم بوجودها، ولا سلوكَ واحدًا هنا تغيّر لأجلها.
+        -->
+        <button class="tool-btn" data-action="organize-scene" data-id="${scene.id}">
+          ${raw(icon('link'))} تنظيم وربط
+          <span class="tool-flag">تجريبي</span>
+        </button>
         <button class="tool-btn" data-action="trash-scene" data-id="${scene.id}">
           ${raw(icon('trash'))} السلة
         </button>
