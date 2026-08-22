@@ -1,0 +1,385 @@
+/**
+ * LingoLife — المقطعُ الفعّال والنطاقاتُ الثلاثة (WS-A)
+ *
+ * تحرس أربعةَ أشياء ينكسر كلٌّ منها بصمت:
+ *
+ *  ١ · **ألّا يعود تسريبُ النصّ الخارجيّ.** فحصُ نصٍّ يمنع أن يُنادي
+ *      مبدِّلُ النطاق `exitExternalText` مرّةً أخرى — وهو العطبُ الذي
+ *      عاد بعد WS42 لأن لا شيءَ كان يمنعه.
+ *  ٢ · **ألّا يُخفي النسخُ نبرًا نعرفه** — ولا يخترعَ نبرًا لا نعرفه.
+ *  ٣ · **ألّا يخطف مدًى مدًى آخر.** ثلاثةُ مدَياتٍ صريحةٌ لا تتبادل.
+ *  ٤ · **ألّا تنقص خانةٌ في مصفوفة التكافؤ بصمت.** كلُّ خانةٍ إمّا
+ *      مدعومةٌ وإمّا لها سببٌ مكتوب.
+ */
+
+import { describe, it, expect } from './test-runner.js';
+import { markPlain, markSentence, rememberStress, loadUserDictionary } from '../js/services/shadow/stress.js';
+import { SAVED_KIND } from '../js/services/saved-service.js';
+import { splitWords } from '../js/services/shadow/segmenter.js';
+
+/* ================================================================== *
+ * ١) الحارسُ المعماريّ — البند ٣٩
+ * ================================================================== */
+
+describe('نطاقُ التدريب · الحارسُ المعماريّ', () => {
+  it('⚠️ ولا مبدِّلُ نطاقٍ يُخرج من النصّ الخارجيّ — العطبُ الأصليّ', async () => {
+    /*
+     * ⚠️ **هذا الاختبارُ يصف عطبًا وقع مرّتين.**
+     *
+     *    في WS42 كان `prev`/`next` ينادِيان `exitExternalText()` قبل أن
+     *    يتحرّكا. أُصلح. ثم عاد الشيءُ نفسُه من بابٍ آخر: `MODES` كانت
+     *    تضع `paint: () => exitExternalText()` في وضعَي «نصّ» و«كلمة»،
+     *    فالضغطُ على «كلمة» يهدم النصَّ الخارجيّ.
+     *
+     *    وكلاهما إصلاحُ سلوكٍ بلا حارس — فعاد. وهذا الفحصُ هو الحارس:
+     *    يقرأ تعريفَ `MODES` ويسقط لو ظهر فيه استدعاءُ خروجٍ من المصدر.
+     */
+    const src = await (await fetch('../js/views/shadow-view.js')).text();
+    const modes = src.slice(src.indexOf('const MODES = ['), src.indexOf('let modeTicket'));
+    expect(modes.length > 100).toBe(true);
+    expect(modes.includes('exitExternalText')).toBe(false);
+    expect(modes.includes('dropSegment')).toBe(false);
+    expect(modes.includes('returnIndex')).toBe(false);
+  });
+
+  it('والنطاقاتُ ثلاثةٌ بأسمائها — كلمة · مقطع · جملة (بند ١١)', async () => {
+    const src = await (await fetch('../js/views/shadow-view.js')).text();
+    const modes = src.slice(src.indexOf('const MODES = ['), src.indexOf('let modeTicket'));
+    for (const id of ["id: 'word'", "id: 'phrase'", "id: 'sentence'"]) {
+      expect(`${id}:${modes.includes(id)}`).toBe(`${id}:true`);
+    }
+    /* و«جملة برّه» لم تعد نطاقًا — صارت مصدرًا، وبابُها غيرُ هذا الباب. */
+    expect(modes.includes("id: 'own'")).toBe(false);
+  });
+
+  it('⚠️ وبابُ الخروج من المصدر واحدٌ ومُعلَن (بند ٢٦)', async () => {
+    const src = await (await fetch('../js/views/shadow-view.js')).text();
+    /*
+     * ⚠️ **والعدُّ على أسطر الكود لا على الملفّ كلِّه.** الملفُّ يشرح
+     *    العطبَ القديم في تعليقين يذكران اسمَ الدالّة — وهما توثيقٌ
+     *    مقصود، لا نداء. فحصٌ يعدّ النصَّ الخامَّ كان سيُجبِرني على
+     *    حذف الشرح لإرضائه، وذلك عكسُ الغرض.
+     */
+    const codeLines = src.split('\n')
+      .filter((l) => !/^\s*(\*|\/\*|\/\/)/.test(l));
+    const calls = codeLines.filter((l) => l.includes('exitExternalText()')).length;
+    /* تعريفُها + نداءٌ واحدٌ من `scratch-clear` لا أكثر. */
+    expect(`call-sites:${calls}`).toBe('call-sites:2');
+    const at = src.indexOf("case 'scratch-clear':");
+    expect(at > 0).toBe(true);
+    expect(src.slice(at, at + 120).includes('exitExternalText()')).toBe(true);
+  });
+
+  it('والمقطعُ الفعّالُ يُقرأ من دالّةٍ واحدة لا من تسع نسخ (بند ٣)', async () => {
+    const src = await (await fetch('../js/views/shadow-view.js')).text();
+    expect(src.includes('function activeSegment()')).toBe(true);
+    /*
+     * ⚠️ ولا يُمنَع التعبيرُ الخام كلَّه: `syncSegment` و`renderWords`
+     *    تقرآنه مرّةً في أوّل السطر ثم تستعملان المتغيّر. الممنوعُ أن
+     *    ينتشر — فالسقفُ يمسك الانتشارَ ولا يمنع الاستعمالَ المشروع.
+     */
+    const raw = src.split('ctx.segments[player.state.index]').length - 1;
+    expect(`raw-reads:${raw <= 4}`).toBe('raw-reads:true');
+  });
+});
+
+/* ================================================================== *
+ * ٢) النسخُ يحمل النبر — البنود ٧…١٠
+ * ================================================================== */
+
+describe('النسخ · النبرُ يُنسَخ ولا يُخترَع', () => {
+  it('⚠️ الجملةُ تُنسَخ بعلامات النبر التي نعرفها', () => {
+    const out = markPlain('документ уже полностью заполнен');
+    expect(out.text.includes('докуме́нт')).toBe(true);
+  });
+
+  it('⚠️ ولا تُخترَع علامةٌ لكلمةٍ مجهولة (بند ٨)', () => {
+    const out = markPlain('нипапупа');
+    expect(out.text).toBe('нипапупа');
+    expect(out.known).toBe(0);
+  });
+
+  it('والترقيمُ يبقى حول الشكل المعلَّم لا داخله', () => {
+    expect(markPlain('документ,').text).toBe('докуме́нт,');
+    expect(markPlain('«документ»').text).toBe('«докуме́нт»');
+  });
+
+  it('⚠️ ونصٌّ خامٌّ لا HTML — الحافظةُ لا تأخذ وسومًا', () => {
+    const out = markPlain('документ уже');
+    expect(out.text.includes('<')).toBe(false);
+    expect(out.text.includes('&')).toBe(false);
+    /* وأختُها `markSentence` تبقى HTML للعرض — مصدرٌ واحدٌ ومخرَجان. */
+    expect(markSentence('документ').html.includes('<')).toBe(true);
+  });
+
+  it('وتصحيحُ النبر يظهر في النسخ فورًا — بلا حالةٍ ثانية (بندا ٥ و٦)', async () => {
+    await loadUserDictionary();
+    const before = markPlain('капибара').text;
+    expect(before).toBe('капибара');
+    await rememberStress('капибара', 'капиба́ра');
+    /*
+     * ⚠️ **ولا `clearCache` ولا إعادةَ تحميل.** `markPlain` تسأل
+     *    `stressOf` في كلّ نداء، و`rememberStress` تكتب في نفس القاموس
+     *    الذي تقرؤه. فلا نسخةَ محلّيّةٌ تتأخّر — وهو ما طلبه بند ٥.
+     */
+    expect(markPlain('капибара').text).toBe('капиба́ра');
+  });
+
+  it('⚠️ والمدياتُ الثلاثةُ لا تتبادل (بندا ١٠ و٣٥)', async () => {
+    const src = await (await fetch('../js/views/shadow-view.js')).text();
+    /* كلُّ دالّةِ نسخٍ تسمّي مداها في نداء `copyScoped` نفسِه. */
+    expect(src.includes('copyScoped(COPY_SCOPE.SENTENCE, markedForCopy(activeText()))')).toBe(true);
+    expect(src.includes('copyScoped(COPY_SCOPE.WORD, markedForCopy(word?.display')).toBe(true);
+    expect(src.includes('copyScoped(COPY_SCOPE.EXPRESSION, markedForCopy(phraseText()))')).toBe(true);
+    /* ونسخُ الجملة لا يقرأ انتقاءَ كلمةٍ ولا مدًى. */
+    const start = src.indexOf('function copySentence()');
+    const fn = src.slice(start, src.indexOf('}', start));
+    expect(fn.includes('selected')).toBe(false);
+    expect(fn.includes('phrase')).toBe(false);
+    expect(fn.includes('rail.word')).toBe(false);
+  });
+});
+
+/* ================================================================== *
+ * ٣) مدى المقطع — البنود ١١…١٨ و٣١
+ * ================================================================== */
+
+/** محاكاةٌ صغيرةٌ لمنطق المدى — نفسُ قواعد `pickPhraseWord`/`nudgePhrase`. */
+function makeRange(total) {
+  const st = { anchor: -1, from: -1, to: -1, complete: false };
+  const has = () => st.complete && st.from >= 0 && st.to >= st.from;
+  return {
+    state: st,
+    has,
+    pick(at) {
+      /* لمسُ المرساة قبل الإتمام تأكيدٌ صامت — لا مدًى من كلمة. */
+      if (!st.complete && at === st.anchor) return;
+      if (st.anchor < 0 || st.complete) {
+        st.anchor = at; st.from = at; st.to = at; st.complete = false;
+      } else {
+        st.from = Math.min(st.anchor, at);
+        st.to = Math.max(st.anchor, at);
+        st.complete = true;
+      }
+    },
+    nudge(edge, delta) {
+      if (st.from < 0) return;
+      if (edge === 'start') st.from = Math.min(Math.max(0, st.from + delta), st.to);
+      else st.to = Math.max(Math.min(total - 1, st.to + delta), st.from);
+      st.anchor = st.from;
+    },
+  };
+}
+
+describe('المقطع الجزئيّ · المدى', () => {
+  const SENT = 'Протокол уже полностью заполнен и направлен на согласование.';
+  const words = splitWords(SENT);
+
+  it('الجملةُ المرجعيّةُ ثماني كلمات', () => {
+    /* عددٌ مقيسٌ لا مُقدَّر: Протокол·уже·полностью·заполнен·и·направлен·на·согласование. */
+    expect(words.length).toBe(8);
+  });
+
+  it('⚠️ نقرتان تُحدّدان المدى — ولا تُلمَس كلُّ كلمةٍ على حدة (بند ١٢)', () => {
+    const r = makeRange(words.length);
+    r.pick(5);            /* направлен */
+    r.pick(7);            /* согласование */
+    expect([r.state.from, r.state.to]).toEqual([5, 7]);
+    const text = words.slice(r.state.from, r.state.to + 1).map((w) => w.display).join(' ');
+    expect(text).toBe('направлен на согласование.');
+  });
+
+  it('والاتّجاهُ لا يهمّ — من الآخر إلى الأوّل نفسُ المدى', () => {
+    const r = makeRange(words.length);
+    r.pick(7);
+    r.pick(5);
+    expect([r.state.from, r.state.to]).toEqual([5, 7]);
+  });
+
+  it('⚠️ الكلمات ٣–٦ بالضبط — لا جارَ زائدًا (بند ٣١)', () => {
+    const r = makeRange(words.length);
+    r.pick(2); r.pick(5);
+    const picked = words.slice(r.state.from, r.state.to + 1).map((w) => w.display);
+    expect(picked.length).toBe(4);
+    expect(picked).toEqual(['полностью', 'заполнен', 'и', 'направлен']);
+  });
+
+  it('وتوسيعٌ يمينًا ثم تقليصٌ يسارًا — بلا إلغاءٍ ولا بدءٍ من جديد (بند ١٣)', () => {
+    const r = makeRange(words.length);
+    r.pick(2); r.pick(5);
+    r.nudge('end', 1);
+    expect([r.state.from, r.state.to]).toEqual([2, 6]);
+    r.nudge('start', 1);
+    expect([r.state.from, r.state.to]).toEqual([3, 6]);
+  });
+
+  it('⚠️ ولا تتجاوز الحافّةُ حدودَ الجملة ولا تعبر أختَها', () => {
+    const r = makeRange(words.length);
+    r.pick(0); r.pick(1);
+    r.nudge('start', -5);
+    expect(r.state.from).toBe(0);
+    r.nudge('end', 99);
+    expect(r.state.to).toBe(words.length - 1);
+    /* والتقليصُ لا يقلب المدى. */
+    r.nudge('start', 99);
+    expect(r.state.from <= r.state.to).toBe(true);
+  });
+
+  it('ولمسةٌ ثالثةٌ تبدأ مدًى جديدًا بلا زرّ إلغاء', () => {
+    const r = makeRange(words.length);
+    r.pick(1); r.pick(4);
+    r.pick(6);
+    expect([r.state.from, r.state.to]).toEqual([6, 6]);
+  });
+
+  it('⚠️ ولمسُ المرساة نفسِها لا يصنع مدًى من كلمةٍ واحدة', () => {
+    /*
+     * ⚠️ عطبٌ حقيقيٌّ أمسكه فحصُ المتصفّح: «حدّد مقطع» تُرسي على
+     *    الكلمة الممسوكة، فمن يلمسها ليؤكّدها كان يُتِمّ مدًى من كلمة،
+     *    ثم تبدأ لمستُه للأخيرة مدًى جديدًا — فيحصل على آخر كلمةٍ وحدَها.
+     */
+    const r = makeRange(words.length);
+    r.pick(1);              /* المرساة */
+    r.pick(1);              /* تأكيدٌ صامت — لا إتمام */
+    expect(r.has()).toBe(false);
+    r.pick(3);              /* هذه هي التي تُتِمّ */
+    expect([r.state.from, r.state.to]).toEqual([1, 3]);
+    expect(r.has()).toBe(true);
+  });
+
+  it('⚠️ والمدى يُطرَح حين يتبدّل المقطع — رقمان بلا جملتهما يكذبان', async () => {
+    /*
+     * ⚠️ أمسكته لقطةُ شاشة: بعد الخروج من النصّ المؤقّت بقي شريطُ
+     *    «مقطع: того как документ все» فوق جملةِ السكريبت.
+     */
+    const src = await (await fetch('../js/views/shadow-view.js')).text();
+    expect(src.includes('phrase.segmentId')).toBe(true);
+    expect(src.includes("phrase.segmentId !== segment.id) exitPhrase()")).toBe(true);
+  });
+
+  it('⚠️ والمدى يُحفَظ رقمَين لا نصًّا مجمَّدًا (بند ٢١)', async () => {
+    const src = await (await fetch('../js/views/shadow-view.js')).text();
+    expect(src.includes('wordStart: phrase.from')).toBe(true);
+    expect(src.includes('wordEnd: phrase.to')).toBe(true);
+    expect(src.includes('kind: SAVED_KIND.PHRASE')).toBe(true);
+  });
+
+  it('ونوعٌ ثالثٌ في نفس المخزن — لا مخزنَ مقاطعَ منفصل (بند ٣٨)', async () => {
+    expect(SAVED_KIND.PHRASE).toBe('phrase');
+    const schema = await (await fetch('../js/db/schema.js')).text();
+    for (const forked of ['phrases:', 'externalSavedWords', 'quickPracticePhrases', 'draftPhrases']) {
+      expect(`${forked}:${schema.includes(forked)}`).toBe(`${forked}:false`);
+    }
+  });
+});
+
+/* ================================================================== *
+ * ٤) التشغيل — البنود ١٦…١٨
+ * ================================================================== */
+
+describe('المقطع الجزئيّ · التشغيل', () => {
+  it('⚠️ ولا مُشغِّلَ ثانٍ — نفسُ ناطق الجلسة وذاكرتُه (بندا ١٦ و١٧)', async () => {
+    const src = await (await fetch('../js/views/shadow-view.js')).text();
+    const fn = src.slice(src.indexOf('async function speakScope('), src.indexOf('const COPY_SCOPE'));
+    expect(fn.includes('ttsSpeaker')).toBe(true);
+    /* ولا مؤقّتَ بين التكرارات — تتابعٌ على وعدٍ ينتهي (بند ٣٧). */
+    expect(fn.includes('setTimeout')).toBe(false);
+    expect(fn.includes('setInterval')).toBe(false);
+    expect(fn.includes('new Audio')).toBe(false);
+  });
+
+  it('والسرعةُ من الجلسة — لا حالةَ سرعةٍ مخبوءةٌ للمقطع (بند ١٨)', async () => {
+    const src = await (await fetch('../js/views/shadow-view.js')).text();
+    const fn = src.slice(src.indexOf('async function speakScope('), src.indexOf('const COPY_SCOPE'));
+    expect(fn.includes('ctx.session?.speed')).toBe(true);
+  });
+
+  it('والتكرارُ يقرأ عدّادَ الجلسة نفسَه', async () => {
+    const src = await (await fetch('../js/views/shadow-view.js')).text();
+    expect(src.includes("times: ctx.session?.repeatCount || 1")).toBe(true);
+  });
+});
+
+/* ================================================================== *
+ * ٥) مصفوفةُ التكافؤ — البند ٤٠
+ * ================================================================== */
+
+/**
+ * ⚠️ **مصفوفةٌ تُقرأ آليًّا لا جدولٌ في تقرير.**
+ *
+ *    كلُّ خانةٍ إمّا `true` وإمّا **نصُّ سببٍ مكتوب**. ولا `false`
+ *    مجرّدة: خانةٌ فارغةٌ في مصفوفةٍ كهذه تعني «لم يُنظَر فيها»، وهو
+ *    بالضبط ما يخفي الانحدارَ الذي جاءت المصفوفةُ لتمنعه.
+ */
+const PARITY = Object.freeze({
+  'نطاق الجملة': { original: true, external: true },
+  'نطاق الكلمة': { original: true, external: true },
+  'نطاق المقطع': { original: true, external: true },
+  'تشغيل الجملة': { original: true, external: true },
+  'تشغيل الكلمة': { original: true, external: true },
+  'تشغيل المقطع': { original: true, external: true },
+  'التكرار': { original: true, external: true },
+  'السرعة': { original: true, external: true },
+  'عرض النبر': { original: true, external: true },
+  'تصحيح النبر': { original: true, external: true },
+  'نسخ الجملة': { original: true, external: true },
+  'نسخ الكلمة': { original: true, external: true },
+  'نسخ المقطع': { original: true, external: true },
+  'حفظ الكلمة': { original: true, external: true },
+  'حفظ المقطع': { original: true, external: true },
+  'تحليل النطق': { original: true, external: true },
+  'الكلمة التالية/السابقة': { original: true, external: true },
+  'الجملة التالية/السابقة': {
+    original: true,
+    /*
+     * ⚠️ **الخانةُ الوحيدةُ التي تفترق — وبسببٍ في طبيعة الشيء لا في تنفيذه.**
+     *    المقطعُ المؤقّتُ **واحد**: لا جملةَ بعده ولا قبله داخل مصدره.
+     *    و«التالي» منه يعبر إلى جمل السكريبت — وهو سلوكُ المحرّك منذ
+     *    WS42 ومقصود. فالخانةُ ليست نقصَ ميزةٍ بل غيابَ معنًى.
+     */
+    external: 'المقطع المؤقّت واحدٌ لا سلسلة — «التالي» يعبر إلى جمل المصدر بقصد',
+  },
+  'الرجوع للأصل': {
+    /*
+     * ⚠️ ولا معنى لها على الأصل: أنت فيه.
+     */
+    original: 'لا ينطبق — لا مصدرَ تُغادره',
+    external: true,
+  },
+  'الترجمة': {
+    original: true,
+    external: 'المقطع المؤقّت بلا ترجمةٍ محفوظة — الحقل موجودٌ وفارغ، ولا يُخترَع له نصّ',
+  },
+});
+
+describe('التكافؤ · الأصليّ مقابل الخارجيّ (بند ٤٠)', () => {
+  it('⚠️ ولا خانةَ صامتة — كلُّ خانةٍ مدعومةٌ أو لها سببٌ مكتوب', () => {
+    const silent = [];
+    for (const [feature, row] of Object.entries(PARITY)) {
+      for (const side of ['original', 'external']) {
+        const cell = row[side];
+        const ok = cell === true || (typeof cell === 'string' && cell.length > 20);
+        if (!ok) silent.push(`${feature}/${side}`);
+      }
+    }
+    expect(silent).toEqual([]);
+  });
+
+  it('والأغلبيّةُ الساحقةُ متكافئةٌ فعلًا — لا «مدعوم» بشروط', () => {
+    const rows = Object.values(PARITY);
+    const equal = rows.filter((r) => r.original === true && r.external === true).length;
+    expect(`${equal}/${rows.length}`).toBe(`17/${rows.length}`);
+  });
+
+  it('⚠️ والمصفوفةُ تغطّي كلَّ ما عدّده الطلب', () => {
+    const required = [
+      'نطاق الجملة', 'نطاق الكلمة', 'نطاق المقطع',
+      'تشغيل الجملة', 'تشغيل الكلمة', 'تشغيل المقطع',
+      'التكرار', 'السرعة', 'تصحيح النبر',
+      'نسخ الجملة', 'نسخ الكلمة', 'نسخ المقطع',
+      'حفظ الكلمة', 'حفظ المقطع', 'تحليل النطق',
+      'الكلمة التالية/السابقة', 'الرجوع للأصل',
+    ];
+    expect(required.filter((f) => !(f in PARITY))).toEqual([]);
+  });
+});

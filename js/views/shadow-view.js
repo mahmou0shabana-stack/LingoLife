@@ -73,7 +73,7 @@ import {
   SOURCE_TYPE,
 } from '../services/shadow/shadow-session-service.js';
 import {
-  markSentence, loadUserDictionary, rememberStress, stressOf,
+  markSentence, markPlain, loadUserDictionary, rememberStress, stressOf,
   netStressEnabled, setNetStressEnabled, fetchSentenceStress,
 } from '../services/shadow/stress.js';
 import {
@@ -1021,10 +1021,24 @@ function wireChips(main) {
     const chip = event.target.closest?.('[data-word]');
     if (!chip || long) return;
 
+    const at = Number(chip.dataset.word);
+
+    /*
+     * ⚠️ **وفي نطاق المقطع، النقرةُ تحدّد ولا تنطق** (بند ٣٤).
+     *
+     *    والافتراضُ لم يتغيّر: نقرةٌ عاديّةٌ = اختيارُ كلمةٍ وسماعُها.
+     *    لكنّ نطاقَ المقطع **حالةٌ دخلتَها صراحةً** بزرّ «حدّد مقطع»،
+     *    فالنقرةُ داخله معناها «هذه إحدى الحافّتين». ولو نطقنا الكلمةَ
+     *    هنا أيضًا لصار تحديدُ مدًى من أربع كلماتٍ أربعَ نُطقٍ لا
+     *    يريدها أحد.
+     */
+    if (phrase.on) {
+      pickPhraseWord(at);
+      return;
+    }
+
     host.querySelectorAll('[data-word]').forEach((n) => n.classList.remove('selected'));
     chip.classList.add('selected');
-
-    const at = Number(chip.dataset.word);
 
     /*
      * ⚠️ **نقرةٌ تُسمعك الكلمة — ولا تغيّر الوضع.** وهذه المرّة صحيحة:
@@ -1346,6 +1360,12 @@ function shell() {
                 <div class="sh-hero-top">
                   <button type="button" class="sh-current-lbl" data-current-lbl
                     data-sh="scratch-clear" hidden></button>
+                  <!--
+                    ⚠️ **شريطُ المقطع الجزئيّ** (WS-A، بند ٣٣). يقول ما
+                       حُدِّد أو ما ينقص لتحديده — ولا يُظهر أزرارًا:
+                       الأدوات في السكّة، وهذا **إخبارٌ لا تحكّم**.
+                  -->
+                  <p class="sh-phrase-lbl" data-phrase-lbl dir="ltr" lang="ru" hidden></p>
                   <!--
                     ⚠️ **زرّان عامّان — يعملان على أيّ مقطعٍ حاليّ**
                        (بند 5، 11، 19): سكريبتٍ كان أو نصًّا لصقتَه
@@ -1993,7 +2013,14 @@ function syncSegment() {
   const count = $('.sh-count');
   if (lbl) {
     lbl.hidden = !segment.temporary;
-    if (segment.temporary) lbl.textContent = '⚡ ذاكِرها دلوقتي';
+    /*
+     * ⚠️ **وهذه الشارةُ هي بابُ الخروج الوحيدُ من المصدر** (بند ٢٦).
+     *    كانت تقول «⚡ ذاكِرها دلوقتي» — وصفًا للحال لا طريقًا للخروج،
+     *    وهي زرٌّ يُخرِج فعلًا (`scratch-clear`). فمن قرأها ظنَّها
+     *    لافتةً، ثم بحث عن الخروج في مفتاح الأوضاع — فوجده هناك،
+     *    ضمنيًّا، وهو بالضبط ما كسر النصَّ الخارجيّ.
+     */
+    if (segment.temporary) lbl.textContent = '⚡ نصّ مؤقّت · ارجع للأصل';
   }
   if (count) count.hidden = Boolean(segment.temporary);
 
@@ -2335,7 +2362,15 @@ async function tellItNow(button) {
 function renderWords() {
   const host = $('[data-words]');
   if (!host) return;
-  const segment = ctx.segments[player.state.index];
+  const segment = activeSegment();
+  if (!segment) return;
+  /*
+   * ⚠️ **ومدًى من مقطعٍ غادرتَه يُطرَح هنا** — في المكان الذي تُبنى فيه
+   *    الكلمات، لا في كلّ فعلٍ قد يُغيّر المقطع. فمهما كان طريقُ
+   *    التبديل (خروجٌ من المصدر، جملةٌ تالية، لصقُ نصٍّ آخر) يمرّ
+   *    من هنا حتمًا.
+   */
+  if (phrase.on && phrase.segmentId && phrase.segmentId !== segment.id) exitPhrase();
   const words = splitWords(segment.sourceTextSnapshot);
   player.setWords(words);
   /*
@@ -2450,6 +2485,19 @@ const TOOLS = [
    *    WS40. **التكافؤُ هنا بنيويٌّ لا مُختبَرٌ حالةً حالة.**
    */
   { id: 'pron', glyph: '◍', label: 'ليه بتتنطق كده؟', when: hasPickedWord },
+  /* ---- المقطع الجزئيّ: بابُه من كلمةٍ ممسوكة، وأدواتُه بعد التحديد ---- */
+  {
+    id: 'phrase-begin',
+    glyph: '⌗',
+    label: 'حدّد مقطع',
+    /* ⚠️ لا يظهر داخل نطاق المقطع — بابُ الدخول لا يُعرَض لمن دخل. */
+    when: () => hasPickedWord() && !phrase.on,
+  },
+  { id: 'phrase-play', glyph: '▶', label: 'اسمع المقطع', when: hasPhrase },
+  { id: 'phrase-copy', glyph: '⧉', label: 'انسخ المقطع', when: hasPhrase },
+  { id: 'phrase-save', glyph: '✦', label: 'احفظ المقطع', when: hasPhrase },
+  { id: 'phrase-edge', glyph: '↔', label: 'وسّع أو قلّل', when: hasPhrase },
+  { id: 'phrase-exit', glyph: '↩', label: 'ارجع للجملة', when: () => phrase.on },
 
   /* ---- أدواتُ المسرح: دائمًا ---- */
   { id: 'display', glyph: '◐', label: 'العرض', value: () => DISPLAY_SHORT[ctx.display] || '' },
@@ -2537,6 +2585,38 @@ function panelFor(id) {
   const on = (a, b) => (a === b ? ' on' : '');
   const pick = (act, val, text, isOn) =>
     `<button data-sh="${act}" data-v="${val}" class="${isOn ? 'on' : ''}">${esc(text)}</button>`;
+
+  /*
+   * ⚠️ **حافّتان لا مقبضان** (بند ١٣ و٣٢). ضبطُ المدى بسحبِ مقبضٍ
+   *    صغيرٍ على لوحٍ بالإبهام دقّةٌ لا يملكها أحد. فأربعةُ أزرارٍ
+   *    كاملةُ الحجم: كلٌّ يحرّك حافّةً كلمةً واحدة — ولا إلغاءَ ولا
+   *    بدءٌ من جديدٍ لتصحيحٍ بكلمة.
+   */
+  if (id === 'phrase-edge') {
+    const total = player?.words?.length || 0;
+    return {
+      title: 'حدود المقطع',
+      foot: hasPhrase()
+        ? `الكلمات ${phrase.from + 1}–${phrase.to + 1} من ${total}`
+        : 'محدّدش مقطع لسه',
+      groups: [
+        {
+          label: 'أوّل المقطع',
+          items: [
+            `<button data-sh="phrase-edge" data-edge="start" data-delta="-1">← وسّع</button>`,
+            `<button data-sh="phrase-edge" data-edge="start" data-delta="1">قلّل →</button>`,
+          ],
+        },
+        {
+          label: 'آخر المقطع',
+          items: [
+            `<button data-sh="phrase-edge" data-edge="end" data-delta="-1">← قلّل</button>`,
+            `<button data-sh="phrase-edge" data-edge="end" data-delta="1">وسّع →</button>`,
+          ],
+        },
+      ],
+    };
+  }
 
   if (id === 'display') {
     return {
@@ -3570,6 +3650,34 @@ function pickTool(id) {
    *    درجًا ينزلق فوق ما تقرأ.
    */
   if (id === 'pron') return openAnalysis();
+  /*
+   * ---- أفعالُ المقطع الجزئيّ (WS-A) ----
+   *
+   * ⚠️ **أفعالٌ فوريّةٌ لا لوحاتٍ إلّا واحدة.** «حدّد مقطع» و«اسمع»
+   *    و«انسخ» و«احفظ» و«ارجع» تُنفَّذ وتُغلق السكّة — لأن ما بعدها
+   *    لمسُ رقائقَ أو سماعُ صوت، والسكّةُ تحجب الاثنين. و«وسّع أو
+   *    قلّل» وحدَها لوحةٌ، لأنها أربعةُ أزرارٍ تُضغَط مرارًا.
+   *
+   * ⚠️ **وقد نسيتُ هذا الوصلَ أوّلَ مرّة** فكتبتُ `case 'phrase-begin'`
+   *    في مُوزِّع الأفعال — والسكّةُ تُرسِل `data-sh="tool"` لكلّ
+   *    أدواتها، فلم يصل الفعلُ إلى معالِجه قطّ. أمسكه فحصٌ في متصفّحٍ
+   *    حقيقيّ: الزرُّ يُضغَط والوضعُ يبقى «جملة».
+   */
+  if (id === 'phrase-begin') {
+    setPractice(PRACTICE_MODE.SENTENCE);
+    beginPhrase();
+    renderModes();
+    return renderRail();
+  }
+  if (id === 'phrase-play') {
+    rail.open = false;
+    renderRail();
+    releaseAudio();
+    return speakScope(phraseSpoken(), { times: ctx.session?.repeatCount || 1 });
+  }
+  if (id === 'phrase-copy') { rail.open = false; renderRail(); return copyPhrase(); }
+  if (id === 'phrase-save') { rail.open = false; renderRail(); return openPhraseSave(); }
+  if (id === 'phrase-exit') { exitPhrase(); renderModes(); rail.open = false; return renderRail(); }
   /* أفعالٌ فوريّة لا لوحةَ لها: تُنفَّذ وتُغلق. */
   if (id === 'hear') { if (rail.word >= 0) player.selectWord(rail.word); rail.open = false; return renderRail(); }
   /*
@@ -3705,44 +3813,61 @@ async function applySky() {
  *    في المحادثات مثلًا) سطرٌ هنا بـ`enter` و`is` — ولا يُلمَس الرسمُ
  *    ولا المفتاحُ ولا الشاشة. نفسُ نمط `WELLS` و`TOOLS` و`PLACES`.
  *
- * ⚠️ **وكلُّ وضعٍ يُخرج من الآخر صراحةً.** أوّلُ ما جرّبتُه كان
- *    يدخل «كلمة» ويترك صندوقَ الجملة الخارجيّة مفتوحًا تحته، فيصير
- *    زرُّ التشغيل يقرأ نصًّا لا علاقةَ له بالكلمات المعروضة. الدخولُ
- *    الذي لا يُنهي ما قبله هو بالضبط ما كسر وضعَ الكلمة قبل WS27.
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **وقد كان هذا المفتاحُ يخلط شيئين — وذلك كان العطب** (WS-A)
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * كان الوضعُ الثالثُ «جملة برّه»، فصار المفتاحُ يجيب عن سؤالين معًا:
+ * **بأيّ نطاقٍ أتدرّب؟** و**من أين جاء النصّ؟**. وسؤالان في مفتاحٍ
+ * واحدٍ يعني أن جوابَ أحدهما يُلغي الآخر:
+ *
+ *   · `is()` في «نصّ» و«كلمة» كانت تشترط `!hasExternalSegment()` —
+ *     فما دام أمامك نصٌّ خارجيّ **لا يستطيع المفتاحُ أن يقول إنك في
+ *     وضع الكلمة أصلًا**.
+ *   · و`paint()` فيهما كانت تنادي `exitExternalText()` بلا شرط —
+ *     فالضغطُ على «كلمة» **يهدم النصَّ الخارجيَّ ويرجعك للسكريبت**.
+ *     وهذا بحرفه العطبُ الذي بلّغتَ عنه: تلصق جملةً، تدخل وضعَ
+ *     الكلمة، فتجد نفسَك في جملة السكريبت.
+ *
+ * فصار المفتاحُ **نطاقًا خالصًا**: كلمة · مقطع · جملة. ثلاثةُ مدَياتٍ
+ * على **نفس** المقطع الفعّال، لا ثلاثةُ نصوصٍ مختلفة.
+ *
+ * ⚠️ **ومصدرُ النصّ بابُه غيرُ هذا الباب.** الدخولُ من صندوق «نصّي»،
+ *    والخروجُ من شارةِ «⚡ نصّ مؤقّت» وحدَها (بند ٢٦). فلا فعلٌ من
+ *    أفعال النطاق يُغادر المصدرَ ضمنًا — ولا **يستطيع**، لأنه لم يعد
+ *    يعرف عنه شيئًا.
  */
 const MODES = [
   {
-    id: 'text',
-    label: 'نصّ',
-    hint: 'يمشي في جمل المصدر واحدة ورا التانية',
-    /** هل نحن فيه الآن؟ */
-    is: () => !hasExternalSegment()
+    id: 'sentence',
+    label: 'جملة',
+    hint: 'يقرا الجملة الفعّالة كاملة',
+    /*
+     * ⚠️ **ولا تسأل عن مصدر النصّ** (بند ٢٥). الجملةُ الفعّالةُ قد
+     *    تكون جملةَ سكريبتٍ أو نصًّا لصقتَه أو سطرًا من مسودّة —
+     *    والنطاقُ واحدٌ في الثلاثة.
+     */
+    is: () => !phrase.on
       && player?.state?.settings?.practiceMode !== PRACTICE_MODE.WORD,
-    enter: async () => setPractice(PRACTICE_MODE.SENTENCE),
-    paint: () => exitExternalText(),
+    enter: async () => { exitPhrase(); await setPractice(PRACTICE_MODE.SENTENCE); },
+    paint: () => {},
+  },
+  {
+    id: 'phrase',
+    label: 'مقطع',
+    hint: 'امسك أول كلمة وآخر كلمة — والباقي بينهم',
+    is: () => phrase.on,
+    enter: async () => { await setPractice(PRACTICE_MODE.SENTENCE); },
+    paint: () => beginPhrase(),
   },
   {
     id: 'word',
     label: 'كلمة',
     hint: 'يقرا الكلمات المقسّمة واحدة واحدة',
-    is: () => !hasExternalSegment()
+    is: () => !phrase.on
       && player?.state?.settings?.practiceMode === PRACTICE_MODE.WORD,
-    enter: async () => setPractice(PRACTICE_MODE.WORD),
-    paint: () => exitExternalText(),
-  },
-  {
-    id: 'own',
-    label: 'جملة برّه',
-    hint: 'الصق جملة من عندك وتتقرا بنفس الإعدادات',
-    is: () => hasExternalSegment() || !$('[data-scratch]')?.hidden,
-    /* الخروجُ من وضع الكلمة أوّلًا — وإلّا نطق كلمةً من جملةٍ غادرتها. */
-    enter: async () => setPractice(PRACTICE_MODE.SENTENCE),
-    paint: () => {
-      const box = $('[data-scratch]');
-      if (!box) return;
-      box.hidden = false;
-      box.querySelector('[data-scratch-input]')?.focus();
-    },
+    enter: async () => { exitPhrase(); await setPractice(PRACTICE_MODE.WORD); },
+    paint: () => {},
   },
 ];
 
@@ -5367,6 +5492,31 @@ function renderPicked() {
   });
 }
 
+/* ══════════════════════════════════════════════════════════════════
+   المقطعُ الفعّال — **مصدرُ حقيقةٍ واحدٌ لكلّ ما يُمارَس** (WS-A، بند ٣)
+   ══════════════════════════════════════════════════════════════════
+
+   ⚠️ **القاعدة**: أيُّ نصٍّ تتدرّب عليه الآن هو مقطعُ ممارسةٍ من الدرجة
+      الأولى — جملةَ سكريبتٍ كان أم محادثةً أم نصًّا مستخرَجًا من صورة
+      أم سطرَ مسودّةٍ أم شيئًا لصقتَه قبل ثانية. و`temporary` تقول
+      **هل يُكتَب في القاعدة**، ولا تقول شيئًا عن **ما يُتاح لك**.
+
+   ⚠️ **ولماذا دالّةٌ لسطرٍ واحد؟** لأن `ctx.segments[player.state.index]`
+      كانت مكتوبةً بيدها في تسعة مواضع. وتسعُ نسخٍ من تعبيرٍ واحدٍ تعني
+      أن مَن يضيف عاشرًا غدًا قد يكتب `ctx.segments[0]` أو
+      `ctx.segments.at(-1)` ولا يلاحظ أحد. الاسمُ يجعل الخطأَ مرئيًّا.
+*/
+
+/** المقطعُ الذي يُمارَس الآن — **لا الأصليُّ ولا الأوّل**. */
+function activeSegment() {
+  return ctx?.segments?.[player?.state?.index ?? -1] || null;
+}
+
+/** نصُّ المقطع الفعّال كما كُتب. */
+function activeText() {
+  return activeSegment()?.sourceTextSnapshot || '';
+}
+
 /** هل المقطعُ الأخير نصٌّ خارجيٌّ عابرٌ — لا صفَّ له في القاعدة (WS40)؟ */
 function hasExternalSegment() {
   return Boolean(ctx?.segments?.at(-1)?.temporary);
@@ -5465,6 +5615,236 @@ function exitExternalText() {
 }
 
 /* ══════════════════════════════════════════════════════════════════
+   المقطعُ الجزئيّ (Phrase) — النطاقُ الثالث (WS-A، بنود ١١…٢١)
+   ══════════════════════════════════════════════════════════════════
+
+   ⚠️ **ليس مُشغِّلًا صغيرًا ولا نصًّا ثانيًا** — بل **مدًى على المقطع
+      الفعّال نفسِه**: رقمَا كلمةٍ لا أكثر. ولذلك يعمل على النصّ
+      الخارجيّ والمسودّة والسكريبت بلا فرعٍ واحدٍ يسأل عن المصدر
+      (بندا ٢٢ و٢٣): الكلماتُ من `player.words`، والمصدرُ واحدٌ للجميع.
+
+   ⚠️ **ولماذا رقمان لا نصٌّ منسوخ؟** لأن النصَّ يتجمّد. لو حفظنا
+      «направлен на согласование» نصًّا ثم صحّحتَ نبرَ كلمةٍ فيه، بقي
+      المحفوظُ على حاله. أمّا الرقمان فيُعيدان الاشتقاقَ من الكلمات
+      الحيّة في كلّ مرّة — فالتصحيحُ يظهر في المقطع فورًا (بند ٦).
+*/
+
+/**
+ * مدى المقطع الجزئيّ.
+ * `on` تعني «نحن في نطاق المقطع»؛ و`anchor` نقطةُ الارتكاز أثناء الالتقاط.
+ */
+const phrase = {
+  on: false,
+  /** أوّلُ كلمةٍ لُمِست. */
+  anchor: -1,
+  from: -1,
+  to: -1,
+  /*
+   * ⚠️ **والمدى يخصّ مقطعَه — رقمان بلا جملةٍ يشيران إلى كلماتٍ أخرى.**
+   *
+   *    قِستُه في لقطةٍ من المتصفّح: خرجتُ من النصّ المؤقّت فبقي شريطُ
+   *    «مقطع: того как документ все» معلَّقًا فوق جملةِ السكريبت — مدًى
+   *    من نصٍّ لم يعد موجودًا. والرقمان صالحان شكلًا، ويشيران إلى
+   *    كلماتٍ ليست هي. فيُحفَظ معهما معرِّفُ المقطع، ويُطرَح المدى
+   *    تلقائيًّا حين يتبدّل.
+   */
+  segmentId: null,
+  /*
+   * ⚠️ **علمٌ منفصلٌ عن «هل المدى صالح» — والخلطُ بينهما كان عطبًا.**
+   *
+   *    كتبتُ أوّلَ مرّة أن اكتمالَ المدى يُستنتَج من `from >= 0 && to >= from`.
+   *    وهو صحيحٌ رياضيًّا وخاطئٌ سلوكيًّا: بعد اللمسة **الأولى** يصير
+   *    `from === to === at` — فالشرطُ صادقٌ والمدى «مكتمل»، فتُعامَل
+   *    اللمسةُ الثانيةُ على أنها **بدايةُ مدًى جديد** بدل أن تُتِمّ
+   *    الأوّل. أي أن تحديدَ مقطعٍ من ثلاث كلماتٍ كان مستحيلًا.
+   *
+   *    أمسكه اختبارُ «نقرتان تُحدّدان المدى» فورًا: توقّع [5,7] ووجد
+   *    [7,7]. ولولاه لَخرج إلى اللوح وبدا «التحديدُ لا يعمل».
+   */
+  complete: false,
+};
+
+/** هل هناك مدًى مكتملٌ الآن؟ */
+function hasPhrase() {
+  return phrase.on && phrase.complete && phrase.from >= 0 && phrase.to >= phrase.from;
+}
+
+/**
+ * يبدأ التقاطَ المدى — من الكلمة الممسوكة إن وُجدت.
+ *
+ * ⚠️ **ولا يبدأ من فراغ**: إن كنتَ ماسكًا كلمةً فهي أوّلُ المدى، فلا
+ *    تُطالَب بلمسها مرّةً ثانية. وهذا نصفُ «بسيط ومتسامح» الذي طُلب.
+ */
+function beginPhrase() {
+  phrase.on = true;
+  phrase.segmentId = activeSegment()?.id || null;
+  /*
+   * ⚠️ **والسكّةُ تنزاح — لأن الخطوةَ التالية لمسُ رقائق.**
+   *
+   *    قِستُه في متصفّحٍ حقيقيّ: بعد «حدّد مقطع» يبقى حجابُ السكّة
+   *    (`.sh-scrim`) فوق الشاشة، فكلُّ لمسةٍ على كلمةٍ **تُغلِق السكّةَ
+   *    ولا تصل إلى الرقاقة**. أي أن الزرَّ يفتح وضعًا لا تستطيع
+   *    استعماله — وهو أسوأُ من زرٍّ لا يعمل، لأنه يبدو أنه عمل.
+   */
+  rail.open = false;
+  const held = rail.word;
+  phrase.complete = false;
+  if (held >= 0 && player?.words?.[held]) {
+    phrase.anchor = held;
+    phrase.from = held;
+    phrase.to = held;
+  } else {
+    phrase.anchor = -1;
+    phrase.from = -1;
+    phrase.to = -1;
+  }
+  paintPhrase();
+  renderRail();
+}
+
+/** يخرج من نطاق المقطع — **ولا يمسّ المقطعَ الفعّال** (بند ٢٦). */
+function exitPhrase() {
+  if (!phrase.on) return;
+  phrase.on = false;
+  phrase.anchor = -1;
+  phrase.from = -1;
+  phrase.to = -1;
+  phrase.complete = false;
+  phrase.segmentId = null;
+  paintPhrase();
+  /*
+   * ⚠️ **والمفتاحُ يُعاد رسمُه — وإلّا قال «مقطع» ولا مقطعَ هناك.**
+   *    `renderModes` تقرأ الحالَ لا متغيّرًا، فما دامت لا تُنادى يبقى
+   *    الزرُّ مضيئًا على وضعٍ خرجنا منه. قِستُه بعد طرحِ المدى تلقائيًّا
+   *    عند تبديل المقطع: الشريطُ اختفى والزرُّ بقي.
+   */
+  renderModes();
+}
+
+/**
+ * لمسةٌ على كلمةٍ أثناء نطاق المقطع.
+ *
+ * أوّلُ لمسةٍ ترسو، والثانيةُ تُكمل المدى — بأيّ اتّجاه. ولمسةٌ ثالثةٌ
+ * ترسو من جديد، فلا تحتاج «إلغاءً» لتبدأ مدًى آخر (بند ١٣).
+ */
+function pickPhraseWord(at) {
+  if (!Number.isInteger(at) || !player?.words?.[at]) return;
+  /*
+   * ⚠️ **ولمسُ نقطة الارتكاز نفسِها لا يُتِمّ مدًى من كلمةٍ واحدة.**
+   *
+   *    `beginPhrase` تُرسي على الكلمة الممسوكة، فيبدو للمستخدم أنه لم
+   *    يلمس شيئًا بعد — فيلمسها ليؤكّدها، ثم يلمس الأخيرة. ولو عددنا
+   *    لمستَه الأولى «إتمامًا» لصار المدى كلمةً واحدة، ولمستُه الثانيةُ
+   *    تبدأ مدًى جديدًا — فيحصل على **آخر كلمةٍ وحدَها** بدل المدى كلِّه.
+   *
+   *    قِستُه في متصفّحٍ حقيقيّ قبل أن يصل إليك: «رقائق داخل المدى: 1».
+   *    فصار لمسُ المرساة تأكيدًا صامتًا لا إتمامًا.
+   */
+  if (!phrase.complete && at === phrase.anchor) return;
+
+  if (phrase.anchor < 0 || phrase.complete) {
+    phrase.anchor = at;
+    phrase.from = at;
+    phrase.to = at;
+    phrase.complete = false;
+  } else {
+    phrase.from = Math.min(phrase.anchor, at);
+    phrase.to = Math.max(phrase.anchor, at);
+    phrase.complete = true;
+  }
+  paintPhrase();
+  renderRail();
+}
+
+/** يوسّع المدى أو يقلّصه من إحدى حافّتيه (بند ١٣). */
+function nudgePhrase(edge, delta) {
+  if (!hasPhrase()) return;
+  const last = (player.words?.length || 1) - 1;
+  if (edge === 'start') {
+    const next = Math.min(Math.max(0, phrase.from + delta), phrase.to);
+    phrase.from = next;
+  } else {
+    const next = Math.max(Math.min(last, phrase.to + delta), phrase.from);
+    phrase.to = next;
+  }
+  phrase.anchor = phrase.from;
+  paintPhrase();
+  renderRail();
+}
+
+/** كلماتُ المدى من المصدر الحيّ. */
+function phraseWords() {
+  if (!hasPhrase()) return [];
+  return (player.words || []).slice(phrase.from, phrase.to + 1);
+}
+
+/** نصُّ المدى كما كُتب — للعرض وللحفظ. */
+function phraseText() {
+  return phraseWords().map((w) => w.display).join(' ');
+}
+
+/** نصُّ المدى بلا ترقيم — للنطق. */
+function phraseSpoken() {
+  return phraseWords().map((w) => w.spoken).join(' ');
+}
+
+/**
+ * يعكس المدى على الرقائق.
+ *
+ * ⚠️ **رسمُ أصنافٍ لا إعادةُ بناء** (بند ٤٢). تعديلُ الحافّة يبدّل
+ *    `classList` على رقائقَ موجودة — ولا يُعيد `innerHTML` ولا يُعيد
+ *    تحليلَ نطقٍ لكلمةٍ لم تتغيّر. فالتوسيعُ والتقليصُ فوريّان.
+ */
+function paintPhrase() {
+  const app = document.querySelector('.shadow-app');
+  if (app) app.classList.toggle('is-phrase', phrase.on);
+  document.querySelectorAll('[data-word]').forEach((node, i) => {
+    const inside = phrase.on && phrase.from >= 0 && i >= phrase.from && i <= phrase.to;
+    node.classList.toggle('in-phrase', inside);
+    /* الحافّتان أقوى قليلًا — فتُقرَأ **قطعةً واحدة** لا أربعَ أزرار (بند ٣٣). */
+    node.classList.toggle('phrase-start', inside && i === phrase.from);
+    node.classList.toggle('phrase-end', inside && i === phrase.to);
+    node.classList.toggle('phrase-anchor',
+      phrase.on && !phrase.complete && i === phrase.anchor);
+  });
+  const lbl = $('[data-phrase-lbl]');
+  if (lbl) {
+    lbl.hidden = !phrase.on;
+    lbl.textContent = hasPhrase()
+      ? `مقطع: ${phraseText()}`
+      : 'دوس على أوّل كلمة، وبعدين على آخر كلمة';
+  }
+}
+
+/**
+ * ينطق نطاقًا — **بنفس مزوّد الجلسة وذاكرته** (بندا ١٦ و١٧).
+ *
+ * ⚠️ **و`ttsSpeaker.speak` لا `speakOnce`.** الأولى تمرّ بسجلّ
+ *    المزوّدين وبـ`synthesizeWithCache`، فالتكرارُ يُعيد **تشغيل**
+ *    ما وُلِّد لا توليدَه من جديد. والثانيةُ تنطق بالمتصفّح مباشرةً
+ *    بلا ذاكرة. ونطقُ الكلمة كان يستعمل الثانية منذ WS42 — فوُحِّد
+ *    الاثنان هنا، وصار للنطاقات الثلاثة مسارٌ واحد (بند ١٨).
+ *
+ * ⚠️ **والسرعةُ تُقرأ من الجلسة لا من حالةٍ مخبوءة** — فالمنزلقُ
+ *    الواحد يحكم الكلمةَ والمقطعَ والجملة.
+ */
+async function speakScope(text, { times = 1 } = {}) {
+  const clean = (text || '').trim();
+  if (!clean) return;
+  const opts = {
+    rate: ctx.session?.speed ?? 1,
+    voiceName: ctx.session?.voiceId || null,
+    volume: ctx.volume ?? 1,
+  };
+  const speak = ttsSpeaker?.speak || speakOnce;
+  for (let i = 0; i < Math.max(1, times); i += 1) {
+    /* eslint-disable-next-line no-await-in-loop -- التتابعُ هو التكرار */
+    const out = await speak(clean, opts);
+    if (out && out.ok === false && out.reason !== 'aborted') break;
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════
    النسخ — **مدًى صريحٌ لا حالةٌ خفيّة** (WS45)
    ══════════════════════════════════════════════════════════════════
 
@@ -5513,9 +5893,18 @@ const COPY_SCOPE = Object.freeze({
  * لاحقًا». فحين يُضاف، يصير الوصلُ سطرًا واحدًا:
  * `copyScoped(COPY_SCOPE.EXPRESSION, text)`.
  */
-const COPY_NOT_WIRED = Object.freeze({
-  expression: 'لا يوجد انتقاءُ تعبيرٍ متعدّدِ الكلمات في الشاشة بعد — العلاماتُ مكتشَفةٌ لا مُنتقاة',
-});
+const COPY_NOT_WIRED = Object.freeze({});
+
+/*
+ * ⚠️ **وقد فرغت هذه القائمةُ في WS-A — والسطرُ الذي كان فيها يستحقّ أن يُقرأ:**
+ *
+ *     expression: 'لا يوجد انتقاءُ تعبيرٍ متعدّدِ الكلمات في الشاشة بعد
+ *                  — العلاماتُ مكتشَفةٌ لا مُنتقاة'
+ *
+ * كُتب في WS45 بيانًا لما **لا** يُوصَل وسببِه، وخُتم بـ«فحين يُضاف،
+ * يصير الوصلُ سطرًا واحدًا: `copyScoped(COPY_SCOPE.EXPRESSION, text)`».
+ * وقد أُضيف الانتقاءُ، وكان الوصلُ سطرًا واحدًا بالفعل.
+ */
 
 /** ينسخ نصًّا بمدًى **مُعلَن**، ويقول أيَّ مدًى نسخ. */
 async function copyScoped(scope, text) {
@@ -5540,8 +5929,7 @@ async function copyScoped(scope, text) {
  *    هنا، بل نتيجةُ أن المصدرَ واحدٌ للجميع أصلًا.
  */
 function copySentence() {
-  const segment = ctx.segments[player.state.index];
-  return copyScoped(COPY_SCOPE.SENTENCE, segment?.sourceTextSnapshot || '');
+  return copyScoped(COPY_SCOPE.SENTENCE, markedForCopy(activeText()));
 }
 
 /**
@@ -5549,20 +5937,144 @@ function copySentence() {
  *
  * ⚠️ ولا تقرأ `.selected` ولا `rail.word` من داخلها: المستدعي يعرف
  *    أيَّ كلمةٍ يقصد، فيقولها. (درسُ WS43 نفسُه.)
- *
- * ⚠️ **ومن `player.words` لا من نصّ الرقاقة** — وهذا فرقٌ يُرى في
- *    الحافظة: الرقاقةُ تعرض الكلمةَ **مُشكَّلةً بالنبر** ومُصغَّرةَ
- *    الحرف (`по́сле` · `докуме́нт`)، وهو زخرفُ عرضٍ لا نصُّ المصدر.
- *    فنسخُ `textContent` يلصق علاماتِ نبرٍ مركّبةً (U+0301) في أيّ
- *    قاموسٍ أو محرّرٍ تذهب إليه. و`display` هو الرمزُ كما كُتب في
- *    المقطع نفسِه — `документ` كما في مثالك بحرفه.
- *
- *    وهو أيضًا نفسُ مصدرِ `wireChips` منذ WS42 (بند 9): مصدرٌ واحدٌ
- *    للكلمات لا اشتقاقٌ موازٍ من الـDOM.
  */
 function copyWord(wordIndex) {
   const word = player?.words?.[wordIndex];
-  return copyScoped(COPY_SCOPE.WORD, word?.display || '');
+  return copyScoped(COPY_SCOPE.WORD, markedForCopy(word?.display || ''));
+}
+
+/** ينسخ **المدى المحدَّد وحدَه** (بند ٩). */
+function copyPhrase() {
+  return copyScoped(COPY_SCOPE.EXPRESSION, markedForCopy(phraseText()));
+}
+
+/**
+ * الصيغةُ المنسوخة — **بالنبر الذي نعرفه الآن** (بنود ٧…٩).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ وهذا **نقضٌ صريحٌ لقرار WS42** — والسببُ أنك طلبتَ عكسَه
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * كان `copyWord` ينسخ `word.display` عمدًا، وحُجّتُه مكتوبةٌ في
+ * WS42: «الرقاقةُ تعرض الكلمةَ مُشكَّلةً بالنبر، وهو زخرفُ عرضٍ لا
+ * نصُّ المصدر — ونسخُه يلصق علاماتٍ مركّبةً (U+0301) في أيّ قاموسٍ
+ * تذهب إليه».
+ *
+ * والحُجّةُ صحيحةٌ في وصف ما يحدث، **وخاطئةٌ في تقدير ما تريد**:
+ * أنت لا تنسخ لتبحث في قاموس، بل لتحمل معك النطقَ الذي تعلّمتَه.
+ * والعلامةُ هي **كلُّ ما يميّز** `за́мок` عن `замо́к` — فنسخُها
+ * مجرّدةً يفقد المعنى لا الزخرف.
+ *
+ * ⚠️ **ولا تُنسَخ من الـDOM.** المصدرُ `markPlain` على النصّ نفسِه —
+ *    فلا وسومَ ولا محارفَ مُرمَّزة، ولا اعتمادَ على ما رسمته الشاشة.
+ *
+ * ⚠️ **ولا تُخترَع علامةٌ لمجهول.** `stressOf` تصمت عمّا لا تعرفه،
+ *    فتخرج الكلمةُ كما كُتبت — وهو الصدقُ الذي طلبه بند ٨ بحرفه.
+ */
+function markedForCopy(text) {
+  const clean = (text || '').trim();
+  if (!clean) return '';
+  /* والمستخدمُ قد يكون أطفأ عرضَ النبر — فيُنسَخ ما يراه. */
+  if (!ctx?.stress) return clean;
+  return markPlain(clean).text;
+}
+
+/**
+ * يحفظ **المدى المحدَّد** تعبيرًا (بنود ١٩…٢١).
+ *
+ * ⚠️ **ولا حوارَ حفظٍ ثانٍ.** نفسُ `showModal` ونفسُ `listSavedTags`
+ *    ونفسُ `saveItem` — والفرقُ `kind` وحقولُ المنشأ. ولو أضفتَ
+ *    تصنيفًا جديدًا غدًا ظهر للكلمة والجملة والمقطع معًا، لأنه ليس
+ *    ثلاثةَ أنظمةٍ بل نظامٌ بثلاثة أنواع (بند ٢٠).
+ *
+ * ⚠️ **والمنشأ رقمان لا نصّ** (بند ٢١): `wordStart`/`wordEnd` مع
+ *    `segmentId` و`sessionId` و`sceneId` — فـ«اذهب إلى المصدر» يستطيع
+ *    أن يعود إلى الجملة **ويُبرِز المدى نفسَه**، لا أن يبحث عن نصٍّ
+ *    قد يتكرّر مرّتين في المشهد.
+ *
+ * ⚠️ **والمقطعُ المؤقّتُ يُحفَظ بصدقٍ لا يُمنَع** (بند ٢٢): نصُّه
+ *    محفوظٌ ومنشؤه يقول `temporary: true` و`segmentId` عابر. فأنت
+ *    تحتفظ بما تعلّمتَه، والسجلُّ لا يدّعي أن له جملةً في سكريبت.
+ */
+async function openPhraseSave() {
+  if (!hasPhrase()) return toast('محدّدش مقطع لسه');
+
+  const segment = activeSegment();
+  const text = phraseText();
+  const marked = markedForCopy(text);
+  const [tags, already] = await Promise.all([
+    listSavedTags(), isSaved(text, SAVED_KIND.PHRASE),
+  ]);
+
+  await showModal({
+    title: already ? '🔖 المقطع محفوظ — زوّد تصنيف' : '🔖 احفظ المقطع',
+    submitLabel: 'احفظ',
+    body: html`
+      <div class="field">
+        <label for="ph-text">المقطع</label>
+        <textarea id="ph-text" name="text" dir="ltr" lang="ru"
+          style="min-height:64px">${text}</textarea>
+        ${raw(marked !== text
+    ? html`<p class="sh-hint" dir="ltr" lang="ru">بالنبر: ${marked}</p>`
+    : '')}
+      </div>
+
+      <div class="field">
+        <label>من الجملة</label>
+        <p class="sh-hint" dir="ltr" lang="ru">${segment?.sourceTextSnapshot || ''}</p>
+      </div>
+
+      <div class="field">
+        <label>ليه بتحفظه؟</label>
+        <div class="sv-tags">
+          ${raw(tags.map((t) => html`<label class="sv-tag">
+            <input type="checkbox" name="tag_${t.id}" value="1"
+              ${already?.tagIds?.includes(t.id) ? 'checked' : ''} />
+            <span>${t.label}</span>
+          </label>`).join(''))}
+        </div>
+        <input type="text" name="newTag" placeholder="أو اكتب سبب جديد…" maxlength="80" />
+      </div>
+
+      <div class="field">
+        <label for="ph-note">ملاحظة (اختياري)</label>
+        <input id="ph-note" name="note" type="text" value="${already?.note || ''}" />
+      </div>`,
+    onSubmit: async (data) => {
+      const finalText = (data.text || text).trim();
+      if (!finalText) return toastError('مفيش نصّ نحفظه');
+
+      const tagIds = tags.filter((t) => data[`tag_${t.id}`]).map((t) => t.id);
+      if (data.newTag?.trim()) {
+        const made = await addSavedTag(data.newTag.trim());
+        if (made) tagIds.push(made.id);
+      }
+
+      await saveItem({
+        text: finalText,
+        kind: SAVED_KIND.PHRASE,
+        tagIds,
+        note: data.note || '',
+        translation: segment?.translationSnapshot || '',
+        sourceType: ctx.session.sourceType,
+        sourceId: ctx.session.sourceId,
+        segmentId: segment?.id || null,
+        sceneId: ctx.session.sceneId,
+        sessionId: ctx.session.id,
+        phrase: {
+          /* الجملةُ التي اقتُطع منها — فالمدى بلا سياقه رقمان يتيمان. */
+          sentence: segment?.sourceTextSnapshot || '',
+          wordStart: phrase.from,
+          wordEnd: phrase.to,
+          marked: marked !== finalText ? marked : null,
+          temporary: Boolean(segment?.temporary),
+        },
+      });
+      toastOk('المقطع اتحفظ');
+      return undefined;
+    },
+  });
+  return undefined;
 }
 
 /**
@@ -5588,7 +6100,7 @@ function copyWord(wordIndex) {
  *    منه، وسلوكُ الضغطة القصيرة (بلا مُعطًى) يبقى كما كان بالضبط.
  */
 async function openSaveDialog(explicitWordEl) {
-  const segment = ctx.segments[player.state.index];
+  const segment = activeSegment();
   const selectedWord = explicitWordEl || document.querySelector('[data-word].selected');
 
   const kind = selectedWord ? SAVED_KIND.WORD : SAVED_KIND.SENTENCE;
@@ -6363,7 +6875,7 @@ function wireInteractions(main) {
         renderRail();
         if (ctx.netStress) {
           toast('بيدوّر على النبر…');
-          const seg = ctx.segments[player.state.index];
+          const seg = activeSegment();
           if (await fetchSentenceStress(seg?.sourceTextSnapshot || '')) syncSegment();
           toastOk('النبر اتفعّل');
         } else {
@@ -6401,6 +6913,16 @@ function wireInteractions(main) {
        *    ثالثٌ يزاحم الثلاثة. والإيقافُ يرفع الإشارةَ ولا يستعمل
        *    مؤقّتًا (بند ٢٥).
        */
+      /* ---- المقطع الجزئيّ (WS-A) ---- */
+
+      case 'phrase-word':
+        pickPhraseWord(Number(btn.dataset.v));
+        return undefined;
+
+      case 'phrase-edge':
+        nudgePhrase(btn.dataset.edge || 'end', Number(btn.dataset.delta || 1));
+        return undefined;
+
       case 'an-play': {
         const id = btn.dataset.v;
         if (analysis.playing === id) { stopAnalysisPlayback(); return renderAnalysis(); }
@@ -6545,7 +7067,7 @@ function wireInteractions(main) {
       case 'tr-on': {
         await openPanel('online-tr');
         /* فإن فُعِّلت، تُجلَب ترجمةُ الجملة التي أنت عليها فورًا. */
-        if (await trEnabled()) await fetchMissingTranslation(ctx.segments[player.state.index]);
+        if (await trEnabled()) await fetchMissingTranslation(activeSegment());
         return;
       }
 
@@ -6559,7 +7081,7 @@ function wireInteractions(main) {
       }
 
       case 'difficult': {
-        const segment = ctx.segments[player.state.index];
+        const segment = activeSegment();
         const next = segment.practiceStatus !== 'difficult';
         /* ⚠️ مقطعٌ مؤقّتٌ (نصٌّ خارجيّ، WS40) لا صفَّ له يُحدَّث. */
         const updated = segment.temporary

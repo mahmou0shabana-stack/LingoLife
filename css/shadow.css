@@ -5033,3 +5033,42 @@ body.shadow-open { overflow: hidden; }
   color: rgba(122, 95, 44, .7);
 }
 .sh-an-play:hover { background: rgba(122, 95, 44, .1); color: #6d5220; }
+
+/* ══════════════════════════════════════════════════════════════
+   المقطع الجزئيّ — WS-A
+
+   ⚠️ **قطعةٌ واحدةٌ لا أربعةُ أزرار** (بند ٣٣). التظليلُ متّصلٌ عبر
+      الرقائق، والحافّتان وحدَهما تُستديران — فيقرأ الطرفُ أن ما بينهما
+      شيءٌ واحد. ولو أعطينا كلَّ رقاقةٍ إطارَها لبدت أربعَ اختياراتٍ
+      لا مقطعًا.
+   ══════════════════════════════════════════════════════════════ */
+
+.sh-chip.in-phrase {
+  background: rgba(184, 134, 43, .17);
+  border-radius: 0;
+}
+.sh-chip.in-phrase .sh-chip-w { color: #f3e2be; }
+.sh-chip.phrase-start {
+  border-start-start-radius: 6px; border-end-start-radius: 6px;
+  box-shadow: inset 2px 0 0 rgba(212, 168, 83, .8);
+}
+.sh-chip.phrase-end {
+  border-start-end-radius: 6px; border-end-end-radius: 6px;
+  box-shadow: inset -2px 0 0 rgba(212, 168, 83, .8);
+}
+.sh-chip.phrase-start.phrase-end { box-shadow: inset 0 0 0 1px rgba(212, 168, 83, .8); }
+
+/* نقطةُ الارتكاز قبل اكتمال المدى — تنبض برفقٍ فتقول «مستنّي التانية». */
+.sh-chip.phrase-anchor {
+  background: rgba(184, 134, 43, .1);
+  box-shadow: inset 0 0 0 1px rgba(212, 168, 83, .55);
+  border-radius: 6px;
+}
+
+/* في نطاق المقطع تكبر الرقائقُ قليلًا — الإصبعُ يحدّد لا يتصفّح. */
+.shadow-app.is-phrase .sh-chip { min-block-size: 48px; }
+
+.sh-phrase-lbl {
+  margin: 8px auto 0; max-inline-size: 60ch; text-align: center;
+  font-size: 13px; line-height: 1.7; color: rgba(212, 168, 83, .85);
+}

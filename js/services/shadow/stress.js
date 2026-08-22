@@ -354,6 +354,48 @@ export function stressHtml(marked) {
 }
 
 /**
+ * يعيد النصَّ **معلَّمًا بالنبر نصًّا خامًّا** — لا HTML (WS-A).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ ولماذا دالّةٌ ثانيةٌ بجانب `markSentence` بدل نزع الوسوم منها؟
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * لأن نزعَ الوسوم من HTML طريقٌ إلى الحافظة عبر الـDOM: كلُّ ما يدخله
+ * محرِّفٌ (`&nbsp;`، `&amp;`) يخرج مشوّهًا أو يحتاج فكَّ ترميزٍ ثانيًا.
+ * والنسخُ لا يحتاج وسمًا أصلًا — يحتاج **الحرفَ وعلامتَه**.
+ *
+ * فالدالّتان تشتركان في المصدر (`stressOf`) وتفترقان في المخرَج
+ * وحدَه — لا حسابَ نبرٍ ثانٍ ولا قاموسَ موازٍ يفترق بعد شهر.
+ *
+ * ⚠️ **ولا تخترع علامةً لما لا نعرفه** (بند ٨). `stressOf` تعيد `null`
+ *    للكلمة المجهولة، فتُنسَخ كما كُتبت. وعلامةٌ مُلفَّقةٌ في الحافظة
+ *    أسوأُ من غيابها: تذهب معك إلى قاموسٍ أو بطاقةِ مراجعةٍ وتُعلّمك
+ *    نطقًا لم يقله أحد.
+ *
+ * @param {string} sentence
+ * @returns {{ text: string, known: number, total: number }}
+ */
+export function markPlain(sentence) {
+  const tokens = String(sentence || '').split(/(\s+)/);
+  let known = 0;
+  let total = 0;
+
+  const parts = tokens.map((token) => {
+    if (/^\s+$/.test(token) || !token) return token;
+    total += 1;
+    const marked = stressOf(token);
+    if (!marked) return token;
+    known += 1;
+    /* الترقيمُ يبقى حول الشكل المعلَّم — «докуме́нт,» لا «докуме́нт». */
+    const prefix = token.match(/^[^\p{L}]*/u)?.[0] || '';
+    const suffix = token.match(/[^\p{L}]*$/u)?.[0] || '';
+    return prefix + marked + suffix;
+  });
+
+  return { text: parts.join(''), known, total };
+}
+
+/**
  * يعلّم جملة كاملة: كل كلمة معروفة تُبرز، وغير المعروفة تُترك كما هي.
  * @returns {{ html: string, known: number, total: number }}
  */

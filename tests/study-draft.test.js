@@ -642,7 +642,14 @@ describe('الإعدادات · كل زرّ له معالِجٌ واحد', () =>
     const at = code.indexOf('const MODES = [');
     const block = code.slice(at, code.indexOf('\n];', at));
     const ids = [...block.matchAll(/id: '([a-z]+)'/g)].map((h) => h[1]);
-    expect(ids).toEqual(['text', 'word', 'own']);
+    /*
+     * ⚠️ **وقد تغيّرت الثلاثةُ في WS-A — والتغييرُ هو الإصلاح.**
+     *    كانت «نصّ · كلمة · جملة برّه»، فخلطت **النطاق** بـ**المصدر**:
+     *    «جملة برّه» ليست مدًى تتدرّب به بل مكانًا جاء منه النصّ. ومن
+     *    ذلك الخلط جاء العطب: الضغطُ على «كلمة» كان يُخرِج من النصّ
+     *    الخارجيّ. فصارت الثلاثةُ مدَياتٍ خالصة.
+     */
+    expect(ids).toEqual(['sentence', 'phrase', 'word']);
     /* وكلٌّ يقول متى هو المُختار، ويدخل بفعل. */
     expect((block.match(/is: \(\)/g) || []).length).toBe(3);
     expect((block.match(/enter: async/g) || []).length).toBe(3);

@@ -27,6 +27,15 @@ const TAGS_KEY = 'saved.tags';
 export const SAVED_KIND = Object.freeze({
   SENTENCE: 'sentence',
   WORD: 'word',
+  /*
+   * ⚠️ **نوعٌ ثالثٌ لا مخزنٌ ثالث** (WS-A، بند ٣٨).
+   *
+   *    المقطعُ الجزئيُّ ليس كلمةً ولا جملةً، وحشرُه في أحدهما يكذب على
+   *    كلّ شاشةٍ تعدّ المحفوظات. لكنّ الفرقَ **نوعٌ في صفٍّ واحد**، لا
+   *    `phrases` ولا `externalSavedWords` ولا `draftPhrases`. فمصدرُ
+   *    النصّ بياناتٌ وصفيّة (`sourceType`)، لا معمار.
+   */
+  PHRASE: 'phrase',
 });
 
 /**
@@ -123,6 +132,15 @@ export async function saveItem({
    *    لا «ما قيمتها؟» — وهذا هو الفرقُ بين إضافةٍ آمنةٍ وهجرةِ بيانات.
    */
   pronunciation = null,
+  /*
+   * ⚠️ **منشأُ المدى — اختياريٌّ كأخيه، وللسبب نفسِه** (WS-A، بند ٢١).
+   *
+   *    `{ sentence, wordStart, wordEnd, marked, temporary }`. والصفوفُ
+   *    المحفوظةُ قبل اليوم لا ينقصها شيء، وقارئُها يسأل «هل هي موجودة؟»
+   *    لا «ما قيمتها؟». ورقما الكلمة هما ما يجعل «اذهب إلى المصدر»
+   *    قادرًا على **إبراز المدى** لا مجرّد فتح الجملة.
+   */
+  phrase = null,
 }) {
   const clean = (text || '').trim();
   if (!clean) throw new Error('مفيش نصّ نحفظه');
@@ -143,6 +161,7 @@ export async function saveItem({
       translation: translation || twin.translation,
       /* تحليلٌ أحدثُ يحلّ محلّ أقدم؛ وغيابُه لا يمسح ما كان. */
       pronunciation: pronunciation || twin.pronunciation || null,
+      phrase: phrase || twin.phrase || null,
     });
   }
 
@@ -159,6 +178,7 @@ export async function saveItem({
     sceneId,
     sessionId,
     pronunciation,
+    phrase,
     /* ⚠️ الحفظ انتباهٌ لا إتقان (بند 19). */
     impliesMastery: false,
     impliesRealUsage: false,
