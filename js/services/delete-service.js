@@ -49,6 +49,7 @@ export async function deleteWithUndo({
   detail = '',
   confirmLabel = 'احذف',
   after = null,
+  cascade = null,
 }) {
   const ok = await confirmAction({
     title: `تحذف ${what}؟`,
@@ -60,6 +61,18 @@ export async function deleteWithUndo({
 
   try {
     await repo.trash(id);
+    /*
+     * ⚠️ **وما تحت السجلّ يذهب معه — وإلّا بقي معلّقًا بلا باب** (WS57).
+     *
+     * السكريبتُ صار قد يحمل تحته رحلةَ تدريبٍ كاملة: عُقَدٌ هي سكريبتات
+     * بـ`sceneId: null`، لا يراها الوضعُ القديم **بالتصميم**. فحذفُ
+     * الأب وحدَه كان يترك عشرات العُقَد نشطةً في القاعدة لا يصل إليها
+     * أحد — لا الوضعُ القديم ولا الجديد ولا السلة.
+     *
+     * ⚠️ **والتراجعُ يُرجعها كلَّها.** لو رجّعنا الأبَ وحدَه لكان
+     *    «التراجع» كذبًا: تضغطه فيعود السكريبتُ فارغًا من رحلته.
+     */
+    await cascade?.trash?.();
   } catch (err) {
     toastError(err.message || 'مقدرناش نحذف');
     return false;
@@ -74,6 +87,7 @@ export async function deleteWithUndo({
     onAction: async () => {
       try {
         await repo.restore(id);
+        await cascade?.restore?.();
         await after?.();
         toast('تمّ التراجع', { type: 'ok' });
       } catch (err) {

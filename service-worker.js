@@ -63,6 +63,7 @@ const SHELL = [
   './js/services/shadow/tts-controller.js',
   './js/services/audio-service.js',
   './js/services/link-service.js',
+  './js/services/hyperlingual.js',
   './js/services/organize-service.js',
   './js/services/content-service.js',
   './js/services/export-service.js',

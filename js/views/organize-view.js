@@ -41,7 +41,10 @@ import { scenePeople as scenePeopleWithEvidence } from '../services/participant-
 import { listConversationParts, getBlock } from '../services/content-service.js';
 import {
   organizeBoard, linkItemsTo, addPart, removePart,
+  addNode, renameNode, setNodeHidden, moveNode, duplicateNode, removeNode,
+  createJourney, setJourneyEnabled, NODE_KIND, NODE_KIND_LABEL, DELETE_POLICY,
 } from '../services/organize-service.js';
+import { JOURNEY_TEMPLATES } from '../services/hyperlingual.js';
 
 /* ================================================================== *
  * الحالة — عابرةٌ عمدًا
@@ -60,6 +63,8 @@ const state = {
   targetId: null,
   filter: 'all',        /* all | unlinked | linked | images | audio */
   query: '',
+  /** العُقَدُ المفرودة — مفتوحةٌ بلمسةٍ لا بسهمٍ صغير (بند ٣٦). */
+  expanded: new Set(),
 };
 
 let board = null;
@@ -73,6 +78,7 @@ const reset = (sceneId) => {
   state.targetId = null;
   state.filter = 'all';
   state.query = '';
+  state.expanded = new Set();
 };
 
 /* ================================================================== *
@@ -115,7 +121,12 @@ const PATH_SEP = ' · ';
 function targetLabel(targetId) {
   const target = board?.targets.find((t) => t.id === targetId);
   if (!target) return null;
-  return target.parentTitle ? `${target.parentTitle}${PATH_SEP}${target.title}` : target.title;
+  /*
+   * ⚠️ **المسارُ كاملًا هنا وحدَه** (بند ٢٤): «مرتبط بـ» يجب أن تكفي
+   *    لتعرف أين العنصر بلا فتحِ شيء. أمّا في القوائم فالإزاحةُ تكفي
+   *    والمسارُ الكاملُ يطيلها بلا فائدة.
+   */
+  return target.path?.length ? target.path.join(PATH_SEP) : target.title;
 }
 
 /* ================================================================== *
@@ -169,11 +180,13 @@ function summaryRow(data, conversationCount, hasTranscript) {
 
 /** سطرُ سكريبتٍ مضغوط — لا نصَّ كاملًا (بند ٨). */
 function scriptRow(row) {
-  const { script, parts, totals } = row;
+  const { script, parts, totals, journey, tree, journeyDisabled } = row;
   return html`
     <li class="org-script">
       <button class="org-script-main" data-org="open-script" data-id="${script.id}">
         <span class="org-script-t">${script.title}</span>
+        ${raw(journey ? html`<span class="org-tag${journeyDisabled ? ' is-off' : ''}"
+          >رحلة تدريب · ${tree.length}${raw(journeyDisabled ? ' · مُعطَّلة' : '')}</span>` : '')}
         ${raw(countChip(totals.audio, totals.images))}
       </button>
       ${raw(parts.length ? html`
@@ -299,13 +312,22 @@ function itemCell(item, data) {
 
 function renderBulk(data) {
   const items = visibleItems(data);
+  /*
+   * ⚠️ **الأهدافُ شجرةٌ بالإزاحة لا مساراتٌ كاملة** (بند ٢٣).
+   *    «التغليف والحماية · رحلة التدريب · المرحلة ٢ · الروسية فقط»
+   *    في زرٍّ واحدٍ عرضُه ٢٦٠px يلتفّ على أربعة أسطرٍ ولا يُقرأ.
+   *    فالعنوانُ وحدَه، والانتماءُ تقوله الإزاحة — والمسارُ الكاملُ
+   *    يبقى في `title` لمن يطيل الضغط.
+   */
   const targets = [
     ...data.targets.map((t) => ({
       id: t.id,
-      label: t.parentTitle ? `${t.parentTitle}${PATH_SEP}${t.title}` : t.title,
-      part: t.kind === 'part',
+      label: t.title,
+      full: t.path.join(PATH_SEP),
+      depth: Math.min(t.depth, 4),
+      hidden: t.hidden,
     })),
-    { id: '__none__', label: 'بدون ربط', part: false },
+    { id: '__none__', label: 'بدون ربط', full: 'بدون ربط', depth: 0, hidden: false },
   ];
 
   return html`
@@ -322,8 +344,9 @@ function renderBulk(data) {
     ? html`<p class="org-empty">أضف سكريبت الأوّل عشان تربط بيه.</p>`
     : html`<ul>${raw(targets.map((t) => html`
             <li>
-              <button class="org-target${state.targetId === t.id ? ' on' : ''}${t.part ? ' is-part' : ''}"
-                      data-org="target" data-id="${t.id}">
+              <button class="org-target${state.targetId === t.id ? ' on' : ''}${t.depth ? ' is-part' : ''}${t.hidden ? ' is-off' : ''}"
+                      data-org="target" data-id="${t.id}" title="${t.full}"
+                      style="--d:${t.depth}">
                 ${t.label}
               </button>
             </li>`).join(''))}</ul>`)}
@@ -372,35 +395,187 @@ function linkedList(items, data) {
   </ul>`;
 }
 
+/**
+ * فهرسُ كلّ عقدةٍ في اللوحة — **بناءٌ واحدٌ بدل بحثٍ في كلّ نداء**.
+ *
+ * ⚠️ وكانت الصياغةُ الأولى تبحث في `data.scripts` ثم في `parts` بيدها،
+ *    فلم تكن ترى ما هو أعمق من جزء. والشجرةُ الآن بلا سقفِ عمق،
+ *    فالبحثُ اليدويُّ لكلّ مستوًى ليس حلًّا — الفهرسُ هو الحلّ.
+ */
+function indexBoard(data) {
+  const index = new Map();
+  const walk = (rows, parentId, parentTitle, rootId) => {
+    for (const row of rows) {
+      index.set(row.node.id, {
+        record: row.node,
+        audio: row.audio,
+        images: row.images,
+        children: row.children,
+        totals: row.totals,
+        parentId,
+        parentTitle,
+        rootId,
+        isTop: false,
+        path: row.path,
+      });
+      walk(row.children, row.node.id, row.node.title, rootId);
+    }
+  };
+
+  for (const top of data.scripts) {
+    index.set(top.script.id, {
+      record: top.script,
+      audio: top.audio,
+      images: top.images,
+      children: [],
+      totals: top.totals,
+      parentId: null,
+      parentTitle: null,
+      rootId: top.script.id,
+      isTop: true,
+      row: top,
+      path: [top.script.title],
+    });
+    for (const part of top.parts) {
+      index.set(part.part.id, {
+        record: part.part,
+        audio: part.audio,
+        images: part.images,
+        children: [],
+        totals: { audio: part.audio.length, images: part.images.length },
+        parentId: top.script.id,
+        parentTitle: top.script.title,
+        rootId: top.script.id,
+        isTop: false,
+        path: [top.script.title, part.part.title],
+      });
+    }
+    walk(top.tree, top.journey?.id || top.script.id,
+      top.journey?.title || top.script.title, top.script.id);
+  }
+  return index;
+}
+
+/** صفُّ عقدةٍ في شجرة الرحلة — بأدواتها كلِّها في متناول الإبهام. */
+function nodeRow(entry, expanded) {
+  const { record, children, totals } = entry;
+  const open = expanded.has(record.id);
+  const hidden = record.hidden === 1;
+
+  return html`
+    <li class="org-node${hidden ? ' is-hidden' : ''}" data-node="${record.id}">
+      <div class="org-node-row">
+        <button class="org-node-twist" data-org="twist" data-id="${record.id}"
+                aria-expanded="${open ? 'true' : 'false'}"
+                aria-label="${open ? 'اطوِ' : 'افرد'}">${open ? '−' : '+'}</button>
+        <button class="org-node-main" data-org="open-script" data-id="${record.id}">
+          <span class="org-node-t">${record.title}</span>
+          ${raw(hidden ? '<span class="org-tag">مخفيّة</span>' : '')}
+          ${raw(countChip(totals.audio, totals.images))}
+        </button>
+        <div class="org-node-tools">
+          <button class="org-icobtn" data-org="node-up" data-id="${record.id}"
+                  aria-label="حرّك لفوق">▲</button>
+          <button class="org-icobtn" data-org="node-down" data-id="${record.id}"
+                  aria-label="حرّك لتحت">▼</button>
+          <button class="org-icobtn" data-org="node-menu" data-id="${record.id}"
+                  aria-label="خيارات">⋯</button>
+        </div>
+      </div>
+      ${raw(open && children.length ? html`
+        <ul class="org-nodes">${raw(children.map((c) => nodeRow({
+    record: c.node, children: c.children, totals: c.totals,
+  }, expanded)).join(''))}</ul>` : '')}
+    </li>`;
+}
+
+/**
+ * قسمُ رحلة التدريب — **مفصولٌ عن السكريبت الأصليّ بخطٍّ وعنوان**.
+ *
+ * ⚠️ والفصلُ مطلبٌ صريح (بند ١٩): السكريبتُ الأصليّ هو الموضوعُ كما
+ *    هو، والرحلةُ مادّةٌ مشتقّةٌ منه. ودمجُهما في قائمةٍ واحدةٍ يجعل
+ *    «المرحلة ١» تبدو نسخةً أخرى من النصّ الأصليّ — وهي ليست كذلك.
+ */
+function journeySection(top, expanded) {
+  if (!top.journey) {
+    return html`
+      <section class="org-block org-journey-invite">
+        <h3>رحلة تدريب</h3>
+        <p>السكريبت ده عاديّ دلوقتي. تقدر تضيف تحته رحلة تدريب —
+           والنصّ والصوت والصور بتوعه هيفضلوا زيّ ما هم.</p>
+        <button class="org-btn org-btn-go" data-org="journey-new" data-id="${top.script.id}">
+          ${raw(icon('plus'))} أنشئ رحلة تدريب
+        </button>
+      </section>`;
+  }
+
+  const nodes = top.tree;
+  const version = top.journey.templateVersion;
+
+  return html`
+    <section class="org-block org-journey">
+      <div class="org-journey-head">
+        <div>
+          <h3>${top.journey.title}</h3>
+          <p class="org-journey-meta">
+            ${nodes.length} مرحلة${raw(version
+    ? html` · من قالب هايبر-لينغوال v${version}` : '')}
+            ${raw(top.journeyDisabled ? '<b class="org-tag">مُعطَّلة</b>' : '')}
+          </p>
+        </div>
+        <div class="org-rowbtns">
+          <button class="org-btn org-btn-sm" data-org="journey-toggle"
+                  data-id="${top.journey.id}" data-v="${top.journeyDisabled ? 'on' : 'off'}">
+            ${top.journeyDisabled ? 'رجّع الرحلة' : 'عطّل الرحلة'}
+          </button>
+          <button class="org-btn org-btn-sm" data-org="node-add-child" data-id="${top.journey.id}">
+            ${raw(icon('plus'))} مرحلة
+          </button>
+        </div>
+      </div>
+
+      ${raw(top.journeyDisabled ? html`
+        <p class="org-empty">الرحلة مُعطَّلة — محفوظة بالكامل ومش ظاهرة في التدريب.
+           كلّ حاجة جوّاها لسه موجودة.</p>` : '')}
+
+      ${raw(nodes.length
+    ? html`<ul class="org-nodes is-root">${raw(nodes.map((n) => nodeRow({
+      record: n.node, children: n.children, totals: n.totals,
+    }, expanded)).join(''))}</ul>`
+    : html`<p class="org-empty">الرحلة فاضية — أضف أوّل مرحلة.</p>`)}
+    </section>`;
+}
+
 function renderScriptDetail(data) {
-  const top = data.scripts.find((r) => r.script.id === state.scriptId);
-  const inPart = !top
-    ? data.scripts.flatMap((r) => r.parts.map((p) => ({ ...p, parent: r.script })))
-      .find((p) => p.part.id === state.scriptId)
-    : null;
+  const index = indexBoard(data);
+  const entry = index.get(state.scriptId);
+  if (!entry) return html`<p class="org-empty">السكريبت ده مش موجود.</p>`;
 
-  const record = top ? top.script : inPart?.part;
-  if (!record) return html`<p class="org-empty">السكريبت ده مش موجود.</p>`;
-
-  const audio = top ? top.audio : inPart.audio;
-  const images = top ? top.images : inPart.images;
+  const { record, audio, images, isTop } = entry;
+  const top = isTop ? entry.row : null;
+  const kindLabel = NODE_KIND_LABEL[record.nodeKind] || null;
 
   return html`
     <header class="org-bulkhead">
       <button class="org-back" data-org="board">${raw(icon('back'))} رجوع</button>
       <h2>${record.title}</h2>
-      <span class="org-flag">تجريبي</span>
+      ${raw(isTop ? '<span class="org-flag">تجريبي</span>'
+    : html`<span class="org-tag">${kindLabel || 'عقدة'}</span>`)}
     </header>
 
-    ${raw(inPart ? html`<p class="org-crumb">جزء من: ${inPart.parent.title}</p>` : '')}
+    ${raw(entry.path.length > 1
+    ? html`<p class="org-crumb">${entry.path.slice(0, -1).join(' · ')}</p>` : '')}
 
     <div class="org-detail">
-      <section class="org-text">
+      <section class="org-text${isTop ? ' is-origin' : ''}">
         <div class="org-block-head">
-          <h3>النصّ</h3>
+          <h3>${isTop ? 'السكريبت الأصليّ' : 'النصّ'}</h3>
           <div class="org-rowbtns">
+            <button class="org-btn org-btn-sm" data-org="rename" data-id="${record.id}">
+              ${raw(icon('edit'))} الاسم
+            </button>
             <button class="org-btn org-btn-sm" data-org="edit-script" data-id="${record.id}">
-              ${raw(icon('edit'))} تعديل
+              ${raw(icon('script'))} النصّ
             </button>
             <button class="org-btn org-btn-sm" data-org="shadow" data-id="${record.id}">
               ${raw(icon('book'))} تدرّب
@@ -424,6 +599,21 @@ function renderScriptDetail(data) {
         ${raw(linkedList(images, data))}
       </section>
 
+      ${raw(!isTop ? html`
+      <section class="org-block">
+        <div class="org-block-head">
+          <h3>اللي جوّه</h3>
+          <button class="org-btn org-btn-sm" data-org="node-add-child" data-id="${record.id}">
+            ${raw(icon('plus'))} أضف جوّه
+          </button>
+        </div>
+        ${raw(entry.children.length
+    ? html`<ul class="org-nodes is-root">${raw(entry.children.map((c) => nodeRow({
+      record: c.node, children: c.children, totals: c.totals,
+    }, state.expanded)).join(''))}</ul>`
+    : html`<p class="org-empty">فاضية — وده تمام.</p>`)}
+      </section>` : '')}
+
       ${raw(top ? html`
       <section class="org-block">
         <div class="org-block-head">
@@ -444,7 +634,9 @@ function renderScriptDetail(data) {
               </button>
             </li>`).join(''))}</ul>`
     : html`<p class="org-empty">السكريبت ده من غير أجزاء — وده تمام.</p>`)}
-      </section>` : '')}
+      </section>
+
+      ${raw(journeySection(top, state.expanded))}` : '')}
 
       <div class="org-detail-foot">
         <button class="org-btn org-btn-go" data-org="bulk-here" data-id="${record.id}">
@@ -516,6 +708,295 @@ async function openAddMenu(sceneId) {
   }
   const { openRawTranscriptModal } = await import('../modals/transcript-modals.js');
   return openRawTranscriptModal(sceneId);
+}
+
+/* ================================================================== *
+ * نوافذُ شجرة الرحلة
+ * ================================================================== */
+
+/** أبو عقدةٍ من الفهرس — الشجرةُ محمولةٌ في `board` فلا نسأل القاعدة. */
+function parentOfNode(nodeId) {
+  return indexBoard(board).get(nodeId)?.parentId || null;
+}
+
+/**
+ * اختيارُ قالب الرحلة مع **معاينةٍ قبل الإنشاء** (بند ٣٠).
+ *
+ * ⚠️ والمعاينةُ ليست تزيينًا: ثمانيَ عشرةَ مرحلةً تُنشَأ دفعةً واحدة،
+ *    ومَن لم يرَ ما سيأتي سيجد نفسَه يحذف نصفَها.
+ */
+async function askJourneyTemplate() {
+  let picked = null;
+  await showModal({
+    title: 'رحلة تدريب جديدة',
+    actions: [{ label: 'إلغاء', value: null, variant: 'ghost' }],
+    body: html`<div class="org-addmenu">
+      ${raw(JOURNEY_TEMPLATES.map((t) => html`
+        <button type="button" class="org-addopt" data-pick="${t.id}">
+          <span class="ic">${raw(icon(t.id === 'empty' ? 'plus' : 'script'))}</span>
+          <b>${t.label}</b>
+          <span>${t.hint}</span>
+        </button>`).join(''))}
+      <details class="org-preview">
+        <summary>شوف مراحل القالب</summary>
+        <ol>${raw(JOURNEY_TEMPLATES[0].phases.map((p) => html`<li>${p.title}</li>`).join(''))}</ol>
+      </details>
+    </div>`,
+    onMount(modal) {
+      const closer = modal.querySelector('.modal-actions button[type="button"]');
+      modal.querySelectorAll('[data-pick]').forEach((b) => {
+        b.addEventListener('click', () => { picked = b.dataset.pick; closer?.click(); });
+      });
+    },
+  });
+  return picked;
+}
+
+/**
+ * إضافةُ عقدةٍ تحت أخرى — الاسمُ والنوع.
+ *
+ * ⚠️ **والنوعُ يُعرَض هنا وحدَه، ولا يظهر في الصفوف** (بند ١٥).
+ *    «مرحلة» و«جولة» تساعدك لحظةَ الإنشاء؛ أمّا وسمُ كلّ صفٍّ بنوعه
+ *    فيملأ الشاشةَ بمصطلحاتٍ لا تضيف شيئًا فوق العنوان الذي كتبتَه.
+ */
+const NEW_NODE_KINDS = [
+  { id: NODE_KIND.PHASE, label: 'مرحلة' },
+  { id: NODE_KIND.PART, label: 'جزء' },
+  { id: NODE_KIND.ROUND, label: 'جولة' },
+  { id: NODE_KIND.TRAINING, label: 'نصّ تدريب' },
+  { id: NODE_KIND.CUSTOM, label: 'حاجة تانية' },
+];
+
+async function askNewNode(parentId) {
+  const kinds = NEW_NODE_KINDS;
+  let made = null;
+
+  await showModal({
+    title: 'إضافة جوّه',
+    submitLabel: 'أضف',
+    body: html`
+      <div class="field">
+        <label for="node-title">الاسم</label>
+        <input id="node-title" name="title" type="text" placeholder="مثلًا: القياسات">
+      </div>
+      <div class="field">
+        <label>النوع</label>
+        <div class="org-pickrows">
+          ${raw(kinds.map((k, i) => html`
+            <label class="pick-row">
+              <input type="radio" name="kind" value="${k.id}" ${i === 0 ? 'checked' : ''}>
+              <span>${k.label}</span>
+            </label>`).join(''))}
+        </div>
+      </div>`,
+    async onSubmit(form, close) {
+      const title = (form.title || '').trim();
+      if (!title) { toastError('اكتب اسم'); return; }
+      made = await addNode(parentId, {
+        title, nodeKind: form.kind || NODE_KIND.CUSTOM, semanticType: 'custom',
+      });
+      close();
+    },
+  });
+  return made;
+}
+
+/**
+ * قائمةُ خيارات عقدة — إعادةُ تسميةٍ وإخفاءٌ وتكرارٌ وحذف.
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **نافذةٌ واحدةٌ تُبدّل خطوتَها — لا نافذةٌ تفتح نافذة.**
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * أوّلُ صياغةٍ كانت: نافذةُ خيارات، تُغلَق، ثم تُفتَح نافذةُ الاسم.
+ * وسقطت في التحقّق الميدانيّ سقوطًا محيّرًا: الاسمُ يُحفَظ في القاعدة
+ * بنجاح، ثم **تختفي الشجرةُ كلُّها** وأجد نفسي على اللوحة.
+ *
+ * والسببُ في `components/layers.js`: كلُّ نافذةٍ تدفع مدخلًا في
+ * تاريخ المتصفّح (`pushState`)، وإغلاقُها ينادي `history.back()`.
+ * ففتحُ الثانية قبل أن تستقرّ رجعةُ الأولى يشتبك مع عدّاد التجاهل،
+ * فتصل رجعةٌ حقيقيّةٌ إلى الموجّه — فيُعاد بناءُ الشاشة من أوّلها.
+ *
+ * ⚠️ **ولم يكن الحلُّ انتظارَ مئةِ مللي ثانية.** ذلك يُخفي السباقَ ولا
+ *    يُنهيه، ويعود على جهازٍ أبطأ. فالحلُّ ألّا تُفتَح نافذةٌ ثانية
+ *    أصلًا: **نافذةٌ واحدةٌ** تستبدل محتواها، فمدخلُ تاريخٍ واحدٌ من
+ *    أوّلها إلى آخرها.
+ */
+async function openNodeMenu(nodeId, main) {
+  const entry = indexBoard(board).get(nodeId);
+  if (!entry) return undefined;
+  const { record } = entry;
+  const hidden = record.hidden === 1;
+  const kids = entry.children.length;
+
+  const options = [
+    { id: 'rename', label: 'غيّر الاسم', hint: 'الاسم بس — المعنى الداخليّ ما بيتغيّرش' },
+    { id: 'text', label: 'حرّر النصّ', hint: 'يتحفظ في تاريخ السكريبت' },
+    { id: 'hide', label: hidden ? 'رجّعها' : 'اخفيها',
+      hint: hidden ? 'ترجع للرحلة' : 'تفضل محفوظة ومش ظاهرة' },
+    { id: 'dup', label: 'كرّرها', hint: 'بنسخة من اللي جوّاها وروابطها' },
+    { id: 'add', label: 'أضف جوّه', hint: 'جزء أو جولة أو نصّ تدريب' },
+    { id: 'shadow', label: 'تدرّب عليها', hint: 'تفتح في كتاب الظلّ' },
+    { id: 'delete', label: 'احذفها', hint: kids ? `فيها ${kids} عنصر جوّه` : 'تروح للسلة' },
+  ];
+
+  const optionList = options.map((o) => html`
+    <button type="button" class="org-addopt${o.id === 'delete' ? ' is-danger' : ''}"
+            data-step="${o.id}">
+      <b>${o.label}</b><span>${o.hint}</span>
+    </button>`).join('');
+
+  const renameStep = html`
+    <div class="field">
+      <label for="rn">الاسم الجديد</label>
+      <input id="rn" name="title" type="text" value="${record.title}">
+    </div>`;
+
+  /*
+   * ⚠️ **وخطوةُ «أضف جوّه» هنا لا في نافذةٍ ثانية.** كانت آخرَ سلسلةٍ
+   *    باقية، فسقطت في التحقّق كما سقطت إعادةُ التسمية قبلها — ولنفس
+   *    السبب. فالقاعدةُ صارت: **قائمةُ العقدة لا تفتح نافذةً أبدًا.**
+   */
+  const addStep = html`
+    <div class="field">
+      <label for="node-title">الاسم</label>
+      <input id="node-title" name="title" type="text" placeholder="مثلًا: القياسات">
+    </div>
+    <div class="field">
+      <label>النوع</label>
+      <div class="org-pickrows">
+        ${raw(NEW_NODE_KINDS.map((k, i) => html`
+          <label class="pick-row">
+            <input type="radio" name="kind" value="${k.id}" ${i === 0 ? 'checked' : ''}>
+            <span>${k.label}</span>
+          </label>`).join(''))}
+      </div>
+    </div>`;
+
+  const deleteStep = html`
+    <p>اللي مربوط بيها من صوت وصور هيرجع «غير مربوط» — مش هيتمسح.</p>
+    <div class="org-addmenu">
+      ${raw(kids ? html`
+        <button type="button" class="org-addopt" data-go="${DELETE_POLICY.LIFT}">
+          <b>احذفها هي بس</b><span>الـ${kids} اللي جوّاها هيطلعوا مكانها</span>
+        </button>
+        <button type="button" class="org-addopt is-danger" data-go="${DELETE_POLICY.CASCADE}">
+          <b>احذفها هي وكلّ اللي جوّاها</b><span>${kids + 1} عنصر هيروحوا السلة</span>
+        </button>` : html`
+        <button type="button" class="org-addopt is-danger" data-go="${DELETE_POLICY.CASCADE}">
+          <b>احذفها</b><span>هتروح للسلة</span>
+        </button>`)}
+    </div>`;
+
+  let result = null;
+
+  await showModal({
+    title: record.title,
+    submitLabel: 'تمام',
+    body: html`
+      <input type="hidden" name="act" data-act>
+      <input type="hidden" name="policy" data-policy>
+      <div class="org-addmenu" data-panel>${raw(optionList)}</div>`,
+    onMount(modal) {
+      const panel = modal.querySelector('[data-panel]');
+      const act = modal.querySelector('[data-act]');
+      const policy = modal.querySelector('[data-policy]');
+      const form = modal.querySelector('[data-modal-form]');
+      const submit = modal.querySelector('.modal-actions button[type="submit"]');
+      /* الخطوةُ الأولى اختيارٌ بلمسة — فزرُّ «تمام» لا معنى له فيها. */
+      submit.style.display = 'none';
+
+      const toStep = (markup) => {
+        panel.classList.remove('org-addmenu');
+        panel.innerHTML = markup;
+        submit.style.display = '';
+        modal.querySelector('input[type="text"]')?.focus();
+      };
+
+      panel.addEventListener('click', (event) => {
+        const pick = event.target.closest('[data-step]');
+        const go = event.target.closest('[data-go]');
+        if (go) {
+          act.value = 'delete';
+          policy.value = go.dataset.go;
+          form.requestSubmit();
+          return;
+        }
+        if (!pick) return;
+        act.value = pick.dataset.step;
+        if (pick.dataset.step === 'rename') { toStep(renameStep); return; }
+        if (pick.dataset.step === 'add') { toStep(addStep); return; }
+        if (pick.dataset.step === 'delete') { toStep(deleteStep); return; }
+        form.requestSubmit();
+      });
+    },
+    onSubmit(data, close) {
+      result = {
+        act: data.act || null,
+        title: (data.title || '').trim(),
+        kind: data.kind || null,
+        policy: data.policy || null,
+      };
+      close();
+    },
+  });
+
+  if (!result?.act) return undefined;
+  const { act, title, kind, policy } = result;
+
+  if (act === 'rename') {
+    if (!title) return undefined;
+    await renameNode(nodeId, title);
+    toastOk('الاسم اتغيّر');
+    return refresh(main);
+  }
+
+  if (act === 'text') {
+    /*
+     * ⚠️ **ومعرّفُ الذكرى يُمرَّر وإن كانت العقدةُ بلا `sceneId`.**
+     *    النافذةُ تُنهي عملَها بـ`reloadScene(sceneId)`؛ ولو مرّرنا
+     *    `null` — وهو `sceneId` العقدة الحقيقيّ — لصار المسارُ
+     *    `/scene/null` وقُذفنا إلى شاشةٍ لا وجودَ لها.
+     */
+    const { openScriptModal } = await import('../modals/content-modals.js');
+    await openScriptModal(state.sceneId, nodeId);
+    return refresh(main);
+  }
+
+  if (act === 'hide') {
+    await setNodeHidden(nodeId, !hidden);
+    toastOk(hidden ? 'رجعت' : 'اتخفت — ولسه محفوظة');
+    return refresh(main);
+  }
+
+  if (act === 'dup') {
+    if (!entry.parentId) return toastError('مينفعش نكرّر السكريبت الأصليّ من هنا');
+    await duplicateNode(entry.parentId, nodeId);
+    toastOk('اتكرّرت');
+    return refresh(main);
+  }
+
+  if (act === 'add') {
+    if (!title) { toastError('اكتب اسم'); return undefined; }
+    await addNode(nodeId, { title, nodeKind: kind || NODE_KIND.CUSTOM, semanticType: 'custom' });
+    state.expanded.add(nodeId);
+    toastOk('اتضافت');
+    return refresh(main);
+  }
+
+  if (act === 'shadow') {
+    const { openShadowForScript } = await import('../services/shadow/shadow-entry.js');
+    return openShadowForScript(nodeId, state.sceneId);
+  }
+
+  if (act === 'delete' && policy) {
+    const { removed } = await removeNode(nodeId, { policy });
+    toastOk(`اتشال ${removed} عنصر — موجودين في السلة`);
+    if (state.scriptId === nodeId) state.screen = 'board';
+    return refresh(main);
+  }
+
+  return undefined;
 }
 
 /**
@@ -727,6 +1208,67 @@ export async function renderOrganize(main, sceneId) {
         return refresh(main);
       }
 
+      /* ---- شجرةُ الرحلة ---- */
+
+      case 'twist':
+        if (state.expanded.has(id)) state.expanded.delete(id);
+        else state.expanded.add(id);
+        return refresh(main);
+
+      case 'journey-new': {
+        const template = await askJourneyTemplate();
+        if (!template) return undefined;
+        const journey = await createJourney(id, { templateId: template });
+        state.expanded.add(journey.id);
+        toastOk('الرحلة اتعملت — وكلّ حاجة فيها قابلة للتعديل');
+        return refresh(main);
+      }
+
+      case 'journey-toggle': {
+        const turnOn = btn.dataset.v === 'on';
+        await setJourneyEnabled(id, turnOn);
+        toastOk(turnOn ? 'الرحلة رجعت' : 'الرحلة اتعطّلت — محفوظة بالكامل');
+        return refresh(main);
+      }
+
+      case 'node-up':
+      case 'node-down': {
+        const parentId = parentOfNode(id);
+        if (!parentId) return undefined;
+        const moved = await moveNode(parentId, id, action === 'node-up' ? 'up' : 'down');
+        return moved ? refresh(main) : undefined;
+      }
+
+      case 'node-add-child': {
+        const made = await askNewNode(id);
+        if (!made) return undefined;
+        state.expanded.add(id);
+        toastOk('اتضافت');
+        return refresh(main);
+      }
+
+      case 'node-menu':
+        return openNodeMenu(id, main);
+
+      case 'rename': {
+        const entry = indexBoard(board).get(id);
+        if (!entry) return undefined;
+        let title = null;
+        await showModal({
+          title: 'غيّر الاسم',
+          submitLabel: 'احفظ',
+          body: html`<div class="field">
+            <label for="rn2">الاسم</label>
+            <input id="rn2" name="title" type="text" value="${entry.record.title}">
+          </div>`,
+          onSubmit(form, close) { title = (form.title || '').trim(); close(); },
+        });
+        if (!title) return undefined;
+        await renameNode(id, title);
+        toastOk('الاسم اتغيّر');
+        return refresh(main);
+      }
+
       /* ---- الربط ---- */
       case 'relink': {
         const done = await openTargetPicker([id], board, { title: 'اربط العنصر ده بـ' });
@@ -824,4 +1366,5 @@ export function disposeOrganize() {
   state.targetId = null;
   state.filter = 'all';
   state.query = '';
+  state.expanded = new Set();
 }

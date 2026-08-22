@@ -368,3 +368,100 @@
   margin-inline-start: 6px;
   color: #8a5a2a; background: rgba(184, 134, 43, .18);
 }
+
+/* ================================================================== *
+ * شجرةُ رحلة التدريب (WS57 · تجريبيّ)
+ * ================================================================== */
+
+/*
+ * ⚠️ **الرحلةُ مفصولةٌ عن السكريبت الأصليّ بخطٍّ وعنوان** (بند ١٩).
+ *    السكريبتُ الأصليّ هو الموضوع؛ والرحلةُ مادّةٌ مشتقّةٌ منه. ودمجُهما
+ *    في قائمةٍ واحدةٍ يجعل «المرحلة ١» تبدو نسخةً أخرى من النصّ.
+ */
+.org-text.is-origin {
+  border-inline-start: 3px solid var(--accent, #6d5220);
+}
+
+.org-journey, .org-journey-invite {
+  padding: var(--sp-3) var(--sp-4);
+  border: 1px solid var(--org-line); border-radius: var(--radius-sm);
+  background: var(--org-soft);
+}
+.org-journey-invite p { margin: 6px 0 12px; font-size: 13.5px; color: var(--ink-soft); }
+.org-journey-invite h3 { margin: 0; font-size: 15px; }
+
+.org-journey-head {
+  display: flex; flex-wrap: wrap; gap: var(--sp-2);
+  align-items: flex-start; justify-content: space-between;
+  margin-block-end: var(--sp-3);
+}
+.org-journey-head h3 { margin: 0; font-size: 15px; }
+.org-journey-meta {
+  margin: 4px 0 0; font-size: 12.5px; color: var(--ink-soft);
+  display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+}
+
+/* وسمٌ محايد: «رحلة تدريب · ١٨» و«مخفيّة» و«مُعطَّلة». */
+.org-tag {
+  font-size: 11px; padding: 3px 9px; border-radius: 999px; white-space: nowrap;
+  color: var(--accent, #6d5220); background: color-mix(in srgb, var(--accent, #6d5220) 12%, transparent);
+}
+.org-tag.is-off { color: var(--ink-soft); background: var(--org-soft); }
+
+/* ---------- صفوفُ العُقَد ---------- */
+
+.org-nodes { list-style: none; margin: 0; padding: 0; }
+/* الإزاحةُ تقول الانتماء — بلا خطوطٍ متشعّبة ولا أسهمٍ دقيقة. */
+.org-nodes .org-nodes { padding-inline-start: 22px; }
+
+.org-node-row {
+  display: flex; align-items: center; gap: 4px;
+  border-block-end: 1px solid var(--org-line);
+}
+.org-nodes > li:last-child > .org-node-row { border-block-end: 0; }
+
+/*
+ * ⚠️ **زرُّ الفرد ٤٤px لا مثلّثٌ صغير** (بند ٣٦). المثلّثاتُ الدقيقة
+ *    مصمَّمةٌ للفأرة؛ وعلى اللوح تُخطئها ثلاثَ مرّاتٍ من خمس، فتفتح
+ *    العقدةَ بدل أن تفردها.
+ */
+.org-node-twist {
+  inline-size: 44px; min-block-size: 52px; flex: none; cursor: pointer;
+  font: inherit; font-size: 20px; line-height: 1;
+  background: transparent; border: 0; color: var(--ink-soft);
+}
+.org-node-main {
+  flex: 1; min-block-size: 52px; padding: 0 4px; cursor: pointer; font: inherit;
+  display: flex; align-items: center; gap: 10px; text-align: start;
+  background: transparent; border: 0; color: var(--ink);
+}
+.org-node-t { flex: 1; font-size: 14.5px; }
+.org-node-tools { display: flex; gap: 2px; flex: none; }
+.org-icobtn {
+  inline-size: 44px; min-block-size: 44px; cursor: pointer; font: inherit; font-size: 14px;
+  border-radius: var(--radius-sm); background: transparent; border: 0; color: var(--ink-soft);
+}
+
+/*
+ * ⚠️ **المخفيّةُ باهتةٌ لا محذوفة.** إخفاؤها من الشاشة تمامًا يجعل
+ *    «أين ذهبت المرحلة ١٢؟» سؤالًا بلا جواب — والإخفاءُ وعدٌ بالحفظ،
+ *    فالوعدُ يجب أن يُرى.
+ */
+.org-node.is-hidden > .org-node-row { opacity: .5; }
+.org-node.is-hidden > .org-node-row .org-node-t { text-decoration: line-through; }
+
+/* هدفُ الربط: الإزاحةُ بمتغيّرٍ واحدٍ لأيّ عمق. */
+.org-target.is-part { padding-inline-start: calc(14px + var(--d, 1) * 14px); }
+.org-target.is-off { opacity: .55; }
+
+/* معاينةُ القالب قبل الإنشاء (بند ٣٠). */
+.org-preview { margin-block-start: 4px; }
+.org-preview summary {
+  min-block-size: 44px; display: flex; align-items: center; cursor: pointer;
+  font-size: 13.5px; color: var(--accent, #6d5220);
+}
+.org-preview ol {
+  margin: 0; padding-inline-start: 22px; max-block-size: 40vh; overflow-y: auto;
+  font-size: 13px; line-height: 2; color: var(--ink-soft);
+}
+.org-addopt.is-danger b { color: #9c4a3c; }

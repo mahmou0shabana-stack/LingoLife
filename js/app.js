@@ -525,12 +525,30 @@ function wireActions() {
 
       case 'delete-script': {
         const script = await scripts.get(id);
+        /*
+         * ⚠️ **وما تحت السكريبت يُعَدّ ويُقال قبل الحذف** (WS57 · بند ٣٢).
+         *
+         * أجزاءُ التنظيم ورحلةُ التدريب سكريبتاتٌ لا تراها هذه الصفحة
+         * بالتصميم؛ فحذفُ الأب كان يتركها معلّقةً لا يصل إليها أحد.
+         * صارت تُذكَر بالعدد في السؤال وتذهب معه إلى السلة وتعود معه
+         * بالتراجع. والسلوكُ لسكريبتٍ بلا أبناءٍ **لم يتغيّر حرفًا**:
+         * القائمةُ فارغةٌ فلا سطرَ إضافيّ ولا فعلَ إضافيّ.
+         */
+        const { descendantIdsOf, trashSubtree, restoreSubtree } =
+          await import('./services/organize-service.js');
+        const kids = await descendantIdsOf(id);
+        const title = script?.title || scriptTypeLabel(script?.type);
         return void deleteWithUndo({
           repo: scripts,
           id,
           what: 'السكريبت ده',
-          detail: script?.title || scriptTypeLabel(script?.type),
+          detail: kids.length
+            ? `${title} — ومعاه ${kids.length} عنصر جوّه (أجزاء أو مراحل تدريب)`
+            : title,
           after: () => reloadScene(sceneId),
+          cascade: kids.length
+            ? { trash: () => trashSubtree(id), restore: () => restoreSubtree(id) }
+            : null,
         });
       }
 
