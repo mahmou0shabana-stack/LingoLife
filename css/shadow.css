@@ -3709,7 +3709,13 @@ body.shadow-open { overflow: hidden; }
 }
 .sh-well-tabs button {
   font-family: var(--sh-mono); font-size: 9.5px; letter-spacing: .14em;
-  min-height: 40px; padding: 0 11px; border: 0; border-radius: 3px;
+  /*
+   * ⚠️ **44 لا 40 (WS-B، بند 56).** كانت الأشرطةُ زينةً فوق لوحٍ
+   *    يُقرأ؛ وصارت **مِلاحةَ الورشة** — أربعةُ تبويباتٍ تُضغط عشرات
+   *    المرّات في الجلسة. وأصغرُ هدفِ لمسٍ في الورشة كان هذا بالذات
+   *    (56×40) في القياسات الثلاثة.
+   */
+  min-height: 44px; padding: 0 11px; border: 0; border-radius: 3px;
   background: none; color: rgba(90, 72, 44, .55); cursor: pointer;
 }
 .sh-well-tabs button.on {
@@ -5071,4 +5077,360 @@ body.shadow-open { overflow: hidden; }
 .sh-phrase-lbl {
   margin: 8px auto 0; max-inline-size: 60ch; text-align: center;
   font-size: 13px; line-height: 1.7; color: rgba(212, 168, 83, .85);
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   ورشةُ المراجع (WS-B) — دفترٌ بجانب التدريب لا شاشةٌ بدلًا منه
+
+   ⚠️ **لا لوحَ تحكّمٍ معتمٌ فوق الورقة** (بند 35). كلُّ ما هنا مكتوبٌ
+      بتوكِنات الورقة (`--sh-paper-*`) التي أعادت `.sh-left` تعريفَها،
+      فالقواعدُ والصورُ والملخّصُ تولد بحبر الورقة نفسِه بلا سطرِ لون
+      واحد. والخلفيّاتُ الصلبةُ محصورةٌ في العارض وحدَه — حيث يقتضيها
+      **قراءةُ صفحةِ ورقٍ بيضاء** لا الزخرفة.
+
+   ⚠️ **وأهدافُ اللمس ≥44px** (بند 56) — والأزرارُ الصغيرةُ بصريًّا
+      (★ ▲ ▼ ✕) تأخذ حجمَها الكامل بالحشوة لا بالمظهر.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/*
+ * ⚠️ **`flex: none` — والغلطُ الذي كلّفني جولةً كاملة.**
+ *
+ *    كتبتُها أوّلًا `min-block-size: 0` (عادةُ حاويات flex القابلة
+ *    للتمرير). والورقةُ نفسُها عمودُ flex، فصارت الورشةُ **تنكمش
+ *    تحت حجم محتواها** — يبقى المحتوى مرسومًا في مكانه ويصعد إخوتُه
+ *    (المقبضُ والنصّ) فوقه.
+ *
+ *    ولم يظهر ذلك للعين: النصُّ فوق النصّ في منطقةٍ ضيّقة. ظهر في
+ *    `elementsFromPoint` وحدَه — زرُّ «التالية ›» في القاعدة رقمُه
+ *    مرئيٌّ وقابلٌ للضغط في كلّ قياس، والذي يستقبل الضغطة
+ *    `SPAN.ts` من `.sh-lines` (ولها `z-index: 1`).
+ *
+ *    وهذا حرفيًّا ما يحذّر منه البند 34: «تداخلُ مساحاتِ لمسٍ غير
+ *    مرئيّة». فالقياسُ هو الذي كشفه لا النظر.
+ */
+.sh-ref { display: flex; flex-direction: column; flex: none; }
+
+.sh-ref .sh-pgbtns { display: flex; align-items: center; gap: 2px; }
+
+/*
+ * ⚠️ **FIT/FULL كانا 44×29** — عرضًا كافيًا وارتفاعًا ناقصًا. وهو
+ *    ما قاسه مسبارُ البند 56 («أصغرُ هدف: doc — 44×29»)، لا ما رأته
+ *    العين. وهما الآن في رأس الورشة إلى جانب الطيّ والتكبير، فيأخذان
+ *    نفسَ حدِّ اللمس.
+ */
+.sh-ref .sh-pgbtns button { min-block-size: 44px; }
+
+/* ⚠️ زرّا الطيّ والتكبير أوّلَ الصفّ وبمساحةِ إصبع — لا أيقونتان
+     مضغوطتان بين FIT وFULL يصعب إصابتُهما. */
+.sh-ref [data-ref-max],
+.sh-ref [data-ref-fold] {
+  min-inline-size: 44px; min-block-size: 40px;
+  border: 0; border-radius: 4px; cursor: pointer;
+  background: none; color: rgba(90, 72, 44, .6);
+  font-size: 14px; line-height: 1;
+}
+.sh-ref [data-ref-max][aria-pressed="true"] {
+  background: rgba(217, 182, 114, .24); color: var(--sh-paper-gold);
+}
+
+/* ---------- ⛶ التكبير المؤقّت (بند 33) ----------
+   ⚠️ **وسمٌ واحد، وشجرةٌ لا تُنقَل** — راجع الشرح فوق `toggleRefMax`.
+      العنصرُ يصير مثبّتًا بالشاشة فيغطّي الكتابَ ولا يخرج منه: لا
+      `canvas` يُهدَم، ولا صفحةَ ملفٍّ تضيع، ولا جلسةَ ظلٍّ تُبنى. */
+/*
+ * ⚠️ **والكتابُ يُرفَع معها — وإلّا بقي الرأسُ فوقها.**
+ *
+ *    `.sh-book` له `z-index: 2` فهو **سياقُ تراصٍّ مغلق**: أيُّ رقمٍ
+ *    داخله — ولو 40 — يبقى محبوسًا تحت 2. و`.sh-topbar` عنده 3.
+ *    فقِيست اللوحةُ مكبَّرةً تملأ 1600×1000… وزرُّ الخروج منها لا
+ *    يستقبل الضغطة: `.sh-streak` من الرأس هو الذي يستقبلها، فتُحبَس
+ *    في وضع التكبير. كشفَه `elementFromPoint` لا العين — الزرُّ
+ *    مرئيٌّ تمامًا.
+ */
+.shadow-app.is-refmax .sh-book { z-index: 45; }
+
+.shadow-app.is-refmax .sh-ref {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  padding: 10px 14px 14px;
+  background: var(--sh-paper, #f6eee0);
+  color: var(--sh-paper-ink);
+}
+/* ⚠️ وسقفُ اللوح يُرفَع — وإلّا بقيت الصفحةُ 250px وسط شاشةٍ فارغة. */
+.shadow-app.is-refmax .sh-doc { max-block-size: none; flex: 1 1 auto; }
+
+/* ---------- انتقالٌ بين الأشرطة (بندا 28 و29) ----------
+   ⚠️ **خفيفٌ ومحدود**: 200ms وإزاحةٌ 6px — «قلبةُ صفحةٍ في نفس
+      المكتب» كما نصّ البند، لا رحلةٌ إلى موقعٍ آخر. */
+@keyframes sh-well-in {
+  from { opacity: 0; transform: translateX(6px); }
+  to   { opacity: 1; transform: none; }
+}
+.sh-well-body:not([hidden]) > * { animation: sh-well-in 200ms ease-out; }
+
+@media (prefers-reduced-motion: reduce) {
+  .sh-well-body:not([hidden]) > * { animation: none; }
+}
+
+/* ---------- القواعدُ المهمّة ---------- */
+
+.sh-rules-top {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding-block: 4px 10px;
+}
+.sh-rules-q {
+  flex: 1 1 140px; min-inline-size: 0; min-block-size: 40px;
+  padding: 0 10px; font: inherit; font-size: 13px;
+  color: var(--sh-paper-ink);
+  background: rgba(255, 255, 255, .5);
+  border: 1px solid var(--sh-paper-line); border-radius: 5px;
+}
+.sh-rules-add {
+  min-block-size: 44px; padding: 0 14px; cursor: pointer;
+  font-size: 13px; font-weight: 600; color: var(--sh-paper-gold);
+  background: rgba(217, 182, 114, .18);
+  border: 1px solid rgba(217, 182, 114, .4); border-radius: 5px;
+}
+
+.sh-rules-sec {
+  font-family: var(--sh-mono); font-size: 9.5px; letter-spacing: .16em;
+  color: rgba(90, 72, 44, .5);
+  padding-block: 10px 5px;
+}
+
+.sh-rules-empty {
+  margin: 14px 2px; max-inline-size: 46ch;
+  font-size: 13px; line-height: 1.9; color: rgba(90, 72, 44, .62);
+}
+
+/* بطاقةُ قاعدة — العنوانُ ثم الصورةُ ثم لمحةٌ من النصّ (بند 12). */
+.sh-rule {
+  display: flex; align-items: stretch; gap: 6px;
+  border-bottom: 1px solid rgba(101, 80, 48, .09);
+}
+.sh-rule:last-child { border-bottom: 0; }
+
+.sh-rule-open {
+  flex: 1; min-inline-size: 0; display: grid; gap: 5px;
+  text-align: start; cursor: pointer;
+  padding: 11px 4px; border: 0; background: none; color: inherit;
+}
+.sh-rule-title {
+  font-size: 14.5px; font-weight: 600; line-height: 1.5;
+  color: var(--sh-paper-ink); overflow-wrap: anywhere;
+}
+.sh-rule-thumb {
+  inline-size: 100%; max-inline-size: 220px; block-size: auto;
+  max-block-size: 130px; object-fit: cover;
+  border-radius: 4px; border: 1px solid var(--sh-paper-line);
+}
+.sh-rule-peek {
+  font-size: 12.5px; line-height: 1.75; color: rgba(90, 72, 44, .68);
+  overflow-wrap: anywhere;
+}
+
+.sh-rule-side { display: flex; flex-direction: column; justify-content: center; gap: 1px; }
+.sh-rule-side button {
+  min-inline-size: 44px; min-block-size: 34px;
+  border: 0; border-radius: 4px; background: none; cursor: pointer;
+  color: rgba(90, 72, 44, .45); font-size: 12px; line-height: 1;
+}
+.sh-rule-side button.on { color: var(--sh-paper-gold); }
+.sh-rule-side button[disabled] { opacity: .25; cursor: default; }
+
+/* ---------- وضعُ القراءة ---------- */
+
+.sh-rule-read { padding-block: 4px 16px; }
+
+.sh-rule-nav {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding-bottom: 8px;
+}
+.sh-rule-nav button {
+  min-block-size: 40px; padding: 0 12px; cursor: pointer;
+  border: 0; border-radius: 4px; background: none;
+  font-size: 12.5px; color: rgba(90, 72, 44, .7);
+}
+.sh-rule-count { font-family: var(--sh-mono); font-size: 9.5px; color: rgba(90, 72, 44, .5); }
+
+.sh-rule-h {
+  margin: 2px 0 12px; font-size: 19px; line-height: 1.5; font-weight: 700;
+  color: var(--sh-paper-ink); overflow-wrap: anywhere;
+}
+
+.sh-rule-pic { position: relative; margin: 0 0 12px; }
+.sh-rule-pic > button:first-child {
+  display: block; inline-size: 100%; padding: 0; border: 0;
+  background: none; cursor: zoom-in;
+}
+.sh-rule-pic img {
+  inline-size: 100%; block-size: auto; border-radius: 5px;
+  border: 1px solid var(--sh-paper-line);
+}
+.sh-rule-picx {
+  position: absolute; inset-block-start: 4px; inset-inline-end: 4px;
+  min-inline-size: 44px; min-block-size: 44px; cursor: pointer;
+  border: 0; border-radius: 50%; font-size: 13px;
+  background: rgba(20, 14, 6, .55); color: #fff;
+}
+
+/* ⚠️ سطرٌ مريحٌ للقراءة لا عمودٌ يمتدّ عبر لوحٍ عريض (بند 56). */
+.sh-rule-body { max-inline-size: 62ch; }
+.sh-rule-body p {
+  margin: 0 0 11px; font-size: 14.5px; line-height: 1.95;
+  color: var(--sh-paper-ink); overflow-wrap: anywhere;
+}
+.sh-rule-note {
+  margin: 10px 0; font-size: 12.5px; line-height: 1.8;
+  color: rgba(90, 72, 44, .62);
+}
+.sh-rule-tags { display: flex; flex-wrap: wrap; gap: 5px; margin: 10px 0; }
+.sh-rule-tags span {
+  padding: 3px 9px; border-radius: 999px; font-size: 11px;
+  background: rgba(217, 182, 114, .16); color: rgba(90, 72, 44, .75);
+}
+
+.sh-rule-acts, .sh-rule-pager {
+  display: flex; flex-wrap: wrap; gap: 6px;
+  margin-block-start: 16px; padding-block-start: 12px;
+  border-block-start: 1px solid rgba(101, 80, 48, .1);
+}
+.sh-rule-acts button, .sh-rule-pager button {
+  min-block-size: 44px; padding: 0 14px; cursor: pointer;
+  font-size: 13px; color: rgba(90, 72, 44, .8);
+  background: rgba(255, 255, 255, .45);
+  border: 1px solid var(--sh-paper-line); border-radius: 5px;
+}
+.sh-rule-acts button.danger { color: #9c3b2e; border-color: rgba(156, 59, 46, .3); }
+.sh-rule-pager { justify-content: space-between; }
+.sh-rule-pager button[disabled] { opacity: .3; cursor: default; }
+
+/* ---------- شبكةُ الصور ---------- */
+
+/* ⚠️ **شبكةٌ متجاوبةٌ لا عرضٌ ثابت** (بند 30): على اللوح الأفقيّ
+     تملأ الصورُ العرضَ بدل عمودٍ ضيّقٍ وهامشين فارغين. */
+.sh-well-grid {
+  display: grid; gap: 6px;
+  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+}
+.sh-well-grid .sh-well-img {
+  inline-size: 100%; block-size: auto; aspect-ratio: 1; margin: 0;
+}
+
+/* ---------- ملخّصُ القواعد ---------- */
+
+.sh-doc-empty { padding-block: 8px; }
+.sh-docwell { display: flex; flex-direction: column; block-size: 100%; min-block-size: 0; }
+.sh-docwell-top {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; flex-wrap: wrap; flex: none; padding-block: 2px 8px;
+}
+.sh-docwell-top button {
+  min-block-size: 40px; padding: 0 11px; cursor: pointer;
+  font-size: 12px; color: rgba(90, 72, 44, .75);
+  background: none; border: 1px solid var(--sh-paper-line); border-radius: 4px;
+}
+.sh-docwell-top button.danger { color: #9c3b2e; }
+.sh-docwell-host { flex: 1 1 auto; min-block-size: 220px; display: flex; }
+
+/* ---------- العارض ---------- */
+
+.sh-pdf { display: flex; flex-direction: column; inline-size: 100%; min-block-size: 0; }
+
+/*
+ * ⚠️ **خلفيّةٌ داكنةٌ خلف الورقة البيضاء عمدًا** — وهي الاستثناءُ
+ *    الوحيد من حبر الورقة في هذا الملفّ. صفحةُ PDF بيضاءُ على ورقٍ
+ *    كريميٍّ تبدو بلا حدود، فلا تعرف العينُ أين تنتهي الصفحة.
+ */
+.sh-pdf-stage {
+  flex: 1 1 auto; min-block-size: 200px;
+  overflow: auto; -webkit-overflow-scrolling: touch;
+  display: flex; align-items: flex-start; justify-content: center;
+  padding: 6px; border-radius: 5px;
+  background: rgba(30, 24, 14, .18);
+  /* ⚠️ لئلّا يجرّ تمريرُ الصفحة الورقةَ الأمّ خلفها. */
+  overscroll-behavior: contain;
+}
+.sh-pdf-stage canvas {
+  display: block; max-inline-size: none;
+  box-shadow: 0 6px 20px -8px rgba(0, 0, 0, .5);
+  background: #fff;
+}
+.sh-pdf-msg {
+  margin: auto; padding: 24px 16px; text-align: center;
+  font-size: 13px; line-height: 1.9; color: rgba(90, 72, 44, .7);
+}
+
+.sh-pdf-bar {
+  display: flex; align-items: center; gap: 3px; flex-wrap: wrap;
+  flex: none; padding-block-start: 7px;
+}
+.sh-pdf-bar button {
+  min-inline-size: 44px; min-block-size: 44px; padding: 0 10px; cursor: pointer;
+  border: 1px solid var(--sh-paper-line); border-radius: 4px;
+  background: rgba(255, 255, 255, .45);
+  color: rgba(90, 72, 44, .8); font-size: 12.5px; line-height: 1;
+}
+.sh-pdf-bar button.on {
+  background: rgba(217, 182, 114, .24);
+  border-color: rgba(217, 182, 114, .5);
+  color: var(--sh-paper-gold); font-weight: 600;
+}
+.sh-pdf-sp { flex: 1 1 6px; }
+.sh-pdf-num {
+  display: flex; align-items: center; gap: 4px;
+  font-family: var(--sh-mono); font-size: 11px; color: rgba(90, 72, 44, .7);
+}
+.sh-pdf-num input {
+  inline-size: 52px; min-block-size: 44px; padding: 0 6px; text-align: center;
+  font: inherit; font-size: 12px; color: var(--sh-paper-ink);
+  background: rgba(255, 255, 255, .5);
+  border: 1px solid var(--sh-paper-line); border-radius: 4px;
+}
+
+/*
+ * ⚠️ **الرأسيُّ لا يزحم الأفقيَّ** (بند 31): على عرضٍ ضيّق يصير شريطُ
+ *    العارض سطرين بدل أن يقصّ أزرارَه — والبندُ يمنع الفيضَ الأفقيّ
+ *    لا يمنع سطرًا ثانيًا.
+ */
+@media (max-width: 560px) {
+  .sh-pdf-sp { flex-basis: 100%; block-size: 0; }
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   مُمرِّرٌ واحدٌ للوح (WS-B، بندا 5 و53)
+
+   ⚠️ **وكان اللوحُ يقصّ ولا يُمرِّر.** `overflow: hidden` مع سقفٍ
+      يعني أن مصدرًا طويلًا **يُقتطَع** عند 250px ولا سبيل لرؤية
+      باقيه إلّا بسحب المقبض. والبندُ 53 يطلب أن تعود «إلى نفس
+      الفقرة» — ولا فقرةَ تُعاد إليها إن لم يكن هناك تمريرٌ أصلًا.
+
+   ⚠️ **ومُمرِّرٌ واحدٌ لا اثنان متداخلان.** كان `.sh-well-body` هو
+      المُمرِّر داخل لوحٍ لا يُمرِّر؛ فلو صار الاثنان يُمرِّران لاختلف
+      «أين كنت» بحسب أيِّهما مسّه الإصبع. فالمُمرِّرُ الآن اللوحُ
+      وحدَه — وهو ما يقرؤه `wellScroller` ويحفظه لكلّ تبويب.
+   ═══════════════════════════════════════════════════════════════════ */
+.sh-doc { overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
+.sh-well-body { overflow: visible; height: auto; }
+
+/*
+ * ⚠️ **إلّا الملفّ: يملأ اللوحَ ولا يُمرِّره.** لعارض الصفحة مُمرِّرُه
+ *    (`.sh-pdf-stage`) وشريطُ أدواته يجب أن يبقى تحت العين — ولو
+ *    مرّرَ اللوحُ لهرب الشريطُ أسفلَ صفحةٍ طويلة.
+ */
+.sh-doc:has(.sh-docwell) {
+  overflow: hidden; display: flex; flex-direction: column;
+  block-size: var(--doc, 250px);
+}
+.sh-doc > .sh-well-body:has(.sh-docwell) {
+  display: flex; flex: 1 1 auto; min-block-size: 0;
+}
+.sh-docwell { flex: 1 1 auto; min-block-size: 0; inline-size: 100%; }
+
+/* وفي وضع التكبير يأخذ الملفُّ الشاشةَ كلَّها لا 250px. */
+.shadow-app.is-refmax .sh-doc,
+.shadow-app.is-refmax .sh-doc:has(.sh-docwell) {
+  block-size: auto; max-block-size: none; flex: 1 1 auto;
+  display: flex; flex-direction: column; min-block-size: 0;
 }

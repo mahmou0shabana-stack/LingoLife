@@ -43,6 +43,7 @@ import {
   devBriefs,
   devShots,
   media,
+  referenceRules,
 } from '../db/repositories.js';
 import { scriptTypeLabel } from './content-service.js';
 
@@ -331,6 +332,34 @@ export const TRASHABLE = Object.freeze([
         title: record.subjectText || 'مسودّة بلا موضوع',
         subtitle: record.text ? clip(record.text) : 'مسودّة فاضية',
         sceneId: record.sceneId || null,
+      };
+    },
+  },
+
+  {
+    /*
+     * القواعدُ المهمّة (WS-B) — نفسُ حجّة مسودّة المذاكرة بحرفها:
+     * **كتابةٌ بيدك لا شيءٌ مشتقّ**، فقاعدةٌ تُحذف بالغلط تضيع نهائيًّا
+     * لولا السلّة.
+     *
+     * ⚠️ **ولا `sceneId` في الصفّ** — وهو الوحيدُ هنا الذي لا ينتمي إلى
+     *    ذكرى: القواعدُ عامّةٌ لكلّ جلسات الظلّ (بند 24). فحقلُ
+     *    «من أيّ ذكرى؟» يبقى `null` عمدًا لا سهوًا.
+     *
+     * ⚠️ **وصورُها لا تدخل معها.** البايتاتُ في `media` والعضويّةُ
+     *    علاقةٌ `rule:media` — لا يُمَسّ أيٌّ منهما بالحذف، فالتراجعُ
+     *    يعيد البطاقةَ بصورها. (نفسُ عهد `draft:media`.)
+     */
+    store: 'referenceRules',
+    repo: referenceRules,
+    label: 'قواعد مهمّة',
+    icon: 'note',
+    order: 13,
+    async row(record) {
+      return {
+        title: record.title || 'قاعدة بلا عنوان',
+        subtitle: record.text ? clip(record.text) : 'قاعدة بصورة بس',
+        sceneId: null,
       };
     },
   },

@@ -158,6 +158,24 @@ const isAsset = (url) =>
  */
 const isLexicon = (url) => url.pathname.endsWith('/assets/stress-lexicon.json');
 
+/**
+ * المكتباتُ المورَّدة (`vendor/`) — نفسُ منطق المعجم بحرفه (WS-B).
+ *
+ * ⚠️ **ولماذا ليست في `SHELL`؟** لأنها ثقيلةٌ ومشروطة: pdf.js وحدَه
+ *    ‏2.5 ميغابايت، ومَن لم يرفع ملخّصًا لا يفتحه أبدًا. فالتخزينُ
+ *    المسبق يُنزّلها على كلّ جهازٍ يفتح التطبيق ولو مرّة.
+ *
+ * ⚠️ **و«الكاش أوّلًا» لأنها لا تتبدّل.** نسخةٌ مورَّدةٌ بيدٍ ومكتوبٌ
+ *    رقمُها في `vendor/pdfjs/README.md`؛ ترقيتُها نسخُ ملفّاتٍ جديدة
+ *    ودفعةٌ جديدة — واسمُ الكاش مربوطٌ بـ`BUILD` فيُجلَب الجديدُ
+ *    مرّةً واحدة. فلا داعيَ لسؤال الشبكة عنها في كلّ فتحة.
+ *
+ * ⚠️ **وهذه أصولُ تطبيقٍ لا مستنداتُ مستخدم** (بند 43). ملفُّ الـPDF
+ *    الذي ترفعه أنت **لا يمرّ من هنا أصلًا**: بايتاتُه في IndexedDB
+ *    ويُقرأ بـ`blob:` — ولا سطرَ في هذا الملفّ يراه.
+ */
+const isVendor = (url) => url.pathname.includes('/vendor/');
+
 self.addEventListener('fetch', (event) => {
   const { request } = event;
 
@@ -171,7 +189,7 @@ self.addEventListener('fetch', (event) => {
   if (!sameOrigin && !isFont) return;
 
   // الأصول الثابتة: الكاش أولًا
-  if (isAsset(url) || isFont || (sameOrigin && isLexicon(url))) {
+  if (isAsset(url) || isFont || (sameOrigin && (isLexicon(url) || isVendor(url)))) {
     event.respondWith(cacheFirst(request));
     return;
   }

@@ -440,9 +440,19 @@ describe('التشغيل · لا بابين لفعلٍ واحد', () => {
      * بلا `paintVoiceBar` يترك صوتًا بلا مقبض — وهو العطبُ الأصليّ
      * نفسُه من الجهة الأخرى.
      */
+    /*
+     * ⚠️ **وصار البابُ خطوتين لا واحدة (WS-B).** تبديلُ الشريط له
+     *    الآن بابٌ واحدٌ مسمًّى — `openWell` — لأنه صار يحفظ حالةَ
+     *    الورشة وموضعَ التمرير أيضًا. فالحارسُ يتبع الباب:
+     *    الحالةُ تُحيل إليه، وهو الذي يرفع الشريطَ البديل.
+     */
     const at = code.indexOf("case 'well':");
     expect(at > 0).toBe(true);
-    expect(code.slice(at, at + 420).includes('paintVoiceBar()')).toBe(true);
+    expect(code.slice(at, at + 420).includes('openWell(')).toBe(true);
+
+    const door = code.indexOf('async function openWell(');
+    expect(door > 0).toBe(true);
+    expect(code.slice(door, door + 420).includes('paintVoiceBar()')).toBe(true);
 
     /* وتبديلُ الوضع يُعيد رسم المسرح — وزرُّ التسجيل ليس فيه أصلًا. */
     const mode = code.indexOf("case 'mode-go':");

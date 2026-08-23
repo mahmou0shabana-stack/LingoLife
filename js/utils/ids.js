@@ -61,6 +61,9 @@ export const PREFIX = Object.freeze({
 
   /** ذاكرة النطق المولَّد آليًّا (WS41) */
   GENERATED_AUDIO: 'GAU',
+
+  /** بطاقةُ قاعدةٍ في دفتر المراجع (v15، WS-B) */
+  REFERENCE_RULE: 'RRL',
 });
 
 function encodeTime(ms, len = 10) {

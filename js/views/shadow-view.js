@@ -91,7 +91,10 @@ import {
 } from '../services/shadow/fonts.js';
 import { LANGUAGES, languageByCode, translate, translationFailure, isEnabled as trEnabled, setEnabled as setTrEnabled } from '../services/shadow/translate.js';
 import { practiceStreak, recentPractice } from '../services/shadow/shadow-session-service.js';
-import { scripts, contentBlocks, scenes, sceneMediaLinks, media, shadowSegments, studyDrafts } from '../db/repositories.js';
+import {
+  scripts, contentBlocks, scenes, sceneMediaLinks, media, shadowSegments, studyDrafts,
+  referenceRules,
+} from '../db/repositories.js';
 import {
   urlFor, startRecording, canRecord, addFilesToScene, AUDIO_ROLE, pickFiles,
 } from '../services/media-service.js';
@@ -101,6 +104,19 @@ import {
 } from '../services/saved-service.js';
 import { listConversationParts } from '../services/content-service.js';
 import { savedItems, settings } from '../db/repositories.js';
+/*
+ * ورشةُ المراجع (WS-B) — رفيقُ التدريب لا شاشةٌ بديلة.
+ * راجع الشرحَ فوق `WELLS` و`renderWells`.
+ */
+import {
+  REF_TAB,
+  rulesWithImages, searchRules, getRule, createRule, updateRule, toggleRulePin,
+  moveRule, moveAffordance,
+  addRuleImage, detachRuleImage,
+  listReferenceImages, addReferenceImage,
+  activeDoc, setActiveDoc, clearActiveDoc,
+  readView, patchView,
+} from '../services/reference-service.js';
 
 /** نسبةُ الصفحة اليسرى — تُحفَظ فلا تعيد ضبطها كل جلسة. */
 const SPLIT_KEY = 'shadow.split';
@@ -973,7 +989,23 @@ export async function renderShadow(main, sessionId) {
   await loadSkyDark();
   await readFaces(ctx.session);
   renderFaces();
+
+  /*
+   * ورشةُ المراجع (WS-B): حالتُها تُقرأ مرّةً هنا.
+   *
+   * ⚠️ **والتبويبُ يعود كما تركتَه** (بند 26) — ولا يُفتَح الملفُّ
+   *    فوق نصِّ التدريب في كلّ جلسةٍ لأن ذلك «مقتحِم» كما نصّ البند
+   *    نفسُه. فالمحفوظُ يُحترَم إن كان اختيارَك الأخير، والافتراضُ
+   *    «المصدر» لمن لم يختر شيئًا قطّ.
+   */
+  refView = await readView().catch(() => null);
+  const savedTab = refView?.tab || REF_TAB.SOURCE;
+  /* تبويبٌ محفوظٌ لم يعد موجودًا (نسخةٌ أقدم) يرجع للمصدر لا لفراغ. */
+  well = savedTab === REF_TAB.SOURCE || WELLS[savedTab] ? savedTab : REF_TAB.SOURCE;
+  /* مواضعُ التمرير للجلسة الحاليّة وحدها — جلسةٌ جديدةٌ تبدأ نظيفة. */
+  refScroll.clear();
   await renderWells();
+  paintRefHead();
   renderModes();
   renderRail();
   /* رجعتَ والزرُّ عاد أمامك — فالشريطُ يرفع نفسَه. */
@@ -1218,22 +1250,41 @@ function shell() {
               -->
               <div class="sh-analysis" data-analysis hidden></div>
 
-              <div class="sh-sec-head">
-                <span class="sh-mono">SOURCE · ${source?.label || 'TEXT'}</span>
-                <span class="sh-pgbtns">
-                  <button data-sh="doc" data-fit="fit">FIT</button>
-                  <button data-sh="doc" data-fit="full">FULL</button>
-                </span>
-              </div>
-
               <!--
-                لوحُ المستند: ارتفاعُه متغيّرٌ ويُسحَب بالمقبض تحته،
-                فتقرّر أنت كم ترى من الأصل وكم ترى من الجمل.
-              -->
-              <!-- أشرطةُ المنابع: المصدر · صور · سكريبتات · أصوات -->
-              <div class="sh-well-tabs" data-well-tabs></div>
+                ══════════ ورشةُ المراجع (WS-B) ══════════
 
-              <div class="sh-doc" data-doc>
+                الرأسُ والأشرطةُ واللوحُ **إخوةٌ في حاويةٍ واحدة** لا
+                ثلاثةُ أبناءٍ متفرّقين في الورقة. والفرقُ ليس ترتيبًا:
+                «⛶ تكبير» (بند 33) يحتاج شيئًا **واحدًا** يكبر —
+                فيصير الرأسُ والأشرطةُ واللوحُ كتلةً تملأ الشاشة
+                بوسمٍ واحدٍ على shadow-app، ثم تعود إلى مكانها
+                بإزالته بلا أن يُهدَم شيءٌ أو تُفقَد حالة.
+
+                ⚠️ ولا علامةَ اقتباسٍ خلفيّة في تعليقٍ داخل قالب html
+                   — هي التي تُنهي القالب، فيصير ما بعدها كودًا.
+                   كلّفتني هذه واحدةً بالفعل: «app is not defined».
+              -->
+              <div class="sh-ref" data-ref>
+                <div class="sh-sec-head">
+                  <span class="sh-mono" data-ref-title>SOURCE · ${source?.label || 'TEXT'}</span>
+                  <span class="sh-pgbtns">
+                    <button data-sh="ref-max" data-ref-max
+                            aria-label="كبّر لوحة المراجع" aria-pressed="false">⛶</button>
+                    <button data-sh="ref-fold" data-ref-fold
+                            aria-label="اطوِ لوحة المراجع" aria-expanded="true">▾</button>
+                    <button data-sh="doc" data-fit="fit">FIT</button>
+                    <button data-sh="doc" data-fit="full">FULL</button>
+                  </span>
+                </div>
+
+                <!--
+                  لوحُ المستند: ارتفاعُه متغيّرٌ ويُسحَب بالمقبض تحته،
+                  فتقرّر أنت كم ترى من الأصل وكم ترى من الجمل.
+                -->
+                <!-- الأشرطة: المصدر · القواعد · الملخّص · الصور · … -->
+                <div class="sh-well-tabs" data-well-tabs></div>
+
+                <div class="sh-doc" data-doc>
                 <!--
                   مبدّلُ أوجه المصدر الواحد (WS33) — الشرحُ فوق FACES.
                   لا يظهر إن كان للمصدر وجهٌ واحد.
@@ -1253,6 +1304,7 @@ function shell() {
                   ${raw(sourceBadge(source, Boolean(cover)))}
                   ${raw(originPanel(source))}
                   ${raw(change.changed ? staleBanner(change) : '')}
+                </div>
                 </div>
               </div>
 
@@ -4154,19 +4206,78 @@ function scheduleDraftSave(value) {
  *
  * ⚠️ **وما لا شيءَ فيه لا يُعرَض شريطُه.** شريطٌ تضغطه فتجد فراغًا
  *    يَعِدُ بما لا يملك — والقاعدةُ في المشروع أن العدّ يسبق العرض.
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * WS-B — والسجلُّ نفسُه صار **ورشةَ المراجع**
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * > «عايز وأنا بتدرّب أبصّ على قاعدة كتبتُها، أو صورة، أو ملفّ
+ * >  الـPDF بتاعي — من غير ما أسيب الشادوينج.»
+ *
+ * وهذا **هو** ما تفعله الأشرطة منذ WS35: تبدّل ما في اللوح والجلسةُ
+ * حيّة. فالبندُ 3 لم يطلب بنيةً جديدة بل **نوعين جديدين**: القواعدُ
+ * والملخّص. وأضفناهما سطرين هنا كما وعد التعليقُ أعلاه.
+ *
+ * ⚠️ **واستثناءٌ واحدٌ من قاعدة «الفارغُ لا يُعرَض»: `always`.**
+ *    الصورُ والسكريبتاتُ تأتي من الذكرى — فارغُها يعني «لا شيء هنا».
+ *    أمّا القواعدُ والملخّصُ فأنت مَن يملؤهما، وشريطٌ لا يظهر حتى
+ *    تملأه لا سبيلَ إلى ملئه أبدًا. فالفارغُ منهما يعرض **بابَ
+ *    الإضافة** لا فراغًا.
+ *
+ * ⚠️ **والقواعدُ والملخّصُ عامّان لا يقرآن `sceneId`** (بندا 23-24):
+ *    «متثبتة في أي صفحة شادوينج افتحها». فـ`read` تتجاهل معطاها
+ *    فيهما — وذلك مقصودٌ لا سهو.
  */
 const WELLS = {
+  /* ---------------- القواعدُ المهمّة (WS-B) ---------------- */
+  rules: {
+    label: 'القواعد',
+    always: true,
+    read: () => rulesWithImages(),
+    draw: (rows) => rulesWellHtml(rows),
+    /* البحثُ المحفوظ يُطبَّق بعد الإدراج — نفسُ مسار الكتابة الحيّة. */
+    mount: () => filterRuleCards(refView?.rules?.query || ''),
+  },
+
+  /* ---------------- ملخّصُ القواعد — الملفّ (WS-B) ---------------- */
+  doc: {
+    label: 'الملخّص',
+    always: true,
+    /* صفٌّ واحدٌ أو لا شيء — العدُّ هنا يعني «هل يوجد ملفّ». */
+    read: async () => {
+      const row = await activeDoc();
+      return row ? [row] : [];
+    },
+    /*
+     * ⚠️ **والرسمُ هنا هيكلٌ فارغ لا صفحة.** العارضُ يُركَّب بعد
+     *    الإدراج في الشجرة (`mountWell`) لأنه يحتاج **عرضًا مقيسًا**
+     *    ليحسب «ملء العرض» — ونصٌّ يُبنى قبل الإدراج لا عرضَ له.
+     */
+    draw: (rows) => docWellHtml(rows[0] || null),
+    mount: (rows) => mountDocWell(rows[0] || null),
+  },
+
   images: {
     label: 'صور',
+    /*
+     * ⚠️ **صورُ الذكرى وصورُك المرجعيّة في شبكةٍ واحدة** (بند 17):
+     *    «ليست محصورةً في صور القواعد». وتبويبان للصور كانا سيسألانك
+     *    في كل مرّة «في أيّهما وضعتُ الرسمَ البيانيّ؟» — وهو سؤالٌ
+     *    لا يخدم أحدًا. فالمصدرُ يُعلَّم على الصفّ (`refScope`) ويُفصَل
+     *    بعنوانٍ في العرض، والقائمةُ واحدة.
+     */
     read: async (sceneId) => {
-      const links = await sceneMediaLinks.byIndex('sceneId', sceneId);
+      const [links, reference] = await Promise.all([
+        sceneMediaLinks.byIndex('sceneId', sceneId),
+        listReferenceImages(),
+      ]);
       const rows = (await media.getMany(links.map((l) => l.mediaId))).filter(Boolean);
-      return rows.filter((row) => (row.mime || row.type || '').startsWith('image'));
+      const scene = rows
+        .filter((row) => (row.mime || row.type || '').startsWith('image'))
+        .map((row) => ({ ...row, refScope: 'scene' }));
+      return scene.concat(reference.map((row) => ({ ...row, refScope: 'reference' })));
     },
-    draw: (rows) => rows.map((row) => `
-      <button class="sh-well-img" data-sh="well-open" data-v="${row.id}">
-        <img src="${urlFor(row, { thumb: true })}" alt="" loading="lazy" />
-      </button>`).join(''),
+    draw: (rows) => imagesWellHtml(rows),
   },
 
   scripts: {
@@ -4605,11 +4716,48 @@ function syncMediaSession(segment) {
 /** المنبعُ المفتوح الآن. */
 let well = 'source';
 
-/** يرسم الأشرطة ومحتوى المنبع — ولا يعرض شريطًا لمنبعٍ فارغ. */
+/**
+ * حالةُ الورشة المحفوظة — التبويبُ وصفحةُ الملفّ والقاعدةُ المفتوحة.
+ *
+ * ⚠️ **تُقرأ مرّةً عند فتح الظلّ وتُكتَب عند كلّ تبدّل.** ولا تُقرأ في
+ *    كلّ رسم: `renderWells` تُنادى عشراتِ المرّات في الجلسة، وقراءةُ
+ *    القاعدة في كلٍّ منها تجعل تبديلَ التبويب ينتظر قرصًا.
+ */
+let refView = null;
+
+/**
+ * موضعُ تمرير كلّ تبويبٍ — **في الذاكرة لا في القاعدة** (بند 27).
+ *
+ * ⚠️ والفرقُ مقصود: «صفحة 17» وعدٌ يعبر الجلسات (بند 22)، أمّا «كنتَ
+ *    نازلًا 340 بكسل في قائمة الصور» فوعدٌ داخل الجلسة الواحدة. وكتابةُ
+ *    الثاني في القاعدة تعني قرصًا يعمل مع كلّ إصبعٍ يمرّ على الشاشة.
+ */
+const refScroll = new Map();
+
+/** مقبضُ عارض الملفّ الحيّ — واحدٌ لا واحدٌ لكلّ رسم. */
+let pdfView = null;
+
+/** يهدم عارضَ الملفّ إن وُجد — يُنادى قبل كلّ استبدالٍ لمحتوى اللوح. */
+function dropPdfView() {
+  try { pdfView?.destroy(); } catch { /* لا شيء */ }
+  pdfView = null;
+}
+
+/**
+ * يرسم الأشرطة ومحتوى المنبع.
+ *
+ * ⚠️ **ولا يمسّ الجلسةَ ولا المقطعَ الفعّال** (بنود 4 و25 و46-48).
+ *    كلُّ ما هنا قراءةٌ ورسمٌ داخل الورقة اليسرى؛ لا `player` ولا
+ *    `setPractice` ولا `phrase` ولا `releaseAudio`. تبديلُ الشريط
+ *    **يقلب صفحةَ الدفتر ولا يوقظ أحدًا**.
+ */
 async function renderWells() {
   const tabs = $('[data-well-tabs]');
   const body = $('[data-well-body]');
   if (!tabs || !body || !ctx?.scene) return;
+
+  /* ⚠️ العارضُ القديم يموت قبل أن يُمحى عنصرُه — وإلّا بقي عاملُه حيًّا. */
+  dropPdfView();
 
   const counts = {};
   await Promise.all(Object.entries(WELLS).map(async ([id, w]) => {
@@ -4617,13 +4765,18 @@ async function renderWells() {
     catch { counts[id] = []; }
   }));
 
-  const live = Object.entries(WELLS).filter(([id]) => counts[id].length);
+  const live = Object.entries(WELLS).filter(([id, w]) => w.always || counts[id].length);
   tabs.innerHTML = [`<button class="${well === 'source' ? 'on' : ''}" data-sh="well" data-v="source">المصدر</button>`]
-    .concat(live.map(([id, w]) =>
-      `<button class="${well === id ? 'on' : ''}" data-sh="well" data-v="${id}">${w.label} ${counts[id].length}</button>`))
+    .concat(live.map(([id, w]) => {
+      /* عددٌ حين يفيد. و«الملخّص» ملفٌّ واحدٌ — «الملخّص 1» ثرثرة. */
+      const n = counts[id].length;
+      const badge = w.always && n <= 1 ? '' : ` ${n}`;
+      return `<button class="${well === id ? 'on' : ''}" data-sh="well" data-v="${id}">${w.label}${badge}</button>`;
+    }))
     .join('');
 
-  if (well === 'source' || !WELLS[well] || !counts[well]?.length) {
+  const chosen = WELLS[well];
+  if (well === 'source' || !chosen || (!chosen.always && !counts[well]?.length)) {
     body.innerHTML = '';
     body.hidden = true;
     /*
@@ -4632,7 +4785,10 @@ async function renderWells() {
      *    عدتَ، فتجد الصورة كما تركتها.
      */
     $('[data-faces]')?.removeAttribute('hidden');
+    /* ⚠️ و`renderFaces` هي مَن تكشف `[data-doc-source]` — لا سطرٌ هنا
+     *    يكشفه ثم يعود `show()` فيخفيه لأن الوجه المختار صورة. */
     renderFaces();
+    restoreWellScroll();
     return;
   }
   /* منبعٌ آخر يملأ اللوح: الوجوهُ تختفي معًا. */
@@ -4640,7 +4796,584 @@ async function renderWells() {
   $('[data-face-body]')?.setAttribute('hidden', '');
   $('[data-faces]')?.setAttribute('hidden', '');
   body.hidden = false;
-  body.innerHTML = WELLS[well].draw(counts[well]);
+  body.innerHTML = chosen.draw(counts[well]);
+
+  /* ما يحتاج شجرةً مقيسةً يُركَّب الآن لا في `draw`. */
+  await chosen.mount?.(counts[well]);
+  restoreWellScroll();
+}
+
+/* ------------------------------------------------------------------ */
+/* موضعُ كلّ تبويب                                                      */
+/* ------------------------------------------------------------------ */
+
+/** العنصرُ الذي يُمرَّر في التبويب الحاليّ. */
+function wellScroller() {
+  return $('[data-doc]');
+}
+
+/** يحفظ موضعَ التبويب الذي نغادره — يُنادى **قبل** تبديل `well`. */
+function keepWellScroll() {
+  const box = wellScroller();
+  if (box) refScroll.set(well, box.scrollTop);
+}
+
+/**
+ * يعيد موضعَ التبويب الذي دخلناه.
+ *
+ * ⚠️ **بعد إطارٍ واحد لا فورًا.** الصورُ تُحمَّل كسلًا والصفحاتُ تُرسَم،
+ *    فارتفاعُ المحتوى لحظةَ الإسناد أصغرُ من الحقيقيّ — والمتصفّحُ
+ *    يقصّ `scrollTop` إلى الممكن حينها فتعود إلى الأعلى. وهذا بالضبط
+ *    ما يمنعه البندُ 53: «لا تقفز إلى الأعلى».
+ */
+function restoreWellScroll() {
+  const box = wellScroller();
+  if (!box) return;
+  const at = refScroll.get(well) || 0;
+  requestAnimationFrame(() => { box.scrollTop = at; });
+}
+
+/**
+ * يبدّل التبويبَ المفتوح — بابٌ واحدٌ لكلّ من يريد ذلك.
+ *
+ * ⚠️ **ولا يُعيد بناءَ الجلسة**: لا تنقّلَ في المسار، ولا `renderShadow`،
+ *    ولا لمسَ `player`. سطران: موضعٌ يُحفَظ، ولوحٌ يُرسَم.
+ */
+async function openWell(id) {
+  if (!id || id === well) return;
+  keepWellScroll();
+  well = id;
+  refView = await patchView({ tab: id }).catch(() => refView);
+  await renderWells();
+  paintVoiceBar();
+}
+
+/* ================================================================== */
+/* القواعدُ المهمّة — دفترٌ لا استمارة (WS-B، بنود 6-15)                */
+/* ================================================================== */
+
+/**
+ * ⚠️ **قائمةٌ ووضعُ قراءةٍ في مساحةٍ واحدة لا شاشتان.**
+ *
+ * البندُ 13 يطلب «وضعَ قراءةٍ نظيفًا» والبندُ 4 يمنع شاشةً رابعة.
+ * والحلُّ أن يكون الفتحُ **حالةً في نفس اللوح** (`view.rules.openId`)
+ * — فلا طبقةٌ تعلو الظلَّ ولا مسارٌ يتبدّل، ورجوعُك سطرٌ يُمسَح.
+ */
+function rulesWellHtml(rows) {
+  const state = refView?.rules || { openId: null, query: '' };
+  const open = state.openId ? rows.find((row) => row.id === state.openId) : null;
+  if (open) return ruleReaderHtml(open, rows);
+
+  /*
+   * ⚠️ **كلُّ البطاقات تُرسَم ثم تُصفّى بالإخفاء** — لا نصفّي هنا.
+   *    فمسارُ التصفية واحدٌ (`filterRuleCards`) سواءٌ جئتَ من فتح
+   *    التبويب أو من حرفٍ كتبتَه، ولا تختلف نتيجتان لشرطٍ واحد.
+   */
+  const pinned = rows.filter((row) => row.pinned);
+  const rest = rows.filter((row) => !row.pinned);
+
+  return `
+    <div class="sh-rules" data-rules>
+      <div class="sh-rules-top">
+        <input type="search" class="sh-rules-q" data-rule-q
+               value="${esc(state.query || '')}"
+               placeholder="دوّر في القواعد…" aria-label="بحث في القواعد">
+        <button class="sh-rules-add" data-sh="rule-add">+ قاعدة</button>
+      </div>
+
+      ${rows.length ? '' : `
+        <p class="sh-rules-empty">
+          ما فيش قواعد لسه. اكتب هنا القواعد اللي بترجع لها وانت بتتدرّب —
+          عنوان ونصّ، والصورة اختياريّة.
+        </p>`}
+
+      <p class="sh-rules-empty" data-rules-none hidden>مالقيناش قاعدة بالكلمة دي.</p>
+
+      ${pinned.length ? '<div class="sh-rules-sec">مثبَّتة</div>' : ''}
+      ${pinned.map((row) => ruleCardHtml(row, rows)).join('')}
+      ${pinned.length && rest.length ? '<div class="sh-rules-sec">الباقي</div>' : ''}
+      ${rest.map((row) => ruleCardHtml(row, rows)).join('')}
+    </div>`;
+}
+
+/**
+ * بطاقةُ قاعدةٍ في القائمة.
+ *
+ * ⚠️ **العنوانُ أوّلًا ثم الصورةُ ثم النصّ** (بند 12) — والبياناتُ
+ *    الإداريّة (التاريخُ والوسوم) ليست على السطح: خلف زرّ التحرير.
+ *
+ * ⚠️ **وصورةُ البطاقة مصغّرةٌ لا أصل** (بند 57): عشرُ بطاقاتٍ بصورٍ
+ *    أصليّةٍ تفكّ ترميز عشرة ميغابايت لعرضِ شرائح 84 بكسل.
+ */
+function ruleCardHtml(row, siblingsList) {
+  const move = moveAffordance(siblingsList, row);
+  const first = (row.images || [])[0];
+  const thumb = first
+    ? `<img class="sh-rule-thumb" src="${urlFor(first, { thumb: true })}" alt="" loading="lazy">`
+    : '';
+  const body = (row.text || '').trim();
+
+  /* ⚠️ نصُّ البحث محفورٌ في الصفّ — فالتصفيةُ لا تعيد قراءة القاعدة. */
+  const find = `${row.title || ''} ${body} ${(row.tags || []).join(' ')}`.toLowerCase();
+
+  return `
+    <article class="sh-rule" data-rule="${row.id}" data-find="${esc(find)}">
+      <button class="sh-rule-open" data-sh="rule-open" data-v="${row.id}">
+        <span class="sh-rule-title">${esc(row.title || 'قاعدة بلا عنوان')}</span>
+        ${thumb}
+        ${body ? `<span class="sh-rule-peek">${esc(body.slice(0, 160))}${body.length > 160 ? '…' : ''}</span>` : ''}
+      </button>
+      <div class="sh-rule-side">
+        <button data-sh="rule-pin" data-v="${row.id}" class="${row.pinned ? 'on' : ''}"
+                aria-label="${row.pinned ? 'شيل التثبيت' : 'ثبّتها'}"
+                aria-pressed="${row.pinned ? 'true' : 'false'}">★</button>
+        <button data-sh="rule-move" data-v="${row.id}" data-d="-1"
+                aria-label="فوق" ${move.up ? '' : 'disabled'}>▲</button>
+        <button data-sh="rule-move" data-v="${row.id}" data-d="1"
+                aria-label="تحت" ${move.down ? '' : 'disabled'}>▼</button>
+      </div>
+    </article>`;
+}
+
+/**
+ * وضعُ القراءة — قاعدةٌ واحدةٌ بسابقٍ وتالٍ (بندا 13 و14).
+ *
+ * ⚠️ **والسابق/التالي يمشيان على القائمة المعروضة** لا على كلّ الدفتر:
+ *    بحثتَ فبقيت ثلاثُ نتائج، فـ«التالية» ثالثةُ نتائجك لا رابعةُ
+ *    الدفتر. وإلّا خرج بك السهمُ من بحثك بلا أن تطلب.
+ */
+function ruleReaderHtml(row, rows) {
+  const list = searchRules(rows, refView?.rules?.query || '');
+  const at = list.findIndex((one) => one.id === row.id);
+  const prev = at > 0 ? list[at - 1] : null;
+  const next = at >= 0 && at < list.length - 1 ? list[at + 1] : null;
+
+  /*
+   * ⚠️ **و«شيلها» تفكّ الرابطَ لا تحرق البايتات** (بندا 9 و10):
+   *    الصورةُ تبقى في `media` وفي تبويب الصور، وقد تكون في قاعدةٍ
+   *    أخرى. فالمحذوفُ عضويّتُها في **هذه** القاعدة.
+   */
+  const pics = (row.images || []).map((pic) => `
+    <figure class="sh-rule-pic">
+      <button data-sh="rule-pic" data-v="${pic.id}" aria-label="كبّر الصورة">
+        <img src="${urlFor(pic, { thumb: false })}" alt="${esc(pic.caption || '')}" loading="lazy">
+      </button>
+      <button class="sh-rule-picx" data-sh="rule-pic-off" data-v="${row.id}" data-m="${pic.id}"
+              aria-label="شيل الصورة من القاعدة دي">✕</button>
+    </figure>`).join('');
+
+  return `
+    <div class="sh-rule-read" data-rule-read="${row.id}">
+      <div class="sh-rule-nav">
+        <button data-sh="rule-close">◂ كل القواعد</button>
+        <span class="sh-rule-count">${at + 1} / ${list.length}</span>
+      </div>
+
+      <h3 class="sh-rule-h">${esc(row.title || 'قاعدة بلا عنوان')}</h3>
+      ${pics}
+      ${row.text ? `<div class="sh-rule-body">${raw(paragraphs(row.text))}</div>` : ''}
+      ${row.note ? `<p class="sh-rule-note">${esc(row.note)}</p>` : ''}
+      ${(row.tags || []).length
+        ? `<p class="sh-rule-tags">${(row.tags || []).map((t) => `<span>${esc(t)}</span>`).join('')}</p>`
+        : ''}
+
+      <div class="sh-rule-acts">
+        <button data-sh="rule-edit" data-v="${row.id}">عدّلها</button>
+        <button data-sh="rule-img" data-v="${row.id}">${row.images?.length ? 'صور' : '+ صورة'}</button>
+        <button data-sh="rule-del" data-v="${row.id}" class="danger">احذفها</button>
+      </div>
+
+      <div class="sh-rule-pager">
+        <button data-sh="rule-step" data-v="${prev?.id || ''}" ${prev ? '' : 'disabled'}>‹ السابقة</button>
+        <button data-sh="rule-step" data-v="${next?.id || ''}" ${next ? '' : 'disabled'}>التالية ›</button>
+      </div>
+    </div>`;
+}
+
+/**
+ * يُصفّي بطاقاتِ القواعد حيًّا مع الكتابة.
+ *
+ * ⚠️ **يُخفي ولا يُعيد البناء** — راجع الشرح عند مستمع `input`.
+ *
+ * ⚠️ **وعنوانُ القسم يختفي إذا خلا قسمُه**: «مثبَّتة» فوق فراغٍ تعِدُ
+ *    بما لا تملك — نفسُ قاعدةِ «العدُّ يسبق العرض» في الأشرطة.
+ */
+function filterRuleCards(query) {
+  const box = $('[data-rules]');
+  if (!box) return;
+
+  const q = String(query || '').trim().toLowerCase();
+  refView = { ...refView, rules: { ...(refView?.rules || {}), query: q } };
+  patchView({ rules: { query: q } }).catch(() => {});
+
+  let shown = 0;
+  for (const card of box.querySelectorAll('[data-rule]')) {
+    const hit = !q || (card.dataset.find || '').includes(q);
+    card.hidden = !hit;
+    if (hit) shown += 1;
+  }
+
+  /* عنوانُ قسمٍ يعيش ما دام بعده بطاقةٌ ظاهرةٌ قبل العنوان التالي. */
+  for (const head of box.querySelectorAll('.sh-rules-sec')) {
+    let alive = false;
+    for (let node = head.nextElementSibling; node; node = node.nextElementSibling) {
+      if (node.classList.contains('sh-rules-sec')) break;
+      if (node.hasAttribute('data-rule') && !node.hidden) { alive = true; break; }
+    }
+    head.hidden = !alive;
+  }
+
+  const empty = box.querySelector('[data-rules-none]');
+  if (empty) empty.hidden = shown > 0 || !q;
+}
+
+/**
+ * نصٌّ سهلُ القراءة — فقراتٌ وأسطرٌ وشرطاتُ تعداد (بند 37).
+ *
+ * ⚠️ **ولا محرّرَ غنيّ** كما نصّ البند: النصُّ يُهرَّب بـ`esc` ثم
+ *    تُترجَم الأسطرُ الفارغة إلى فقراتٍ والأسطرُ إلى `<br>`. فالسطرُ
+ *    الذي كتبتَه يظهر كما كتبتَه، ولا وسمَ يعبر من نصّك إلى الصفحة.
+ */
+function paragraphs(text) {
+  return String(text || '')
+    .split(/\n{2,}/)
+    .map((block) => `<p>${esc(block.trim()).replace(/\n/g, '<br>')}</p>`)
+    .join('');
+}
+
+/* ================================================================== */
+/* الصورُ المرجعيّة (WS-B، بندا 17-18)                                  */
+/* ================================================================== */
+
+function imagesWellHtml(rows) {
+  const scene = rows.filter((row) => row.refScope !== 'reference');
+  const reference = rows.filter((row) => row.refScope === 'reference');
+
+  const grid = (list) => `<div class="sh-well-grid">${list.map((row) => `
+    <button class="sh-well-img" data-sh="well-open" data-v="${row.id}"
+            aria-label="${esc(row.caption || row.filename || 'صورة')}">
+      <img src="${urlFor(row, { thumb: true })}" alt="" loading="lazy" />
+    </button>`).join('')}</div>`;
+
+  return `
+    <div class="sh-imgs" data-imgs>
+      <div class="sh-rules-top">
+        <span class="sh-mono sh-dim">${counted(rows.length, 'صورة', 'صور')}</span>
+        <button class="sh-rules-add" data-sh="ref-img-add">+ صورة مرجعيّة</button>
+      </div>
+      ${scene.length ? `<div class="sh-rules-sec">صور الذكرى</div>${grid(scene)}` : ''}
+      ${reference.length ? `<div class="sh-rules-sec">صورك المرجعيّة</div>${grid(reference)}` : ''}
+      ${rows.length ? '' : `
+        <p class="sh-rules-empty">
+          ما فيش صور هنا. ضيف رسمًا بيانيًّا أو ورقةً من دفترك تبصّ لها وانت بتتدرّب.
+        </p>`}
+    </div>`;
+}
+
+/* ================================================================== */
+/* ملخّصُ القواعد — الملفُّ الشخصيّ (WS-B، بنود 19-23)                   */
+/* ================================================================== */
+
+/**
+ * ⚠️ **وهذا ملفُّك أنت لا ملفّاتُ المنهج** (بند 44). ملفّاتُ الصوتيّات
+ *    الثلاثة مصادرُ **تطويرِ محرّك النطق**: مكانُها `docs/sources/`
+ *    و`curriculum.js`، وسلطتُها على القواعد الآليّة. وهذا مادّةُ
+ *    مذاكرةٍ لك: مكانُه `media`، ولا سلطةَ له على شيء، ولا يُقرأ
+ *    آليًّا (بند 45). فلا يلتقيان في تخزينٍ ولا في معنى.
+ */
+function docWellHtml(row) {
+  if (!row) {
+    return `
+      <div class="sh-doc-empty">
+        <p class="sh-rules-empty">
+          حطّ هنا ملفّ الـPDF اللي لخّصت فيه قواعدك — هيفضل معاك في أي
+          صفحة ظلّ تفتحها، وهيفتح على آخر صفحة وقفت عندها.
+        </p>
+        <button class="sh-rules-add" data-sh="ref-doc-pick">اختار ملفّ</button>
+      </div>`;
+  }
+
+  return `
+    <div class="sh-docwell" data-docwell>
+      <div class="sh-docwell-top">
+        <span class="sh-mono sh-dim">${esc(row.filename || 'ملخّص القواعد')}</span>
+        <span class="sh-pgbtns">
+          <button data-sh="ref-doc-pick">استبدله</button>
+          <button data-sh="ref-doc-clear" class="danger">شيله</button>
+        </span>
+      </div>
+      <div class="sh-docwell-host" data-doc-host></div>
+    </div>`;
+}
+
+/**
+ * يركّب عارضَ الملفّ **بعد** أن صار العنصرُ في الشجرة.
+ *
+ * ⚠️ **والمكتبةُ تُستورَد هنا لا في رأس الملفّ** (بند 57): 2.5
+ *    ميغابايت لا تُحمَّل لمن لم يفتح هذا الشريط قطّ.
+ *
+ * ⚠️ **والحالةُ تُكتَب من هنا لا من العارض**: العارضُ لا يعرف القاعدة،
+ *    فيردّ `{page, zoom, fit, scroll}` وهذه تحفظها. فيصلح غدًا لأيّ
+ *    مستندٍ بلا أن يتعلّم من أين جاء.
+ */
+async function mountDocWell(row) {
+  const host = $('[data-doc-host]');
+  if (!host || !row?.blob) return;
+
+  try {
+    const { mountPdfViewer } = await import('../components/pdf-viewer.js');
+    /* التبويبُ تبدّل أثناء التحميل — لا تركّب في شجرةٍ مُحيت. */
+    if (!host.isConnected || well !== 'doc') return;
+
+    pdfView = await mountPdfViewer({
+      host,
+      blob: row.blob,
+      state: refView?.doc || {},
+      onState: (patch) => {
+        refView = { ...refView, doc: { ...(refView?.doc || {}), ...patch } };
+        patchView({ doc: patch }).catch(() => {});
+      },
+    });
+  } catch (err) {
+    console.warn('[ref] تعذّر تحميل عارض الملفّات', err);
+    host.innerHTML = `<p class="sh-rules-empty">مقدرناش نحمّل عارض الملفّات.
+      لو دي أوّل مرّة من غير إنترنت، افتح التطبيق وانت متّصل مرّة واحدة وهيتخزّن.</p>`;
+  }
+}
+
+/* ================================================================== */
+/* أفعالُ الورشة                                                       */
+/* ================================================================== */
+
+/**
+ * يفتح قاعدةً في وضع القراءة أو يرجع إلى القائمة (`null`).
+ *
+ * ⚠️ **وموضعُ القائمة يُحفَظ عند الفتح ويعود عند الرجوع** (بند 13):
+ *    «لا تفقد موضع التمرير». والمفتاحُ ليس `well` لأن التبويبَ واحدٌ
+ *    والحالتان اثنتان — فمفتاحٌ خاصٌّ للقائمة.
+ */
+async function openRule(id) {
+  const box = wellScroller();
+  if (id && box) refScroll.set('rules:list', box.scrollTop);
+
+  refView = await patchView({ rules: { openId: id || null } }).catch(() => refView);
+  await renderWells();
+
+  if (!id) {
+    const at = refScroll.get('rules:list') || 0;
+    requestAnimationFrame(() => { const s = wellScroller(); if (s) s.scrollTop = at; });
+  }
+}
+
+/**
+ * نافذةُ إنشاءٍ أو تحرير — **العنوانُ والنصُّ وحدهما** (بند 8).
+ *
+ * ⚠️ **ولا يمرّ بوضع التنظيم**: البندُ صريح — «لا تُجبر المتعلّم على
+ *    وضع التنظيم ليضيف ملاحظةَ مذاكرة».
+ *
+ * ⚠️ **ونافذةٌ لا شاشة**: `showModal` طبقةٌ فوق الظلّ لا مسارٌ يتبدّل،
+ *    فالجلسةُ حيّةٌ خلفها والمقطعُ الفعّالُ كما هو.
+ */
+async function openRuleEditor(id) {
+  const row = id ? await getRule(id) : null;
+  if (id && !row) return toastError('القاعدة دي مش موجودة');
+
+  await showModal({
+    title: row ? 'عدّل القاعدة' : 'قاعدة جديدة',
+    submitLabel: row ? 'احفظ' : 'ضيفها',
+    body: html`
+      <label class="field">
+        <span>العنوان</span>
+        <input name="title" type="text" maxlength="160" value="${row?.title || ''}"
+               placeholder="نطق о بدون نبر">
+      </label>
+      <label class="field">
+        <span>الشرح</span>
+        <textarea name="text" rows="7"
+                  placeholder="اكتب القاعدة بلغتك انت — ده دفترك.">${row?.text || ''}</textarea>
+      </label>
+      <label class="field">
+        <span>وسوم (اختياريّة، بفاصلة)</span>
+        <input name="tags" type="text" maxlength="160" value="${(row?.tags || []).join('، ')}"
+               placeholder="نطق، صرف">
+      </label>`,
+    /*
+     * ⚠️ **`data` كائنٌ عاديٌّ لا `FormData`** — `showModal` تُمرّر
+     *    `Object.fromEntries`. و`data.get(...)` ترمي، فتبقى النافذةُ
+     *    مفتوحةً بلا رسالةٍ ولا حفظ. (كلّفتني هذه تمريرةَ مسبار.)
+     *
+     * ⚠️ **والنافذةُ لا تُغلق نفسَها**: `close` هي البابُ — وبدونها
+     *    تحفظ ثم تجدها أمامك كما هي.
+     */
+    onSubmit: async (data, close) => {
+      const tags = String(data.tags || '')
+        .split(/[,،]/).map((one) => one.trim()).filter(Boolean);
+      const patch = { title: data.title, text: data.text, tags };
+
+      if (row) {
+        await updateRule(row.id, patch);
+        toastOk('حفظنا التعديل');
+      } else {
+        const made = await createRule(patch);
+        /* الجديدةُ تُفتَح فورًا — لأنك أنشأتَها لتقرأها أو تُلحق بها صورة. */
+        refView = await patchView({ rules: { openId: made.id } }).catch(() => refView);
+        toastOk('ضفنا القاعدة');
+      }
+      close();
+      await renderWells();
+    },
+  });
+}
+
+/** يضيف صورةً (أو أكثر) لقاعدة — ثم يعيد رسمَ الدفتر. */
+async function attachRuleImages(ruleId) {
+  const files = await pickFiles({ accept: 'image/*', multiple: true });
+  if (!files?.length) return;
+  try {
+    for (const file of files) await addRuleImage(ruleId, file);
+    toastOk(counted(files.length, 'صورة اتضافت', 'صور اتضافت'));
+  } catch (err) {
+    toastError(err.message || 'مقدرناش نضيف الصورة');
+  }
+  await renderWells();
+}
+
+/** يضيف صورًا مرجعيّةً عامّةً — بلا قاعدةٍ تملكها. */
+async function addReferenceImages() {
+  const files = await pickFiles({ accept: 'image/*', multiple: true });
+  if (!files?.length) return;
+  try {
+    for (const file of files) await addReferenceImage(file);
+    toastOk(counted(files.length, 'صورة اتضافت', 'صور اتضافت'));
+  } catch (err) {
+    toastError(err.message || 'مقدرناش نضيف الصورة');
+  }
+  await renderWells();
+}
+
+/**
+ * يحذف قاعدةً بتأكيدٍ وتراجع.
+ *
+ * ⚠️ **ولا تُمَسّ بايتاتُ صورة** (بند 10): `deleteWithUndo` تُلقي
+ *    **صفَّ القاعدة** في السلّة، والعلاقةُ والصورةُ باقيتان — فالتراجعُ
+ *    يعيد البطاقةَ بصورها، وصورةٌ مشتركةٌ مع قاعدةٍ أخرى لا تتأثّر.
+ */
+async function askDeleteRule(id) {
+  const row = await getRule(id);
+  await deleteWithUndo({
+    repo: referenceRules,
+    id,
+    what: 'القاعدة دي',
+    detail: row?.title || '',
+    after: async () => {
+      refView = await patchView({ rules: { openId: null } }).catch(() => refView);
+      await renderWells();
+    },
+  });
+  /* التراجعُ يعيد الصفَّ — والدفترُ لا يعرف إلّا بإعادة قراءة. */
+  await renderWells();
+}
+
+/** يرفع ملفًّا ويجعله الملخّصَ الفعّال — أو يستبدل الموجود. */
+async function pickReferenceDoc() {
+  const files = await pickFiles({ accept: 'application/pdf,.pdf', multiple: false });
+  const file = files?.[0];
+  if (!file) return;
+
+  if (!/pdf/i.test(file.type) && !/\.pdf$/i.test(file.name || '')) {
+    return toastError('الملفّ لازم يكون PDF');
+  }
+
+  try {
+    await setActiveDoc(file);
+    refView = await readView();
+    toastOk('الملخّص جاهز — هيفضل معاك في أي صفحة ظلّ');
+  } catch (err) {
+    toastError(err.message || 'مقدرناش نحفظ الملفّ');
+  }
+  await renderWells();
+}
+
+/** يفكّ الملخّص — بتأكيدٍ، والبايتاتُ تروح السلّة فتُسترجَع. */
+async function dropReferenceDoc() {
+  const ok = await confirmAction({
+    title: 'تشيل الملخّص؟',
+    message: 'هيروح لسلة المهملات وتقدر ترجّعه، وتقدر ترفع غيره في أي وقت.',
+    confirmLabel: 'شيله',
+    danger: true,
+  });
+  if (!ok) return;
+
+  await clearActiveDoc({ deleteBytes: true });
+  refView = await readView();
+  toast('شلنا الملخّص');
+  await renderWells();
+}
+
+/* ------------------------------------------------------------------ */
+/* الطيُّ والتكبير (بندا 32 و33)                                        */
+/* ------------------------------------------------------------------ */
+
+/**
+ * يطوي الورشةَ ويعيدها.
+ *
+ * ⚠️ **الطيُّ إخفاءٌ لا هدم** (بند 32): `--doc: 0` يخفي اللوحَ وحدَه —
+ *    والأشرطةُ تبقى (وإلّا لا سبيلَ للفتح)، والشجرةُ كما هي، والعارضُ
+ *    والقاعدةُ المفتوحةُ وموضعُ التمرير كلُّها في مكانها. فالعودةُ
+ *    رقمٌ يُعاد لا حالةٌ تُبنى.
+ *
+ * ⚠️ **ويُعاد آخرُ ارتفاعٍ اخترتَه** لا 250 دائمًا: طويتَ ورشةً
+ *    كبيرةً فعادت صغيرة = ضبطٌ يضيع، وهو ما حذّر منه `applyDoc`.
+ */
+let foldedAt = 250;
+
+function toggleRefFold() {
+  const folded = docSize <= 0;
+  if (folded) {
+    applyDoc(foldedAt || 250);
+  } else {
+    foldedAt = docSize;
+    applyDoc(0);
+  }
+  settings.set(DOC_KEY, docSize).catch(() => {});
+  paintRefHead();
+}
+
+/**
+ * يكبّر الورشةَ لتملأ الشاشة ويعيدها.
+ *
+ * ⚠️ **وسمٌ واحدٌ على `.shadow-app` لا شجرةٌ تُنقَل.** نقلُ العنصر
+ *    إلى طبقةٍ أخرى يهدم `canvas` العارضِ ويفقد صفحتَه؛ والوسمُ لا
+ *    يلمس الشجرة — فالخروجُ يعيدك إلى **نفس الصفحة ونفس التكبير**
+ *    كما يطلب البند 33، لأن شيئًا لم يتغيّر أصلًا.
+ */
+function toggleRefMax() {
+  const app = document.querySelector('.shadow-app');
+  if (!app) return;
+  app.classList.toggle('is-refmax');
+  paintRefHead();
+  /* «ملء العرض» مقاسٌ مشتقٌّ من العرض — والعارضُ يراقبه بنفسه. */
+}
+
+/** يحدّث أزرارَ الرأس وعنوانَه بحسب الحالة. */
+function paintRefHead() {
+  const app = document.querySelector('.shadow-app');
+  const max = Boolean(app?.classList.contains('is-refmax'));
+  const folded = docSize <= 0;
+
+  const maxBtn = $('[data-ref-max]');
+  if (maxBtn) {
+    maxBtn.setAttribute('aria-pressed', max ? 'true' : 'false');
+    maxBtn.setAttribute('aria-label', max ? 'رجّع حجم لوحة المراجع' : 'كبّر لوحة المراجع');
+    maxBtn.textContent = max ? '⤡' : '⛶';
+  }
+
+  const foldBtn = $('[data-ref-fold]');
+  if (foldBtn) {
+    foldBtn.setAttribute('aria-expanded', folded ? 'false' : 'true');
+    foldBtn.setAttribute('aria-label', folded ? 'افتح لوحة المراجع' : 'اطوِ لوحة المراجع');
+    foldBtn.textContent = folded ? '▸' : '▾';
+  }
 }
 
 /* ================================================================== */
@@ -6408,6 +7141,17 @@ function wireInteractions(main) {
     if (event.target.hasAttribute('data-draft-box')) {
       scheduleDraftSave(event.target.value);
     }
+
+    /*
+     * بحثُ القواعد (بند 38) — **بلا إعادة رسمِ اللوح كلِّه**.
+     *
+     * ⚠️ إعادةُ الرسم تعني `innerHTML` جديدًا فيفقد صندوقُ البحث
+     *    التركيزَ ويقفز المؤشّرُ بعد كلّ حرف — عطلٌ يظهر فورًا مع
+     *    أوّل كلمة. فالتصفيةُ تُخفي البطاقاتِ وتُبقي الصندوق.
+     */
+    if (event.target.hasAttribute('data-rule-q')) {
+      filterRuleCards(event.target.value);
+    }
   }, wired());
 
   main.addEventListener('change', (event) => {
@@ -6690,13 +7434,75 @@ function wireInteractions(main) {
          *    أن يكمل ويكون له مقبض. فالزرُّ يختفي مع التبويب —
          *    و`paintVoiceBar` تعطيه شريطًا بديلًا في نفس اللحظة.
          */
-        well = btn.dataset.v;
-        await renderWells();
-        paintVoiceBar();
-        return;
+        return openWell(btn.dataset.v);
 
       case 'well-open':
         return openLightbox(btn.dataset.v, ctx.scene.id);
+
+      /* ---------- ورشةُ المراجع (WS-B) ---------- */
+
+      case 'ref-max':
+        return toggleRefMax();
+
+      case 'ref-fold':
+        return toggleRefFold();
+
+      case 'rule-add':
+        return openRuleEditor(null);
+
+      case 'rule-open':
+        return openRule(btn.dataset.v);
+
+      case 'rule-step':
+        return btn.dataset.v ? openRule(btn.dataset.v) : undefined;
+
+      case 'rule-close':
+        return openRule(null);
+
+      case 'rule-edit':
+        return openRuleEditor(btn.dataset.v);
+
+      case 'rule-pin':
+        await toggleRulePin(btn.dataset.v);
+        return renderWells();
+
+      case 'rule-move':
+        /*
+         * ⚠️ **الموضعُ يُحفَظ قبل إعادة الرسم**: بطاقةٌ تنزل درجةً
+         *    تعيد بناءَ القائمة، ولولا الحفظُ لعادت العينُ إلى أعلى
+         *    الدفتر بعد كلّ ضغطةِ سهم.
+         */
+        keepWellScroll();
+        await moveRule(btn.dataset.v, Number(btn.dataset.d));
+        return renderWells();
+
+      case 'rule-img':
+        return attachRuleImages(btn.dataset.v);
+
+      case 'rule-pic':
+        /*
+         * ⚠️ **العارضُ نفسُه لا عارضٌ ثانٍ** (بند 16): `openLightbox`
+         *    فيه القرصُ والتكبيرُ والسابق/التالي منذ WS32. وبلا
+         *    `sceneId` لأن صورةَ القاعدة ليست في ذكرى.
+         */
+        return openLightbox(btn.dataset.v, null);
+
+      case 'rule-pic-off':
+        await detachRuleImage(btn.dataset.v, btn.dataset.m);
+        toast('شلنا الصورة من القاعدة — لسه موجودة في تبويب الصور');
+        return renderWells();
+
+      case 'rule-del':
+        return askDeleteRule(btn.dataset.v);
+
+      case 'ref-img-add':
+        return addReferenceImages();
+
+      case 'ref-doc-pick':
+        return pickReferenceDoc();
+
+      case 'ref-doc-clear':
+        return dropReferenceDoc();
 
       case 'well-play':
         return playVoice(btn.dataset.v);

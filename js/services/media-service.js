@@ -231,6 +231,37 @@ export async function storeStandaloneImage(file, { kind = 'image' } = {}) {
   return media.create(record);
 }
 
+/**
+ * يخزّن **مستندًا** بلا مشهد — ملخّصُ القواعد الشخصيّ (WS-B).
+ *
+ * ⚠️ **ولماذا دالّةٌ ثانيةٌ بدل `storeStandaloneImage` بـ`kind` آخر؟**
+ *    لأن تلك تُنادي `createImageBitmap` مرّتين على البايتات. وملفُّ
+ *    PDF ليس صورة: النداءان يفشلان فيُبتلع الفشل ويُكتب السجل —
+ *    فيعمل الأمرُ **بالمصادفة** لا بالتصميم، ويدفع ثمنَ محاولتين
+ *    على ملفٍّ قد يكون عشرة ميغابايت. فالفرقُ صريحٌ هنا.
+ *
+ * ⚠️ **والبايتاتُ في `media` كغيرها**: النسخةُ الاحتياطيّة والسلّةُ
+ *    تعرفان هذا المكان، ولا يتعلّم أحدهما شيئًا جديدًا.
+ *
+ * @param {File|Blob} file
+ * @param {{kind?: string}} options
+ */
+export async function storeDocument(file, { kind = 'doc' } = {}) {
+  return media.create({
+    kind,
+    blob: file,
+    mime: file.type || 'application/pdf',
+    filename: file.name || `doc-${Date.now()}`,
+    bytes: file.size,
+    thumbBlob: null,
+    width: null,
+    height: null,
+    durationMs: null,
+    caption: '',
+    notes: '',
+  });
+}
+
 /** يعيّن صورة كغلاف للمشهد. */
 export async function setCover(sceneId, mediaId) {
   await scenes.update(sceneId, { coverMediaId: mediaId });

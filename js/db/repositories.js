@@ -76,6 +76,9 @@ export const devShots = createRepository('devShots', PREFIX.DEV_SHOT);
 /** مسودّة المذاكرة — ما تكتبه عن جملةٍ أو كلمة (v12). */
 export const studyDrafts = createRepository('studyDrafts', PREFIX.STUDY_DRAFT);
 
+/** القواعد المهمّة — دفترُ المراجع الشخصيّ داخل الظلّ (v15، WS-B). */
+export const referenceRules = createRepository('referenceRules', PREFIX.REFERENCE_RULE);
+
 /**
  * الإعدادات — مفتاح/قيمة، بلا الحقول المشتركة.
  * أبسط من repository كامل ولا يحتاج rev ولا حالات.
@@ -151,4 +154,5 @@ export const ALL_REPOS = {
   devEvents,
   devShots,
   studyDrafts,
+  referenceRules,
 };
