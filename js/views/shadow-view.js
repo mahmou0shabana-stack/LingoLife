@@ -1486,14 +1486,24 @@ function shell() {
               <div class="sh-modes" data-modes role="tablist"
                    aria-label="إيه اللي بيتقرا"></div>
 
+              <!--
+                ⚠️ **زرّان يقولان الصدق عند الحافّة** (WS-A، بند ٢٦).
+                   في مصدرٍ من جملةٍ واحدة لا سابقَ ولا تالي — فيُعطَّلان
+                   ويقول عنوانُ الزرّ لماذا، بدل أن ينقلاك إلى السكريبت.
+
+                   ⚠️ ولا علامةَ اقتباسٍ خلفيّة في تعليقٍ داخل قالب —
+                      وقعتُ فيها هنا مرّةً ثانية. و node --check **لم
+                      يمسكها**: علامتان تُغلقان القالبَ وتفتحان آخر،
+                      فيبقى الملفُّ «سليمًا» ويسقط في المتصفّح وحدَه.
+              -->
               <div class="sh-transport">
-                <button class="sh-nav-btn" data-sh="prev" aria-label="السابق">
+                <button class="sh-nav-btn" data-sh="prev" data-nav-prev aria-label="السابق">
                   <i class="sh-ico-prev"></i>
                 </button>
                 <button class="sh-play" data-sh="play" aria-label="تشغيل">
                   <i class="sh-ico-play"></i>
                 </button>
-                <button class="sh-nav-btn" data-sh="next" aria-label="التالي">
+                <button class="sh-nav-btn" data-sh="next" data-nav-next aria-label="التالي">
                   <i class="sh-ico-next"></i>
                 </button>
               </div>
@@ -2029,6 +2039,38 @@ function handleEvent(event) {
 }
 
 /** يحدّث الصفحتين معًا عند تغيّر المقطع. */
+/**
+ * يُعطّل «السابق/التالي» عند حافّة المصدر — ويقول لماذا (WS-A، بند ٢٦).
+ *
+ * ⚠️ **والحدُّ يُقرأ من المحرّك لا يُحسَب هنا.** `player.edges` مشتقّةٌ
+ *    من نفس دالّتَي التنقّل اللتين ينقل بهما الزرّان؛ فيستحيل أن يبدو
+ *    الزرُّ معطَّلًا وهو ينقل، أو صالحًا ولا ينقل. وحسابُ الحدّ في
+ *    الشاشة كان سيصير حقيقةً ثانيةً تتقادم.
+ *
+ * ⚠️ **وهذا ليس شرطًا على زرّ** بل عرضٌ لحقيقةٍ قرّرها المحرّك:
+ *    الزرُّ لو ضُغط رغم التعطيل (لوحةُ مفاتيح، سكربت) لا يعبر أيضًا،
+ *    لأن `nextSelected` نفسَها محصورة.
+ */
+function syncNavEdges() {
+  const edges = player?.edges;
+  if (!edges) return;
+
+  const lone = !edges.whole && edges.count <= 1;
+  const pairs = [
+    ['[data-nav-prev]', edges.atStart, 'مفيش جملة قبل دي في المصدر ده'],
+    ['[data-nav-next]', edges.atEnd, 'مفيش جملة بعد دي في المصدر ده'],
+  ];
+
+  for (const [sel, blocked, why] of pairs) {
+    const btn = $(sel);
+    if (!btn) continue;
+    btn.disabled = Boolean(blocked);
+    btn.classList.toggle('at-edge', Boolean(blocked));
+    if (blocked) btn.title = lone ? 'النصّ ده جملة واحدة — ارجع للأصل عشان تتنقّل' : why;
+    else btn.removeAttribute('title');
+  }
+}
+
 function syncSegment() {
   if (!player || !ctx) return;
 
@@ -2037,6 +2079,7 @@ function syncSegment() {
   if (!segment) return;
 
   syncMediaSession(segment);
+  syncNavEdges();
 
   const textEl = $('[data-text]');
   const trEl = $('[data-tr]');
@@ -6256,6 +6299,18 @@ function hasExternalSegment() {
 }
 
 /**
+ * فهارسُ مقاطع المصدر المؤقّت — مدًى متّصلٌ في آخر القائمة.
+ *
+ * ⚠️ **ومتّصلٌ بحكم البناء لا بالصدفة**: تُدفَع دفعةً واحدةً في آخر
+ *    `ctx.segments` وتُحذَف دفعةً واحدة. فلا يتخلّلها مقطعٌ أصليّ.
+ */
+function externalRange() {
+  const at = ctx?.segments?.findIndex((s) => s.temporary) ?? -1;
+  if (at < 0) return null;
+  return { from: at, to: ctx.segments.length - 1 };
+}
+
+/**
  * يدخل بنصٍّ خارجيّ **كمقطعٍ حقيقيّ** في نفس `ctx.segments` — لا محرّكَ
  * ثانٍ ولا رسمَ يدويّ.
  *
@@ -6283,24 +6338,51 @@ function enterExternalText(text) {
   const clean = (text || '').trim();
   if (!clean) return;
 
-  /* ⚠️ أوّل دخولٍ فقط يحفظ موضعك — دخولٌ ثانٍ لا يُبدّل رجوعك (بند 18). */
-  if (ctx.returnIndex == null) ctx.returnIndex = player.state.index;
+  /*
+   * ⚠️ أوّل دخولٍ فقط يحفظ موضعك — دخولٌ ثانٍ لا يُبدّل رجوعك (بند 18).
+   *
+   * ⚠️ **ويُلتقَط قبل الإسقاط ويُعاد بعده — وهذا ما كان مكسورًا.**
+   *
+   *    `dropExternalSource` **تستهلك** `returnIndex` وتصفّره، لأنها
+   *    بابُ الخروج. فلصقُ نصٍّ ثانٍ فوق أوّل كان: يُحفَظ الموضعُ (٠)،
+   *    ثم يُسقَط الأوّلُ فيُصفَّر، ثم يُدفَع الثاني بلا موضعِ رجوع.
+   *    فـ«الرجوع للأصل» بعدها يسقط على `segments.length - 1` — آخرِ
+   *    جملةٍ في السكريبت لا التي كنتَ عليها.
+   *
+   *    قِسته: أصلٌ من ثلاث جمل، وقوفٌ على الأولى، لصقٌ ثم لصقٌ ثانٍ،
+   *    ثم رجوع → «третья исходная фраза» بدل «протокол уже…».
+   *    والاستبدالُ ليس خروجًا، فلا يجوز أن يُنسي موضعَ الرجوع.
+   */
+  const resume = ctx.returnIndex ?? player.state.index;
 
   /* نصٌّ خارجيّ جديد يستبدل القديم — لا يتراكم فوقه. */
-  if (hasExternalSegment()) {
-    const old = ctx.segments.pop();
-    player.dropSegment(old.id, ctx.returnIndex);
-  }
+  if (hasExternalSegment()) dropExternalSource();
 
-  const seg = {
-    id: `ext-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+  ctx.returnIndex = resume;
+
+  /*
+   * ⚠️ **والمصدرُ المؤقّت يملك تسلسلَه — لا جملةً واحدةً مسطّحة.**
+   *
+   *    كان النصُّ الملصوقُ كلُّه مقطعًا واحدًا مدفوعًا في آخر
+   *    `ctx.segments`؛ فلصقُ فقرةٍ من ثلاث جملٍ يعطيك «جملةً» طولُها
+   *    ثلاثُ جمل، و«التالي» منها يعبر إلى السكريبت. والقسمةُ هنا
+   *    بنفس `splitSentences` التي يُقسَّم بها أيُّ سكريبت — فالمصدرُ
+   *    المؤقّت مصدرٌ صغيرٌ لا استثناء.
+   */
+  const sourceId = `ext-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`;
+  const parts = splitSentences(clean).filter((one) => one.trim());
+  const texts = parts.length ? parts : [clean];
+
+  const from = ctx.segments.length;
+  const made = texts.map((text, i) => ({
+    id: `${sourceId}-${i}`,
     sessionId: ctx.session.id,
     sourceObjectId: null,
-    sourceTextSnapshot: clean,
+    sourceTextSnapshot: text.trim(),
     translationSnapshot: null,
     speaker: null,
     isMine: 0,
-    order: ctx.segments.length,
+    order: from + i,
     difficulty: 0,
     repetitionsCompleted: 0,
     lastPracticedAt: null,
@@ -6308,9 +6390,23 @@ function enterExternalText(text) {
     notes: '',
     /* ⚠️ الشارةُ الوحيدة التي تُميّزه — كلُّ ما عداها يُعامَل كأيّ مقطع. */
     temporary: true,
-  };
-  ctx.segments.push(seg);
-  player.pushSegment({ id: seg.id, text: clean, humanAudioUrl: null });
+    /** معرِّفُ المصدر — كلُّ جمله تحمله، فيُحذَف كوحدةٍ واحدة. */
+    sourceId,
+  }));
+
+  ctx.segments.push(...made);
+  for (const seg of made) {
+    player.pushSegment({ id: seg.id, text: seg.sourceTextSnapshot, humanAudioUrl: null });
+  }
+
+  /*
+   * ⚠️ **وهنا يُغلَق الباب** (بندا ٢٦ و٤١): التنقّلُ محصورٌ في مقاطع
+   *    هذا المصدر. لا «التالي» ولا «السابق» ولا الشُّرَط ولا التقدّمُ
+   *    التلقائيّ يعبر إلى جمل السكريبت — و«الرجوع للأصل» وحدَه يرفع
+   *    النافذة.
+   */
+  player.setSourceWindow({ from, to: ctx.segments.length - 1 });
+  player.goTo(from);
 
   const field = $('[data-scratch-input]');
   if (field) field.value = '';
@@ -6340,11 +6436,28 @@ function exitExternalText() {
   document.querySelector('[data-sh="scratch-open"]')?.classList.remove('on');
 
   if (!hasExternalSegment()) return;
+  dropExternalSource();
+}
 
-  const seg = ctx.segments.pop();
+/**
+ * يُسقط المصدرَ المؤقّت كلَّه ويعيدك إلى موضعك في الأصل.
+ *
+ * ⚠️ **بابٌ واحدٌ للخروج** — يناديه «الرجوع للأصل» ويناديه استبدالُ
+ *    نصٍّ بنصّ. ولا ثالثَ لهما: أيُّ مسارٍ آخر يُسقط مقاطعَ مؤقّتةً
+ *    بيده سيَنسى رفعَ النافذة أو إعادةَ `returnIndex`.
+ */
+function dropExternalSource() {
+  const range = externalRange();
+  if (!range) return;
+
+  const ids = ctx.segments.slice(range.from).map((s) => s.id);
+  ctx.segments.length = range.from;
+
   const back = ctx.returnIndex ?? Math.max(0, ctx.segments.length - 1);
   ctx.returnIndex = null;
-  player.dropSegment(seg.id, Math.min(back, Math.max(0, ctx.segments.length - 1)));
+
+  /* ترفع النافذةَ ثم تحذف ثم ترجع — بهذا الترتيب. راجع `dropSegments`. */
+  player.dropSegments(ids, Math.min(back, Math.max(0, ctx.segments.length - 1)));
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -7207,6 +7320,21 @@ function wireInteractions(main) {
         if (picked.has(at)) picked.delete(at);
         else picked.add(at);
         renderPicked();
+        return;
+      }
+      /*
+       * ⚠️ **وسطرُ الأصل لا يُخرجك من نصّك المؤقّت** (WS-A، بند ٢٦).
+       *
+       *    قائمةُ الجمل تحت المسرح هي محتوى **المصدر الأصليّ**. ونقرُها
+       *    ونصٌّ مؤقّتٌ فعّالٌ كان سيكون خروجًا ضمنيًّا من المصدر —
+       *    وهو ما لا يملكه إلّا «الرجوع للأصل».
+       *
+       *    و`goTo` محصورةٌ في النافذة على أيّ حال، فالنقرةُ لن تعبر.
+       *    لكنّ **قصًّا صامتًا** أسوأُ من رفضٍ مُعلَن: تضغط سطرًا فتقفز
+       *    إلى حافّةٍ لم تطلبها. فيُقال السبب.
+       */
+      if (hasExternalSegment()) {
+        toast('انت في نصّ مؤقّت — ارجع للأصل الأوّل عشان تنقّل بين جمله');
         return;
       }
       return player.goTo(at);

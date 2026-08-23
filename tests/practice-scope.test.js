@@ -16,6 +16,7 @@ import { describe, it, expect } from './test-runner.js';
 import { markPlain, markSentence, rememberStress, loadUserDictionary } from '../js/services/shadow/stress.js';
 import { SAVED_KIND } from '../js/services/saved-service.js';
 import { splitWords } from '../js/services/shadow/segmenter.js';
+import { createPlaybackController } from '../js/services/shadow/playback-controller.js';
 
 /* ================================================================== *
  * ١) الحارسُ المعماريّ — البند ٣٩
@@ -316,6 +317,215 @@ describe('المقطع الجزئيّ · التشغيل', () => {
 });
 
 /* ================================================================== *
+ * ٤٫٥) حدُّ المصدر — «التنقّل لا يعبر مصدرَه» (بندا ٢٦ و٤١)
+ * ================================================================== *
+ *
+ * ⚠️ **وهذه اختباراتُ سلوكٍ لا فحصُ نصّ.** تُبنى مُشغّلٌ حقيقيّ
+ *    وتُضغَط أزرارُه، لأن الادّعاءَ المطلوبَ إثباتُه سلوكيّ: «لا فعلَ
+ *    عاديٌّ يعبر من المصدر المؤقّت إلى الأصل». فحصُ نصٍّ يثبت أن
+ *    سطرًا مكتوب؛ وهذا يثبت أن الحدَّ يصمد.
+ */
+
+/** مُشغّلٌ صامت: أربعُ جملِ سكريبت ثم جملتان مؤقّتتان. */
+function bench() {
+  const events = [];
+  const player = createPlaybackController({
+    segments: [
+      { id: 's0', text: 'Первая.' },
+      { id: 's1', text: 'Вторая.' },
+      { id: 's2', text: 'Третья.' },
+      { id: 's3', text: 'Четвёртая.' },
+    ],
+    settings: { rate: 1, repeatCount: 1, autoAdvance: false },
+    speaker: { speak: async () => {} },
+    onEvent: (e) => events.push(e.type),
+  });
+  return { player, events };
+}
+
+describe('حدُّ المصدر · التنقّل لا يعبره (بند ٢٦)', () => {
+  it('⚠️ «التالي» من آخرِ جملةٍ في مصدرٍ مؤقّت لا يدخل السكريبت', () => {
+    const { player } = bench();
+    /* مصدرٌ مؤقّتٌ بجملتين في الآخر. */
+    player.pushSegment({ id: 'ext-0', text: 'Внешняя один.' });
+    player.pushSegment({ id: 'ext-1', text: 'Внешняя два.' });
+    player.setSourceWindow({ from: 4, to: 5 });
+    player.goTo(4);
+
+    expect(player.state.index).toBe(4);
+    player.next();
+    expect(player.state.index).toBe(5);
+    /* الحافّة: يقف ولا يعبر. */
+    player.next();
+    expect(player.state.index).toBe(5);
+  });
+
+  it('و«السابق» من أوّلِ جملةٍ فيه لا يرجع إلى السكريبت', () => {
+    const { player } = bench();
+    player.pushSegment({ id: 'ext-0', text: 'Внешняя один.' });
+    player.pushSegment({ id: 'ext-1', text: 'Внешняя два.' });
+    player.setSourceWindow({ from: 4, to: 5 });
+    player.goTo(5);
+
+    player.previous();
+    expect(player.state.index).toBe(4);
+    player.previous();
+    expect(player.state.index).toBe(4);
+  });
+
+  it('ومصدرٌ من جملةٍ واحدة: لا سابقَ ولا تالي — ويُقال ذلك صراحةً', () => {
+    const { player } = bench();
+    player.pushSegment({ id: 'ext-0', text: 'Одна фраза.' });
+    player.setSourceWindow({ from: 4, to: 4 });
+
+    expect(player.state.index).toBe(4);
+    expect(player.edges.atStart).toBe(true);
+    expect(player.edges.atEnd).toBe(true);
+    expect(player.edges.count).toBe(1);
+    expect(player.edges.whole).toBe(false);
+
+    player.next();
+    expect(player.state.index).toBe(4);
+    player.previous();
+    expect(player.state.index).toBe(4);
+  });
+
+  it('و`goTo` إلى جملةِ سكريبتٍ تُقصّ إلى حدّ المصدر ولا تعبر', () => {
+    const { player } = bench();
+    player.pushSegment({ id: 'ext-0', text: 'Внешняя.' });
+    player.setSourceWindow({ from: 4, to: 4 });
+
+    /* أيُّ فهرسٍ خارج المصدر — من شرطةٍ أو سطرٍ أو استعادةِ موضع. */
+    player.goTo(0);
+    expect(player.state.index).toBe(4);
+    player.goTo(2);
+    expect(player.state.index).toBe(4);
+  });
+
+  it('⚠️ وانتهاءُ مصدرٍ مؤقّت لا يُغلق الجلسة', () => {
+    const { player, events } = bench();
+    player.pushSegment({ id: 'ext-0', text: 'Внешняя.' });
+    player.setSourceWindow({ from: 4, to: 4 });
+    events.length = 0;
+
+    player.next();
+    /*
+     * لا `session-complete`: الجلسةُ ملكُ المصدر الأصليّ، وبلوغُ آخرِ
+     * جملةٍ في نصٍّ لصقتَه الآن وقوفٌ لا انتهاء.
+     */
+    expect(events.includes('session-complete')).toBe(false);
+  });
+
+  it('ورفعُ النافذة يُعيد التنقّلَ في كلّ المصدر الأصليّ', () => {
+    const { player } = bench();
+    player.pushSegment({ id: 'ext-0', text: 'Внешняя.' });
+    player.setSourceWindow({ from: 4, to: 4 });
+    expect(player.edges.atEnd).toBe(true);
+
+    /* «الرجوع للأصل»: تُحذَف مقاطعُه وتُرفَع النافذةُ ويعود الموضع. */
+    player.dropSegments(['ext-0'], 1);
+    expect(player.sourceWindow).toBe(null);
+    expect(player.state.index).toBe(1);
+    expect(player.edges.atEnd).toBe(false);
+
+    player.next();
+    expect(player.state.index).toBe(2);
+  });
+
+  it('وحدُّ المصدر لا يمسّ «حصر التدريب» — حقلان لا حقلٌ بمعنيين', () => {
+    const { player } = bench();
+    /* اختيارُ المستخدم: الجملتان ١ و٣ من الأصل. */
+    player.setSelection([1, 3]);
+    expect(player.selection).toEqual([1, 3]);
+
+    player.pushSegment({ id: 'ext-0', text: 'Внешняя.' });
+    player.setSourceWindow({ from: 4, to: 4 });
+    /* دخولُ نصٍّ مؤقّتٍ لا يمحو اختيارَك. */
+    expect(player.selection).toEqual([1, 3]);
+
+    player.dropSegments(['ext-0'], 1);
+    expect(player.selection).toEqual([1, 3]);
+  });
+});
+
+/* ================================================================== *
+ * حارسٌ نصّيّ: لا بابَ جانبيٌّ يتخطّى النافذة
+ * ================================================================== */
+
+describe('حدُّ المصدر · الحارس', () => {
+  it('⚠️ وكلُّ كتابةٍ على `state.index` مصدرُها محصورٌ بالنافذة', async () => {
+    /*
+     * ⚠️ **العدُّ كان حارسًا خاطئًا.** كتبتُ أوّلًا «كتابةٌ واحدةٌ
+     *    فقط»، فسقط الحارسُ على ثلاث — واثنتان منها سليمتان تمامًا:
+     *    `start()` تقفز إلى أوّل مقطعٍ صالحٍ بـ`nextSelected(-1)`،
+     *    وهي محصورةٌ بالنافذة أصلًا.
+     *
+     *    فالمحروسُ ليس **كم** كتابةً بل **من أين تأتي القيمة**: إمّا
+     *    `clamped` (مخرجُ القصّ في `goTo`) وإمّا `nextSelected(...)`
+     *    (مخرجُ البحث المحصور). أيُّ مصدرٍ ثالثٍ بابٌ للعبور.
+     */
+    const src = await (await fetch('../js/services/shadow/playback-controller.js')).text();
+    const bad = [];
+    for (const m of src.matchAll(/state\.index\s*=(?!=)\s*([^;\n]+)/g)) {
+      const rhs = m[1].trim();
+      const safe = rhs === 'clamped' || rhs.startsWith('first') || /^nextSelected\(/.test(rhs);
+      if (!safe) bad.push(rhs.slice(0, 40));
+    }
+    expect(bad).toEqual([]);
+
+    /* و`first` نفسُها لا تُشتقّ إلّا من البحث المحصور. */
+    const firsts = src.match(/const first\s*=\s*([^;\n]+)/g) || [];
+    expect(firsts.length > 0).toBe(true);
+    for (const line of firsts) expect(line.includes('nextSelected(')).toBe(true);
+  });
+
+  it('و«التالي/السابق» في الشاشة لا يتخطّيان المحرّك', async () => {
+    const src = await (await fetch('../js/views/shadow-view.js')).text();
+    expect(src.includes("case 'prev': return player.previous();")).toBe(true);
+    expect(src.includes("case 'next': return player.next();")).toBe(true);
+  });
+
+  it('وسطرُ الأصل لا يُخرجك من نصّك المؤقّت ضمنيًّا', async () => {
+    const src = await (await fetch('../js/views/shadow-view.js')).text();
+    const at = src.indexOf("const line = event.target.closest('[data-line]')");
+    expect(at > 0).toBe(true);
+    const fn = src.slice(at, at + 1400);
+    /* يرفض بصراحةٍ ولا يقصّ صامتًا، ولا يُنادي خروجًا. */
+    expect(fn.includes('hasExternalSegment()')).toBe(true);
+    expect(fn.includes('exitExternalText')).toBe(false);
+  });
+
+  it('⚠️ ولا علامةَ اقتباسٍ خلفيّة داخل تعليقِ HTML في قالب', async () => {
+    /*
+     * ⚠️ **حارسٌ وُلد من وقوعي فيها مرّتين.**
+     *
+     *    تعليقُ `<!-- ... -->` داخل قالب html يبدو نصًّا، وهو **داخل
+     *    قالبٍ نصّيّ**: أيُّ علامةِ اقتباسٍ خلفيّةٍ فيه تُنهي القالبَ
+     *    فيصير ما بعدها كودًا.
+     *
+     *    والأخبثُ أن `node --check` **يمرّرها** حين تكون العلامتان
+     *    زوجًا: الأولى تُغلق والثانيةُ تفتح قالبًا جديدًا، فيبقى
+     *    الملفُّ صحيحًا نحويًّا في نظرِ Node ويسقط في المتصفّح وحدَه
+     *    («Unexpected identifier»). فلا يكفي الفحصُ النحويّ حارسًا.
+     */
+    const src = await (await fetch('../js/views/shadow-view.js')).text();
+    const bad = [];
+    for (const m of src.matchAll(/<!--[\s\S]*?-->/g)) {
+      if (m[0].includes('`')) bad.push(m[0].slice(0, 60).replace(/\s+/g, ' '));
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it('وبابُ الخروج واحدٌ — `dropExternalSource` لا حذفٌ يدويّ متفرّق', async () => {
+    const src = await (await fetch('../js/views/shadow-view.js')).text();
+    /* لا أحدَ يحذف مقاطعَ مؤقّتةً بيده خارج البابِ الواحد. */
+    const pops = src.match(/ctx\.segments\.pop\(\)/g) || [];
+    expect(pops.length).toBe(0);
+    expect(src.includes('function dropExternalSource()')).toBe(true);
+  });
+});
+
+/* ================================================================== *
  * ٥) مصفوفةُ التكافؤ — البند ٤٠
  * ================================================================== */
 
@@ -344,16 +554,24 @@ const PARITY = Object.freeze({
   'حفظ المقطع': { original: true, external: true },
   'تحليل النطق': { original: true, external: true },
   'الكلمة التالية/السابقة': { original: true, external: true },
-  'الجملة التالية/السابقة': {
-    original: true,
-    /*
-     * ⚠️ **الخانةُ الوحيدةُ التي تفترق — وبسببٍ في طبيعة الشيء لا في تنفيذه.**
-     *    المقطعُ المؤقّتُ **واحد**: لا جملةَ بعده ولا قبله داخل مصدره.
-     *    و«التالي» منه يعبر إلى جمل السكريبت — وهو سلوكُ المحرّك منذ
-     *    WS42 ومقصود. فالخانةُ ليست نقصَ ميزةٍ بل غيابَ معنًى.
-     */
-    external: 'المقطع المؤقّت واحدٌ لا سلسلة — «التالي» يعبر إلى جمل المصدر بقصد',
-  },
+  /*
+   * ⚠️ **صُحِّحت هذه الخانةُ ببلاغك — وكانت تُبرّر تسريبًا لا تصفُ ميزة.**
+   *
+   *    كُتب فيها أوّلًا: «التالي يعبر إلى جمل المصدر بقصد». وذلك
+   *    **يناقض بندَ ٢٦** نصًّا: «الرجوع للأصل هو المخرجُ الوحيد من
+   *    المصدر». فزرُّ «التالي» كان يفعل خروجًا من المصدر — أي أن
+   *    المصفوفةَ سجّلت العطبَ قرارًا بدل أن تكشفه.
+   *
+   *    والآن: المصدرُ المؤقّت يملك تسلسلَه، والتنقّلُ محصورٌ فيه.
+   *    فالخانةُ صارت مدعومةً على الجانبين بنفس المعنى: «تنقّل داخل
+   *    مصدرك».
+   */
+  'الجملة التالية/السابقة (داخل المصدر)': { original: true, external: true },
+
+  /*
+   * والخانةُ الجديدةُ هي التي تحرس الحدَّ نفسَه.
+   */
+  'التنقّل لا يعبر حدَّ المصدر': { original: true, external: true },
   'الرجوع للأصل': {
     /*
      * ⚠️ ولا معنى لها على الأصل: أنت فيه.
@@ -381,9 +599,20 @@ describe('التكافؤ · الأصليّ مقابل الخارجيّ (بند �
   });
 
   it('والأغلبيّةُ الساحقةُ متكافئةٌ فعلًا — لا «مدعوم» بشروط', () => {
+    /*
+     * ⚠️ **ارتفع الرقمُ من ١٧ إلى ١٩ ببلاغك** (بند ٢٦):
+     *
+     *      «الجملة التالية/السابقة» كانت خانةً بعذرٍ مكتوب، وكان
+     *      العذرُ **تبريرَ تسريب** لا وصفَ ميزة: «التالي» يعبر إلى
+     *      المصدر الأصليّ. فصار المصدرُ المؤقّت يملك تسلسلَه،
+     *      والخانةُ مدعومةً على الجانبين، وأُضيفت خانةٌ تحرس الحدَّ.
+     *
+     * ⚠️ **والرقمُ مثبَّتٌ عمدًا**: خفضُه لاحقًا يعني أن ميزةً هبطت
+     *    إلى «مدعومةٌ بشرط» — وهو ما يجب أن يُوقظ أحدًا.
+     */
     const rows = Object.values(PARITY);
     const equal = rows.filter((r) => r.original === true && r.external === true).length;
-    expect(`${equal}/${rows.length}`).toBe(`17/${rows.length}`);
+    expect(`${equal}/${rows.length}`).toBe(`19/${rows.length}`);
   });
 
   it('⚠️ والمصفوفةُ تغطّي كلَّ ما عدّده الطلب', () => {

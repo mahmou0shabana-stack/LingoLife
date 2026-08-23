@@ -169,20 +169,65 @@ export function createPlaybackController({
    */
   let selection = new Set();
 
+  /**
+   * ═══════════════════════════════════════════════════════════════
+   * نافذةُ المصدر — «التنقّل لا يعبر حدَّ مصدره» (WS-A، بندا ٢٦ و٤١)
+   * ═══════════════════════════════════════════════════════════════
+   *
+   * `{from, to}` شاملةُ الطرفين، أو `null` = كلُّ المقاطع.
+   *
+   * ⚠️ **ولماذا لا نستعمل `selection` الموجودة؟** لأنها تعني شيئًا
+   *    آخرَ يملكه المستخدم: «احصر التدريب في الجمل التي اخترتُها»
+   *    (بند ٢١). فلو حشرنا فيها حدَّ المصدر لصار حقلٌ واحدٌ بمعنيين:
+   *    دخولُك نصًّا مؤقّتًا يمحو اختيارَك، وخروجُك منه يعيده خطأً،
+   *    والشاشةُ تُظهر المقطعَ المؤقّت «سطرًا مختارًا». وهو نفسُ العطب
+   *    الذي وُثِّق في `relationships.type` و`ctx.fontSize`.
+   *
+   *    فالحدّان مستقلّان ويتقاطعان: **النافذةُ** تقول أين يعيش
+   *    المصدرُ الفعّال، و**التحديدُ** يقول أيَّ جملٍ منه تتدرّب عليها.
+   *
+   * ⚠️ **وهذا هو الإصلاحُ البنيويّ لا شرطًا على زرّ.** «التالي» و
+   *    «السابق» و`goTo` والتقدّمُ التلقائيُّ في `cycle` كلُّها تمرّ من
+   *    `nextSelected`/`previousSelected`/`goTo` — فحصرُها هنا يحصر
+   *    كلَّ طريقٍ إلى المقاطع دفعةً واحدة، ولا يبقى بابٌ جانبيّ.
+   */
+  let sourceWindow = null;
+
+  const windowFrom = () => Math.max(0, sourceWindow?.from ?? 0);
+  const windowTo = () =>
+    Math.min(segments.length - 1, sourceWindow?.to ?? segments.length - 1);
+
+  /**
+   * هل النافذةُ تغطّي كلَّ المقاطع؟
+   *
+   * ⚠️ يفرّق بين «انتهت الجلسة» و«انتهى مصدرٌ مؤقّت». الجلسةُ ملكُ
+   *    المصدر الأصليّ؛ فبلوغُ آخرِ جملةٍ في نصٍّ لصقتَه الآن **لا
+   *    يُغلق جلستَك** — راجع `cycle`.
+   */
+  function isWholeSource() {
+    return !sourceWindow || (windowFrom() === 0 && windowTo() === segments.length - 1);
+  }
+
   /** هل هذا الفهرس داخل التحديد؟ (وكلّها داخله حين لا تحديد) */
   function inSelection(index) {
     return selection.size === 0 || selection.has(index);
   }
 
-  /** الفهرس التالي داخل التحديد، أو -1 إن لم يبقَ شيء. */
+  /** الفهرس التالي داخل التحديد **وداخل المصدر**، أو -1 إن لم يبقَ شيء. */
   function nextSelected(from) {
-    for (let i = from + 1; i < segments.length; i++) if (inSelection(i)) return i;
+    const stop = windowTo();
+    for (let i = Math.max(from, windowFrom() - 1) + 1; i <= stop; i++) {
+      if (inSelection(i)) return i;
+    }
     return -1;
   }
 
-  /** الفهرس السابق داخل التحديد، أو -1. */
+  /** الفهرس السابق داخل التحديد **وداخل المصدر**، أو -1. */
   function previousSelected(from) {
-    for (let i = from - 1; i >= 0; i--) if (inSelection(i)) return i;
+    const stop = windowFrom();
+    for (let i = Math.min(from, windowTo() + 1) - 1; i >= stop; i--) {
+      if (inSelection(i)) return i;
+    }
     return -1;
   }
 
@@ -377,6 +422,20 @@ export function createPlaybackController({
 
     if (nextSelected(state.index) === -1) {
       state.running = false;
+      /*
+       * ⚠️ **وانتهاءُ مصدرٍ مؤقّت ليس انتهاءَ الجلسة.**
+       *
+       *    الجلسةُ ملكُ المصدر الأصليّ. فلو أطلقنا `session-complete`
+       *    عند آخرِ جملةٍ في نصٍّ لصقتَه الآن لَأُغلقت جلستُك في
+       *    القاعدة وفُتحت نافذةُ ملخّصٍ فوق الشاشة — عقوبةٌ على أنك
+       *    شغّلتَ نصًّا مؤقّتًا حتى نهايته.
+       *
+       *    فالحافّةُ هنا **وقوفٌ** كوقوف «التالي» عند آخر جملة.
+       */
+      if (!isWholeSource()) {
+        emit('stop');
+        return;
+      }
       state.finished = true;
       emit('session-complete');
       return;
@@ -488,9 +547,15 @@ export function createPlaybackController({
       return controller.start();
     },
 
-    /** ينتقل لمقطع بالفهرس. */
+    /**
+     * ينتقل لمقطع بالفهرس.
+     *
+     * ⚠️ **ويُحصَر داخل نافذة المصدر لا داخل كلّ المقاطع.** هذه هي
+     *    البوّابةُ التي تمرّ منها `next` و`previous` و`goSegment`
+     *    والشُّرَطُ في أعلى المسرح — فحصرُها هنا يسدّ كلَّ طريق.
+     */
     goTo(index) {
-      const clamped = Math.max(0, Math.min(segments.length - 1, index));
+      const clamped = Math.max(windowFrom(), Math.min(windowTo(), index));
       const wasRunning = state.running && !state.paused;
       halt();
       state.index = clamped;
@@ -609,13 +674,74 @@ export function createPlaybackController({
      * @param {number} [returnIndex] الفهرس الذي يُنتقَل إليه بعد الحذف
      */
     dropSegment(id, returnIndex) {
-      const at = segments.findIndex((s) => s.id === id);
-      if (at === -1) return;
-      segments.splice(at, 1);
+      return controller.dropSegments([id], returnIndex);
+    },
+
+    /**
+     * يحذف مقاطعَ مصدرٍ مؤقّتٍ كاملًا ويعيدك حيث كنت (WS-A، بند ٢٦).
+     *
+     * ⚠️ **والنافذةُ تُرفَع أوّلًا.** `goTo` صارت تُحصَر داخل نافذة
+     *    المصدر؛ فلو حذفنا ثم انتقلنا والنافذةُ لا تزال على المدى
+     *    المحذوف لَقُصَّ هدفُ الرجوع إلى حافّتها — أي لَما رجعتَ إلى
+     *    جملتك الأصليّة أبدًا. رفعُ النافذة **جزءٌ من الخروج** لا
+     *    ترتيبٌ اعتباطيّ.
+     *
+     * @param {string[]} ids
+     * @param {number} [returnIndex] الفهرس الذي يُنتقَل إليه بعد الحذف
+     */
+    dropSegments(ids, returnIndex) {
+      const kill = new Set([].concat(ids || []).filter(Boolean));
+      if (!kill.size) return;
+
+      sourceWindow = null;
+
+      for (let i = segments.length - 1; i >= 0; i -= 1) {
+        if (kill.has(segments[i].id)) segments.splice(i, 1);
+      }
+
       const target = returnIndex == null
         ? Math.min(state.index, segments.length - 1)
         : returnIndex;
       controller.goTo(target);
+    },
+
+    /**
+     * يحدّد **المصدر الفعّال**: أيُّ مدًى من المقاطع يملكه (WS-A، بند ٢٦).
+     *
+     * ⚠️ **وهذا ليس تحديدًا للتدريب** — راجع الشرح فوق `sourceWindow`.
+     *
+     * @param {{from: number, to: number}|null} win شاملةُ الطرفين، أو `null` = الكلّ
+     */
+    setSourceWindow(win) {
+      sourceWindow = win && Number.isFinite(win.from) && Number.isFinite(win.to)
+        ? { from: win.from, to: win.to }
+        : null;
+      /* الموضعُ الحاليُّ قد يكون خارجَها الآن — يُجَرّ إلى داخلها. */
+      if (state.index < windowFrom() || state.index > windowTo()) {
+        controller.goTo(state.index);
+      }
+      emit('source-window');
+    },
+
+    get sourceWindow() {
+      return sourceWindow ? { ...sourceWindow } : null;
+    },
+
+    /**
+     * حدودُ التنقّل الآن — لتقول الشاشةُ الصدقَ بدل أن تُخمّن.
+     *
+     * ⚠️ **تُشتقّ من نفس الدالّتين اللتين ينقل بهما الزرّان**، فلا
+     *    يمكن أن يقول الزرُّ «مُعطَّل» وهو ينقل، ولا العكس.
+     */
+    get edges() {
+      return {
+        atStart: previousSelected(state.index) === -1,
+        atEnd: nextSelected(state.index) === -1,
+        /** عددُ مقاطع المصدر الفعّال — «١ من ١» تعني: لا جيرانَ هنا. */
+        count: Math.max(0, windowTo() - windowFrom() + 1),
+        position: Math.max(0, state.index - windowFrom() + 1),
+        whole: isWholeSource(),
+      };
     },
 
     /**
