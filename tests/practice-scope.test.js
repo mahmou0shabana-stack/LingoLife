@@ -138,6 +138,21 @@ describe('النسخ · النبرُ يُنسَخ ولا يُخترَع', () => 
     expect(fn.includes('phrase')).toBe(false);
     expect(fn.includes('rail.word')).toBe(false);
   });
+
+  it('⚠️ وشريطُ المقطع يحمل النبر كما تحمله الرقائق (بند ٦)', async () => {
+    /*
+     * ⚠️ **ثلاثةُ تمثيلاتٍ لشيءٍ واحد، فلا تشذّ واحدة.**
+     *
+     *    كان الشريطُ يعرض `phraseText()` خامًا بينما الرقائقُ فوقه
+     *    معلَّمةٌ ونسخُ المقطع معلَّم — «по́лностью» فوق و«полностью»
+     *    تحت. لا يُسقط ذلك اختبارًا ولا يمنع عملًا، ولذلك يحتاج
+     *    حارسًا: هو بالضبط نوعُ التفاوت الذي يعود بصمت.
+     */
+    const src = await (await fetch('../js/views/shadow-view.js')).text();
+    const start = src.indexOf('function paintPhrase()');
+    const fn = src.slice(start, src.indexOf('\nfunction ', start + 10));
+    expect(fn.includes('markedForCopy(phraseText())')).toBe(true);
+  });
 });
 
 /* ================================================================== *
