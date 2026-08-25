@@ -894,13 +894,32 @@
   position: relative;
   z-index: 14;
 }
-.sh-current-lbl:not([hidden])::after {
+/*
+ * ⚠️ **WS-E — والهالةُ للبابِ لا للّافتة** (بندا ٣٦ و٣٨).
+ *
+ *    صارت الشارةُ تُقرَأ دائمًا: في الأصل تقول «الأصل» ولا تفعل شيئًا،
+ *    وفي مصدرٍ مُركَّبٍ تصير بابَ الخروج. وكانت الهالةُ معلّقةً على
+ *    `:not([hidden])` — فلمّا اختفى الإخفاءُ صارت **٤٤px من مساحةِ
+ *    لمسٍ لزرٍّ لا يفعل شيئًا**، فوق ما تحتها.
+ *
+ *    وهذا هو عطبُ WS-B نفسُه بثوبٍ جديد: عنصرٌ لا يُرى يبتلع اللمس.
+ *    فالهالةُ الآن مشروطةٌ بـ`.is-overlay`، والحالُ الهادئةُ منزوعةُ
+ *    اللمس نزعًا — لا إخفاءً بصريًّا وحده.
+ */
+.sh-current-lbl.is-overlay::after {
   content: '';
   position: absolute;
   inset-inline: -8px;
   inset-block: -14px;
 }
-.sh-current-lbl:not([hidden]):hover { color: var(--sh-ink); text-decoration: underline; }
+.sh-current-lbl.is-overlay:hover { color: var(--sh-ink); text-decoration: underline; }
+.sh-current-lbl[disabled] {
+  cursor: default;
+  pointer-events: none;
+  opacity: .72;
+}
+/* شارةُ المصدر المُركَّب أوضحُ قليلًا — لأنها بابٌ لا خبر. */
+.sh-current-lbl.is-overlay { color: var(--sh-ink); }
 
 .sh-current-tools { display: flex; gap: 4px; }
 
@@ -5433,4 +5452,52 @@ body.shadow-open { overflow: hidden; }
 .shadow-app.is-refmax .sh-doc:has(.sh-docwell) {
   block-size: auto; max-block-size: none; flex: 1 1 auto;
   display: flex; flex-direction: column; min-block-size: 0;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   WS-E · انتقالُ المصدر — حركةٌ على الداخل وحدَه
+   ══════════════════════════════════════════════════════════════════
+
+   ⚠️ **ولا طبقةَ خارجةٌ ولا نسخةٌ ثانيةٌ من الصفحة** (بندا ٣٦ و٤٢).
+      الشرحُ الكاملُ فوق `shiftView` في `shadow-view.js`؛ وخلاصتُه أن
+      التلاشيَ المتقاطعَ المعتادَ يترك طبقةً شفّافةً تبتلع اللمس —
+      وهو عطبٌ وقعنا فيه مرّتين في WS-B ولم يظهر إلّا في
+      `elementsFromPoint`. فالمحتوى الجديدُ يدخل وحدَه، ولا شيءَ فوقه.
+
+   ⚠️ **والمدّةُ رقمٌ واحدٌ يقرؤه الكودُ والـCSS**: `SHIFT_MS` هناك
+      و`--sh-shift` هنا. واختلافُهما يعني صنفًا يُنزَع قبل أن تنتهي
+      الحركةُ أو بعدها بكثير.
+*/
+.shadow-app { --sh-shift: 220ms; }
+
+@keyframes sh-shift-in {
+  from { opacity: .55; transform: translateY(6px); }
+  to   { opacity: 1;   transform: none; }
+}
+
+.sh-stage-top.sh-shift-in {
+  animation: sh-shift-in var(--sh-shift) ease-out;
+}
+
+/*
+ * لغةُ انتقالٍ **واحدةٌ للورشة كلِّها** (بند ١٢): مصدرٌ وقواعدُ وملفٌّ
+ * وصورٌ تدخل كلُّها بنفس الحركة، فيُقرأ الأربعةُ ورشةً واحدةً لا أربعَ
+ * شاشات. ولذلك الصنفُ على الحاوية لا على كلّ تبويبٍ بحدته.
+ */
+.sh-well-body.sh-shift-in,
+.sh-left[data-analysis-on] [data-analysis]:not([hidden]) {
+  animation: sh-shift-in var(--sh-shift) ease-out;
+}
+
+/*
+ * ⚠️ **تقليلُ الحركة يُلغيها ولا يُلغي شيئًا آخر** (بند ٤٠). الحالةُ
+ *    تتبدّل قبل الحركة أصلًا (`shiftView`)، فحذفُ الحركة هنا لا يمسّ
+ *    صحّةَ شيء — وهذا هو المقصود بـ«الوظيفةُ متطابقة».
+ */
+@media (prefers-reduced-motion: reduce) {
+  .sh-stage-top.sh-shift-in,
+  .sh-well-body.sh-shift-in,
+  .sh-left[data-analysis-on] [data-analysis]:not([hidden]) {
+    animation: none;
+  }
 }

@@ -63,12 +63,41 @@ describe('نطاقُ التدريب · الحارسُ المعماريّ', () =>
      */
     const codeLines = src.split('\n')
       .filter((l) => !/^\s*(\*|\/\*|\/\/)/.test(l));
-    const calls = codeLines.filter((l) => l.includes('exitExternalText()')).length;
-    /* تعريفُها + نداءٌ واحدٌ من `scratch-clear` لا أكثر. */
-    expect(`call-sites:${calls}`).toBe('call-sites:2');
+
+    /*
+     * ⚠️ **والبابُ تعمَّم ولم يتعدّد** (WS-E، بندا ٢٦ و٢٧).
+     *
+     *    كان الحارسُ يعدّ نداءات `exitExternalText` لأنها كانت البابَ.
+     *    ثم صارت المصادرُ ثلاثةً — أصلٌ ومسودّةٌ ومؤقّت — فصار البابُ
+     *    `returnToOriginal`، و`exitExternalText` انحسرت إلى معناها
+     *    الحرفيّ: إقفالُ صندوق اللصق، ولا تُسقِط إلّا المؤقّت.
+     *
+     *    فالمحروسُ هو **الفعلُ الخطِر** لا اسمُ الدالّة: مَن يُسقِط
+     *    مقاطعَ مصدرٍ من `ctx.segments`. وهو `dropExternalSource`
+     *    وحدَها، ومواضعُ ندائها معدودةٌ ومعروفةٌ بالاسم أدناه.
+     */
+    const drops = codeLines.filter((l) => l.includes('ctx.segments.length =')).length;
+    expect(`splice-sites:${drops}`).toBe('splice-sites:1');
+
+    const callers = codeLines.filter((l) => /(?<!function )dropExternalSource\(\)/.test(l)).length;
+    /* إقفالُ الصندوق · الرجوعُ للأصل · استبدالُ مؤقّتٍ · دخولُ مسودّة. */
+    expect(`call-sites:${callers}`).toBe('call-sites:4');
+
     const at = src.indexOf("case 'scratch-clear':");
     expect(at > 0).toBe(true);
-    expect(src.slice(at, at + 120).includes('exitExternalText()')).toBe(true);
+    expect(src.slice(at, at + 200).includes('returnToOriginal()')).toBe(true);
+
+    /*
+     * ⚠️ **ولا يُنادى البابُ من تبديلِ نطاقٍ ولا تبويب** (بند ٢٧).
+     *    وهذا هو العطبُ الذي أصلحته WS-A بحرفه — فيبقى محروسًا وقد
+     *    تغيّر اسمُ البابِ.
+     */
+    const modes = src.slice(src.indexOf('const MODES = ['), src.indexOf('let modeTicket'));
+    expect(modes.includes('returnToOriginal')).toBe(false);
+    expect(modes.includes('dropExternalSource')).toBe(false);
+    const wells = src.slice(src.indexOf('async function renderWells'), src.indexOf('async function openWell'));
+    expect(wells.includes('returnToOriginal')).toBe(false);
+    expect(wells.includes('dropExternalSource')).toBe(false);
   });
 
   it('والمقطعُ الفعّالُ يُقرأ من دالّةٍ واحدة لا من تسع نسخ (بند ٣)', async () => {

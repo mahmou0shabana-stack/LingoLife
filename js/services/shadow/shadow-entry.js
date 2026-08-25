@@ -196,16 +196,33 @@ export async function openShadowSelection(scriptId, sceneId) {
  *    والمسودّة ليست سكريبتًا، وتزويرُ `sourceId` بمعرّفٍ من مستودعٍ
  *    آخر يجعل كشفَ التغيّر يقرأ سجلًّا لا وجود له.
  */
-export async function openShadowFromDraft(draftId) {
+/**
+ * يراجع أزواجَ المسودّة ويردّ ما اختَرتَه — **خطوةٌ واحدةٌ لبابين**.
+ *
+ * ⚠️ **ولماذا خرجت من `openShadowFromDraft`؟** (WS-E، بند ٥)
+ *
+ *    صار للمسودّة بابان: بابٌ يبني جلسةً مستقلّةً (هذا الملفّ)، وبابٌ
+ *    يُدخِلها **مصدرًا في الجلسة المفتوحة** بلا مغادرةِ الشاشة
+ *    (`enterDraftSource` في الظلّ). والمراجعةُ واحدةٌ فيهما: نفسُ
+ *    الاشتقاق، ونفسُ النافذة، ونفسُ الحفظ.
+ *
+ *    ونسخُها مرّتين يعني أن إصلاحًا في القران غدًا يصل إلى بابٍ
+ *    ويترك الآخر — وهو بالضبط ما كان يحدث قبل WS-D حين كان للمسودّة
+ *    مسارُ نصٍّ عارٍ ومسارُ أزواج.
+ *
+ * @returns {Promise<{draft: object, picked: object[]}|null>}
+ *          `null` إن ألغيتَ أو لم يكن هناك ما يُتدرَّب عليه.
+ */
+export async function reviewDraftSegments(draftId) {
   const { studyDrafts } = await import('../../db/repositories.js');
   const { draftPairs, saveDraftPairs } = await import('../study-draft.js');
   const { openPairReview } = await import('../../modals/pair-review.js');
 
   const draft = await studyDrafts.get(draftId);
-  if (!draft) return toastError('المسودّة دي مش موجودة');
+  if (!draft) { toastError('المسودّة دي مش موجودة'); return null; }
 
   const units = draftPairs(draft);
-  if (!units.length) return toastError('المسودّة لسه فاضية — الصق فيها التحليل الأوّل');
+  if (!units.length) { toastError('المسودّة لسه فاضية — الصق فيها التحليل الأوّل'); return null; }
 
   /*
    * ⚠️ **العربيُّ لا يُعرَض مصدرًا للتدريب أصلًا** (بند ١٢).
@@ -221,13 +238,19 @@ export async function openShadowFromDraft(draftId) {
     units,
     title: draft.subjectText || 'مذاكرة',
   });
-  if (!reviewed) return undefined;
+  if (!reviewed) return null;
 
   /* ⚠️ ما راجعتَه يُحفَظ — فلا تُصلح نفسَ الزوج مرّتين (بند ٢٠). */
   await saveDraftPairs(draftId, reviewed.units).catch(() => {});
 
-  const picked = reviewed.picked;
-  if (!picked.length) return toastError('ماخترتش أي جملة');
+  if (!reviewed.picked.length) { toastError('ماخترتش أي جملة'); return null; }
+  return { draft, picked: reviewed.picked };
+}
+
+export async function openShadowFromDraft(draftId) {
+  const reviewed = await reviewDraftSegments(draftId);
+  if (!reviewed) return undefined;
+  const { draft, picked } = reviewed;
 
   /*
    * ⚠️ **جلسةٌ بترجماتٍ تبدأ والترجمةُ ظاهرة — وهذا عطبٌ قِيس لا رأي.**

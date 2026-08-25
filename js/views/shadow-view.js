@@ -18,7 +18,7 @@ import { showModal, confirmAction } from '../components/modal.js';
 import { navigate } from '../router.js';
 import { splitWords, splitSentences } from '../services/shadow/segmenter.js';
 import { openLightbox } from '../components/lightbox.js';
-import { openShadowForScript, openShadowFromDraft } from '../services/shadow/shadow-entry.js';
+import { openShadowForScript } from '../services/shadow/shadow-entry.js';
 import {
   SUBJECT, readDraft, openDraft, saveDraftText,
   addDraftImage, draftImages, ocrIntoDraft, draftSentences, draftedKeys, subjectKey,
@@ -117,6 +117,15 @@ import {
   activeDoc, setActiveDoc, clearActiveDoc,
   readView, patchView,
 } from '../services/reference-service.js';
+
+/*
+ * طبقةُ المصدر الفعّال وذاكرتُه (WS-E) — حسابٌ خالصٌ خارج الرسم.
+ * راجع الشرحَ في `services/shadow/source-state.js`.
+ */
+import {
+  SOURCE_KIND, KIND_LABEL, kindOf, sourceKeyOf, overlayRangeIn,
+  captureState, planRestore, createSourceMemory,
+} from '../services/shadow/source-state.js';
 
 /** نسبةُ الصفحة اليسرى — تُحفَظ فلا تعيد ضبطها كل جلسة. */
 const SPLIT_KEY = 'shadow.split';
@@ -336,6 +345,14 @@ export function disposeShadow() {
   unwatchLexicon?.();
   unwatchLexicon = null;
   analysis.on = false;
+
+  /*
+   * ⚠️ **وذاكرةُ المصادر تموت مع الشاشة** (WS-E، بند ٧). هي حالةُ
+   *    جلوسٍ واحدٍ لا وعدٌ يعبر الجلسات؛ وتركُها يعني أن جلسةً تفتحها
+   *    بعد أخرى قد تجد في ذاكرتها مفتاحَ `original` من جلسةٍ أخرى.
+   */
+  sourceMemory.clear();
+  clearTimeout(shiftTimer);
 
   /*
    * ⚠️ **والتسجيلُ يقف مع مغادرة الشاشة — دائمًا.** وهو خارج شرط
@@ -1042,8 +1059,7 @@ function wireChips(main) {
       rail.word = Number(chip.dataset.word);
       rail.tool = 'hear';
       rail.open = true;
-      host.querySelectorAll('[data-word]').forEach((n) => n.classList.remove('picked'));
-      chip.classList.add('picked');
+      paintWordPick(rail.word);
       renderRail();
     }, 420);
   }, wired());
@@ -2104,20 +2120,7 @@ function syncSegment() {
    *    الآن تُقرَأ هنا حيث تُقرَأ كلُّ حالةِ المقطع — لا في دالّةٍ
    *    ثانية.
    */
-  const lbl = $('[data-current-lbl]');
-  const count = $('.sh-count');
-  if (lbl) {
-    lbl.hidden = !segment.temporary;
-    /*
-     * ⚠️ **وهذه الشارةُ هي بابُ الخروج الوحيدُ من المصدر** (بند ٢٦).
-     *    كانت تقول «⚡ ذاكِرها دلوقتي» — وصفًا للحال لا طريقًا للخروج،
-     *    وهي زرٌّ يُخرِج فعلًا (`scratch-clear`). فمن قرأها ظنَّها
-     *    لافتةً، ثم بحث عن الخروج في مفتاح الأوضاع — فوجده هناك،
-     *    ضمنيًّا، وهو بالضبط ما كسر النصَّ الخارجيّ.
-     */
-    if (segment.temporary) lbl.textContent = '⚡ نصّ مؤقّت · ارجع للأصل';
-  }
-  if (count) count.hidden = Boolean(segment.temporary);
+  paintSourceChip();
 
   /*
    * ⚠️ **حجمُ الخطّ يتبع طولَ الجملة.** الحجمُ الثابت يجعل جملةً من
@@ -2647,6 +2650,20 @@ const rail = {
 };
 
 /**
+ * يُظهِر أيَّ رقاقةٍ في اليد — **مكانٌ واحدٌ يكتب `.picked`**.
+ *
+ * ⚠️ كانت الأسطرُ الثلاثةُ مكتوبةً داخل مُعالِج اللمس وحدَه، فلمّا
+ *    صارت الذاكرةُ تُعيد كلمةً بعد تبديل المصدر (WS-E، بند ١٤) لم يكن
+ *    لها بابٌ تدخل منه إلّا نسخُها. ونسختان تعنيان أن تغييرَ اسم
+ *    الصنف غدًا يصل إلى واحدةٍ ويترك الأخرى.
+ */
+function paintWordPick(at) {
+  document.querySelectorAll('[data-word]').forEach((node, i) => {
+    node.classList.toggle('picked', i === at);
+  });
+}
+
+/**
  * هل في يدك كلمة؟
  *
  * ⚠️ **والسؤالُ عن الـDOM لا عن الرقم.** `rail.word = 3` تبقى ٣ بعد
@@ -3163,7 +3180,13 @@ function openAnalysis() {
   analysis.segmentId = ctx.segments[player?.state?.index ?? 0]?.id || null;
   analysis.sound = -1;
   analysis.syllable = -1;
-  analysis.scrollTop = page?.scrollTop || 0;
+  /*
+   * ⚠️ **من الحاوية التي تُمرَّر فعلًا** (WS-E، بند ١٧). كانت
+   *    `page.scrollTop` — و`.sh-left` لا تفيض أبدًا، فكانت اللقطةُ
+   *    صفرًا دائمًا والاستعادةُ تُنفَّذ على قيمةٍ لا معنى لها. راجع
+   *    الشرحَ فوق `sourceScroller`.
+   */
+  analysis.scrollTop = sourceScroll();
 
   /* ⚠️ والسكّةُ تُغلَق: التحليلُ صار الورقةَ كلَّها، فلا لوحةَ تزاحمه. */
   rail.open = false;
@@ -3206,7 +3229,14 @@ function closeAnalysis() {
   page?.removeAttribute('data-analysis-on');
   const host = analysisHost();
   if (host) { host.setAttribute('hidden', ''); host.innerHTML = ''; }
-  if (page) page.scrollTop = analysis.scrollTop;
+  /*
+   * ⚠️ **وتُستعاد بعد أن يعود العنصرُ مرئيًّا** (بند ١٨): الإخوةُ
+   *    مخفيّون بـCSS ما دامت الورقةُ مفتوحة، والمخفيُّ لا يقبل
+   *    `scrollTop`. فرفعُ الوسم أوّلًا — وهو ما يفعله السطرُ فوق —
+   *    ثم الإرجاع، في نفس الإطار فلا وميض.
+   */
+  const scroller = sourceScroller();
+  if (scroller) scroller.scrollTop = analysis.scrollTop;
 }
 
 /** الجملةُ الأصليّةُ مع إبرازِ الكلمة المُحلَّلة — مِرساةُ السياق (§9). */
@@ -4841,6 +4871,17 @@ async function renderWells() {
   body.hidden = false;
   body.innerHTML = chosen.draw(counts[well]);
 
+  /*
+   * ⚠️ **لغةُ انتقالٍ واحدةٌ للأربعة** (بند ١٢). والصنفُ يُنزَع ثم
+   *    يُعاد بعد إعادةِ تدفّق — وإلّا لم تُعِد الحركةُ تشغيلَ نفسِها
+   *    حين تتنقّل بين تبويبين بسرعة.
+   */
+  if (!reducedMotion()) {
+    body.classList.remove('sh-shift-in');
+    void body.offsetWidth;
+    body.classList.add('sh-shift-in');
+  }
+
   /* ما يحتاج شجرةً مقيسةً يُركَّب الآن لا في `draw`. */
   await chosen.mount?.(counts[well]);
   restoreWellScroll();
@@ -6295,19 +6336,247 @@ function activeText() {
 
 /** هل المقطعُ الأخير نصٌّ خارجيٌّ عابرٌ — لا صفَّ له في القاعدة (WS40)؟ */
 function hasExternalSegment() {
-  return Boolean(ctx?.segments?.at(-1)?.temporary);
+  return kindOf(ctx?.segments?.at(-1)) === SOURCE_KIND.EXTERNAL;
 }
 
 /**
- * فهارسُ مقاطع المصدر المؤقّت — مدًى متّصلٌ في آخر القائمة.
+ * فهارسُ مقاطع المصدر المُركَّب — مدًى متّصلٌ في آخر القائمة.
  *
  * ⚠️ **ومتّصلٌ بحكم البناء لا بالصدفة**: تُدفَع دفعةً واحدةً في آخر
  *    `ctx.segments` وتُحذَف دفعةً واحدة. فلا يتخلّلها مقطعٌ أصليّ.
+ *
+ * ⚠️ **وصارت تعرف نوعين لا نوعًا** (WS-E، بند ٥): المؤقّت والمسودّة.
+ *    والمسودّةُ دخلت من نفس الباب عمدًا — فورثت الحصرَ (`sourceWindow`)
+ *    وبابَ الخروج الواحد بلا سطرٍ جديدٍ يحرسهما (بندا ٢٧ و٦٠).
  */
 function externalRange() {
-  const at = ctx?.segments?.findIndex((s) => s.temporary) ?? -1;
-  if (at < 0) return null;
-  return { from: at, to: ctx.segments.length - 1 };
+  return overlayRangeIn(ctx?.segments);
+}
+
+/** المصدرُ الفعّالُ الآن — يُقرأ من المقطع نفسِه لا من متغيّر (بند ٣). */
+function activeSourceKind() {
+  return kindOf(activeSegment());
+}
+
+/** مفتاحُ ذاكرة المصدر الفعّال. */
+function activeSourceKey() {
+  return sourceKeyOf(activeSegment());
+}
+
+/**
+ * ذاكرةُ المصادر — لكلٍّ حالتُه، ولا مؤشّرَ عامٌّ للجميع (بند ٧).
+ *
+ * ⚠️ **وتُصفَّر مع الجلسة لا تعبرها**: `disposeShadow` تمسحها، فلا
+ *    تحمل جلسةٌ موضعَ جلسةٍ أخرى في نفس الجلوس.
+ */
+const sourceMemory = createSourceMemory();
+
+/**
+ * الحاويةُ التي تُمرَّر فعلًا في ورقة المصدر.
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **و`.sh-left` ليست هي — وهذا عطبٌ قديمٌ قِيس الآن** (بند ١٧)
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * `.sh-left` عمودُ flex يملأ ارتفاعَه ولا يفيض أبدًا: قِيس
+ * `scrollHeight === clientHeight === 746` على نصٍّ من ٢٦ جملة.
+ * الذي يفيض هو **قائمةُ السطور** `.sh-lines` بداخلها (339 مقابل 1142).
+ *
+ * ولهذا أثرٌ أبعدُ من WS-E: `openAnalysis` تحفظ
+ * `analysis.scrollTop = page.scrollTop` منذ WS54، وهي تحفظ **صفرًا
+ * دائمًا**. فوعدُ «تعود الورقةُ كما تركتَها» كان يُنفَّذ على القيمة
+ * الخطأ منذ كُتب — ولم يظهر لأن الرقمَ المستعادَ صحيحٌ شكلًا.
+ *
+ * ⚠️ **والاحتياطُ `.sh-left` يبقى**: لو تبدّل التخطيطُ غدًا فصار
+ *    العمودُ نفسُه هو المُمرَّر، فالدالّةُ تجده. ولا تُخترَع حاويةٌ
+ *    ثالثة.
+ */
+function sourceScroller() {
+  return document.querySelector('.sh-left .sh-lines') || leftPage();
+}
+
+/** موضعُ تمرير ورقة المصدر — الوحيدُ الذي لا يحفظه الـDOM. */
+function sourceScroll() {
+  return sourceScroller()?.scrollTop || 0;
+}
+
+/**
+ * شارةُ المصدر — **واحدةٌ لا ثلاث** (بندا ٤٣ و٤٥).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ ولماذا نفسُ الزرّ لا زرٌّ جديدٌ بجانبه
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * كانت هنا شارةُ «⚡ نصّ مؤقّت · ارجع للأصل» — تظهر للمؤقّت وحدَه
+ * وتختفي في الأصل. فلمّا صارت المصادرُ ثلاثةً كان أسهلَ شيءٍ أن
+ * أضيفَ شارةً للمسودّة بجانبها، وأخرى في الشريط العلويّ. والبندُ ٤٥
+ * يمنع ذلك بحقّ: ثلاثةُ أمكنةٍ تقول أين أنت تعني أن اثنين منها
+ * سيكذبان يومًا.
+ *
+ * فهي شارةٌ واحدةٌ **تُقرَأ دائمًا**: في الأصل تقول «الأصل» وهي هادئةٌ
+ * ولا تفعل شيئًا؛ وفي مصدرٍ مُركَّبٍ تقول اسمَه ومعه طريقُ الخروج،
+ * وضغطُها **هو** «الرجوع للنصّ الأصلي» — البابُ الصريحُ الوحيد
+ * (بندا ٢٦ و٢٧).
+ */
+function paintSourceChip() {
+  const lbl = $('[data-current-lbl]');
+  const count = $('.sh-count');
+  const kind = activeSourceKind();
+  const overlay = kind !== SOURCE_KIND.ORIGINAL;
+
+  if (lbl) {
+    lbl.hidden = false;
+    lbl.dataset.kind = kind;
+    lbl.textContent = overlay
+      ? `${kind === SOURCE_KIND.DRAFT ? '✎' : '⚡'} ${KIND_LABEL[kind]} · ارجع للأصل`
+      : KIND_LABEL[SOURCE_KIND.ORIGINAL];
+    /*
+     * ⚠️ **وفي الأصل ليست زرًّا** (بند ٣٨): زرٌّ لا يفعل شيئًا يبتلع
+     *    لمسةً ويترك المستخدمَ يعيدها. فتُنزَع قابليّةُ اللمس عنها
+     *    نزعًا لا إخفاءً بصريًّا.
+     */
+    lbl.disabled = !overlay;
+    lbl.classList.toggle('is-overlay', overlay);
+  }
+  /* عدّادُ «٣ / ١٢ جملة» يخصّ الأصلَ — والمصدرُ المُركَّب له عدُّه. */
+  if (count) count.hidden = overlay;
+}
+
+/**
+ * مدّةُ الانتقال — ورقمٌ واحدٌ يقرؤه الكودُ والـCSS (بند ٩).
+ * ⚠️ ولا يُكتَب مرّتين: `--sh-shift` في `shadow.css` هي نفسُها.
+ */
+const SHIFT_MS = 220;
+
+/** هل طلب المستخدمُ تقليلَ الحركة؟ (بند ٤٠) */
+function reducedMotion() {
+  try {
+    return Boolean(window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches);
+  } catch { return false; }
+}
+
+/**
+ * غلافُ انتقالِ المصدر — **الحالةُ أوّلًا والحركةُ بعدها** (بند ٩).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ ولا طبقةَ خارجةٌ فوق الداخلة — وهذا قرارٌ لا اختصار
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * الطريقةُ المعتادةُ للتلاشي المتقاطع أن تُنسَخ الصفحةُ القديمة طبقةً
+ * فوق الجديدة وتُخفَّت. وهي تجلب عطبين لهذا التطبيق بالذات:
+ *
+ *  · **طبقةٌ شفّافةٌ تبتلع اللمس** (بندا ٣٦ و٣٨). وقد وقعنا فيها
+ *    مرّتين في WS-B، ولم تظهر إلّا في `elementsFromPoint`.
+ *  · **نسختان من الصفحة في الذاكرة** (بند ٤٢) على لوحٍ يحمل صورًا
+ *    وملفَّ PDF مفتوحًا.
+ *
+ * فالانتقالُ هنا **على الداخل وحدَه**: تُبدَّل الحالةُ (وهي المهمّة)،
+ * ثم يدخل المحتوى الجديدُ من شفافيّةٍ خفيفةٍ وإزاحةٍ صغيرة. لا طبقةَ
+ * ثانية، فلا شيءَ يبتلع لمسةً ولا يتضاعف شيءٌ في الذاكرة.
+ *
+ * ⚠️ **ولا تنتظر الحركةَ لتُبدّل الحالة**: `apply` تُنفَّذ فورًا،
+ *    والصنفُ يُنزَع بمؤقّتٍ لا يملك شيئًا من الصحّة. ولو مات المؤقّت
+ *    بقيت الصفحةُ صحيحةً — أقصى ما يحدث أن يبقى صنفٌ لا أثر له.
+ */
+let shiftTimer = 0;
+async function shiftView(apply) {
+  const stage = document.querySelector('.sh-stage-top');
+
+  if (stage && !reducedMotion()) {
+    stage.classList.remove('sh-shift-in');
+    /* إعادةُ التدفّق تجعل الصنفَ يُعاد تشغيلُه لو تبدّل المصدرُ مرّتين. */
+    void stage.offsetWidth;
+    stage.classList.add('sh-shift-in');
+    clearTimeout(shiftTimer);
+    shiftTimer = setTimeout(() => stage.classList.remove('sh-shift-in'), SHIFT_MS + 60);
+  }
+
+  await apply();
+}
+
+/**
+ * يلتقط حالةَ المصدر الفعّال قبل مغادرته (بند ٧).
+ *
+ * ⚠️ **يُنادى قبل كلّ تبديلِ مصدرٍ — وقبله وحدَه.** تبديلُ التبويب أو
+ *    النطاق أو فتحُ التحليل **لا** يلتقط شيئًا، لأن المصدرَ لم يتغيّر
+ *    أصلًا (بند ٤). ولو التقطنا في كلّ حركةٍ لصارت الذاكرةُ تسجيلًا
+ *    لكلّ لمسةٍ بلا معنى.
+ */
+function captureSource() {
+  if (!ctx || !player) return;
+  const segment = activeSegment();
+  if (!segment) return;
+  sourceMemory.save(sourceKeyOf(segment), captureState({
+    index: player.state.index,
+    segmentId: segment.id,
+    practiceMode: MODES.find((one) => one.is())?.id || 'sentence',
+    word: rail.word,
+    phrase: hasPhrase() ? phrase : null,
+    display: ctx.display,
+    scroll: sourceScroll(),
+    wellTab: well,
+  }));
+}
+
+/**
+ * يستعيد حالةَ مصدرٍ دخلتَه — بعد أن يصير مقطعُه الفعّالُ مرسومًا.
+ *
+ * ⚠️ **بعد `goTo` و`syncSegment` لا قبلهما.** `syncSegment` تكتب
+ *    `rail.word = -1` في كلّ نداء — وهي محقّةٌ (كلمةٌ من جملةٍ
+ *    غادرتَها لا تُترَك في اليد). فاستعادةُ الكلمة قبلها تُمحى بعدها،
+ *    وتبدو الذاكرةُ معطّلةً وهي تعمل.
+ *
+ * ⚠️ **ولا تُقصّ ما لا يصلح** (بند ٨): `planRestore` تُسقط الكلمةَ
+ *    والمدى إن لم يعودا موجودين، وتُرجعك إلى نطاق الجملة — ولا تختار
+ *    كلمةً قريبةً وتتظاهر بأنها كلمتُك.
+ */
+async function restoreSource(key, { from = 0, to = null } = {}) {
+  const snap = sourceMemory.read(key);
+  const last = to ?? (ctx?.segments?.length ? ctx.segments.length - 1 : 0);
+  const where = (wordCount) => planRestore(snap, {
+    segments: ctx?.segments || [], wordCount, from, to: last,
+  });
+
+  /*
+   * ⚠️ **وضعُ العرض قبل الرسم لا بعده** (بند ٣٠). `syncSegment` هي مَن
+   *    تكتب الترجمةَ، و`translationFor` تقرأ `ctx.display`. فضبطُه
+   *    بعدها يعني وميضًا: ترجمةٌ تظهر ثم تختفي، أو العكس.
+   */
+  const first = where(0);
+  if (first.display && first.display !== ctx.display) ctx.display = first.display;
+
+  player.goTo(first.index);
+  syncSegment();
+
+  /* الآن وحدَها صارت الكلماتُ مرسومةً — فيُعاد الحسابُ عليها. */
+  const real = where(player?.words?.length || 0);
+
+  if (real.word >= 0) {
+    rail.word = real.word;
+    paintWordPick(real.word);
+  }
+
+  if (real.phrase) {
+    phrase.on = true;
+    phrase.segmentId = activeSegment()?.id || null;
+    phrase.anchor = real.phrase.from;
+    phrase.from = real.phrase.from;
+    phrase.to = real.phrase.to;
+    phrase.complete = true;
+    paintPhrase();
+  } else if (phrase.on) {
+    exitPhrase();
+  }
+
+  if (real.practiceMode === 'word') await setPractice(PRACTICE_MODE.WORD);
+  else await setPractice(PRACTICE_MODE.SENTENCE);
+
+  const scroller = sourceScroller();
+  if (scroller && real.scroll) scroller.scrollTop = real.scroll;
+
+  renderModes();
+  renderRail();
+  return real;
 }
 
 /**
@@ -6355,8 +6624,11 @@ function enterExternalText(text) {
    */
   const resume = ctx.returnIndex ?? player.state.index;
 
+  /* ⚠️ وحالةُ المصدر تُلتقَط قبل مغادرته (WS-E، بند ٧). */
+  captureSource();
+
   /* نصٌّ خارجيّ جديد يستبدل القديم — لا يتراكم فوقه. */
-  if (hasExternalSegment()) dropExternalSource();
+  if (externalRange()) dropExternalSource();
 
   ctx.returnIndex = resume;
 
@@ -6428,27 +6700,65 @@ function enterExternalText(text) {
  *    الصندوقَ ولم يلصق شيئًا ثم رجع لوضع «جملة» يجده **باقيًا مفتوحًا**
  *    فوق جملته. الإقفالُ لا يحتاج مقطعًا موجودًا، فخرج من تحت الحارس.
  */
-function exitExternalText() {
+function closeScratchBox() {
   const box = $('[data-scratch]');
   if (box) box.hidden = true;
   const field = $('[data-scratch-input]');
   if (field) field.value = '';
   document.querySelector('[data-sh="scratch-open"]')?.classList.remove('on');
+}
 
+function exitExternalText() {
+  closeScratchBox();
+  /*
+   * ⚠️ **ويُسقِط المؤقّتَ وحدَه** (WS-E، بند ٢٦). إقفالُ صندوق اللصق
+   *    فعلٌ في **طبقة الواجهة**، فلا يجوز أن يُخرِجك من مصدرِ مسودّةٍ
+   *    دخلتَه بقرار. وبابُ الخروج من المصدر واحدٌ صريح:
+   *    `returnToOriginal`.
+   */
   if (!hasExternalSegment()) return;
   dropExternalSource();
 }
 
 /**
- * يُسقط المصدرَ المؤقّت كلَّه ويعيدك إلى موضعك في الأصل.
+ * «ارجع للنصّ الأصلي» — بابُ الخروج من أيّ مصدرٍ مُركَّب (بند ٢٧).
+ *
+ * ⚠️ **ويستعيد حالةَ الأصل لا موضعَه وحدَه** (بندا ٤٨ و٥٣): الجملةُ
+ *    والكلمةُ والنطاقُ ووضعُ العرض والتمرير — كما تركتَها لحظةَ
+ *    الخروج، لا كما كانت أوّلَ الجلسة.
+ *
+ * ⚠️ **والصوتُ يُقطَع** (بند ٣٣): تبديلُ المصدر تبديلُ ما يُقرأ.
+ */
+async function returnToOriginal() {
+  if (!ctx || !player) return;
+  if (!externalRange()) return;
+
+  player.stop();
+  closeScratchBox();
+  dropExternalSource();
+
+  await shiftView(async () => {
+    await restoreSource(SOURCE_KIND.ORIGINAL, { from: 0, to: Math.max(0, ctx.segments.length - 1) });
+  });
+  paintSourceChip();
+}
+
+/**
+ * يُسقط المصدرَ المُركَّب كلَّه ويعيدك إلى موضعك في الأصل.
  *
  * ⚠️ **بابٌ واحدٌ للخروج** — يناديه «الرجوع للأصل» ويناديه استبدالُ
  *    نصٍّ بنصّ. ولا ثالثَ لهما: أيُّ مسارٍ آخر يُسقط مقاطعَ مؤقّتةً
  *    بيده سيَنسى رفعَ النافذة أو إعادةَ `returnIndex`.
+ *
+ * ⚠️ **ويلتقط حالةَ المصدر قبل إسقاطه** (WS-E، بند ٢٨): المسودّةُ
+ *    ليست نصًّا يُرمى — فدخولٌ ثانٍ إليها يجدك حيث تركتَها. والمؤقّتُ
+ *    يُلتقَط أيضًا ولا يضرّ: مفتاحُه يموت مع نصِّه.
  */
 function dropExternalSource() {
   const range = externalRange();
   if (!range) return;
+
+  captureSource();
 
   const ids = ctx.segments.slice(range.from).map((s) => s.id);
   ctx.segments.length = range.from;
@@ -6458,6 +6768,113 @@ function dropExternalSource() {
 
   /* ترفع النافذةَ ثم تحذف ثم ترجع — بهذا الترتيب. راجع `dropSegments`. */
   player.dropSegments(ids, Math.min(back, Math.max(0, ctx.segments.length - 1)));
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   المسودّةُ مصدرًا في **نفس** الجلسة (WS-E، بنود ٥ و٧ و٢٨)
+   ══════════════════════════════════════════════════════════════════
+
+   ═══════════════════════════════════════════════════════════════
+   ⚠️ بلاغُك: التنقّلُ بين الأصل والمسودّة «مفاجئ ومتقطّع»
+   ═══════════════════════════════════════════════════════════════
+
+   وكان محقًّا بالحرف، والسببُ معماريٌّ لا تجميليّ: «تدرّب على جزء
+   منها» كانت **تبني جلسةً جديدةً وتُبدّل المسار**
+   (`navigate('/shadow/<new>')`). فيمرّ كلُّ شيءٍ بـ`disposeShadow`:
+   `ctx` يُهدَم، و`player` يُهدَم، والـDOM يُبنى من الصفر — ويضيع
+   الموضعُ والكلمةُ والمقطعُ والتمريرُ ووضعُ العرض، لأن لا أحدَ يحفظها.
+
+   وكان معها عطبٌ أخبثُ: `disposeShadow` **تُبقي المحرّكَ ناطقًا** إن
+   كان يقرأ (WS29) — فتُبدَّل الجلسةُ ويبقى صوتُ **المصدر القديم**
+   يقرأ تحت مصدرٍ جديد. وهو بعينه ما يمنعه بند ٣٣.
+
+   فصارت المسودّةُ تدخل من بابِ النصّ المؤقّت نفسِه (WS-A): مقاطعُ
+   حقيقيّةٌ في نفس `ctx.segments`، ونافذةُ مصدرٍ تحصر التنقّل فيها،
+   وبابُ خروجٍ واحد. لا مسارَ يتبدّل، ولا جلسةَ تُبنى، ولا محرّكَ
+   يُهدَم.
+
+   ⚠️ **وليست «مؤقّتةً» بالمعنى الذي يُرمى** (بند ٢٨): `temporary`
+      تعني «لا صفَّ لها في `shadowSegments` هذه الجلسة» — وهذا صحيحٌ
+      عنها. أمّا مادّتُها فمحفوظةٌ في المسودّة نفسِها (أزواجُ WS-D)،
+      وموضعُك فيها محفوظٌ في ذاكرة المصادر. فالدخولُ الثاني ليس
+      بدايةً من جديد.
+*/
+
+/**
+ * يُدخل المسودّةَ مصدرًا فعّالًا — بلا مغادرةِ الشاشة.
+ *
+ * ⚠️ **والصوتُ يُقطَع هنا لا يُترَك** (بند ٣٣): تبديلُ المصدر تبديلُ
+ *    ما يُقرأ، فجملةٌ من الأصل تكمل نطقَها تحت المسودّة صوتٌ بلا
+ *    صاحب. والقطعُ قبل التبديل لا بعده — وإلّا سمعتَ نصفَ كلمةٍ من
+ *    مصدرٍ غادرتَه.
+ */
+async function enterDraftSource(draftId) {
+  if (!ctx || !player) return;
+
+  const { reviewDraftSegments } = await import('../services/shadow/shadow-entry.js');
+  const reviewed = await reviewDraftSegments(draftId);
+  if (!reviewed) return;
+
+  const { draft, picked } = reviewed;
+
+  /* الحالةُ تُلتقَط قبل أيّ تبديل — وإلّا التقطنا حالةَ المصدر الجديد. */
+  captureSource();
+  player.stop();
+
+  /*
+   * ⚠️ أوّلُ دخولٍ فقط يحفظ موضعَ الرجوع — كما في النصّ المؤقّت
+   *    بالضبط (WS-A، بند ١٨). واستبدالُ مسودّةٍ بأخرى ليس خروجًا.
+   */
+  const resume = ctx.returnIndex ?? player.state.index;
+  if (externalRange()) dropExternalSource();
+  ctx.returnIndex = resume;
+
+  const from = ctx.segments.length;
+  const made = picked.map((one, i) => ({
+    id: `draft-${draftId}-${i}`,
+    sessionId: ctx.session.id,
+    sourceObjectId: null,
+    sourceTextSnapshot: one.ru,
+    /* ⚠️ **والترجمةُ تصحب جملتَها** — هذا هو عقدُ WS-D بحرفه (بند ٦٢). */
+    translationSnapshot: one.ar || null,
+    speaker: null,
+    isMine: 0,
+    order: from + i,
+    difficulty: 0,
+    repetitionsCompleted: 0,
+    lastPracticedAt: null,
+    practiceStatus: 'pending',
+    notes: '',
+    temporary: true,
+    /** ⚠️ الشارةُ التي تجعله «مسودّةً» لا «نصًّا مؤقّتًا». */
+    draftId,
+    sourceId: `draft:${draftId}`,
+  }));
+
+  ctx.segments.push(...made);
+  for (const seg of made) {
+    player.pushSegment({ id: seg.id, text: seg.sourceTextSnapshot, humanAudioUrl: null });
+  }
+
+  /* نفسُ حصر WS-A: التنقّلُ لا يعبر حدَّ المصدر (بندا ٤ و٦٠). */
+  player.setSourceWindow({ from, to: ctx.segments.length - 1 });
+
+  /*
+   * ⚠️ **وجلسةٌ بترجماتٍ تُظهرها** — نفسُ قاعدة WS-D عند بناء الجلسة،
+   *    وهي هنا **قيمةٌ ابتدائيّةٌ لهذا المصدر** تُحفَظ في ذاكرته: مفتاحُ
+   *    العرض يعمل بعدها، والأصلُ يستعيد وضعَه هو عند الرجوع (بند ٣٠).
+   */
+  if (ctx.display === DISPLAY.RU && picked.some((one) => one.ar)) {
+    ctx.display = DISPLAY.EGY;
+  }
+
+  await shiftView(async () => {
+    await restoreSource(`draft:${draftId}`, { from, to: ctx.segments.length - 1 });
+  });
+
+  renderModes();
+  paintSourceChip();
+  toastOk(`${made.length} جملة من «${draft.subjectText || 'المسودّة'}»`);
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -7430,8 +7847,13 @@ function wireInteractions(main) {
         return;
       }
 
+      /*
+       * ⚠️ **بابُ الخروج الصريحُ الوحيد** (بندا ٢٦ و٢٧) — للمؤقّت
+       *    وللمسودّة معًا. ولا يُنادى ضمنًا من تبديلِ نطاقٍ ولا تبويبٍ
+       *    ولا إغلاقِ تحليل.
+       */
       case 'scratch-clear':
-        return exitExternalText();
+        return returnToOriginal();
 
       /*
        * ⚠️ **زرُّ الشريط = الجملةُ دائمًا (WS45، بند 1).** لا يقرأ
@@ -7759,9 +8181,14 @@ function wireInteractions(main) {
         return renderDraft();
       }
 
+      /*
+       * ⚠️ **في مكانها لا في مسارٍ آخر** (WS-E، بند ٥). كانت
+       *    `openShadowFromDraft` — جلسةٌ جديدةٌ و`navigate`. راجع الشرحَ
+       *    فوق `enterDraftSource`.
+       */
       case 'draft-shadow': {
         if (!openDraftId) return undefined;
-        return openShadowFromDraft(openDraftId);
+        return enterDraftSource(openDraftId);
       }
 
       case 'sky-pick': {
@@ -8425,3 +8852,16 @@ function wireSpine(main) {
   spine.addEventListener('pointerup', release, wired());
   spine.addEventListener('pointercancel', release, wired());
 }
+
+/**
+ * بابٌ للقياس الميدانيّ وحدَه (WS-E، بند ٦٦).
+ *
+ * ⚠️ **ولا تناديه الشاشةُ ولا أيُّ ملفٍّ آخر.** تبديلُ المصدر بابُه
+ *    زرُّ «تدرّب على جزء منها» وشارةُ المصدر — وهما ما يضغطه
+ *    المستخدم. وهذا يفتح نفسَ الدالّة من مسبار Playwright حين يكون
+ *    الوصولُ إلى الزرّ داخل لوحةِ سكّةٍ مطويّةٍ عناءً لا يقيس شيئًا.
+ *
+ * ⚠️ ولا يُصدَّر منه ما يُغيّر الحالةَ بلا مراجعة: `enterDraftSource`
+ *    تمرّ بنافذة المراجعة كما لو ضغطتَ الزرّ.
+ */
+export const __wse = { enterDraftSource, returnToOriginal };
