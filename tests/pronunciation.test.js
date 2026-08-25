@@ -868,4 +868,62 @@ describe('النبر · الحلّالُ الموحَّد (WS55)', () => {
       expect(store.lookupStress('доку')).toBe(null);          /* بادئةٌ ليست كلمة */
     } finally { store.__resetLexicon(); }
   });
+
+  /* ═══════════════════════════════════════════════════════════════
+   * ١٥…١٦ · أمانةُ العرض: ما يُرسَم هو ما كُتب، بحرفه وترقيمه
+   *
+   * العطبان أدناه قِيسا في الظلّ لا في اختبار: جملةٌ من مسودّةٍ
+   * تُعرَض «документ» بحرفٍ صغيرٍ وأخرى «333 мм..». وكلاهما في
+   * `markSentence`/`markPlain` — أي في **العرض والنسخ معًا**.
+   * ═══════════════════════════════════════════════════════════════ */
+
+  it('١٥ · وحرفُ الكلمة الكبيرُ يبقى كبيرًا وإن جاء النبرُ من قاموسٍ صغير', async () => {
+    const store = await import('../js/services/pronunciation/stress/lexicon-store.js');
+    const { markPlain, markSentence, stressOf, registerStressLookup } =
+      await import('../js/services/shadow/stress.js');
+    const { markWord } = await import('../js/services/pronunciation/stress/resolver.js');
+
+    store.__injectLexicon(TINY);
+    registerStressLookup((bare) => {
+      const hit = store.lookupStress(bare);
+      return !hit || hit.ambiguous ? null : markWord(bare, hit.ordinal);
+    });
+    try {
+      /* مفاتيحُ المعجمِ صغيرةٌ — والمخرَجُ يعود بحالةِ ما سُئل عنه. */
+      expect(stressOf('Болото')).toBe('Боло́то');
+      expect(stressOf('болото')).toBe('боло́то');
+      expect(stressOf('БОЛОТО')).toBe('БОЛО́ТО');
+
+      /*
+       * والعرضُ والنسخُ بابان لنفس القاعدة.
+       *
+       * ⚠️ ولا يُقارَن مخرَجُ `markSentence` بالنصّ المعلَّم كما هو: هي
+       *    تلفّ حرفَ العلّة بوسمٍ («Бол<b>о́</b>то»)، فالمقارنةُ على
+       *    الحرف الأوّل وحدَه — وهو موضعُ العطب.
+       */
+      expect(markPlain('Болото большое.').text).toContain('Боло́то');
+      expect(markSentence('Болото большое.').html.slice(0, 3)).toBe('Бол');
+    } finally {
+      registerStressLookup(null);
+      store.__resetLexicon();
+    }
+  });
+
+  it('١٦ · ورمزٌ بلا حروفٍ يُترك كما هو — لا يُثلَّث ولا تُزدَوج نقطتُه', async () => {
+    const { markPlain, markSentence } = await import('../js/services/shadow/stress.js');
+
+    /*
+     * ⚠️ كانت البادئةُ واللاحقةُ تُقاسان على الرمز الكامل، فرمزٌ بلا
+     *    حروفٍ يطابقهما كلَّه: «3» ← «3»+«3»+«3».
+     */
+    expect(markPlain('Толщина 3 мм.').text).toBe('Толщина 3 мм.');
+    expect(markPlain('صفر — 10 %').text).toBe('صفر — 10 %');
+    /* ولا نقطةَ زائدةٌ على كلمةٍ بلا حرفِ علّة. */
+    expect(markPlain('мм.').text).toBe('мм.');
+
+    const marked = markSentence('Толщина 3 мм.');
+    expect(marked.html.includes('333')).toBe(false);
+    /* والرموزُ بلا حروفٍ لا تدخل مقامَ التغطية أصلًا. */
+    expect(markPlain('3 — %').total).toBe(0);
+  });
 });

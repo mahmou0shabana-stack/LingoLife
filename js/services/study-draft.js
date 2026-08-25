@@ -49,6 +49,7 @@
 import { studyDrafts, media, relationships } from '../db/repositories.js';
 import { STATE } from '../db/schema.js';
 import { splitSentences } from './shadow/segmenter.js';
+import { parseBilingual } from './shadow/bilingual.js';
 import { storeStandaloneImage } from './media-service.js';
 import { link } from './link-service.js';
 
@@ -329,6 +330,54 @@ export function draftSentences(draftOrText) {
  */
 export function practicableSentences(draftOrText) {
   return draftSentences(draftOrText).filter((line) => line.ru);
+}
+
+/* ------------------------------------------------------------------ */
+/* الأزواج الثنائيّة: روسيٌّ ↔ عربيّ (WS-D)                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * أزواجُ المسودّة — **المحفوظُ إن وُجد، وإلّا فقراءةٌ بنيويّةٌ الآن**.
+ *
+ * ⚠️ **ولماذا حقلٌ محفوظٌ أصلًا ما دام الاشتقاقُ ممكنًا؟**
+ *
+ *    لأن **الإصلاحَ اليدويَّ لا يُشتَقّ**. المحلّلُ يقرأ البنيةَ فيصيب
+ *    غالبًا؛ وحين يخطئ تُصلحه أنت (بند ٢٠) — ولو كان كلُّ شيءٍ
+ *    مشتقًّا لضاع إصلاحُك عند أوّل إعادة قراءة، ولوجدتَ نفسك تُصلح
+ *    نفسَ الزوج كلّ مرّة.
+ *
+ * ⚠️ **وحقلٌ جديدٌ بلا ترقية** (بند ٢١): سجلّاتُ المسودّات القديمة لا
+ *    تحمل `pairs`، وقارئُها هنا يسأل «هل هي موجودة؟» لا «ما قيمتها؟»
+ *    — فتُشتَقّ لها عند أوّل قراءة. ولا مخزنَ جديدٌ ولا هجرةَ بيانات.
+ *
+ * @param {object|string} draftOrText
+ * @returns {object[]} وحداتُ `bilingual.parseBilingual`
+ */
+export function draftPairs(draftOrText) {
+  if (typeof draftOrText !== 'string' && Array.isArray(draftOrText?.pairs)) {
+    return draftOrText.pairs;
+  }
+  const text = typeof draftOrText === 'string' ? draftOrText : draftOrText?.text || '';
+  return parseBilingual(text).units;
+}
+
+/**
+ * يحفظ الأزواجَ بعد مراجعتك — **ولا يلمس نصَّ المسودّة** (بند ١٨).
+ *
+ * ⚠️ **الخامُ يبقى.** `text` هو ما لصقتَه أو استُخرج، و`pairs` قراءتُنا
+ *    البنيويّةُ له بعد تصحيحك. فلو أخطأ المحلّلُ غدًا في نمطٍ جديد
+ *    استطعتَ أن ترى الأصلَ وتقارن — وهو ما يمنعه حذفُ الخام.
+ */
+export async function saveDraftPairs(draftId, pairs) {
+  return studyDrafts.update(draftId, {
+    pairs: (pairs || []).map((one) => ({
+      ru: one.ru || '',
+      ar: one.ar || '',
+      status: one.status,
+      ...(one.manual ? { manual: true } : {}),
+    })),
+    updatedAt: Date.now(),
+  });
 }
 
 /* ------------------------------------------------------------------ */

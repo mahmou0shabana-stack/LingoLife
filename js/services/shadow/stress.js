@@ -43,6 +43,96 @@ import { settings } from '../../db/repositories.js';
 /** حروف العلّة الروسية — كلمة بحرف علّة واحد لا تحتاج علامة. */
 const VOWELS = 'аеёиоуыэюяАЕЁИОУЫЭЮЯ';
 
+/** الترقيمُ الذي يُنزَع قبل سؤال القاموس — مفاتيحُه بلا ترقيم. */
+const PUNCT = /[.,!?;:—«»""'']/g;
+
+/**
+ * يُلبس الشكلَ المعلَّمَ حالةَ الأحرفِ الأصليّة.
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ لماذا هذه الدالّة أصلًا — عطبٌ قِيس لا احتياطٌ نظريّ
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * مفاتيحُ القواميس **صغيرةٌ كلُّها** (`userDict[clean]`، `BUILT_IN`،
+ * والمعجمُ الكبير)، وقيمُها صغيرةٌ مثلُها. وكانت `stressOf` تعيد القيمةَ
+ * كما هي — فتُستبدَل الكلمةُ المكتوبةُ بصغيرتها:
+ *
+ *     «Документ уже полностью заполнен.»
+ *   → «документ уже полностью заполнен.»
+ *
+ * قِستُها في الظلّ: الجملةُ الأولى سليمةٌ («Во» حرفُ علّةٍ واحدٍ فتُعاد
+ * كما هي) والثانيةُ مكسورة — فبدا العطبُ متقطّعًا بلا معنى حتى تبيّن أن
+ * الفارقَ هو **المرورُ بالقاموس من عدمِه**.
+ *
+ * وهذا لا يخصّ العرضَ وحدَه: `markPlain` هي بابُ النسخ، فكان المنسوخُ
+ * إلى الحافظة يفقد حرفَه الكبير أيضًا.
+ */
+function sameCase(original, marked) {
+  const ACUTE = '́';
+  const source = [...original].filter((ch) => ch !== ACUTE);
+  let at = 0;
+  return [...marked].map((ch) => {
+    if (ch === ACUTE) return ch;
+    const from = source[at++];
+    if (!from || from === from.toLowerCase()) return ch;
+    return ch.toUpperCase();
+  }).join('');
+}
+
+/**
+ * يفكّ الرمزَ إلى ثلاثة: ما قبل الحروف، والحروفُ نفسُها، وما بعدها.
+ *
+ * ⚠️ **ولا تُحسَب البادئةُ من الرمز كلِّه** — كانت البادئةُ «كلُّ ما ليس
+ *    حرفًا من أوّله» واللاحقةُ «كلُّ ما ليس حرفًا من آخره»، **كلتاهما
+ *    مقيسةً على الرمز الكامل**. فرمزٌ بلا حروفٍ أصلًا يطابقه النمطان
+ *    كاملًا، فيصير «٣» ← بادئة «٣» + جسم «٣» + لاحقة «٣» = **«٣٣٣»**.
+ *
+ * ⚠️ **ولا تكتب النمطَ نفسَه هنا**: صنفُ محارفَ ينتهي بـ«نجمةٍ ثم شرطةٍ
+ *    مائلة» **يُغلق التعليقَ في منتصفه**، فيصير باقي الشرح كودًا. وقعتُ
+ *    فيها الآن: `node --check` مرّت (العلاماتُ الخلفيّةُ في الشرح
+ *    أعادت التوازن) والمتصفّحُ وحدَه صرخ «Unexpected identifier».
+ *    فالأنماطُ تُوصَف بالكلام هنا، وتُقرأ من الكود تحت.
+ *
+ *    قِستُها: «Толщина покрытия составляет 3 мм.» تُعرَض
+ *    «Толщина покрытия составляет 333 мм..» — رقمٌ مثلَّثٌ ونقطةٌ
+ *    مزدوجة. فاللاحقةُ تُحسب مما **بقي بعد البادئة** لا من الرمز.
+ */
+function splitToken(token) {
+  const prefix = token.match(/^[^\p{L}]*/u)?.[0] || '';
+  const rest = token.slice(prefix.length);
+  const suffix = rest.match(/[^\p{L}]*$/u)?.[0] || '';
+  return { prefix, core: suffix ? rest.slice(0, -suffix.length) : rest, suffix };
+}
+
+/**
+ * قلبٌ واحدٌ لـ`markPlain` و`markSentence` — تفترقان في الغلاف وحدَه.
+ *
+ * ⚠️ **ورمزٌ بلا حرفٍ لا يُحسب كلمةً**: «٣» و«—» ليستا كلمتين مجهولتَي
+ *    النبر، فعدُّهما في المقام يُنقص نسبةَ التغطية المعروضة بلا سبب.
+ *
+ * @param {string} sentence
+ * @param {(marked: string) => string} wrap
+ */
+function markTokens(sentence, wrap) {
+  const tokens = String(sentence || '').split(/(\s+)/);
+  let known = 0;
+  let total = 0;
+
+  const parts = tokens.map((token) => {
+    if (/^\s+$/.test(token) || !token) return token;
+    const { prefix, core, suffix } = splitToken(token);
+    if (!core) return token;
+    total += 1;
+    const marked = stressOf(core);
+    if (!marked) return token;
+    known += 1;
+    /* الترقيمُ يبقى حول الشكل المعلَّم — «докуме́нт,» لا «докуме́нт». */
+    return prefix + wrap(marked) + suffix;
+  });
+
+  return { parts, known, total };
+}
+
 /** مفتاح القاموس الذي يبنيه المستخدم بنفسه. */
 const USER_DICT_KEY = 'shadow.stressDictionary';
 
@@ -220,15 +310,20 @@ export function stressWithSource(word) {
  *  · موجودة في قاموس المستخدم أو المدمج.
  */
 export function stressOf(word) {
-  const clean = String(word || '').toLowerCase().replace(/[.,!?;:—«»""'']/g, '');
+  const raw = String(word || '');
+  const bare = raw.replace(PUNCT, '');
+  const clean = bare.toLowerCase();
   if (!clean) return null;
 
-  if (userDict[clean]) return userDict[clean];
-  if (BUILT_IN[clean]) return BUILT_IN[clean];
-  if (/ё/i.test(clean)) return word;
+  /* المفاتيحُ صغيرةٌ دائمًا، والمخرَجُ يعود بحالةِ ما سُئل عنه. */
+  const dress = (marked) => sameCase(bare, marked);
+
+  if (userDict[clean]) return dress(userDict[clean]);
+  if (BUILT_IN[clean]) return dress(BUILT_IN[clean]);
+  if (/ё/i.test(clean)) return bare;
 
   const vowelCount = [...clean].filter((ch) => VOWELS.includes(ch)).length;
-  if (vowelCount <= 1) return word;
+  if (vowelCount <= 1) return bare;
 
   /*
    * ⚠️ **آخرُ رتبةٍ: المعجمُ الكبير — إن كان قد وصل** (WS55).
@@ -243,7 +338,10 @@ export function stressOf(word) {
    *       في `StressResolver` بالضبط، لا ترتيبٌ ثانٍ يفترق عنه.
    */
   if (externalLookup) {
-    try { return externalLookup(clean) || null; } catch { return null; }
+    try {
+      const hit = externalLookup(clean);
+      return hit ? dress(hit) : null;
+    } catch { return null; }
   }
 
   // غير معروفة — الصمت أصدق من تخمين موضع خاطئ.
@@ -376,22 +474,7 @@ export function stressHtml(marked) {
  * @returns {{ text: string, known: number, total: number }}
  */
 export function markPlain(sentence) {
-  const tokens = String(sentence || '').split(/(\s+)/);
-  let known = 0;
-  let total = 0;
-
-  const parts = tokens.map((token) => {
-    if (/^\s+$/.test(token) || !token) return token;
-    total += 1;
-    const marked = stressOf(token);
-    if (!marked) return token;
-    known += 1;
-    /* الترقيمُ يبقى حول الشكل المعلَّم — «докуме́нт,» لا «докуме́нт». */
-    const prefix = token.match(/^[^\p{L}]*/u)?.[0] || '';
-    const suffix = token.match(/[^\p{L}]*$/u)?.[0] || '';
-    return prefix + marked + suffix;
-  });
-
+  const { parts, known, total } = markTokens(sentence, (marked) => marked);
   return { text: parts.join(''), known, total };
 }
 
@@ -400,21 +483,6 @@ export function markPlain(sentence) {
  * @returns {{ html: string, known: number, total: number }}
  */
 export function markSentence(sentence) {
-  const tokens = String(sentence || '').split(/(\s+)/);
-  let known = 0;
-  let total = 0;
-
-  const parts = tokens.map((token) => {
-    if (/^\s+$/.test(token) || !token) return token;
-    total++;
-    const marked = stressOf(token);
-    if (!marked) return token;
-    known++;
-    // نُبقي ترقيم الكلمة الأصلي حول الشكل المعلّم.
-    const prefix = token.match(/^[^\p{L}]*/u)?.[0] || '';
-    const suffix = token.match(/[^\p{L}]*$/u)?.[0] || '';
-    return prefix + stressHtml(marked) + suffix;
-  });
-
+  const { parts, known, total } = markTokens(sentence, stressHtml);
   return { html: parts.join(''), known, total };
 }

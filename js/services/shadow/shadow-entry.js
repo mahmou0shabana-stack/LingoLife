@@ -13,7 +13,8 @@ import { navigate } from '../../router.js';
 import { scenes, scripts, media } from '../../db/repositories.js';
 import { listConversationParts } from '../content-service.js';
 import { splitSentences } from './segmenter.js';
-import { createSession, sessionsForSource, SOURCE_TYPE } from './shadow-session-service.js';
+import { createSession, globalDefaults, sessionsForSource, SOURCE_TYPE }
+  from './shadow-session-service.js';
 import { urlFor } from '../media-service.js';
 import { showModal } from '../../components/modal.js';
 import { toast, toastOk, toastError } from '../../components/toast.js';
@@ -197,62 +198,84 @@ export async function openShadowSelection(scriptId, sceneId) {
  */
 export async function openShadowFromDraft(draftId) {
   const { studyDrafts } = await import('../../db/repositories.js');
-  const { draftSentences } = await import('../study-draft.js');
+  const { draftPairs, saveDraftPairs } = await import('../study-draft.js');
+  const { openPairReview } = await import('../../modals/pair-review.js');
 
   const draft = await studyDrafts.get(draftId);
   if (!draft) return toastError('المسودّة دي مش موجودة');
 
-  const lines = draftSentences(draft);
-  if (!lines.length) return toastError('المسودّة لسه فاضية — الصق فيها التحليل الأوّل');
+  const units = draftPairs(draft);
+  if (!units.length) return toastError('المسودّة لسه فاضية — الصق فيها التحليل الأوّل');
 
-  const anyRu = lines.some((line) => line.ru);
-  if (!anyRu) return toastError('مفيش جمل روسي في المسودّة نتدرّب عليها');
-
-  let form = null;
-  await showModal({
-    title: 'اختار من المسودّة',
-    submitLabel: 'ابدأ بالمحدّد',
-    body: html`
-      <p class="text-soft text-sm" style="margin-bottom:var(--sp-3)">
-        أشّرنا على اللي فيه روسي. غيّر اللي عايزه.
-      </p>
-      ${raw(
-        lines
-          .map(
-            (line, i) => html`
-              <label class="pick-row${line.ru ? '' : ' is-dim'}">
-                <input type="checkbox" name="s${i}" value="${i}"
-                  ${line.ru ? 'checked' : ''} />
-                <span ${line.ru ? 'dir="ltr" lang="ru"' : ''}>${line.text}</span>
-              </label>`
-          )
-          .join('')
-      )}`,
-    onSubmit(data, close) {
-      form = data;
-      close();
-    },
+  /*
+   * ⚠️ **العربيُّ لا يُعرَض مصدرًا للتدريب أصلًا** (بند ١٢).
+   *
+   *    كانت النافذةُ تعرض كلَّ سطرٍ بمربّع اختيار — الروسيَّ مؤشَّرًا
+   *    والعربيَّ باهتًا. فكان **ممكنًا** أن تؤشّر سطرًا عربيًّا فيدخل
+   *    الجلسةَ «جملةً تُنطَق»، فيقرأ محرّكٌ روسيٌّ نصًّا عربيًّا.
+   *
+   *    والآن المصدرُ روسيٌّ بحكم البنية: ما يُعرَض أزواجٌ، والعربيُّ
+   *    فيها **ترجمةٌ** لا مادّةَ نطق.
+   */
+  const reviewed = await openPairReview({
+    units,
+    title: draft.subjectText || 'مذاكرة',
   });
-  if (!form) return;
+  if (!reviewed) return undefined;
 
-  const picked = Object.values(form)
-    .map((value) => lines[Number(value)]?.text)
-    .filter(Boolean);
+  /* ⚠️ ما راجعتَه يُحفَظ — فلا تُصلح نفسَ الزوج مرّتين (بند ٢٠). */
+  await saveDraftPairs(draftId, reviewed.units).catch(() => {});
+
+  const picked = reviewed.picked;
   if (!picked.length) return toastError('ماخترتش أي جملة');
+
+  /*
+   * ⚠️ **جلسةٌ بترجماتٍ تبدأ والترجمةُ ظاهرة — وهذا عطبٌ قِيس لا رأي.**
+   *
+   *    الافتراضُ العامُّ للجلسات الجديدة `displayMode: 'ru'`، و
+   *    `translationFor` تُرجع فراغًا في ذلك الوضع عمدًا (WS33). فكانت
+   *    النتيجةُ أن تقرن الترجماتِ بيدك في المراجعة، ثم تفتح الظلَّ
+   *    فلا ترى منها شيئًا — والبياناتُ سليمةٌ في القاعدة تمامًا.
+   *
+   *    قِسته: `translationSnapshot` مكتوبٌ صحيحًا و`[data-tr]` فارغ.
+   *    ولولا فحصُ القاعدة لظننتُ القرانَ نفسَه مكسورًا.
+   *
+   * ⚠️ **ولا تُفرَض فرضًا** (بند ٢٤): تُبدَّل القيمةُ الابتدائيّةُ وحدَها،
+   *    والمفتاحُ يعمل بعدها ويُحفَظ لهذه الجلسة. ولو كان تفضيلُك
+   *    العامُّ يُظهر الترجمةَ أصلًا فلا شيءَ يُلمَس.
+   */
+  const anyTranslation = picked.some((one) => one.ar);
+  const defaults = await globalDefaults();
+  const settings = anyTranslation && defaults.displayMode === 'ru'
+    ? { displayMode: 'egy' }
+    : {};
 
   try {
     const { session, segments } = await createSession({
+      settings,
       title: `مسودّة: ${draft.subjectText || 'مذاكرة'}`,
       sourceType: SOURCE_TYPE.STUDY_DRAFT,
       sourceId: draftId,
       sceneId: draft.sceneId || null,
-      segments: picked.map((text) => ({ text })),
+      /*
+       * ⚠️ **والترجمةُ تمرّ هنا — وهذا هو السطرُ الذي كان ناقصًا.**
+       *
+       *    `createSession` تعرف `translation` منذ البداية وتكتبها في
+       *    `translationSnapshot`؛ ومسارُ المسودّة وحدَه كان يمرّر
+       *    النصَّ عاريًا. فكلُّ ما بُني في WS-D قبل هذا السطر لم يكن
+       *    ليصل إلى الظلّ.
+       */
+      segments: picked.map((one) => ({ text: one.ru, translation: one.ar || null })),
     });
-    toastOk(`${segments.length} جملة جاهزة`);
+    const withTr = picked.filter((one) => one.ar).length;
+    toastOk(withTr
+      ? `${segments.length} جملة — منها ${withTr} بترجمتها`
+      : `${segments.length} جملة جاهزة`);
     navigate(`/shadow/${session.id}`);
   } catch (error) {
     toastError(error.message);
   }
+  return undefined;
 }
 
 /**

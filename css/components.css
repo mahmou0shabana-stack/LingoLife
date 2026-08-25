@@ -3691,3 +3691,101 @@ body.tr-focused .tr-text { font-size: var(--fs-md); line-height: 2.15; }
 
 /* داخل كتاب الظلّ لا معنى له — أنت هناك بالفعل. */
 body:has(.shadow-app) .quick-fab { display: none; }
+
+/* ══════════════════════════════════════════════════════════════════
+   مراجعةُ الأزواج: روسيٌّ ↔ عربيّ (WS-D)
+
+   ⚠️ **الاتّجاهُ على الكتلة لا على الصفحة** (بندا ٥٣ و٥٤). الصفحةُ
+      عربيّةٌ RTL، ونصٌّ روسيٌّ يرث ذلك تنقلب علاماتُه: «Документ.»
+      تُعرَض «.Документ». فلكلّ فقرةٍ `dir` صريحٌ في الـHTML، وهنا
+      `text-align` يتبعه بـ`start` لا بـ`left/right` — فالمحاذاةُ
+      تُشتقّ من اتّجاه العنصر نفسِه ولا تحتاج قاعدتين.
+   ══════════════════════════════════════════════════════════════════ */
+
+.pair-review { display: grid; gap: var(--sp-3); }
+
+.pr-sum { margin: 0; font-size: 13px; color: var(--text-soft); }
+.pr-sum b { color: var(--text); }
+.pr-note {
+  margin: 0 0 var(--sp-2);
+  font-size: 12px; line-height: 1.8; color: var(--text-soft);
+}
+
+.pr-card {
+  display: grid; gap: var(--sp-2);
+  padding: var(--sp-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface, transparent);
+}
+/* عربيٌّ بلا أصلٍ روسيّ — يُعرَض ولا يدخل التدريب. */
+.pr-card.is-orphan { opacity: .72; border-style: dashed; }
+
+.pr-head { display: flex; align-items: center; gap: var(--sp-2); }
+
+/*
+ * ⚠️ **هدفُ اللمس هو الوسمُ لا المربّعُ المرسوم** (بند ٥٣).
+ *
+ *    `<label>` تلتقط الضغطةَ وتقلب المربّعَ داخلها، فالمساحةُ الفعّالة
+ *    ٤٤px كاملةً وإن بدا المربّعُ أصغر. وقياسُ المربّعِ وحدَه يعطي رقمًا
+ *    مضلِّلًا — قِس الوسم.
+ *
+ *    والمربّعُ نفسُه ٢٤px لا ٢٠: أصغرُ من ذلك لا يُرى في الشمس على
+ *    شاشةِ التابلت.
+ */
+.pr-pick {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--sp-2);
+  min-block-size: 44px; min-inline-size: 44px; cursor: pointer;
+}
+.pr-pick input { inline-size: 24px; block-size: 24px; accent-color: var(--accent); }
+.pr-num { font-size: 12px; color: var(--text-soft); }
+
+.pr-status {
+  margin-inline-start: auto;
+  padding: 3px 10px; border-radius: 999px;
+  font-size: 11px; white-space: nowrap;
+  background: var(--accent-wash); color: var(--text-soft);
+}
+.pr-paired_strong { background: rgba(64, 145, 108, .16); color: #2d6a4f; }
+.pr-paired_structural { background: rgba(64, 145, 108, .10); color: #40916c; }
+.pr-needs_review { background: rgba(191, 122, 26, .16); color: #9c5b0e; }
+.pr-unpaired_arabic { background: rgba(120, 120, 120, .14); }
+
+/* الروسيّ: LTR دائمًا مهما كان اتّجاهُ الصفحة. */
+.pr-ru {
+  margin: 0; text-align: start;
+  font-size: 15px; line-height: 1.75;
+  overflow-wrap: anywhere;
+}
+/* والعربيّ: RTL صراحةً. */
+.pr-ar {
+  margin: 0; text-align: start;
+  font-size: 14px; line-height: 1.9; color: var(--text-soft);
+  overflow-wrap: anywhere;
+}
+.pr-missing {
+  margin: 0; font-size: 12px; color: var(--text-faint, var(--text-soft));
+  font-style: italic;
+}
+
+.pr-acts { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.pr-acts button {
+  min-block-size: 44px; padding: 0 var(--sp-3); cursor: pointer;
+  font-size: 13px; color: var(--text-soft);
+  background: none; border: 1px solid var(--line); border-radius: var(--radius-sm);
+}
+
+.pr-choose {
+  display: grid; gap: var(--sp-2);
+  padding-block-start: var(--sp-2);
+  border-block-start: 1px dashed var(--line);
+}
+.pr-hint { margin: 0; font-size: 12px; color: var(--text-soft); }
+.pr-cand {
+  min-block-size: 44px; padding: var(--sp-2) var(--sp-3);
+  text-align: start; cursor: pointer;
+  font-size: 13px; line-height: 1.8;
+  background: var(--accent-wash); border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  overflow-wrap: anywhere;
+}
