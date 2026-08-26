@@ -321,10 +321,12 @@ export async function organizeBoard(sceneId) {
  *
  * @param {string[]} mediaIds
  * @param {string|null} targetId سكريبتٌ أو جزء — أو `null` لفكّ الربط
- * @param {{ scopeIds?: string[] }} options `scopeIds` أهدافُ هذه الذكرى
+ * @param {{ scopeIds?: string[], mode?: 'move'|'attach' }} options
+ *        `scopeIds` أهدافُ هذه الذكرى — حدُّ ما يجوز فكُّه في وضع `move`
+ *        `mode`     `move` (الافتراض، سلوكُ WS56) أو `attach` (WS-F2)
  * @returns {Promise<{linked: number, unlinked: number}>}
  */
-export async function linkItemsTo(mediaIds, targetId, { scopeIds = [] } = {}) {
+export async function linkItemsTo(mediaIds, targetId, { scopeIds = [], mode = 'move' } = {}) {
   const scope = new Set(scopeIds);
   const rows = (await media.getMany(mediaIds)).filter(Boolean);
   let linked = 0;
@@ -334,14 +336,31 @@ export async function linkItemsTo(mediaIds, targetId, { scopeIds = [] } = {}) {
     const kind = linkKindFor(item.kind);
     const existing = await linksOf(item.id, kind);
 
-    for (const row of existing) {
-      if (row.otherId === targetId) continue;
-      if (scope.size && !scope.has(row.otherId)) continue;   /* ذكرى أخرى — لا تُمَسّ */
-      await unlink(item.id, row.otherId, kind);
-      unlinked += 1;
+    /*
+     * ⚠️ **والإضافةُ لا تهدم** (WS-F2، بندا ٣٩ و٤٠).
+     *
+     *    الوضعُ القديم يريد «انقل»: صورةٌ في مكانٍ واحدٍ داخل الذكرى،
+     *    فتجيب اللوحةُ «هي في الفحص البصريّ» بجوابٍ واحد. وهذا صحيحٌ
+     *    له ولم يتغيّر — `move` هو الافتراض.
+     *
+     *    والورشةُ تريد «أضِف»: مخطّطٌ واحدٌ قد يخدم المرحلةَ والجزءَ
+     *    الثالثَ والثامن. وادّعاءُ أن الملفَّ لا يسكن إلّا مكانًا واحدًا
+     *    كذبٌ على بنيةٍ تسمح بالاثنين.
+     *
+     *    والفكُّ يبقى **صريحًا** في الحالتين: `unlinkOne` من الورشة،
+     *    أو `targetId: null` هنا.
+     */
+    if (mode === 'move') {
+      for (const row of existing) {
+        if (row.otherId === targetId) continue;
+        if (scope.size && !scope.has(row.otherId)) continue; /* ذكرى أخرى — لا تُمَسّ */
+        await unlink(item.id, row.otherId, kind);
+        unlinked += 1;
+      }
     }
 
     if (targetId) {
+      /* ⚠️ و`link` نفسُها تتجاهل المكرَّر، فلا يتضاعف رابطٌ قائم. */
       await link(item.id, targetId, kind);
       linked += 1;
     }

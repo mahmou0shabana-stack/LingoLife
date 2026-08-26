@@ -23,10 +23,12 @@ import {
 } from '../js/services/workspace/paste-parser.js';
 import {
   parseDialogue, speakerAt, looksLikeDialogue, speakersIn, dialogueAccounting,
+  dirOf, conversationModel,
 } from '../js/services/workspace/speaker-parser.js';
 import {
   workspaceBoard, pathLabel, addLooseText, placeTextUnder, detachToLoose,
   commitPaste, conflictsFor, addTextAt, ITEM,
+  linkSelection, unlinkOne, destinationsOf,
 } from '../js/services/workspace/workspace-service.js';
 import { createScene } from '../js/services/scene-service.js';
 import { addScript } from '../js/services/content-service.js';
@@ -493,6 +495,188 @@ describe('WS-F · مصدرُ حقيقةٍ واحد', () => {
     const view = codeOnly(await (await fetch('../js/views/workspace-view.js')).text());
     expect(view.includes("classList.add('workspace-open')")).toBe(true);
     expect(view.includes("classList.remove('workspace-open')")).toBe(true);
+  });
+
+  it('٤١ · WS-F2 · التقسيمُ حدٌّ لا يأكل سطرًا (بندا ١٦ و٧١)', () => {
+    const src = ['PART 1 — أ', ...Array.from({ length: 8 }, (_, i) => `سطر ${i + 1}`)].join('\n');
+    const base = parsePaste(src);
+    expect(base.nodes[0].bodyAt).toHaveLength(8);
+
+    const cutAt = base.nodes[0].bodyAt[4];
+    const out = parsePaste(src, { splits: { [cutAt]: { title: 'تكملة', level: 3 } } });
+    expect(out.counts.nodes).toBe(2);
+    expect(out.nodes[0].text.split('\n')).toHaveLength(4);
+    expect(out.nodes[1].text.split('\n')).toHaveLength(4);
+    /* ⚠️ عددُ أسطر العناوين لم يتغيّر — الحدُّ افتراضيٌّ لا سطرٌ مُستهلَك. */
+    expect(out.accounting.headingLines).toBe(base.accounting.headingLines);
+    expect(out.accounting.unassigned).toBe(0);
+    /* والعنوانُ من عندك، ويُعلَن أنّه كذلك. */
+    expect(out.nodes[1].synthetic).toBe(true);
+    expect(out.nodes[1].title).toBe('تكملة');
+  });
+
+  it('٤٢ · ⚠️ وسلامةُ الأسطر تُقاس بالتعداد لا بالتفرّد (بند ٧٣)', () => {
+    /*
+     * ⚠️ أوّلُ صياغةٍ كتبتُها اشترطت أن يظهر كلُّ سطرٍ **مرّةً واحدة**،
+     *    فسقطت — وكانت محقّةً وكنتُ مخطئًا: «نصّ» قد يتكرّر في المدخل
+     *    نفسِه. والمقياسُ الصادق: تعدادُ كلّ سلسلةٍ في الخرج = تعدادُها
+     *    في الدخل، لا أكثرَ ولا أقلّ.
+     */
+    const src = ['PHASE 1', 'PART 1 — أ', 'مكرَّر', 'واحد', 'مكرَّر',
+      'PART 2 — ب', 'مكرَّر', 'اتنين'].join('\n');
+    const base = parsePaste(src);
+    const cutAt = base.nodes[1].bodyAt[1];
+    const out = parsePaste(src, {
+      splits: { [cutAt]: { title: 'مقسوم', level: 3 } },
+      demote: [base.nodes[2].at],
+    });
+
+    const tally = (list) => list.reduce((m, l) => m.set(l, (m.get(l) || 0) + 1), new Map());
+    const isHead = (l) => /^(PHASE|PART)/.test(l);
+    const inBody = tally(src.split('\n').map((l) => l.trim()).filter((l) => l && !isHead(l)));
+    const outAll = tally(out.nodes.flatMap((n) => n.text.split('\n')).map((l) => l.trim()).filter(Boolean));
+
+    for (const [line, n] of inBody) expect(`${line}:${outAll.get(line) || 0}`).toBe(`${line}:${n}`);
+    expect(out.accounting.unassigned).toBe(0);
+    /* ⚠️ وعنوانُ المدموج بقي سطرًا في المتن — لم يُحذَف (بند ٧٢). */
+    expect(outAll.has('PART 2 — ب')).toBe(true);
+  });
+
+  it('٤٣ · والدمجُ هو الخفضُ نفسُه — لا آليّةَ ثالثة (بند ١٧)', () => {
+    const src = ['PART 1 — أ', 'متن أ', 'PART 2 — ب', 'متن ب'].join('\n');
+    const merged = parsePaste(src, { demote: [2] });
+    expect(merged.counts.nodes).toBe(1);
+    expect(merged.nodes[0].title).toBe('PART 1 — أ');
+    expect(merged.nodes[0].text).toContain('متن أ');
+    expect(merged.nodes[0].text).toContain('متن ب');
+  });
+
+  it('٤٤ · WS-F2 · اتّجاهُ الفقرة من محتواها لا من الكتلة (بند ٢٤)', () => {
+    expect(dirOf('دلوقتي ندخل على: вскрыть.')).toBe('rtl');
+    expect(dirOf('Отличный вопрос. Открыть كلمة عامة.')).toBe('ltr');
+    expect(dirOf('123 — ...')).toBe('auto');
+  });
+
+  it('٤٥ · ونموذجُ المحادثة يُحسَب مرّةً ويحفظ الفقرات (بندا ٢٥ و٦٠)', () => {
+    const real = [
+      'Speaker 1: دلوقتي ندخل على أهم فعل: вскрыть.', '',
+      'في السياق ده вскрыть معناها يفضّ.', '',
+      'Speaker 2: طب إيه الفرق بينها وبين открыть؟', '',
+      'Speaker 1: Отличный вопрос. Открыть كلمة عامة جدًا.', '',
+      'لكن вскрыть بتدي إحساس إن الحاجة كانت مختومة.', '',
+      'Speaker 2: Вскрыть упаковку.',
+    ].join('\n');
+
+    const model = conversationModel(real);
+    expect(model).toHaveLength(4);
+    expect(model.map((t) => t.speaker)).toEqual(['1', '2', '1', '2']);
+    /* دورٌ واحدٌ بفقرتين — لا فقاعتان (بند ٢٥). */
+    expect(model[0].paragraphs).toHaveLength(2);
+    expect(model[2].paragraphs).toHaveLength(2);
+    /* واتّجاهان مختلفان داخل الدَّور الواحد. */
+    expect(model[2].paragraphs.map((p) => p.dir)).toEqual(['ltr', 'rtl']);
+    /* ⚠️ وتكرارُ المتحدّث ٢ باقٍ — محتوًى تعليميٌّ لا حشو (بند ٢٧). */
+    expect(model[3].paragraphs[0].text).toContain('Вскрыть упаковку');
+  });
+
+  it('٤٦ · WS-F2 · الربطُ يضيف ولا يهدم، والفكُّ مسمًّى (بندا ٣٩ و٤٠)', async () => {
+    const scene = await createScene({ titleAr: `${TAG} وجهات`, date: '2026-08-26' });
+    const root = await addScript(scene.id, { title: `${TAG} جذر`, text: '' });
+    const a = await addNode(root.id, { title: 'A', nodeKind: 'part', text: 'أ' });
+    const b = await addNode(root.id, { title: 'B', nodeKind: 'part', text: 'ب' });
+
+    const { media, sceneMediaLinks } = await import('../js/db/repositories.js');
+    const item = await media.create({ kind: 'audio', caption: `${TAG}.mp3`, blob: new Blob(['x']) });
+    await sceneMediaLinks.create({ sceneId: scene.id, mediaId: item.id, order: 1, roles: [] });
+
+    let board = await workspaceBoard(scene.id);
+    await linkSelection([item.id], a.id, board, { mode: 'attach' });
+    board = await workspaceBoard(scene.id);
+    await linkSelection([item.id], b.id, board, { mode: 'attach' });
+    board = await workspaceBoard(scene.id);
+
+    /* ⚠️ وجهتان — لا واحدةٌ دهست الأخرى. */
+    expect(destinationsOf(board, item.id)).toHaveLength(2);
+
+    await unlinkOne(item.id, board, a.id);
+    board = await workspaceBoard(scene.id);
+    const left = destinationsOf(board, item.id);
+    expect(left).toHaveLength(1);
+    expect(left[0]).toBe(b.id);
+    /* والملفُّ نفسُه باقٍ — الفكُّ يشيل علاقةً لا محتوًى (بند ٨٠-WS-F). */
+    expect(Boolean(await media.get(item.id))).toBe(true);
+  });
+
+  it('٤٧ · ⚠️ ووضعُ «انقل» باقٍ للوضع القديم بلا تغيير (بند ١)', async () => {
+    /*
+     * WS56 يريد «انقل»: عنصرٌ في مكانٍ واحدٍ داخل الذكرى. والورشةُ
+     * تريد «أضِف». فالافتراضُ بقي `move` حتى لا يتغيّر سلوكُ الوضع
+     * القديم بحرف، والورشةُ وحدَها تمرّر `attach`.
+     */
+    const src = codeOnly(await (await fetch('../js/services/organize-service.js')).text());
+    expect(src.includes("mode = 'move'")).toBe(true);
+    const svc = codeOnly(await (await fetch('../js/services/workspace/workspace-service.js')).text());
+    expect(svc.includes("mode = 'attach'")).toBe(true);
+    const org = codeOnly(await (await fetch('../js/views/organize-view.js')).text());
+    /* والوضعُ القديم لا يمرّر وضعًا أصلًا — فيأخذ الافتراض. */
+    expect(org.includes("mode: 'attach'")).toBe(false);
+  });
+
+  it('٤٨ · ⚠️ لمسةُ الشجرة لا تنادي كاتبَ علاقةٍ أبدًا (بند ٣٨)', async () => {
+    const code = codeOnly(await (await fetch('../js/views/workspace-view.js')).text());
+    const from = code.indexOf('function selectNode');
+    expect(from > 0).toBe(true);
+    const body = code.slice(from, code.indexOf('\n}', from));
+    for (const banned of ['linkSelection', 'linkItemsTo', 'link(', 'placeTextUnder']) {
+      expect(`${banned}:${body.includes(banned)}`).toBe(`${banned}:false`);
+    }
+    /* والربطُ فعلٌ صريحٌ له اسمُه. */
+    expect(code.includes("case 'link-here'")).toBe(true);
+    expect(code.includes("case 'link-selected'")).toBe(true);
+  });
+
+  it('٤٩ · ⚠️ والممسوكُ والهدفُ حالةُ واجهةٍ لا تُحفَظ (بندا ٣٦ و٦٤)', async () => {
+    const code = codeOnly(await (await fetch('../js/views/workspace-view.js')).text());
+    /* لا مخزنَ ولا إعدادات ولا تخزينٌ محلّيّ لهما. */
+    for (const banned of ['localStorage', 'sessionStorage', 'saveSetting', 'settings.']) {
+      expect(`${banned}:${code.includes(banned)}`).toBe(`${banned}:false`);
+    }
+    const schema = await (await fetch('../js/db/schema.js')).text();
+    for (const banned of ['workingItem', 'candidateTarget', 'previewScroll']) {
+      expect(`${banned}:${schema.includes(banned)}`).toBe(`${banned}:false`);
+    }
+  });
+
+  it('٥٠ · ⚠️ وتبديلُ نمط المعاينة لا يكتب نصًّا (بندا ٢١ و٦٧)', async () => {
+    const code = codeOnly(await (await fetch('../js/views/workspace-view.js')).text());
+    const from = code.indexOf("case 'pmode'");
+    expect(from > 0).toBe(true);
+    const body = code.slice(from, from + 400);
+    for (const banned of ['saveNodeText', 'updateScript', 'scripts.update']) {
+      expect(`${banned}:${body.includes(banned)}`).toBe(`${banned}:false`);
+    }
+    /* والرسمُ من `conversationModel` لا من كتابةٍ في المصدر. */
+    expect(code.includes('conversationModel')).toBe(true);
+  });
+
+  it('٥١ · ⚠️ ومُمرِّرُ اللوح هو `.ws-col` — قِيس لا يُفترَض (بند ٥٧)', async () => {
+    const css = await (await fetch('../css/workspace.css')).text();
+    /* قفلُ الارتفاع هو ما يجعل اللوحَ مُمرِّرًا أصلًا. */
+    expect(css.includes('body.workspace-open')).toBe(true);
+    expect(css.includes('100dvh')).toBe(true);
+    expect(css.includes('overflow-anchor: none')).toBe(true);
+
+    const code = codeOnly(await (await fetch('../js/views/workspace-view.js')).text());
+    expect(code.includes('const SCROLLERS')).toBe(true);
+    /* ومالكٌ واحدٌ لذاكرة الأنماط: المبدِّلُ يحفظ، والرسمُ يستعيد. */
+    const paint = code.slice(code.indexOf('function paintPreview'), code.indexOf('const paintNow'));
+    expect(paint.includes('state.previewScroll[mode] =')).toBe(false);
+  });
+
+  it('٥٢ · ولا يُنشَأ عارضُ صورٍ ثانٍ (بند ١٣ من ٨٠)', async () => {
+    const code = codeOnly(await (await fetch('../js/views/workspace-view.js')).text());
+    expect(code.includes("from '../components/lightbox.js'")).toBe(true);
+    expect(code.includes('openLightbox')).toBe(true);
   });
 
   it('٤٠ · والشاشاتُ القديمة لم تُمَسّ (بند ٧٨)', async () => {

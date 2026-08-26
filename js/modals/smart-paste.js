@@ -45,7 +45,10 @@ export async function openSmartPaste({ parentLabel, seed = '' } = {}) {
     levels: {},
     demote: [],
     renames: {},
+    splits: {},
     excluded: new Set(),
+    /** العقدةُ المفتوحةُ حدودُها الآن — واحدةٌ فقط، وإلّا صارت جدولًا. */
+    cutting: null,
     parsed: null,
   };
 
@@ -54,6 +57,7 @@ export async function openSmartPaste({ parentLabel, seed = '' } = {}) {
       levels: state.levels,
       demote: state.demote,
       renames: state.renames,
+      splits: state.splits,
     });
     /* ⚠️ استبعادٌ لعقدةٍ اختفت بعد إعادة التحليل يُنظَّف، وإلّا بقي شبحًا. */
     const alive = new Set(state.parsed.nodes.map((node) => node.id));
@@ -143,6 +147,51 @@ export async function openSmartPaste({ parentLabel, seed = '' } = {}) {
           const level = Math.min(DEEPEST, (state.parsed.nodes.find((n) => n.at === at)?.level || 1) + 1);
           state.levels[at] = level; reparse(); return paint();
         }
+        /*
+         * ⚠️ **التقسيمُ حدٌّ لا محرّرُ نصّ** (بند ١٦): تفتح حدودَ عقدةٍ
+         *    واحدة، وتلمس السطرَ الذي يبدأ منه الجزءُ الجديد. ولا كتابةَ
+         *    حرٍّ في المتن — ذاك مشروعٌ آخر لم يُطلَب.
+         */
+        if (act === 'cut-open') {
+          const id = event.target.closest('[data-sp-id]')?.dataset.spId;
+          state.cutting = state.cutting === id ? null : id;
+          return paint();
+        }
+        if (act === 'cut-at' && at !== null) {
+          const node = state.parsed.nodes.find((n) => n.bodyAt?.includes(at));
+          /*
+           * ⚠️ **ويُرفَض ما يصنع جزءًا فارغًا** (بندا ٧١ و٧٨) — ولا
+           *    يُقَصّ صامتًا: تُقال العلّةُ كما هي.
+           */
+          if (!node || node.bodyAt[0] === at) {
+            return toastError('مينفعش التقسيم هنا لأنه هيعمل جزء فاضي');
+          }
+          state.splits[at] = { title: `${node.title} — تكملة`, level: node.level };
+          state.cutting = null;
+          reparse(); return paint();
+        }
+        if (act === 'cut-undo' && at !== null) {
+          delete state.splits[at];
+          reparse(); return paint();
+        }
+
+        /*
+         * ⚠️ **والدمجُ خفضٌ لا آليّةٌ ثالثة** (بند ١٧): عنوانُ الثانية
+         *    يصير سطرًا في متن الأولى، فيسيل المتنُ ولا يضيع العنوان.
+         *    وعنوانُ الأولى هو الباقي — وتقدر تعدّله بالحقل نفسِه.
+         */
+        if (act === 'merge-up') {
+          const id = event.target.closest('[data-sp-id]')?.dataset.spId;
+          const list = state.parsed.nodes;
+          const idx = list.findIndex((n) => n.id === id);
+          if (idx <= 0) return toastError('مفيش جزء قبله يتدمج فيه');
+          const node = list[idx];
+          if (node.synthetic) { delete state.splits[node.at]; reparse(); return paint(); }
+          state.demote = [...new Set([...state.demote, node.at])];
+          delete state.levels[node.at];
+          reparse(); return paint();
+        }
+
         if (act === 'skip') {
           const id = event.target.closest('[data-sp-id]')?.dataset.spId;
           if (!id) return undefined;
@@ -257,33 +306,79 @@ function duplicatesHtml(parsed) {
     </div>`;
 }
 
+/**
+ * حدودُ التقسيم لعقدةٍ — أسطرُ متنها، وأوّلُها لا يصلح حدًّا.
+ */
+function cutLinesHtml(node, parsed) {
+  const lines = parsed.raw.split('\n');
+  return html`
+    <ul class="sp-cuts">
+      <li class="sp-cuts-hint">المس السطر اللي يبدأ منه الجزء الجديد:</li>
+      ${raw((node.bodyAt || []).map((at, i) => {
+        const text = (lines[at] || '').trim();
+        if (!text) return '';
+        const first = i === 0;
+        return html`
+          <li>
+            <button type="button" class="sp-cut ${first ? 'is-off' : ''}"
+                    data-sp="cut-at" data-sp-at="${at}" ${first ? 'disabled' : ''}
+                    dir="auto" title="${first ? 'أوّل سطر — هيسيب جزء فاضي' : 'قسّم من هنا'}">
+              <span class="sp-cut-n">${first ? '—' : '✂'}</span>
+              <span class="sp-cut-t">${text.slice(0, 70)}</span>
+            </button>
+          </li>`;
+      }).join(''))}
+    </ul>`;
+}
+
 function treeHtml(parsed, state) {
+  const lines = parsed.raw.split('\n');
   return html`
     <div class="sp-block">
       <h4>الشجرة المقترَحة</h4>
       <ul class="sp-tree">
-        ${raw(parsed.nodes.map((node) => {
+        ${raw(parsed.nodes.map((node, i) => {
           const off = Math.min(node.level, 6);
           const dropped = state.excluded.has(node.id);
           const dialogue = looksLikeDialogue(node.text || '');
+          const open = state.cutting === node.id;
+          const prev = parsed.nodes[i - 1];
+          /*
+           * ⚠️ **سياقٌ لا اسمٌ وحدَه** (بند ١٩): قرارُ الدمج والتقسيم
+           *    لا يُتَّخذ من عنوانٍ مجرَّد. فأوّلُ سطرين من المتن معروضان،
+           *    والجارُ الذي فوقه مذكور — وإلّا فأنت تقرّر وأنت أعمى.
+           */
+          const peek = (node.bodyAt || []).slice(0, 2)
+            .map((at) => (lines[at] || '').trim()).filter(Boolean).join(' · ');
+
           return html`
-          <li class="sp-node ${dropped ? 'is-out' : ''}"
+          <li class="sp-node ${dropped ? 'is-out' : ''} ${open ? 'is-cutting' : ''}"
               data-sp-at="${node.at}" data-sp-id="${node.id}"
               style="--sp-off:${off}">
-            <button type="button" class="sp-skip" data-sp="skip"
-                    aria-pressed="${dropped ? 'true' : 'false'}"
-                    title="${dropped ? 'رجّعه' : 'استبعِده'}">${dropped ? '↺' : '✕'}</button>
-            <span class="sp-kind">${LEVEL_LABEL[node.level] || node.marker}</span>
-            <input class="sp-title" data-sp-rename="${node.at}"
-                   value="${node.title}" dir="auto" aria-label="عنوان العقدة">
-            <span class="sp-meta">
-              ${(node.text || '').length} حرف${dialogue ? ' · 💬 محادثة' : ''}
-            </span>
-            <span class="sp-nudge">
-              <button type="button" data-sp="out" title="ارفعه مستوى">‹</button>
-              <button type="button" data-sp="in" title="نزّله مستوى">›</button>
-              <button type="button" data-sp="demote" title="خلّيه نصّ عادي">¶</button>
-            </span>
+            <div class="sp-node-row">
+              <button type="button" class="sp-skip" data-sp="skip"
+                      aria-pressed="${dropped ? 'true' : 'false'}"
+                      title="${dropped ? 'رجّعه' : 'استبعِده'}">${dropped ? '↺' : '✕'}</button>
+              <span class="sp-kind">${LEVEL_LABEL[node.level] || node.marker}</span>
+              <input class="sp-title" data-sp-rename="${node.at}"
+                     value="${node.title}" dir="auto" aria-label="عنوان العقدة">
+              <span class="sp-meta">
+                ${(node.text || '').length} حرف${dialogue ? ' · 💬' : ''}${node.synthetic ? ' · مقسوم' : ''}
+              </span>
+            </div>
+            ${raw(peek ? html`<p class="sp-peek" dir="auto">${peek}</p>` : '')}
+            <div class="sp-node-acts">
+              <button type="button" data-sp="out" title="ارفعه مستوى" aria-label="ارفعه مستوى">‹</button>
+              <button type="button" data-sp="in" title="نزّله مستوى" aria-label="نزّله مستوى">›</button>
+              <button type="button" data-sp="demote" title="خلّيه نصّ عادي" aria-label="خلّيه نصّ">¶</button>
+              <button type="button" data-sp="cut-open"
+                      aria-expanded="${open ? 'true' : 'false'}"
+                      ${(node.bodyAt || []).length < 2 ? 'disabled' : ''}>قسّم</button>
+              <button type="button" data-sp="merge-up"
+                      ${prev ? '' : 'disabled'}
+                      title="${prev ? `ادمجه في: ${prev.title}` : 'مفيش جزء قبله'}">ادمج فوق</button>
+            </div>
+            ${raw(open ? cutLinesHtml(node, parsed) : '')}
           </li>`;
         }).join(''))}
       </ul>

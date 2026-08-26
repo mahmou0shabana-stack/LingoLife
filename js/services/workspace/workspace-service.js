@@ -179,13 +179,21 @@ export async function workspaceBoard(sceneId) {
    *    ذكرياتٍ عدّة (WS56)، وعرضُ ارتباطه هناك هنا يربك أكثرَ ممّا
    *    يفيد — ولا يُمَسّ عند إعادة الربط (بند ١٠٦).
    */
+  /*
+   * ⚠️ **وجهاتٌ لا وجهة** (WS-F2، بنود ٣٩…٤٢). كان الحقلُ واحدًا
+   *    فكانت الشاشةُ تدّعي أن الملفَّ لا يسكن إلّا مكانًا واحدًا —
+   *    والبنيةُ تسمح بالاثنين. مخطّطٌ واحدٌ قد يخدم المرحلةَ والجزءَ
+   *    الثالثَ والثامن، ولا تُنسَخ بايتاتُه مرّةً واحدة.
+   */
   const linkedTo = new Map();
   for (const row of active([...audioRows, ...imageRows])) {
     const mediaId = mediaIds.has(row.fromId) ? row.fromId
       : (mediaIds.has(row.toId) ? row.toId : null);
     if (!mediaId) continue;
     const targetId = mediaId === row.fromId ? row.toId : row.fromId;
-    if (targetById.has(targetId)) linkedTo.set(mediaId, targetId);
+    if (!targetById.has(targetId)) continue;
+    if (!linkedTo.has(mediaId)) linkedTo.set(mediaId, []);
+    if (!linkedTo.get(mediaId).includes(targetId)) linkedTo.get(mediaId).push(targetId);
   }
 
   /*
@@ -196,12 +204,10 @@ export async function workspaceBoard(sceneId) {
   const own = new Map();
   for (const id of targetById.keys()) own.set(id, { audio: [], images: [] });
   for (const row of audio) {
-    const at = linkedTo.get(row.id);
-    if (at) own.get(at).audio.push(row);
+    for (const at of linkedTo.get(row.id) || []) own.get(at)?.audio.push(row);
   }
   for (const row of images) {
-    const at = linkedTo.get(row.id);
-    if (at) own.get(at).images.push(row);
+    for (const at of linkedTo.get(row.id) || []) own.get(at)?.images.push(row);
   }
 
   const subTotals = new Map();
@@ -269,9 +275,14 @@ export async function workspaceBoard(sceneId) {
   };
 }
 
-/** مسارٌ مقروءٌ لهدف — «PHASE 2 › VERSION 1 › PART 3» (بند ١٠). */
+/** مسارٌ مقروءٌ لهدف — «PHASE 2 · VERSION 1 · PART 3» (بند ١٠). */
 export function pathLabel(target) {
-  return (target?.path || []).join(' › ');
+  return (target?.path || []).join(' · ');
+}
+
+/** وجهاتُ عنصرٍ داخل هذه الذكرى — قائمةٌ دائمًا، فارغةٌ إن لم يُربَط. */
+export function destinationsOf(board, mediaId) {
+  return board?.linkedTo.get(mediaId) || [];
 }
 
 /* ================================================================== *
@@ -286,9 +297,13 @@ export function pathLabel(target) {
  *    أخرى» يبقى ضمانًا واحدًا في مكانٍ واحد. ولو أعدتُ كتابتَه هنا
  *    لَافترق السلوكان بعد أوّلِ إصلاح.
  */
-export async function linkSelection(mediaIds, targetId, board) {
+export async function linkSelection(mediaIds, targetId, board, { mode = 'attach' } = {}) {
   const { linkItemsTo } = await import('../organize-service.js');
-  return linkItemsTo(mediaIds, targetId, { scopeIds: [...board.targetById.keys()] });
+  return linkItemsTo(mediaIds, targetId, {
+    scopeIds: [...board.targetById.keys()],
+    /* ⚠️ الورشةُ تُضيف ولا تهدم (بند ٤٠) — والفكُّ فعلٌ صريحٌ وحدَه. */
+    mode,
+  });
 }
 
 /**
@@ -462,13 +477,19 @@ export async function linkOneTo(mediaId, targetId, board) {
 }
 
 /** يفكّ ربطَ وسيطٍ داخل هذه الذكرى وحدَها. */
-export async function unlinkOne(mediaId, board) {
+export async function unlinkOne(mediaId, board, targetId = null) {
   const item = await media.get(mediaId);
   if (!item) return false;
   const kind = linkKindFor(item.kind);
-  const at = board.linkedTo.get(mediaId);
-  if (!at) return false;
-  await unlink(mediaId, at, kind);
+  const at = destinationsOf(board, mediaId);
+  /*
+   * ⚠️ **ويُفَكّ ما سمّيتَه وحدَه** (بند ٤٠): فكُّ «أ · جزء ١» لا يمسّ
+   *    «ب · جزء ٤». وبلا الوجهة المحدَّدة يُفَكّ الأوّلُ فقط — لا الكلّ،
+   *    لأن «فكّ الربط» فعلٌ مفردٌ لا كنس.
+   */
+  const which = targetId && at.includes(targetId) ? targetId : at[0];
+  if (!which) return false;
+  await unlink(mediaId, which, kind);
   return true;
 }
 

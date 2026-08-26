@@ -12,11 +12,46 @@
  *    تراها ولا تستطيع لمسَها، وهو أسوأُ من ألّا تراها.
  */
 
+/*
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ قفلُ الارتفاع — بدونه لا يوجد «مكتب» أصلًا (WS-F2 · بند ٥٧)
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * قِيست سلسلةُ الارتفاع في WS-F2 فتبيّن أن `.ws { block-size: 100% }`
+ * **لا تُحَلّ إطلاقًا**: `.app-main` ارتفاعُه `auto`، والنسبةُ المئويّة
+ * تحتاج أبًا بارتفاعٍ محدَّد. فكانت كلُّ الأعمدة تنمو إلى أطول محتوًى
+ * وتُمرَّر **الصفحةُ كلُّها معًا**:
+ *
+ *     HTML  client:1280  scroll:1875   ← الصفحةُ هي المُمرِّر
+ *     .ws-b  2064/2064                 ← والعمودُ لا يمرّر أبدًا
+ *
+ * وأثرُه ليس تجميليًّا: أربعةُ ألواحٍ تُمرَّر معًا ليست مكتبًا، بل
+ * صفحةٌ طويلة. وشجرةٌ تمشي مع النصّ تُفقِدك مكانَك في الاثنين.
+ *
+ * ⚠️ **ولا يُخفى هيكلُ التطبيق هنا** — الظلُّ وضعٌ غامرٌ يملأ الشاشة،
+ *    والورشةُ مكانٌ داخل التطبيق تخرج منه بالتنقّل السفليّ. فيُقفَل
+ *    الارتفاعُ فقط، ويُلغى عرضُ `.app-main` الأقصى وحشوُه.
+ */
+body.workspace-open {
+  overflow: hidden;
+  block-size: 100dvh;
+}
+
+body.workspace-open .app-main,
+body.workspace-open #app-main {
+  min-block-size: 0;
+  padding: 0 !important;
+  max-inline-size: none !important;
+  display: flex;
+  flex-direction: column;
+}
+
 .ws {
   --ws-dock: 132px;
   --ws-row: 44px;
   display: flex;
   flex-direction: column;
+  flex: 1;
   block-size: 100%;
   min-block-size: 0;
   color: var(--ink);
@@ -84,6 +119,13 @@
   min-block-size: 0;
   overflow-y: auto;
   overflow-x: hidden;
+  /*
+   * ⚠️ **تثبيتُ كروم التلقائيُّ يعارض إدارتَنا الصريحة.** بعد تبديل
+   *    المحتوى يعدّل المتصفّحُ `scrollTop` بنفسه ليُبقي عقدةً مرئيّة —
+   *    فكان يُلغي ما نضعه. قِيس: بدّلتُ إلى «نصّ» وأمرتُ بـ٠ فقُرئت
+   *    ١٢٠. ومَن يملك الموضعَ هنا هو ذاكرةُ النمط لا التخمين.
+   */
+  overflow-anchor: none;
   background: var(--surface);
   padding: 10px;
   /* حجزُ مكان الشريطين — راجع رأس الملفّ. */
@@ -114,24 +156,59 @@
   border-color: var(--accent, var(--line));
 }
 
-/* الطول: لوحٌ واحدٌ ظاهر، والسكريبتاتُ شريطٌ أفقيٌّ فوق الشجرة. */
-@media (max-width: 899px) {
+/* ------------------------------------------------------------------ *
+ * ثلاثُ مراتب — والوسطى هي جوابُ التابلت طوليًّا (WS-F2، بنود ٣ و٥ و٤٥)
+ * ------------------------------------------------------------------ */
+
+/*
+ * ⚠️ **لوحٌ واحدٌ في الطول لم يكن كافيًا للربط.** بلاغُك: «الربطُ في
+ *    الطول لسّه محتاج تنقّلًا كتير بين الألواح». والسببُ أن الشجرةَ
+ *    والنصَّ المرشَّح شيئان تحتاجهما **معًا** وقتَ القرار.
+ *
+ *    وGalaxy Tab طوليًّا ~٨٠٠px — يتّسع لعمودَين مريحَين. فالمرتبةُ
+ *    الوسطى تعرض **الشجرةَ والمعاينةَ جنبَ بعض**، والمكتبُ بتبويب.
+ *    فلا تفتح النصَّ لتفقد الشجرة، ولا العكس.
+ */
+
+/* ضيّقٌ حقًّا (هاتف): لوحٌ واحد. */
+@media (max-width: 699px) {
   .ws-grid { grid-template-columns: 1fr; }
   .ws[data-pane="tree"] .ws-c,
   .ws[data-pane="tree"] .ws-d,
-  .ws[data-pane="desk"] .ws-a,
   .ws[data-pane="desk"] .ws-b,
   .ws[data-pane="desk"] .ws-d,
-  .ws[data-pane="preview"] .ws-a,
   .ws[data-pane="preview"] .ws-b,
   .ws[data-pane="preview"] .ws-c { display: none; }
-
-  .ws-a { padding-block-end: 10px; }
-  .ws-a .ws-roots { display: flex; gap: 6px; overflow-x: auto; }
-  .ws-a .ws-roots li { flex: 0 0 auto; }
 }
 
-@media (min-width: 900px) {
+/* التابلتُ طوليًّا: الشجرةُ والنصُّ معًا، والمكتبُ بتبويب. */
+@media (min-width: 700px) and (max-width: 1099px) {
+  .ws-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); }
+  .ws-a { grid-column: 1 / -1; }
+
+  /* تبويبُ «المعاينة» لا معنى له هنا — هي ظاهرةٌ دائمًا. */
+  [data-ws="pane"][data-v="preview"] { display: none; }
+
+  .ws[data-pane="desk"] .ws-b,
+  .ws[data-pane="desk"] .ws-d { display: none; }
+  .ws[data-pane="desk"] .ws-c { grid-column: 1 / -1; }
+  .ws:not([data-pane="desk"]) .ws-c { display: none; }
+}
+
+/* المرتبتان الضيّقتان تشتركان في شريط السكريبتات الأفقيّ. */
+@media (max-width: 1099px) {
+  .ws-a {
+    padding-block-end: 10px;
+    /* ⚠️ شريطُ الجذور لا يمرَّر رأسيًّا — هو صفٌّ واحد. */
+    overflow-y: hidden;
+  }
+  .ws-a .ws-pane-head { margin-block-end: 4px; }
+  .ws-a .ws-roots { display: flex; gap: 6px; overflow-x: auto; }
+  .ws-a .ws-roots li { flex: 0 0 auto; }
+  .ws-root { inline-size: auto; min-inline-size: 128px; }
+}
+
+@media (min-width: 1100px) {
   .ws-panes { display: none; }
   .ws-grid { grid-template-columns: 168px minmax(0, 1fr) minmax(0, 1.05fr) minmax(0, 1.35fr); }
 }
@@ -251,7 +328,8 @@
 .ws-twist,
 .ws-node-more {
   flex: 0 0 auto;
-  min-inline-size: 34px;
+  /* ⚠️ ٤٤ لا ٣٤ — بند ٥٥ يسمّي «مقبض الفرد» أوّلَ ما يسمّي، وقِيس ٣٤. */
+  min-inline-size: 44px;
   min-block-size: var(--ws-row);
   border: 0;
   border-radius: 10px;
@@ -474,7 +552,7 @@
 
 .ws-chat { display: grid; gap: 12px; }
 
-.ws-chat-pre { margin: 0; color: var(--ink-soft); font-size: .88rem; }
+
 
 /*
  * ⚠️ **هُويّةٌ لكلّ متحدّثٍ بخطٍّ جانبيٍّ لا بفقاعةٍ ملوّنة** (بند ٣٨).
@@ -484,6 +562,21 @@
 .ws-turn {
   padding-inline-start: 11px;
   border-inline-start: 3px solid var(--ws-sp, var(--line));
+  /*
+   * ⚠️ **عرضُ قراءةٍ لا عرضُ فقاعة** (بند ٢٦). الدَّورُ التعليميُّ قد
+   *    يطول صفحة، وسطرٌ بعرض الشاشة كلِّها يُتعِب العين. و`ch` وحدةٌ
+   *    تتبع الخطَّ نفسَه، فتصحّ عربيًّا وروسيًّا معًا.
+   */
+  max-inline-size: 68ch;
+}
+
+/*
+ * ⚠️ **تبادلُ الجهة على الشاشات الواسعة وحدَها** (بند ٢٢). في الطول
+ *    الإزاحةُ تسرق عرضًا لا يُعوَّض، فتصير الأسطرُ أقصر بلا مقابل.
+ */
+@media (min-width: 1100px) {
+  .ws-turn[data-side="b"] { margin-inline-start: auto; }
+  .ws-turn[data-side="b"] .ws-turn-who { text-align: end; }
 }
 
 .ws-turn[data-sp="1"] { --ws-sp: #4a7fb5; }
@@ -498,8 +591,27 @@
   font-weight: 700;
 }
 
-.ws-turn-body p { margin: 0 0 8px; font-size: .9rem; line-height: 1.95; }
+.ws-turn-body p {
+  margin: 0 0 10px;
+  font-size: .92rem;
+  /* تباعدٌ للقراءة الطويلة — لا للرسائل القصيرة. */
+  line-height: 2;
+  overflow-wrap: anywhere;
+}
+
 .ws-turn-body p:last-child { margin-block-end: 0; }
+
+/*
+ * ⚠️ **والمقطعُ الروسيُّ يبرز ولا يُجرَّد** (بند ٢٧): تكرارُ المتحدّث
+ *    الثاني للنطق **محتوًى تعليميّ** لا تكرارٌ زائد، فلا يُدمَج ولا
+ *    يُحذَف. وفقرةٌ روسيّةٌ قصيرةٌ وحدَها تُعرَض مقطعًا للحفظ.
+ */
+.ws-turn-body p[dir="ltr"] {
+  font-size: .95rem;
+  letter-spacing: .01em;
+}
+
+.ws-chat-pre p { margin: 0 0 8px; color: var(--ink-soft); font-size: .88rem; line-height: 1.9; }
 
 .ws-shot {
   max-block-size: 46vh;
@@ -616,13 +728,17 @@ body.workspace-open.has-mini-player .app-main { padding-bottom: 0; }
   white-space: nowrap;
 }
 
+/*
+ * ⚠️ **يُرى رفيعًا ويُلمَس ٤٤** (بند ٥٥). أوّلُ صياغةٍ كتبت الحشوَ
+ *    ٥px فصار الهدفُ ١٤ — قاسه الفحص. والخطُّ نفسُه يبقى ٤px لأنه
+ *    مؤشّرٌ لا زرّ، والمساحةُ حوله هي ما يلمسه الإصبع.
+ */
 .ws-seek {
-  block-size: 14px;
+  block-size: 44px;
   display: flex;
   align-items: center;
   cursor: pointer;
-  /* ⚠️ هدفُ لمسٍ ٤٤px بخطٍّ رفيع — الشريطُ يُرى ٤px ويُلمَس ١٤ (بند ١١٠). */
-  padding-block: 5px;
+  position: relative;
 }
 
 .ws-seek::before {
@@ -633,8 +749,6 @@ body.workspace-open.has-mini-player .app-main { padding-bottom: 0; }
   border-radius: 999px;
   background: var(--line);
 }
-
-.ws-seek { position: relative; }
 
 .ws-seek-fill {
   position: relative;
@@ -842,3 +956,212 @@ body.workspace-open.has-mini-player .app-main { padding-bottom: 0; }
 
 .sp-details { margin-block: 12px; }
 .sp-details summary { min-block-size: 44px; display: flex; align-items: center; color: var(--ink-soft); font-size: .8rem; cursor: pointer; }
+
+/* ================================================================== *
+ * WS-F2 · مِلَفُّ العنصر الممسوك (بنود ٤ و٤٤ و٤٥)
+ * ================================================================== */
+
+/*
+ * ⚠️ **يحلّ محلّ شريط الربط لا فوقه.** ثلاثةُ أشرطةٍ في الطول تأكل
+ *    نصفَ الشاشة، وبند ٤٥ يرتّب الأولويّة: النصُّ المرشَّح أوّلًا، ثم
+ *    هُويّةُ ما تمسكه، ثم الفعل. فالشريطُ واحدٌ يبدّل محتواه.
+ */
+.ws-bar { flex-wrap: wrap; row-gap: 6px; }
+
+.ws-hold-head {
+  inline-size: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-inline-size: 0;
+}
+
+.ws-hold-face { font-size: 1.1rem; }
+
+.ws-hold-id { flex: 1; min-inline-size: 0; display: grid; gap: 1px; }
+.ws-hold-lbl { color: var(--ink-soft); font-size: .66rem; }
+
+.ws-hold-t,
+.ws-hold-sub {
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ws-hold-t { font-size: .86rem; }
+.ws-hold-sub { color: var(--ink-soft); font-size: .7rem; }
+
+.ws-hold-x {
+  flex: 0 0 auto;
+  min-inline-size: var(--ws-row);
+  min-block-size: var(--ws-row);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ws-hold-aim {
+  flex: 1;
+  min-inline-size: 0;
+  display: grid;
+  gap: 1px;
+  padding-block-start: 4px;
+  border-block-start: 1px dashed var(--line);
+}
+
+.ws-hold-acts { flex: 0 0 auto; display: flex; gap: 6px; align-items: center; }
+.ws-hold-acts .btn { min-block-size: var(--ws-row); padding-inline: 12px; }
+
+/* ⚠️ زرُّ الشجرة للطول وحدَه — في العرض الشجرةُ ظاهرةٌ أصلًا (بند ٤٧). */
+@media (min-width: 700px) { .ws-hold-tree { display: none; } }
+
+/* البطاقةُ الممسوكة معلَّمةٌ بشكلٍ لا بلونٍ وحدَه (بند ٥٤). */
+.ws-card.is-holding {
+  border-color: var(--accent, var(--ink));
+  box-shadow: inset 0 0 0 1px var(--accent, var(--ink));
+}
+
+.ws-card.is-holding .ws-card-t::before {
+  content: '🖐 ';
+  font-size: .8em;
+}
+
+/* ================================================================== *
+ * WS-F2 · وجهاتُ العنصر (بنود ٣٩…٤٢)
+ * ================================================================== */
+
+.ws-dests { margin-block-start: 14px; }
+.ws-dests h4 { margin: 0 0 6px; font-size: .76rem; color: var(--ink-soft); }
+.ws-dests.is-none { color: var(--ink-soft); font-size: .8rem; line-height: 1.8; }
+.ws-dests ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
+.ws-dests li { display: flex; gap: 5px; }
+
+.ws-dest-go {
+  flex: 1;
+  min-inline-size: 0;
+  min-block-size: var(--ws-row);
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: .8rem;
+  text-align: start;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ws-dest-go:hover { background: var(--surface-2); }
+
+/* الحالةُ الفارغة النافعة (بند ٥٢). */
+.ws-empty { display: grid; gap: 8px; justify-items: center; }
+.ws-empty p { margin: 0; }
+
+/* ================================================================== *
+ * WS-F2 · تقسيمُ المراجعة ودمجُها (بنود ١٥…١٩)
+ * ================================================================== */
+
+.sp-node {
+  display: block;
+  padding: 6px;
+}
+
+.sp-node-row { display: flex; align-items: center; gap: 5px; }
+
+/* ⚠️ السياقُ سطرٌ خفيفٌ تحت العنوان — قرارُ الدمج يحتاجه (بند ١٩). */
+.sp-peek {
+  margin: 4px 0 0;
+  padding-inline-start: 46px;
+  color: var(--ink-soft);
+  font-size: .74rem;
+  line-height: 1.6;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sp-node-acts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-block-start: 6px;
+  padding-inline-start: 46px;
+}
+
+.sp-node-acts button {
+  min-block-size: 40px;
+  min-inline-size: 40px;
+  padding-inline: 9px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: .74rem;
+  cursor: pointer;
+}
+
+.sp-node-acts button:hover:not(:disabled) { background: var(--surface-2); color: var(--ink); }
+.sp-node-acts button:disabled { opacity: .4; cursor: default; }
+
+.sp-node.is-cutting { border-color: var(--accent, var(--ink)); }
+
+.sp-cuts {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 8px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  display: grid;
+  gap: 3px;
+}
+
+.sp-cuts-hint { color: var(--ink-soft); font-size: .72rem; padding-block-end: 3px; }
+
+.sp-cut {
+  inline-size: 100%;
+  min-block-size: 44px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 8px;
+  border: 1px dashed transparent;
+  border-radius: 8px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: .78rem;
+  text-align: start;
+  cursor: pointer;
+}
+
+.sp-cut:hover:not(:disabled) { border-color: var(--accent, var(--line)); background: var(--surface); }
+.sp-cut.is-off { opacity: .45; cursor: default; }
+.sp-cut-n { flex: 0 0 auto; color: var(--ink-soft); }
+
+.sp-cut-t {
+  flex: 1;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ⚠️ صفُّ الدفعة يظهر مع المِلَفّ لا بدلًا منه (بند ٤٣). */
+.ws-bar-bulk {
+  inline-size: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-block-start: 6px;
+  border-block-start: 1px dashed var(--line);
+}
+
+.ws-bar-bulk .btn { min-block-size: var(--ws-row); }

@@ -190,15 +190,35 @@ export function looksLikeHeading(line) {
  * الشكل، فإعادةُ تسميةٍ محفوظةٌ به تقفز إلى عقدةٍ أخرى.
  *
  * @param {string} input
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **والتقسيمُ لا يأكل سطرًا** (WS-F2، بندا ١٦ و٧١)
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * أوّلُ تصميمٍ خطر لي: اجعل سطرَ التقسيم عنوانًا. وهو يخسر السطرَ —
+ * يصير عنوانًا فيخرج من المتن. والبندُ ٧١ صريح: «١٠ في الأولى و١٠ في
+ * الثانية، بلا سطرٍ مكرَّرٍ ولا ضائع».
+ *
+ * فالتقسيمُ **حدٌّ افتراضيٌّ قبل السطر**: تُفتَح عقدةٌ جديدةٌ عنوانُها
+ * من عندك، والسطرُ نفسُه يصير أوّلَ سطرٍ في متنها. فعددُ أسطر العناوين
+ * لا يتغيّر، وحسابُ الأسطر يبقى صفرًا كما هو.
+ *
+ * ⚠️ **والدمجُ هو الخفضُ نفسُه.** «ادمج ب في أ» = عامِل سطرَ عنوان ب
+ *    نصًّا؛ فيسيل متنُه في أ تلقائيًّا، **ويبقى عنوانُه سطرًا في المتن**
+ *    فلا يضيع. ولا آليّةَ ثالثة.
+ *
  * @param {{ levels?: Record<number, number>, demote?: number[],
- *           renames?: Record<number, string> }} options
+ *           renames?: Record<number, string>,
+ *           splits?: Record<number, {title: string, level: number}> }} options
  *        `levels`  رقمُ السطر → المستوى (يُرقّي مجهولًا أو يزيح معلومًا)
- *        `demote`  أسطرٌ تُعامَل نصًّا مهما بدت عنوانًا (بند ٣٢)
+ *        `demote`  أسطرٌ تُعامَل نصًّا مهما بدت عنوانًا (بندا ٣٢ و١٧)
  *        `renames` رقمُ السطر → العنوان الذي كتبتَه
+ *        `splits`  رقمُ السطر → حدٌّ جديدٌ **قبله**، بعنوانٍ من عندك
  * @returns {{ ok, reason, nodes, unknown, duplicates, preamble,
  *             counts, accounting, raw }}
  */
-export function parsePaste(input, { levels = {}, demote = [], renames = {} } = {}) {
+export function parsePaste(input, {
+  levels = {}, demote = [], renames = {}, splits = {},
+} = {}) {
   const forcedText = new Set(demote);
   const has = (obj, key) => Object.prototype.hasOwnProperty.call(obj, key);
   const text = String(input ?? '').replace(/\r\n?/g, '\n');
@@ -229,9 +249,45 @@ export function parsePaste(input, { levels = {}, demote = [], renames = {} } = {
 
     const level = known ? (forced ?? known.level)
       : (maybe && forced !== null ? forced : null);
+
+    /*
+     * ⚠️ حدُّ التقسيم يُفحَص **قبل** مسار النصّ العاديّ، ولا يُطبَّق على
+     *    سطرٍ هو عنوانٌ أصلًا — تقسيمُ عنوانٍ لا معنى له.
+     */
+    if (level === null && has(splits, at)) {
+      const cut = splits[at];
+      const lvl = Number(cut.level) || DEEPEST;
+      while (stack.length && stack[stack.length - 1].level >= lvl) stack.pop();
+      const parent = stack.length ? stack[stack.length - 1] : null;
+
+      const node = {
+        id: `P${nodes.length + 1}`,
+        at,
+        level: lvl,
+        marker: at_level(lvl, null)?.marker || 'UNKNOWN',
+        kind: at_level(lvl, null)?.kind || 'custom',
+        title: String(cut.title || '').trim() || 'جزء جديد',
+        parentId: parent ? parent.id : null,
+        lines: [],
+        /* ⚠️ أرقامُ أسطر المتن — المراجعةُ تعرض الحدودَ منها (بند ١٦). */
+        bodyAt: [],
+        wasUnknown: false,
+        /* ⚠️ عنوانٌ من عندك لا من المدخل — وهذا يُعلَن. */
+        synthetic: true,
+      };
+      nodes.push(node);
+      stack.push(node);
+      current = node;
+      /* والسطرُ نفسُه متنٌ لا عنوان — فلا يُستهلَك. */
+      current.lines.push(line);
+      current.bodyAt.push(at);
+      fate[at] = { to: 'node', id: node.id };
+      return;
+    }
+
     if (level === null) {
       fate[at] = current ? { to: 'node', id: current.id } : { to: 'preamble' };
-      if (current) current.lines.push(line);
+      if (current) { current.lines.push(line); current.bodyAt.push(at); }
       else preambleLines.push(line);
       return;
     }
@@ -255,6 +311,7 @@ export function parsePaste(input, { levels = {}, demote = [], renames = {} } = {
         : (known ? known.title : line.trim()),
       parentId: parent ? parent.id : null,
       lines: [],
+      bodyAt: [],
       /* ⚠️ المجهولُ المرقَّى يظلّ معلومًا أنّه كان مجهولًا (بند ١١٧). */
       wasUnknown: !known,
     };
