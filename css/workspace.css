@@ -1,0 +1,844 @@
+/**
+ * LingoLife — ورشةُ المحتوى الموحَّدة (WS-F)
+ *
+ * ⚠️ **رموزُ التصميم القائمة لا لوحةٌ أخرى** (بند ٨٨): المخطّطاتُ
+ *    التي أرسلتَها بنفسجيّةٌ، وهي **تصوّرٌ لا التزام**. فالألوانُ من
+ *    متغيّرات التطبيق، والوضعان الفاتحُ والداكنُ يعملان بلا سطرٍ
+ *    إضافيّ لأنّنا لم نكتب لونًا صريحًا أصلًا.
+ *
+ * ⚠️ **والشريطان السفليّان لا يبتلعان لمسةً** (بندا ١٠٩ و١٢٢): لهما
+ *    ارتفاعٌ معلومٌ في `--ws-dock`، والألواحُ تحجز ذلك الارتفاع
+ *    حشوًا سفليًّا. وبلا ذلك تكون آخرُ بطاقةٍ في المكتب تحت الشريط —
+ *    تراها ولا تستطيع لمسَها، وهو أسوأُ من ألّا تراها.
+ */
+
+.ws {
+  --ws-dock: 132px;
+  --ws-row: 44px;
+  display: flex;
+  flex-direction: column;
+  block-size: 100%;
+  min-block-size: 0;
+  color: var(--ink);
+}
+
+/* ------------------------------------------------------------------ *
+ * الرأس
+ * ------------------------------------------------------------------ */
+
+.ws-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-block-end: 1px solid var(--line);
+}
+
+.ws-top h2 {
+  flex: 1;
+  margin: 0;
+  font-size: 1.05rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ws-back,
+.ws-alt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: var(--ws-row);
+  min-block-size: var(--ws-row);
+  padding-inline: 10px;
+  border-radius: 10px;
+  color: var(--ink-soft);
+  text-decoration: none;
+  font-size: .85rem;
+}
+
+.ws-back:hover,
+.ws-alt:hover { background: var(--surface-2); }
+
+.ws-exp {
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-soft);
+  font-size: .72rem;
+}
+
+/* ------------------------------------------------------------------ *
+ * الشبكة — أربعةُ ألواحٍ في العرض، واحدٌ في الطول (بند ٧١)
+ * ------------------------------------------------------------------ */
+
+.ws-grid {
+  flex: 1;
+  min-block-size: 0;
+  display: grid;
+  gap: 1px;
+  background: var(--line);
+}
+
+.ws-col {
+  min-block-size: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: var(--surface);
+  padding: 10px;
+  /* حجزُ مكان الشريطين — راجع رأس الملفّ. */
+  padding-block-end: calc(var(--ws-dock) + 12px);
+}
+
+.ws-panes {
+  display: flex;
+  gap: 6px;
+  padding: 8px 12px;
+  border-block-end: 1px solid var(--line);
+}
+
+.ws-panes button {
+  flex: 1;
+  min-block-size: var(--ws-row);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: .85rem;
+}
+
+.ws-panes button.on {
+  background: var(--accent-soft, var(--surface-2));
+  color: var(--ink);
+  border-color: var(--accent, var(--line));
+}
+
+/* الطول: لوحٌ واحدٌ ظاهر، والسكريبتاتُ شريطٌ أفقيٌّ فوق الشجرة. */
+@media (max-width: 899px) {
+  .ws-grid { grid-template-columns: 1fr; }
+  .ws[data-pane="tree"] .ws-c,
+  .ws[data-pane="tree"] .ws-d,
+  .ws[data-pane="desk"] .ws-a,
+  .ws[data-pane="desk"] .ws-b,
+  .ws[data-pane="desk"] .ws-d,
+  .ws[data-pane="preview"] .ws-a,
+  .ws[data-pane="preview"] .ws-b,
+  .ws[data-pane="preview"] .ws-c { display: none; }
+
+  .ws-a { padding-block-end: 10px; }
+  .ws-a .ws-roots { display: flex; gap: 6px; overflow-x: auto; }
+  .ws-a .ws-roots li { flex: 0 0 auto; }
+}
+
+@media (min-width: 900px) {
+  .ws-panes { display: none; }
+  .ws-grid { grid-template-columns: 168px minmax(0, 1fr) minmax(0, 1.05fr) minmax(0, 1.35fr); }
+}
+
+.ws-pane-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-block-end: 8px;
+}
+
+.ws-pane-head h3 {
+  flex: 1;
+  margin: 0;
+  font-size: .82rem;
+  color: var(--ink-soft);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ws-mini {
+  min-block-size: var(--ws-row);
+  min-inline-size: var(--ws-row);
+  padding-inline: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: .8rem;
+}
+
+.ws-mini:hover { background: var(--surface-2); }
+
+.ws-empty {
+  padding: 16px 8px;
+  color: var(--ink-soft);
+  font-size: .85rem;
+  text-align: center;
+}
+
+.ws-note {
+  margin-block-start: 10px;
+  color: var(--ink-soft);
+  font-size: .78rem;
+  line-height: 1.7;
+}
+
+.ws-find {
+  inline-size: 100%;
+  min-block-size: var(--ws-row);
+  margin-block-end: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font: inherit;
+  font-size: .85rem;
+}
+
+/* ------------------------------------------------------------------ *
+ * أ · السكريبتات الرئيسيّة
+ * ------------------------------------------------------------------ */
+
+.ws-roots { list-style: none; margin: 0; padding: 0; }
+
+.ws-root {
+  inline-size: 100%;
+  min-block-size: var(--ws-row);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 7px 9px;
+  margin-block-end: 4px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: .84rem;
+  text-align: start;
+  cursor: pointer;
+}
+
+.ws-root:hover { background: var(--surface-2); }
+
+.ws-root.on {
+  background: var(--surface-2);
+  border-color: var(--accent, var(--line));
+  font-weight: 600;
+}
+
+.ws-root-t { inline-size: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-root-n { color: var(--ink-soft); font-size: .7rem; }
+
+/* ------------------------------------------------------------------ *
+ * ب · الشجرة
+ * ------------------------------------------------------------------ */
+
+.ws-tree { list-style: none; margin: 0; padding: 0; }
+
+.ws-node {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  /* الإزاحةُ منطقيّةٌ لا يسارًا — فتنقلب صحيحًا في RTL (بند ٨٩). */
+  margin-inline-start: calc(var(--ws-d, 0) * 13px);
+  border-radius: 10px;
+}
+
+.ws-node.is-target { background: var(--surface-2); outline: 1px solid var(--accent, var(--line)); }
+.ws-node.is-hidden { opacity: .5; }
+
+.ws-twist,
+.ws-node-more {
+  flex: 0 0 auto;
+  min-inline-size: 34px;
+  min-block-size: var(--ws-row);
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--ink-soft);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ws-twist.is-leaf { opacity: .3; pointer-events: none; }
+.ws-twist:hover,
+.ws-node-more:hover { background: var(--surface-2); }
+
+.ws-node-btn {
+  flex: 1;
+  min-inline-size: 0;
+  min-block-size: var(--ws-row);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 1px;
+  padding: 5px 4px;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: .86rem;
+  text-align: start;
+  cursor: pointer;
+}
+
+.ws-node-t {
+  inline-size: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ws-node-meta {
+  display: flex;
+  gap: 6px;
+  color: var(--ink-soft);
+  font-size: .68rem;
+}
+
+.ws-node-meta i { font-style: normal; opacity: .8; }
+.ws-node-meta b { font-weight: 600; }
+/* ⚠️ التراكميُّ بشكلٍ مختلفٍ عن المباشر — لا رقمان متشابهان (بند ٥٤). */
+.ws-node-meta em { font-style: normal; opacity: .65; }
+
+/* ------------------------------------------------------------------ *
+ * ج · مكتبُ المحتوى
+ * ------------------------------------------------------------------ */
+
+.ws-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-block-end: 8px;
+}
+
+.ws-filter {
+  /* ⚠️ ٤٤px حتى لو بدت سمينة — قِيست ٣٤ فسقطت في فحص اللمس (§110). */
+  min-block-size: 44px;
+  padding: 5px 10px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: .76rem;
+  cursor: pointer;
+}
+
+.ws-filter.on {
+  background: var(--surface-2);
+  border-color: var(--accent, var(--line));
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.ws-cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+
+.ws-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.ws-card.is-picked { border-color: var(--accent, var(--ink)); background: var(--surface-2); }
+.ws-card.is-focus { outline: 2px solid var(--accent, var(--line)); outline-offset: -2px; }
+
+.ws-card-face {
+  flex: 0 0 auto;
+  inline-size: 48px;
+  block-size: 48px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  background: var(--surface-2);
+  cursor: pointer;
+}
+
+.ws-card-face img { inline-size: 100%; block-size: 100%; object-fit: cover; }
+.ws-face { color: var(--ink-soft); }
+
+.ws-card-body { flex: 1; min-inline-size: 0; display: flex; flex-direction: column; gap: 1px; }
+
+.ws-card-t {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: .85rem;
+  text-align: start;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.ws-card-sub { color: var(--ink-soft); font-size: .7rem; }
+
+.ws-card-at {
+  color: var(--ink-soft);
+  font-size: .68rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ⚠️ «غير مربوط» حالةٌ لا خطأ — محايدةٌ بلا أحمر (بند ٢١، ودرسُ WS56). */
+.ws-card-at.is-loose { opacity: .7; font-style: italic; }
+
+.ws-card-acts { flex: 0 0 auto; display: flex; gap: 3px; }
+
+.ws-play,
+.ws-pick {
+  min-inline-size: var(--ws-row);
+  min-block-size: var(--ws-row);
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ws-pick.on { background: var(--accent, var(--ink)); color: var(--surface); border-color: transparent; }
+
+/* ------------------------------------------------------------------ *
+ * د · المعاينة
+ * ------------------------------------------------------------------ */
+
+.ws-prev-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-block-end: 8px;
+}
+
+.ws-crumb {
+  flex: 1;
+  min-inline-size: 120px;
+  color: var(--ink-soft);
+  font-size: .78rem;
+  line-height: 1.6;
+}
+
+.ws-prev-acts { display: flex; gap: 5px; }
+
+.ws-seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+
+.ws-seg button {
+  min-block-size: var(--ws-row);
+  padding-inline: 12px;
+  border: 0;
+  background: var(--surface);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: .8rem;
+  cursor: pointer;
+}
+
+.ws-seg button.on { background: var(--surface-2); color: var(--ink); font-weight: 600; }
+
+.ws-prev-body { line-height: 1.9; }
+
+.ws-raw {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  font-size: .9rem;
+  line-height: 1.95;
+}
+
+.ws-prev-body mark {
+  padding: 0 2px;
+  border-radius: 3px;
+  background: var(--accent-soft, #ffe58a);
+  color: inherit;
+}
+
+/* ------------------------------------------------------------------ *
+ * المحادثة — هادئةٌ لا فقاعاتُ دردشة (بندا ٣٧ و٣٨)
+ * ------------------------------------------------------------------ */
+
+.ws-chat { display: grid; gap: 12px; }
+
+.ws-chat-pre { margin: 0; color: var(--ink-soft); font-size: .88rem; }
+
+/*
+ * ⚠️ **هُويّةٌ لكلّ متحدّثٍ بخطٍّ جانبيٍّ لا بفقاعةٍ ملوّنة** (بند ٣٨).
+ *    فقاعاتُ الدردشة تجعل النصَّ يُقرأ رسائلَ لا نصًّا تعليميًّا،
+ *    وقراءتُك هنا قراءةُ درسٍ لا محادثةٍ على الهاتف.
+ */
+.ws-turn {
+  padding-inline-start: 11px;
+  border-inline-start: 3px solid var(--ws-sp, var(--line));
+}
+
+.ws-turn[data-sp="1"] { --ws-sp: #4a7fb5; }
+.ws-turn[data-sp="2"] { --ws-sp: #4e9a72; }
+.ws-turn[data-sp="3"] { --ws-sp: #a2743c; }
+
+.ws-turn-who {
+  display: block;
+  margin-block-end: 3px;
+  color: var(--ws-sp, var(--ink-soft));
+  font-size: .72rem;
+  font-weight: 700;
+}
+
+.ws-turn-body p { margin: 0 0 8px; font-size: .9rem; line-height: 1.95; }
+.ws-turn-body p:last-child { margin-block-end: 0; }
+
+.ws-shot {
+  max-block-size: 46vh;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.ws-shot img { inline-size: 100%; block-size: 100%; object-fit: contain; }
+
+.ws-facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin-block: 12px 0;
+  font-size: .82rem;
+}
+
+.ws-facts dt { color: var(--ink-soft); }
+.ws-facts dd { margin: 0; overflow-wrap: anywhere; }
+
+.ws-strip { margin-block-start: 16px; padding-block-start: 12px; border-block-start: 1px solid var(--line); }
+.ws-strip h4 { margin: 0 0 6px; font-size: .76rem; color: var(--ink-soft); }
+.ws-strip-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+
+.ws-strip-list li { display: flex; gap: 5px; }
+
+.ws-strip-list button {
+  flex: 1;
+  min-block-size: var(--ws-row);
+  padding: 5px 9px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: .8rem;
+  text-align: start;
+  cursor: pointer;
+}
+
+.ws-unlink { flex: 0 0 auto !important; color: var(--ink-soft) !important; }
+
+/* ------------------------------------------------------------------ *
+ * الشريطان السفليّان
+ * ------------------------------------------------------------------ */
+
+/*
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ الشريطُ العالميُّ للصوت يُخفى هنا — وهذا عطبٌ قاسه الفحص
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * `.mini-player` عنصرٌ **ثابت** بـ`z-index: 55` يعيش خارج الشاشات
+ * (WS28). وأشرطةُ الورشة **لاصقة** داخل عمودها بلا `z-index`، فكان
+ * المُشغّلُ العالميُّ يرقد فوق «اربط المحدد»: تراه ولا تصل إليه.
+ *
+ * ولم أستنتج هذا من قراءة — `elementsFromPoint` أعطت السلسلة
+ * حرفيًّا: `B > mp-info > mp-body > mini-player`.
+ *
+ * والحلُّ إخفاؤه لا رفعُ أشرطتنا فوقه: الورشةُ تعرض **نفسَ** الحالة
+ * في شريط «بتسمع» الخاصّ بها، وشريطان يقولان الشيءَ نفسَه ضجيج.
+ * ولا يُفقَد شيء: التحكّمُ من شاشة القفل في `audio-service` لا في
+ * هذا العنصر، والصوتُ نفسُه لا يتوقّف (WS51).
+ *
+ * وهو نفسُ ما فعله الظلّ بـ`body.shadow-open` — سابقةٌ قائمة.
+ */
+body.workspace-open .mini-player { display: none; }
+body.workspace-open.has-mini-player .app-main { padding-bottom: 0; }
+
+.ws-now,
+.ws-bar {
+  position: sticky;
+  inset-inline: 0;
+  /* وفوق أيّ شيءٍ داخل الشاشة — الأشرطةُ آخرُ ما يُحجَب. */
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  border-block-start: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.ws-now { bottom: 60px; }
+.ws-bar { bottom: 0; }
+
+.ws-now-play,
+.ws-now-link {
+  min-inline-size: var(--ws-row);
+  min-block-size: var(--ws-row);
+  display: grid;
+  place-items: center;
+  padding-inline: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: .78rem;
+  cursor: pointer;
+}
+
+.ws-now-link:disabled { opacity: .45; cursor: default; }
+
+.ws-now-mid { flex: 1; min-inline-size: 0; display: grid; gap: 3px; }
+
+.ws-now-t {
+  min-inline-size: 0;
+  color: var(--ink-soft);
+  font-size: .72rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ws-seek {
+  block-size: 14px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  /* ⚠️ هدفُ لمسٍ ٤٤px بخطٍّ رفيع — الشريطُ يُرى ٤px ويُلمَس ١٤ (بند ١١٠). */
+  padding-block: 5px;
+}
+
+.ws-seek::before {
+  content: '';
+  position: absolute;
+  inline-size: 100%;
+  block-size: 4px;
+  border-radius: 999px;
+  background: var(--line);
+}
+
+.ws-seek { position: relative; }
+
+.ws-seek-fill {
+  position: relative;
+  block-size: 4px;
+  border-radius: 999px;
+  background: var(--accent, var(--ink));
+}
+
+.ws-now-time { color: var(--ink-soft); font-size: .68rem; font-variant-numeric: tabular-nums; }
+
+.ws-bar-target { flex: 1; min-inline-size: 0; display: grid; gap: 1px; }
+.ws-bar-lbl { color: var(--ink-soft); font-size: .68rem; }
+
+.ws-bar-path {
+  /*
+   * ⚠️ **عنصرُ الشبكة لا ينكمش تحت محتواه إلّا بهذا.** `min-width`
+   *    الافتراضيّة `auto`، فمسارٌ عميقٌ طويل يمدّ الخليّة فيزحف فوق
+   *    زرّ «اربط المحدد» — يُرى ولا يُلمَس (§109).
+   */
+  min-inline-size: 0;
+  font-size: .82rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ws-bar-acts { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; }
+.ws-bar-n { color: var(--ink-soft); font-size: .72rem; }
+.ws-bar-acts .btn { min-block-size: var(--ws-row); }
+
+/* ------------------------------------------------------------------ *
+ * نوافذُ الورشة
+ * ------------------------------------------------------------------ */
+
+.ws-add { display: grid; gap: 8px; }
+
+.ws-add-btn,
+.ws-menu button {
+  inline-size: 100%;
+  min-block-size: var(--ws-row, 44px);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  text-align: start;
+  cursor: pointer;
+}
+
+.ws-add-btn:hover,
+.ws-menu button:hover { background: var(--surface-2); }
+.ws-add-btn b { font-size: .95rem; }
+.ws-add-btn span { color: var(--ink-soft); font-size: .76rem; }
+
+.ws-menu { display: grid; gap: 6px; }
+.ws-menu button.danger { color: var(--danger, #c0392b); }
+
+.ws-where { margin-block-start: 12px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; }
+.ws-where legend { padding-inline: 6px; color: var(--ink-soft); font-size: .78rem; }
+.ws-where label { display: flex; align-items: center; gap: 8px; min-block-size: var(--ws-row, 44px); }
+
+/* ------------------------------------------------------------------ *
+ * اللصقُ المنظَّم
+ * ------------------------------------------------------------------ */
+
+.sp-hint { margin: 0 0 10px; color: var(--ink-soft); font-size: .82rem; line-height: 1.8; }
+
+.sp-paste {
+  inline-size: 100%;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+  color: var(--ink);
+  font: inherit;
+  font-size: .86rem;
+  line-height: 1.7;
+  resize: vertical;
+}
+
+.sp-row { display: flex; gap: 8px; margin-block-start: 10px; }
+.sp-row .btn { min-block-size: 44px; }
+
+.sp-report {
+  padding: 10px 12px;
+  margin-block-end: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface-2);
+}
+
+.sp-found { margin: 0 0 4px; font-size: .92rem; }
+.sp-dim { margin: 0; color: var(--ink-soft); font-size: .76rem; line-height: 1.8; }
+.sp-audit { margin: 6px 0 0; color: var(--ink-soft); font-size: .74rem; }
+.sp-audit.is-bad { color: var(--danger, #c0392b); font-weight: 700; }
+
+.sp-block { margin-block-end: 14px; }
+.sp-block h4 { margin: 0 0 5px; font-size: .82rem; }
+.sp-warn { padding: 10px 12px; border: 1px dashed var(--line); border-radius: 12px; }
+.sp-dups { margin: 6px 0 0; font-size: .82rem; overflow-wrap: anywhere; }
+
+.sp-unknown { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 8px; }
+
+.sp-unknown li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.sp-line { flex: 1; min-inline-size: 140px; font-size: .84rem; overflow-wrap: anywhere; }
+.sp-lvls { display: flex; flex-wrap: wrap; gap: 4px; }
+
+.sp-lvl {
+  min-block-size: 36px;
+  padding-inline: 9px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: .74rem;
+  cursor: pointer;
+}
+
+.sp-lvl:hover { background: var(--surface-2); color: var(--ink); }
+
+.sp-tree { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
+
+.sp-node {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-inline-start: calc((var(--sp-off, 1) - 1) * 14px);
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.sp-node.is-out { opacity: .45; }
+.sp-node.is-out .sp-title { text-decoration: line-through; }
+.sp-node.is-edited { border-color: var(--accent, var(--line)); }
+
+.sp-skip,
+.sp-nudge button {
+  min-inline-size: 40px;
+  min-block-size: 40px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--surface-2);
+  color: var(--ink-soft);
+  font: inherit;
+  cursor: pointer;
+}
+
+.sp-skip:hover,
+.sp-nudge button:hover { background: var(--line); color: var(--ink); }
+
+.sp-kind {
+  flex: 0 0 auto;
+  padding: 3px 7px;
+  border-radius: 999px;
+  background: var(--surface-2);
+  color: var(--ink-soft);
+  font-size: .68rem;
+}
+
+.sp-title {
+  flex: 1;
+  min-inline-size: 90px;
+  min-block-size: 40px;
+  padding: 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: .84rem;
+}
+
+.sp-title:focus { border-color: var(--line); background: var(--surface-2); outline: none; }
+.sp-meta { flex: 0 0 auto; color: var(--ink-soft); font-size: .68rem; }
+.sp-nudge { flex: 0 0 auto; display: flex; gap: 3px; }
+
+.sp-pre {
+  max-block-size: 220px;
+  margin: 8px 0 0;
+  padding: 9px;
+  overflow: auto;
+  border-radius: 9px;
+  background: var(--surface-2);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: .78rem;
+  line-height: 1.7;
+}
+
+.sp-details { margin-block: 12px; }
+.sp-details summary { min-block-size: 44px; display: flex; align-items: center; color: var(--ink-soft); font-size: .8rem; cursor: pointer; }

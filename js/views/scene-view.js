@@ -812,6 +812,15 @@ export async function renderScene(main, sceneId, options = {}) {
           ${raw(icon('link'))} تنظيم وربط
           <span class="tool-flag">تجريبي</span>
         </button>
+        <!--
+          ⚠️ **وبابٌ ثالثٌ لا استبدال** (WS-F، بند ٧٨). الورشةُ تجربةُ
+             تفاعلٍ أخرى على **نفس البيانات**؛ والوضعُ القديم وهذه
+             الصفحةُ يبقيان يعملان حرفًا بحرف.
+        -->
+        <button class="tool-btn" data-action="workspace-scene" data-id="${scene.id}">
+          ${raw(icon('script'))} ورشة المحتوى
+          <span class="tool-flag">تجريبي</span>
+        </button>
         <button class="tool-btn" data-action="trash-scene" data-id="${scene.id}">
           ${raw(icon('trash'))} السلة
         </button>

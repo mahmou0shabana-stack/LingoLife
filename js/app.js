@@ -49,6 +49,7 @@ import {
 import { renderScene } from './views/scene-view.js';
 /* ⚠️ وضعٌ ثانٍ على نفس الذكرى — تجريبيّ، ولا يمسّ `renderScene` (WS56). */
 import { renderOrganize, disposeOrganize } from './views/organize-view.js';
+import { renderWorkspace, disposeWorkspace } from './views/workspace-view.js';
 import { renderSettings, handleSettingsAction } from './views/settings-view.js';
 import { renderShadow, disposeShadow } from './views/shadow-view.js';
 import { renderTrash, handleTrashAction } from './views/trash-view.js';
@@ -121,6 +122,7 @@ function view(renderFn, opts = {}) {
     if (renderFn !== renderShadow) disposeShadow();
     /* ومغادرةُ وضع التنظيم تفكّ مستمعَه — وإلّا بقي على `#app-main`. */
     if (renderFn !== renderOrganize) disposeOrganize();
+    if (renderFn !== renderWorkspace) disposeWorkspace();
     // ومغادرة المعاينة تُسقط الحزمة نصف المراجَعة: العودة إليها بعد
     // ساعة يجب أن تبدأ من الصفر لا من قراراتٍ نسيتَ لماذا اتّخذتَها.
     if (renderFn !== renderImport) resetImport();
@@ -269,6 +271,7 @@ function wireActions() {
       case 'open-scene': return navigate(`/scene/${id}`);
       /* الوضعُ التجريبيّ — نفسُ الذكرى بعينٍ أخرى (WS56). */
       case 'organize-scene': return navigate(`/organize/${id}`);
+      case 'workspace-scene': return navigate(`/workspace/${id}`);
       case 'go-life': return navigate('/life');
       case 'go-settings': return navigate('/settings');
       case 'go-threads': return navigate('/threads');
@@ -757,6 +760,7 @@ async function boot() {
   route('/language', view(renderLanguage));
   route('/scene/:id', view(renderScene, { passUi: true }));
   route('/organize/:id', view(renderOrganize));
+  route('/workspace/:id', view(renderWorkspace));
   route('/settings', view(renderSettings));
   route('/shadow/:id', view(renderShadow));
   route('/shadow-history', view(renderShadowHistory));

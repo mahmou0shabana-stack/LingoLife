@@ -75,6 +75,17 @@ export const PLACES = {
       return scene?.titleAr || scene?.titleRu || '';
     },
   },
+  /*
+   * ⚠️ **الورشةُ مكانٌ ثالثٌ على نفس الذكرى — تجريبيّة** (WS-F).
+   *    ولا تُلغي الوضعَ القديم ولا الصفحةَ القديمة (بند ٧٨).
+   */
+  '/workspace/:id': {
+    name: 'ورشة المحتوى',
+    of: async ({ id }) => {
+      const scene = await scenes.get(id);
+      return scene?.titleAr || scene?.titleRu || '';
+    },
+  },
   '/threads': { name: 'خيوط الأحداث' },
   '/thread/:id': {
     name: 'خيط',

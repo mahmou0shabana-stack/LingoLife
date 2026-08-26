@@ -77,6 +77,23 @@ export async function reloadScene(sceneId) {
     return;
   }
 
+  /*
+   * ⚠️ **ونفسُ الفخِّ ينطبق على الورشة** (WS-F، بند ٧). رفعُ صوتٍ من
+   *    داخلها ينادي هذه الدالّة، وبلا هذا الفرع كان الفرعُ الأخير
+   *    **يقذفك إلى الصفحة القديمة** بعد كلّ ملفٍّ ترفعه — أي أنّ
+   *    «مفيش تنقّل» تنكسر عند أوّل رفع.
+   *
+   * ⚠️ وهي `reloadWorkspace` لا `renderWorkspace`: الثانيةُ تُصفّر
+   *    الحالةَ كلَّها (المحدَّد · المكان · التمرير · الفلتر)، وبنودُ
+   *    ٧٢…٧٤ تمنع ذلك بالضبط.
+   */
+  if (path.startsWith('/workspace/')) {
+    const { reloadWorkspace } = await import('./views/workspace-view.js');
+    await reloadWorkspace();
+    refreshStorageCard();
+    return;
+  }
+
   navigate(`/scene/${sceneId}`);
 }
 
@@ -109,6 +126,14 @@ export async function refreshSceneIfShowing(sceneId) {
   if (path.startsWith('/organize/')) {
     const { renderOrganize } = await import('./views/organize-view.js');
     await renderOrganize($('#app-main'), sceneId);
+    refreshStorageCard();
+    return;
+  }
+
+  /* ⚠️ ونفسُه للورشة — إغلاقُ عارضِ الصور فيها لا ينقل أحدًا. */
+  if (path.startsWith('/workspace/')) {
+    const { reloadWorkspace } = await import('./views/workspace-view.js');
+    await reloadWorkspace();
     refreshStorageCard();
     return;
   }
