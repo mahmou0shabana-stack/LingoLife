@@ -3789,3 +3789,27 @@ body:has(.shadow-app) .quick-fab { display: none; }
   border-radius: var(--radius-sm);
   overflow-wrap: anywhere;
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   WS-C · لوحةُ ذاكرة اللغة
+
+   ⚠️ **بطاقاتٌ تُقرَأ لا جدولُ إدارة** (بند ٤٩): كلُّ رقمٍ فوق اسمِه،
+      والاسمُ يقول **نوعَه** — «موضع في نصوصك» غيرُ «مرّة تدريب».
+      وجدولٌ من ستّة أعمدةٍ يجعلها كلَّها تبدو شيئًا واحدًا.
+   ══════════════════════════════════════════════════════════════════ */
+
+.mem-board {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: var(--sp-2);
+  margin-block: var(--sp-2);
+}
+.mem-stat {
+  display: grid; gap: 2px; justify-items: center; text-align: center;
+  padding: var(--sp-3) var(--sp-2);
+  border: 1px solid var(--line); border-radius: 14px;
+  background: var(--surface);
+}
+.mem-stat b { font-size: 24px; line-height: 1.2; }
+.mem-stat span { font-size: 12px; color: var(--text-soft); }
+.mem-stat.is-err b { color: #D6414B; }

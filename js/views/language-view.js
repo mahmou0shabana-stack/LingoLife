@@ -59,10 +59,110 @@ function stageBar(byStage, total) {
  */
 const TOP_LIMIT = 60;
 
+/**
+ * لوحةُ ذاكرة اللغة (WS-C، بنود ٢٠…٢٢ و٤٩ و٦٥).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ ولا رقمَ زينةٍ ولا رقمَ يُخفي مصدرَه
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * كلُّ عددٍ هنا يقول **من أيّ نوعٍ هو**: «موضع في نصوصك» واقعةٌ عن
+ * النصّ، و«مرّة تدريب» واقعةٌ عنك، و«غلطة» واقعةٌ سجّلتَها بيدك.
+ * وجمعُها في رقمٍ واحدٍ اسمُه «تكرار» هو ما يمنعه بند ٨.
+ *
+ * ⚠️ **والفارغُ يُشرَح ولا يُملأ ببياناتٍ وهميّة** (بند ٦٥): تثبيتٌ قديمٌ
+ *    بلا وقائعَ يقرأ لماذا اللوحةُ صامتة، ولا يرى أرقامًا مخترَعةً
+ *    لتبدو ممتلئة.
+ */
+function memoryBoard(memory) {
+  const has = memory.index.positions > 0 || memory.saved.total > 0 || memory.errors.total > 0;
+
+  if (!has) {
+    return html`
+      <section class="lg-section">
+        <h3>${raw(icon('book', 17))} ذاكرة اللغة</h3>
+        <p class="lg-note">
+          الذاكرة بتكبر من نصوصك ومن اللي بتعمله: كلمة تحفظها، جملة
+          تتدرّب عليها، غلطة تسجّلها. لسه مفيش حاجة مفهرَسة —
+          ${memory.index.indexable
+            ? `عندك ${memory.index.indexable} نصّ جاهز للفهرسة.`
+            : 'ابدأ بإضافة نصّ أصلي.'}
+        </p>
+        <button class="btn btn-ghost" data-action="mem-rebuild">افهرس نصوصي دلوقتي</button>
+      </section>`;
+  }
+
+  return html`
+    <section class="lg-section">
+      <h3>${raw(icon('book', 17))} ذاكرة اللغة</h3>
+
+      <!--
+        ⚠️ كلُّ عددٍ باسمه ونوعه — لا «تكرار» واحدٌ مبهم (بند ٨).
+      -->
+      <div class="mem-board">
+        <div class="mem-stat">
+          <b>${memory.index.forms}</b>
+          <span>صيغة في نصوصك</span>
+        </div>
+        <div class="mem-stat">
+          <b>${memory.index.positions}</b>
+          <span>موضع مفهرَس</span>
+        </div>
+        <div class="mem-stat">
+          <b>${memory.index.sources}</b>
+          <span>مصدر</span>
+        </div>
+        <div class="mem-stat">
+          <b>${memory.saved.total}</b>
+          <span>محفوظة</span>
+        </div>
+        <div class="mem-stat">
+          <b>${memory.practice.events}</b>
+          <span>مرّة تدريب</span>
+        </div>
+        <div class="mem-stat${memory.errors.total ? ' is-err' : ''}">
+          <b>${memory.errors.total}</b>
+          <span>غلطة مسجَّلة</span>
+        </div>
+      </div>
+
+      ${raw(memory.errors.recurring ? html`
+        <p class="lg-note">
+          فيه ${counted(memory.errors.recurring, 'نمط', 'نمطين', 'أنماط')} غلط
+          اتكرّر أكتر من مرّة — التكرار ده جزء من تاريخك، مش حاجة تتمسح.
+        </p>` : '')}
+
+      ${raw(memory.recurring.length ? html`
+        <h4 class="mem-h">بتتكرّر في أكتر من مصدر</h4>
+        <div class="lg-words">
+          ${raw(memory.recurring.map((one) => html`
+            <button class="lg-word" data-action="open-word" data-text="${one.surface}"
+                    dir="ltr" lang="ru">${one.surface}
+              <span class="mem-dim">${one.sources}</span>
+            </button>`).join(''))}
+        </div>` : '')}
+
+      <!--
+        ⚠️ **ولا يُقال «قابلتَها ٧ مرّات»** (بند ٦٧): الفهرسُ يعرف أين
+           الكلمةُ في نصوصك، ولا يعرف متى قرأتَها أنت.
+      -->
+      <p class="lg-note">
+        «موضع» يعني الكلمة مكتوبة هناك في نصّك — مش يعني إنك قابلتها
+        يومها. التواريخ بتيجي من وقائع حقيقية بس: حفظ · تدريب · غلطة.
+      </p>
+      <button class="btn btn-ghost" data-action="mem-rebuild">أعِد بناء الفهرس</button>
+    </section>`;
+}
+
 export async function renderLanguage(main) {
-  const data = await languageOverview({ limit: TOP_LIMIT });
+  const [data, memory] = await Promise.all([
+    languageOverview({ limit: TOP_LIMIT }),
+    import('../services/memory/memory-service.js').then((m) => m.memoryOverview({ limit: 10 }))
+      .catch(() => null),
+  ]);
   const hidden = data.expressions.total - data.expressions.top.length;
-  const empty = !data.expressions.total && !data.words.total && !data.sentences.total;
+  const empty = !data.expressions.total && !data.words.total && !data.sentences.total
+    && !(memory?.index.positions || memory?.saved.total || memory?.errors.total);
 
   main.innerHTML = html`
     <div class="view-head">
@@ -81,6 +181,8 @@ export async function renderLanguage(main) {
         <button class="btn btn-ghost" data-action="go-river">افتح النهر</button>
       </div>` : html`
       <div class="fc-board">
+
+      ${raw(memory ? memoryBoard(memory) : '')}
 
       <section class="lg-section">
         <h3>${raw(icon('star', 17))} التعبيرات
@@ -319,6 +421,27 @@ export async function handleLanguageAction(action, target) {
 
   if (action === 'open-word') {
     navigate(`/word/${encodeURIComponent(target?.dataset.text || '')}`);
+    return true;
+  }
+
+  /*
+   * ⚠️ **إعادةُ بناء الفهرس لا تمسّ تاريخَك** (بندا ٥٦ و٧١).
+   *
+   *    الفهرسُ مشتقٌّ من `scripts` و`studyDrafts`، فإعادةُ بنائه تقرأ
+   *    منهما وتكتب في `memoryOccurrences` وحدَه. والمحفوظاتُ والتدريبُ
+   *    والغلطاتُ لا تُقرَأ هنا أصلًا — يحرسه اختبارٌ نصّيّ.
+   */
+  if (action === 'mem-rebuild') {
+    try {
+      const { rebuildIndex, indexStats } = await import('../services/memory/indexer.js');
+      const { sources } = await rebuildIndex();
+      const stats = await indexStats();
+      toastOk(`اتفهرس ${sources} مصدر · ${stats.forms} صيغة في ${stats.positions} موضع`);
+      const main = $('#app-main');
+      if (main) await renderLanguage(main);
+    } catch (error) {
+      toastError(error.message);
+    }
     return true;
   }
 

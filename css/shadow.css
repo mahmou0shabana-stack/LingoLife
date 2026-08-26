@@ -5501,3 +5501,67 @@ body.shadow-open { overflow: hidden; }
     animation: none;
   }
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   WS-C · علاماتُ ذاكرة اللغة على الرقاقة
+
+   ⚠️ **علامةٌ واحدةٌ لا خمس** (بندا ٢٣ و٦٣). `markFor` تحسم الأولويّة
+      في الكود — غلطةٌ ثم محفوظةٌ ثم متكرّرة — والرقاقةُ تحمل نتيجتَها
+      في `data-mem` **قيمةً واحدة**. فلا يمكن بنيويًّا أن تتنافس
+      علامتان على رقاقةٍ واحدة، ولا تصير الجملةُ قوسَ قزح.
+
+   ⚠️ **وشرطةٌ تحت الحرف لا لونٌ يملأ الرقاقة**: الرقاقةُ تُقرَأ أوّلًا
+      وتُلمَس ثانيًا، وخلفيّةٌ ملوّنةٌ تنازع النصَّ الروسيَّ نفسَه —
+      وهو ما جئنا نقرؤه.
+   ══════════════════════════════════════════════════════════════════ */
+
+.sh-chip[data-mem] { position: relative; }
+.sh-chip[data-mem]::before {
+  content: '';
+  position: absolute;
+  inset-inline: 22%;
+  inset-block-start: 2px;
+  block-size: 2px;
+  border-radius: 2px;
+  /* ⚠️ لا تلتقط لمسًا — الرقاقةُ كلُّها هدفُ اللمس. */
+  pointer-events: none;
+}
+/* غلطة — أعلى الرتب، وأنت غلطتَ فيها فعلًا. */
+.sh-chip[data-mem="error"]::before { background: #D6414B; }
+/* محفوظة — قرارٌ منك. */
+.sh-chip[data-mem="saved"]::before { background: #C9A227; }
+/* متكرّرة — واقعةٌ عن النصّ لا عنك، فأهدأُ الثلاث. */
+.sh-chip[data-mem="recurrent"]::before { background: rgba(255, 255, 255, .34); }
+
+/* لوحةُ ذاكرة الكلمة */
+.mem-card { display: grid; gap: var(--sp-2); }
+.mem-word { margin: 0; font-size: 26px; font-weight: 700; }
+.mem-status { margin: 0; font-size: 13px; color: var(--text-soft); }
+.mem-counts {
+  display: flex; flex-wrap: wrap; gap: var(--sp-2);
+  font-size: 13px; color: var(--text-soft);
+}
+.mem-counts b { color: var(--text); font-size: 16px; }
+.mem-counts .is-err b { color: #D6414B; }
+.mem-dates { margin: 0; font-size: 13px; color: var(--text-soft); }
+.mem-note { margin: 0; font-size: 12px; line-height: 1.7; color: var(--text-soft); opacity: .85; }
+.mem-tags { margin: 0; font-size: 12px; color: var(--text-soft); }
+.mem-h { margin: var(--sp-2) 0 0; font-size: 13px; }
+.mem-list { margin: 0; padding-inline-start: 0; list-style: none; display: grid; gap: var(--sp-2); }
+.mem-list li { display: grid; gap: 2px; font-size: 13px; }
+.mem-dim { font-size: 12px; color: var(--text-soft); }
+.mem-ex { font-size: 12px; color: var(--text-soft); }
+.mem-wrong { color: #D6414B; }
+.mem-right { color: #1F9D62; }
+.mem-empty { margin: 0; font-size: 13px; color: var(--text-soft); }
+.mem-exprs { margin: 0; font-size: 14px; }
+
+/* تسجيلُ الغلطة — تدفّقٌ قصيرٌ لا استمارة (بند ٣٧) */
+.err-form { display: grid; gap: 6px; }
+.err-lbl { font-size: 12px; color: var(--text-soft); margin-top: var(--sp-2); }
+.err-in {
+  font: inherit; padding: 10px 12px; border-radius: 10px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--text);
+  /* ⚠️ ٤٤px هدفَ لمسٍ على اللوح (بند ٥٠). */
+  min-block-size: 44px; inline-size: 100%;
+}

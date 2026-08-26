@@ -66,6 +66,7 @@ export async function addScript(sceneId, { title, text, type = 'main', sceneType
     title: script.title,
   });
 
+  await touchMemoryIndex(script);
   return script;
 }
 
@@ -89,7 +90,43 @@ export async function updateScript(scriptId, { title, text, sceneType }) {
     title: updated.title,
   });
 
+  await touchMemoryIndex(updated);
   return updated;
+}
+
+/**
+ * يُحدِّث فهرسَ ذاكرة اللغة لهذا السكريبت وحدَه (WS-C، بند ٣٣).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ إضافيٌّ لا شامل — والفرقُ ليس أداءً فقط
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * البندُ ٣٣ صريح: نصٌّ جديدٌ لا يوجب إعادةَ معالجة الكون. وإعادةُ بناء
+ * الفهرس كلِّه عند كلّ حفظٍ تعني — مع مئات السكريبتات — توقّفًا محسوسًا
+ * في كلّ ضغطةِ حفظ.
+ *
+ * ⚠️ **ويُبتلَع خطؤه عمدًا**: الفهرسُ **مشتقٌّ**، فتعذُّرُ تحديثه لا
+ *    يجوز أن يمنع حفظَ نصِّك. والمصدرُ هو الأصل، و«أعِد بناء الفهرس»
+ *    تُصلح ما فات (بند ٥٦).
+ *
+ * ⚠️ **واستيرادٌ كسولٌ**: `content-service` تُحمَّل في مسارات كثيرة،
+ *    ولا يجوز أن تجرّ معها مقسِّمَ الجمل والفهرسَ إلى كلّ واحدٍ منها.
+ */
+async function touchMemoryIndex(script) {
+  if (!script?.id) return;
+  try {
+    const { indexSource } = await import('./memory/indexer.js');
+    const { SOURCE_KIND } = await import('./memory/identity.js');
+    await indexSource({
+      kind: SOURCE_KIND.SCRIPT,
+      id: script.id,
+      title: script.title || 'سكريبت',
+      text: script.text || '',
+      sceneId: script.sceneId || null,
+    });
+  } catch {
+    /* فهرسٌ مشتقٌّ — تعذُّرُه لا يمنع حفظَ نصِّك. */
+  }
 }
 
 /** يعيّن السكريبت الأساسي (واحد فقط لكل مشهد). */

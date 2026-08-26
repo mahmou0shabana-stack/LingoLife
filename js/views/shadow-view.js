@@ -2486,6 +2486,234 @@ function renderWords() {
         <span class="sh-chip-bar"><i></i></span>
       </button>`)
     .join('');
+
+  /* علاماتُ ذاكرة اللغة — بعد الرسم وبلا انتظار (WS-C). */
+  void paintMemoryMarks(words, segment.id);
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   ذاكرةُ اللغة داخل الظلّ (WS-C، بنود ٢٣ و٢٤ و٤٢ و٥١)
+   ══════════════════════════════════════════════════════════════════ */
+
+/**
+ * علاماتُ الجملة الجارية — تُجلَب **دفعةً واحدةً لكلّ جملة**.
+ *
+ * ⚠️ **المفتاحُ معرِّفُ المقطع لا نصُّه**: نصّان متطابقان في مصدرين
+ *    مختلفين مقطعان، وذاكرةُ أحدهما ليست ذاكرةَ الآخر.
+ */
+let memoryMarks = { segmentId: null, flags: null };
+
+/**
+ * يرسم علامةً واحدةً على كلّ رقاقةٍ تستحقّها.
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ نداءٌ واحدٌ للجملة كلِّها — وهذا بند ٤٢ بحرفه
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * > «There must not be N independent DB roundtrips for N chips.»
+ *
+ * `flagsForWords` تأخذ **قائمةَ** الكلمات وتقرأ المستودعاتِ مرّةً
+ * واحدة. ولو كانت الرقاقةُ تسأل بنفسها لصارت جملةٌ من عشرين كلمةً
+ * ثمانين رحلةً إلى القاعدة في كلّ انتقال.
+ *
+ * ⚠️ **ولا تُوقِف الرسم**: الرقائقُ تُرسَم أوّلًا بلا علامات، ثم تصل
+ *    العلاماتُ فتُضاف. فبطءُ القاعدة لا يؤخّر ظهورَ الجملة — وهو
+ *    الفرقُ بين تزيينٍ وعائق.
+ *
+ * ⚠️ **وحارسُ التأخّر**: لو تبدّل المقطعُ قبل وصول الجواب، يُهمَل.
+ */
+async function paintMemoryMarks(words, segmentId) {
+  const host = $('[data-words]');
+  if (!host || !words.length) return;
+
+  try {
+    const { flagsForWords, markFor } = await import('../services/memory/memory-service.js');
+    const flags = await flagsForWords(words.map((w) => w.spoken));
+
+    /* المقطعُ تبدّل تحت أرجلنا — الجوابُ لغيره. */
+    if (activeSegment()?.id !== segmentId) return;
+    memoryMarks = { segmentId, flags };
+
+    const { canonical } = await import('../services/memory/identity.js');
+    host.querySelectorAll('[data-word]').forEach((node, i) => {
+      const mark = markFor(flags.get(canonical(words[i]?.spoken || '')));
+      /*
+       * ⚠️ **علامةٌ واحدةٌ لا خمس** (بندا ٢٣ و٦٣): `markFor` تحسم
+       *    الأولويّة (غلطة ← محفوظة ← متكرّرة)، والرقاقةُ تحمل ما
+       *    قالته. فلا تتنافس أربعةُ ألوانٍ على ٦٠px.
+       */
+      if (mark) node.dataset.mem = mark;
+      else node.removeAttribute('data-mem');
+    });
+  } catch {
+    /* الذاكرةُ زينةٌ معرفيّة — تعذُّرُها لا يكسر التدريب. */
+  }
+}
+
+/**
+ * يفتح ذاكرةَ الكلمة الممسوكة (بند ٢٤).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ وهي **غيرُ** ورقة التحليل — سؤالان مختلفان
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * ورقةُ النطق تجيب: **إزاي الكلمة دي بتتنطق؟** — معرفةٌ لغويّةٌ عن
+ * الكلمة، صحيحةٌ لأيّ إنسان.
+ *
+ * وذاكرةُ اللغة تجيب: **إيه تاريخي أنا مع الكلمة دي؟** — سيرةٌ ذاتيّةٌ
+ * لا يشاركك فيها أحد.
+ *
+ * ودمجُهما في لوحةٍ واحدةٍ عملاقةٍ يخلط السؤالين، وبند ٢٤ يمنعه.
+ *
+ * ⚠️ **ونافذةٌ لا مسار** (بند ٦٢): لا `navigate` ولا جلسةٌ جديدة.
+ *    فالمصدرُ الفعّالُ والمقطعُ والكلمةُ والمدى والترجمةُ كلُّها باقيةٌ
+ *    خلفها — ولا صوتَ يُقطَع، لأن فتحَ نافذةٍ ليس تبديلَ مصدر.
+ */
+async function openWordMemory() {
+  const word = currentWordText();
+  if (!word) return toastError('امسك كلمة الأوّل');
+
+  const [{ entityMemory, STATUS_LABEL }, { ERROR_TYPE_LABEL }] = await Promise.all([
+    import('../services/memory/memory-service.js'),
+    import('../services/memory/errors.js'),
+  ]);
+  const memory = await entityMemory(word);
+  if (!memory) return toastError('مفيش حاجة نعرضها');
+
+  const when = (at) => (Number.isFinite(at)
+    ? new Date(at).toLocaleDateString('ar-EG', { day: 'numeric', month: 'long', year: 'numeric' })
+    : 'مش معروف');
+
+  return showModal({
+    title: `ذاكرة: ${word}`,
+    wide: true,
+    submitLabel: 'اقفل',
+    body: html`
+      <div class="mem-card">
+        <p class="mem-word" dir="ltr" lang="ru">${memory.text}</p>
+        <p class="mem-status">${STATUS_LABEL[memory.status] || memory.status}</p>
+
+        <!--
+          ⚠️ **أربعةُ أعدادٍ مسمّاةٍ لا رقمٌ واحدٌ اسمه «تكرار»** (بند ٨).
+             وكلٌّ منها يقول من أين جاء — «مواضع في نصوصك» واقعةٌ عن
+             النصّ، و«مرّات تدريب» واقعةٌ عنك.
+        -->
+        <div class="mem-counts">
+          <span><b>${memory.counts.positions}</b> موضع في نصوصك</span>
+          <span><b>${memory.counts.sources}</b> مصدر مختلف</span>
+          <span><b>${memory.counts.practices}</b> مرّة تدريب</span>
+          <span class="${memory.counts.errors ? 'is-err' : ''}"><b>${memory.counts.errors}</b> غلطة</span>
+        </div>
+
+        <p class="mem-dates">
+          أوّل واقعة مؤرَّخة: <b>${when(memory.firstSeen)}</b> ·
+          آخر واحدة: <b>${when(memory.lastSeen)}</b>
+        </p>
+        <!--
+          ⚠️ **ولا يُخترَع تاريخ** (بندا ٢٩ و٦٧): وجودُ الكلمة في سكريبت
+             لا يقول متى قرأتَه. فـ«مش معروف» جوابٌ صادقٌ لا نقص.
+        -->
+        <p class="mem-note">
+          وجود الكلمة في نصّ مش معناه إنك قابلتها يومها — التواريخ من
+          وقائع حقيقية بس (حفظ · تدريب · غلطة).
+        </p>
+
+        ${raw(memory.captureTags.length
+          ? html`<p class="mem-tags">${memory.captureTags.join(' · ')}</p>` : '')}
+
+        ${raw(memory.sources.length ? html`
+          <h4 class="mem-h">فين ظهرت</h4>
+          <ul class="mem-list">
+            ${raw(memory.sources.slice(0, 6).map((one) => html`
+              <li>
+                <b>${one.title || one.kind}</b>
+                <span class="mem-dim">${one.positions.length} موضع</span>
+                <span class="mem-ex" dir="ltr" lang="ru">${one.positions[0]?.sentence || ''}</span>
+              </li>`).join(''))}
+          </ul>` : '<p class="mem-empty">لسه مظهرتش في نصّ مفهرَس</p>')}
+
+        ${raw(memory.errors.length ? html`
+          <h4 class="mem-h">غلطات فيها</h4>
+          <ul class="mem-list mem-errs">
+            ${raw(memory.errors.slice(0, 5).map((one) => html`
+              <li>
+                <span class="mem-wrong" dir="ltr" lang="ru">✗ ${one.wrong}</span>
+                <span class="mem-right" dir="ltr" lang="ru">✓ ${one.natural}</span>
+                <span class="mem-dim">${ERROR_TYPE_LABEL[one.mistakeType] || ''} · ${when(one.at)}</span>
+              </li>`).join(''))}
+          </ul>` : '')}
+
+        ${raw(memory.expressions.length ? html`
+          <h4 class="mem-h">تعبيرات فيها</h4>
+          <p class="mem-exprs" dir="ltr" lang="ru">
+            ${memory.expressions.slice(0, 6).map((one) => one.text).join(' · ')}
+          </p>` : '')}
+      </div>`,
+    onSubmit(_data, close) { close(); },
+  });
+}
+
+/**
+ * يسجّل غلطةً على المقطع الفعّال — تدفّقٌ قصيرٌ لا استمارةُ ضرائب
+ * (بندا ٣٦ و٣٧).
+ *
+ * ⚠️ **والصحيحُ مملوءٌ مسبقًا والخطأُ فارغ** (بند ٣٦): التطبيقُ يعرف
+ *    ما هو مكتوبٌ أمامك، ولا يعرف ماذا قلتَ أنت. فاختراعُ «اللي قلته»
+ *    كذبٌ صريح، وتركُه فارغًا هو الصدق.
+ */
+async function openErrorCapture() {
+  const word = hasPickedWord() ? currentWordText() : '';
+  const correct = word || activeText();
+  if (!correct) return toastError('مفيش نصّ نسجّل عليه');
+
+  const { ERROR_TYPES, recordError } = await import('../services/memory/errors.js');
+  const segment = activeSegment();
+
+  return showModal({
+    title: '⚠️ سجّل غلطة',
+    submitLabel: 'احفظ الغلطة',
+    body: html`
+      <div class="err-form">
+        <label class="err-lbl">اللي قلته أو كتبته غلط</label>
+        <!--
+          ⚠️ فارغٌ عمدًا — ولا يُملأ باقتراح (بند ٣٦).
+        -->
+        <input name="wrong" dir="ltr" lang="ru" class="err-in" autocomplete="off"
+               placeholder="اكتب اللي قلته بالظبط" required>
+
+        <label class="err-lbl">الصح</label>
+        <input name="correct" dir="ltr" lang="ru" class="err-in" value="${correct}" required>
+
+        <label class="err-lbl">نوع الغلطة (اختياري)</label>
+        <select name="type" class="err-in">
+          ${raw(ERROR_TYPES.map((t) => html`<option value="${t.id}">${t.label}</option>`).join(''))}
+        </select>
+
+        <label class="err-lbl">ملاحظة (اختياري)</label>
+        <input name="note" class="err-in" autocomplete="off" placeholder="ليه غلطت فيها؟">
+      </div>`,
+    async onSubmit(data, close) {
+      try {
+        await recordError({
+          wrong: data.wrong,
+          correct: data.correct,
+          type: data.type || 'other',
+          note: data.note || '',
+          sceneId: ctx?.session?.sceneId || null,
+          sourceKind: ctx?.session?.sourceType || null,
+          sourceId: ctx?.session?.sourceId || null,
+          segmentId: segment?.id || null,
+          sessionId: ctx?.session?.id || null,
+        });
+        close();
+        toastOk('اتسجّلت — التصحيح ما مسحش الغلطة');
+        /* العلاماتُ تتبدّل: الكلمةُ صار لها تاريخُ غلط. */
+        renderWords();
+      } catch (error) {
+        toastError(error.message);
+      }
+    },
+  });
 }
 
 function highlightWord(wordIndex) {
@@ -2583,6 +2811,21 @@ const TOOLS = [
    *    WS40. **التكافؤُ هنا بنيويٌّ لا مُختبَرٌ حالةً حالة.**
    */
   { id: 'pron', glyph: '◍', label: 'ليه بتتنطق كده؟', when: hasPickedWord },
+  /*
+   * ⚠️ **سؤالان مختلفان في أداتين مختلفتين** (بند ٢٤).
+   *
+   *    ◍ يجيب: «إزاي الكلمة دي بتتنطق؟» — معرفةٌ عن اللغة.
+   *    ◷ يجيب: «إيه تاريخي أنا معاها؟» — سيرةٌ ذاتيّة.
+   *
+   *    ودمجُهما في لوحةٍ واحدةٍ يخلط السؤالين ويجعل الاثنين أثقل.
+   */
+  { id: 'memory', glyph: '◷', label: 'تاريخي مع الكلمة دي', when: hasPickedWord },
+  /*
+   * ⚠️ **وسجّلُ الغلط بابُه هنا لا شاشةٌ أخرى** (بند ٣٦): تغلط وأنت
+   *    تتدرّب، فالتسجيلُ حيث تغلط. ويعمل على الكلمة الممسوكة أو على
+   *    الجملة كلِّها — فلا يشترط انتقاءً.
+   */
+  { id: 'mistake', glyph: '⚠', label: 'سجّل غلطة' },
   /* ---- المقطع الجزئيّ: بابُه من كلمةٍ ممسوكة، وأدواتُه بعد التحديد ---- */
   {
     id: 'phrase-begin',
@@ -3775,6 +4018,13 @@ function pickTool(id) {
    *    درجًا ينزلق فوق ما تقرأ.
    */
   if (id === 'pron') return openAnalysis();
+  /*
+   * ⚠️ **نافذتان لا شاشتان** (بند ٦٢): كلتاهما `showModal` فوق الظلّ —
+   *    لا `navigate` ولا جلسةٌ تُبنى ولا مصدرٌ يُبدَّل. فالسكّةُ تُغلَق
+   *    والمقطعُ والكلمةُ والمدى باقون خلفهما، ولا صوتَ يُقطَع.
+   */
+  if (id === 'memory') { rail.open = false; renderRail(); return openWordMemory(); }
+  if (id === 'mistake') { rail.open = false; renderRail(); return openErrorCapture(); }
   /*
    * ---- أفعالُ المقطع الجزئيّ (WS-A) ----
    *
