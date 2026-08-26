@@ -78,6 +78,11 @@ export const studyDrafts = createRepository('studyDrafts', PREFIX.STUDY_DRAFT);
 
 /** القواعد المهمّة — دفترُ المراجع الشخصيّ داخل الظلّ (v15، WS-B). */
 export const referenceRules = createRepository('referenceRules', PREFIX.REFERENCE_RULE);
+/**
+ * فهرسُ مواضع ذاكرة اللغة (WS-C) — **مشتقٌّ يُعاد بناؤه**.
+ * راجع الشرحَ فوق `memoryOccurrences` في `schema.js`.
+ */
+export const memoryOccurrences = createRepository('memoryOccurrences', PREFIX.MEMORY_OCCURRENCE);
 
 /**
  * الإعدادات — مفتاح/قيمة، بلا الحقول المشتركة.
@@ -112,6 +117,7 @@ export const settings = {
 
 /** خريطة بالاسم — للتصدير والاستيراد والإحصاءات. */
 export const ALL_REPOS = {
+  memoryOccurrences,
   scenes,
   media,
   sceneMediaLinks,

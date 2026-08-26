@@ -173,6 +173,38 @@ export function createRepository(storeName, idPrefix) {
       return record;
     },
 
+    /**
+     * يكتب صفوفًا كما هي في **معاملةٍ واحدة**.
+     *
+     * ⚠️ **ولماذا لا `Promise.all` على `putRaw`؟** لأن كلَّ نداءٍ منها
+     *    يفتح معاملةً مستقلّة. وفهرسُ ذاكرة اللغة (WS-C) يكتب آلافَ
+     *    الصفوف عند إعادة البناء — أي آلافَ المعاملات، وكلٌّ منها
+     *    التزامٌ على القرص. معاملةٌ واحدةٌ تكتبها دفعةً، وهي أيضًا
+     *    **كلُّها أو لا شيء**: فهرسٌ نصفُ مكتوبٍ أسوأُ من فهرسٍ غائب.
+     *
+     * ⚠️ ولا تُستعمَل لبيانات المستخدم: `createMany` تختم المعرِّفات
+     *    والتواريخ، وهذه تتخطّاها عمدًا لأن معرِّفَ الصفّ **بصمةٌ
+     *    محسوبة** لا رقمٌ جديدٌ في كلّ مرّة.
+     */
+    async putManyRaw(records) {
+      if (!records?.length) return 0;
+      await withTx(storeName, 'readwrite', async (tx) => {
+        const store = tx.objectStore(storeName);
+        await Promise.all(records.map((record) => req(store.put(record))));
+      });
+      return records.length;
+    },
+
+    /** يحذف مفاتيحَ كثيرةً في معاملةٍ واحدة — أختُ `putManyRaw`. */
+    async destroyMany(ids) {
+      if (!ids?.length) return 0;
+      await withTx(storeName, 'readwrite', async (tx) => {
+        const store = tx.objectStore(storeName);
+        await Promise.all(ids.map((id) => req(store.delete(id))));
+      });
+      return ids.length;
+    },
+
     /** أرشفة: يبقى موجودًا لكن خارج التدفّق اليومي. */
     async archive(id) {
       return repo.update(id, { state: STATE.ARCHIVED });

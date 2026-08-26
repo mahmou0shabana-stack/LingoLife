@@ -64,6 +64,8 @@ export const PREFIX = Object.freeze({
 
   /** بطاقةُ قاعدةٍ في دفتر المراجع (v15، WS-B) */
   REFERENCE_RULE: 'RRL',
+  /** ذاكرةُ اللغة — موضعٌ في مصدر (WS-C). */
+  MEMORY_OCCURRENCE: 'MOC',
 });
 
 function encodeTime(ms, len = 10) {
