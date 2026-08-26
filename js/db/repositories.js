@@ -8,6 +8,8 @@
 import { createRepository } from './repository.js';
 import { PREFIX } from '../utils/ids.js';
 import { withTx, req } from './database.js';
+import { settingShared } from '../services/sync/sync-policy.js';
+import { appendLocal, LOG_STORE, OP, sameValue } from '../services/sync/change-log.js';
 
 /* ---- نواة المحتوى ---- */
 export const scenes = createRepository('scenes', PREFIX.SCENE);
@@ -87,6 +89,19 @@ export const memoryOccurrences = createRepository('memoryOccurrences', PREFIX.ME
 /**
  * الإعدادات — مفتاح/قيمة، بلا الحقول المشتركة.
  * أبسط من repository كامل ولا يحتاج rev ولا حالات.
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **والمزامنةُ هنا بالمفتاح لا بالمخزن** (WS-G، بندا ٤٥ و٧٨)
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * `settings` مخزنٌ واحدٌ يحمل شيئين لا ثالثَ لهما: **بياناتٍ تملكها**
+ * (قاموسُ النبر الذي كتبتَه، تصنيفاتُك، أحكامُ التشابه) و**حالةَ هذا
+ * الجهاز** (نسبةُ انقسام الصفحة، آخرُ شاشة، مزوّدُ النطق المتاح هنا).
+ *
+ * ومزامنتُه كتلةً واحدةً تعني أن تفتح الموبايلَ فتجد شاشتَه مضبوطةً
+ * على مقاس التابلت، وملفَّ PDF يشير إلى بايتاتٍ ليست عنده. فالقرارُ
+ * **مفتاحٌ بمفتاح**، والافتراضُ **محلّيّ**، والقائمةُ في
+ * `SETTING_SHARED` ومعها سببُ كلِّ سطر.
  */
 export const settings = {
   async get(key, fallback = null) {
@@ -97,9 +112,19 @@ export const settings = {
   },
 
   async set(key, value) {
-    await withTx('settings', 'readwrite', (tx) =>
-      req(tx.objectStore('settings').put({ key, value, updatedAt: Date.now() }))
-    );
+    const shared = settingShared(key);
+    const stores = shared ? ['settings', LOG_STORE] : 'settings';
+    await withTx(stores, 'readwrite', async (tx) => {
+      const store = tx.objectStore('settings');
+      const before = shared ? await req(store.get(key)) : null;
+      const row = { key, value, updatedAt: Date.now() };
+      await req(store.put(row));
+      if (shared && !sameValue(before?.value, value)) {
+        await appendLocal(tx, [{
+          store: 'settings', recordId: key, op: OP.PUT, fields: ['value'],
+        }]);
+      }
+    });
     return value;
   },
 
@@ -111,7 +136,18 @@ export const settings = {
   },
 
   async remove(key) {
-    await withTx('settings', 'readwrite', (tx) => req(tx.objectStore('settings').delete(key)));
+    const shared = settingShared(key);
+    const stores = shared ? ['settings', LOG_STORE] : 'settings';
+    await withTx(stores, 'readwrite', async (tx) => {
+      const store = tx.objectStore('settings');
+      const before = shared ? await req(store.get(key)) : null;
+      await req(store.delete(key));
+      if (shared && before) {
+        await appendLocal(tx, [{
+          store: 'settings', recordId: key, op: OP.REMOVE, payload: before,
+        }]);
+      }
+    });
   },
 };
 

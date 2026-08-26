@@ -40,7 +40,7 @@ await page.goto(url);
 // ⚠️ التوقيع `waitForFunction(fn, arg, options)`. تمرير الخيارات في
 //    موضع `arg` يجعلها وسيطًا للدالّة لا خيارًا — فتظلّ مهلة 30 ثانية
 //    الافتراضية سارية. لم يظهر ذلك إلا حين تجاوزت الاختبارات نصف دقيقة.
-await page.waitForFunction(() => window.__testResult, null, { timeout: 180_000 });
+await page.waitForFunction(() => window.__testResult, null, { timeout: 300_000 });
 
 const result = await page.evaluate(() => window.__testResult);
 

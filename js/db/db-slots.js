@@ -21,6 +21,10 @@
  * الثمن الصريح: تُشغل الخانتان معًا **أثناء الاسترجاع فقط**، أي ذروة
  * تساوي ضعف حجم بياناتك. تُحذف القديمة فور نجاح التحويل.
  *
+ * ⚠️ **ودمجُ المزامنة (WS-G) يستعمل نفسَ الآلة بحرفها** — لا آلةً ثانية.
+ *    الدمجُ أيضًا عمليّةٌ طويلةٌ تقرأ حزمةً وتحسب خطّةً، ولا يجوز أن
+ *    تترك قاعدةً نصفَ مدموجة. راجع docs/20-sync.md §٢٠٫١٠.
+ *
  * راجع docs/07-backup-format.md §7.8
  */
 
@@ -35,31 +39,50 @@ export const SLOT_B = 'lingolife-b';
  */
 const POINTER_KEY = 'lingolife.activeDB';
 
+/**
+ * مجموعةُ الخانات الفعّالة.
+ *
+ * ⚠️ **وهذا التعميمُ ثمنُ اختبارٍ صادق** (WS-G، بندا ٥٢ و٩٠): محاكاةُ
+ *    جهازين تحتاج **قاعدتين مستقلّتين فعلًا**، كلٌّ منهما بخانتيها
+ *    ومؤشّرِها، لأن الدمجَ نفسَه يحرّك المؤشّر. ولولا ذلك لَما أمكن
+ *    اختبارُ التطبيق الذرّي إلّا بتزييفه — أي باختبار شيءٍ آخر.
+ *
+ *    والإنتاجُ لا يتغيّر حرفًا: القيمةُ الافتراضيّة هي القيمُ التاريخيّة
+ *    نفسُها، ولا سطرَ في التطبيق ينادي `useSlots`.
+ */
+let slots = { a: SLOT_A, b: SLOT_B, pointer: POINTER_KEY };
+
+/** ⚠️ للاختبار وحده — يبدّل مجموعةَ الخانات لهذه الجلسة. */
+export function useSlots(a = SLOT_A, b = SLOT_B, pointer = POINTER_KEY) {
+  slots = { a, b, pointer };
+  return { ...slots };
+}
+
 /** اسم القاعدة النشطة حاليًا. */
 export function activeDbName() {
   try {
-    const stored = localStorage.getItem(POINTER_KEY);
-    if (stored === SLOT_A || stored === SLOT_B) return stored;
+    const stored = localStorage.getItem(slots.pointer);
+    if (stored === slots.a || stored === slots.b) return stored;
   } catch {
     // وضع التصفّح الخاص قد يمنع localStorage — نعود للخانة الأصلية.
   }
-  return SLOT_A;
+  return slots.a;
 }
 
-/** اسم الخانة الخاملة — وجهة الاسترجاع. */
+/** اسم الخانة الخاملة — وجهة الاسترجاع أو الدمج. */
 export function stagingDbName() {
-  return activeDbName() === SLOT_A ? SLOT_B : SLOT_A;
+  return activeDbName() === slots.a ? slots.b : slots.a;
 }
 
 /**
- * يحرّك المؤشّر. هذه هي اللحظة الذرّية للاسترجاع.
+ * يحرّك المؤشّر. هذه هي اللحظة الذرّية للاسترجاع وللدمج.
  * @param {string} name
  */
 export function setActiveDbName(name) {
-  if (name !== SLOT_A && name !== SLOT_B) {
+  if (name !== slots.a && name !== slots.b) {
     throw new Error(`اسم خانة غير صالح: ${name}`);
   }
-  localStorage.setItem(POINTER_KEY, name);
+  localStorage.setItem(slots.pointer, name);
 }
 
 /** يحذف قاعدة بالاسم. يُستخدم لتنظيف الخانة القديمة بعد نجاح التحويل. */
