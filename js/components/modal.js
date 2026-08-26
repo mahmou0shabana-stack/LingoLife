@@ -76,6 +76,15 @@ export function showModal({
       resolve(value);
     };
 
+    /*
+     * ⚠️ **بابُ إغلاقٍ برمجيٌّ لمن هو داخلَ النافذة** (WS-C2).
+     *    كان زرٌّ داخل النافذة يريد إغلاقَها فيبحث عن زرِّ الصفّ
+     *    السفليّ و«ينقره» — نقرٌ ملفَّقٌ يعتمد على مُحدِّدٍ قد يتغيّر،
+     *    ولا يخبرك إن فشل. وهنا الإغلاقُ هو `finish` نفسُها: الطبقةُ
+     *    تنزل، والوعدُ يُحلّ، والمستمعون يُرفَعون.
+     */
+    overlay.__close = finish;
+
     const onKey = (event) => {
       // Escape يغلق الأعلى فقط، لا المكدّس كلّه.
       if (event.key === 'Escape' && stack[stack.length - 1] === overlay) finish(null);
@@ -128,6 +137,23 @@ export function showModal({
     );
     firstField?.focus();
   });
+}
+
+/**
+ * يغلق النافذةَ التي يقع فيها هذا العنصر — من داخل محتواها.
+ *
+ * تُستعمَل حين يكون فعلُ الزرِّ **مغادرةَ** النافذة إلى شيءٍ خلفها
+ * (مثل «تدرّب على الصح»: تُغلَق ذاكرةُ الكلمة ثم يدخل التصحيحُ
+ * المشغّل). والقيمةُ المُحلَّلة `null` — أي «انصرفتُ» لا «حفظتُ».
+ *
+ * @param {Element|null} node عنصرٌ داخل النافذة
+ * @returns {boolean} هل وُجدت نافذةٌ وأُغلقت فعلًا
+ */
+export function closeOverlayOf(node) {
+  const overlay = node?.closest?.('.overlay');
+  if (!overlay || typeof overlay.__close !== 'function') return false;
+  overlay.__close(null);
+  return true;
 }
 
 /** يغلق كل النوافذ المفتوحة. */

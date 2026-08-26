@@ -115,8 +115,25 @@ export function sourceKey(kind, id) {
  * تستبدل ولا تُضيف، وهي حتميّةُ التكرار بحكم المخزن لا بحكم شرطٍ
  * نتذكّره.
  */
-export function occurrenceId({ canonical: key, sourceKey: src, sentenceIndex, wordIndex }) {
-  return `MOC_${src}_${sentenceIndex}_${wordIndex}_${key}`;
+export function occurrenceId({
+  canonical: key, sourceKey: src, unitKey = '', sentenceIndex, wordIndex,
+}) {
+  /*
+   * ⚠️ **و«الوحدة» بُعدٌ رابعٌ للمحادثات — والفراغُ يُبقي القديمَ كما هو.**
+   *
+   *    المحادثةُ **مصدرٌ واحد** فيه أجزاء (بند ٤٥): كلمتان في جزأين
+   *    مختلفين موضعان، والمصدرُ واحدٌ لا اثنان. ولو رقّمنا الجملَ
+   *    متتابعةً عبر الأجزاء لصار تعديلُ الجزء الأوّل يزيح أرقامَ ما
+   *    بعده — فتنتقل ملاحظتُك إلى كلمةٍ أخرى، وهو بعينه ما يمنعه
+   *    بند ٥٤: «لا تُنسَب الملاحظةُ إلى موضعٍ آخر».
+   *
+   *    فمعرِّفُ الجزء داخلَ البصمة: تعديلُ جزءٍ لا يمسّ بصماتِ غيره.
+   *
+   * ⚠️ **والسكريبتُ والمسودّةُ بلا وحدةٍ فتبقى بصماتُهما حرفيًّا كما
+   *    كانت** — فلا يتيتّم شيءٌ فُهرِس قبل اليوم.
+   */
+  const unit = unitKey ? `${unitKey}_` : '';
+  return `MOC_${src}_${unit}${sentenceIndex}_${wordIndex}_${key}`;
 }
 
 /**

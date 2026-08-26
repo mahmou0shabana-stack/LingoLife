@@ -23,12 +23,14 @@ import { navigate } from '../router.js';
 import { formatDate, daysBetween, dayCount } from '../utils/dates.js';
 import { counted } from '../utils/plural.js';
 
-import { toastOk, toastError } from '../components/toast.js';
+import { toast, toastOk, toastError } from '../components/toast.js';
 import {
   STAGES, STAGE_LABEL, UNBUILT,
   languageOverview, expressionLife, setStage,
 } from '../services/language-service.js';
 import { expressionSourceLabel } from '../services/content-service.js';
+/* اختيارُ ملفٍّ محلّيّ — نفسُ الباب الذي تستعمله بقيّة الشاشات. */
+import { pickFiles } from '../services/media-service.js';
 
 /* ------------------------------------------------------------------ *
  * لغتي
@@ -74,6 +76,14 @@ const TOP_LIMIT = 60;
  *    بلا وقائعَ يقرأ لماذا اللوحةُ صامتة، ولا يرى أرقامًا مخترَعةً
  *    لتبدو ممتلئة.
  */
+/** أسماءٌ عربيّةٌ لأنواع المصادر — لا `script` في شاشةٍ عربيّة. */
+const SOURCE_LABEL = Object.freeze({
+  script: 'سكريبتات',
+  draft: 'مسودّات',
+  conversation: 'محادثات',
+  external: 'نصّ مؤقّت',
+});
+
 function memoryBoard(memory) {
   const has = memory.index.positions > 0 || memory.saved.total > 0 || memory.errors.total > 0;
 
@@ -146,11 +156,34 @@ function memoryBoard(memory) {
         ⚠️ **ولا يُقال «قابلتَها ٧ مرّات»** (بند ٦٧): الفهرسُ يعرف أين
            الكلمةُ في نصوصك، ولا يعرف متى قرأتَها أنت.
       -->
+      <!--
+        ⚠️ **تفصيلٌ بالمصدر — ومواضعُ ومصادرُ عمودان لا واحد** (بند ٦٤).
+           محادثةٌ فيها الكلمةُ ثلاثًا = ٣ مواضع في **مصدرٍ واحد**.
+      -->
+      ${raw(Object.keys(memory.index.byKind || {}).length ? html`
+        <h4 class="mem-h">من فين</h4>
+        <ul class="mem-kinds">
+          ${raw(Object.entries(memory.index.byKind).map(([kind, one]) => html`
+            <li>
+              <b>${SOURCE_LABEL[kind] || kind}</b>
+              <span class="mem-dim">${one.sources} مصدر · ${one.positions} موضع</span>
+            </li>`).join(''))}
+        </ul>` : '')}
+
       <p class="lg-note">
         «موضع» يعني الكلمة مكتوبة هناك في نصّك — مش يعني إنك قابلتها
         يومها. التواريخ بتيجي من وقائع حقيقية بس: حفظ · تدريب · غلطة.
       </p>
-      <button class="btn btn-ghost" data-action="mem-rebuild">أعِد بناء الفهرس</button>
+
+      <!--
+        ⚠️ **بابان لا شاشتان** (بند ٥٨): التصدير والاستيراد فعلان على
+           نفس الذاكرة، فمكانُهما معها لا في «إدارة» منفصلة.
+      -->
+      <div class="mem-acts">
+        <button class="btn btn-ghost" data-action="mem-export">تصدير للتحليل</button>
+        <button class="btn btn-ghost" data-action="mem-import">استيراد تحليل</button>
+        <button class="btn btn-ghost" data-action="mem-rebuild">أعِد بناء الفهرس</button>
+      </div>
     </section>`;
 }
 
@@ -437,6 +470,60 @@ export async function handleLanguageAction(action, target) {
       const { sources } = await rebuildIndex();
       const stats = await indexStats();
       toastOk(`اتفهرس ${sources} مصدر · ${stats.forms} صيغة في ${stats.positions} موضع`);
+      const main = $('#app-main');
+      if (main) await renderLanguage(main);
+    } catch (error) {
+      toastError(error.message);
+    }
+    return true;
+  }
+
+  /* التصدير — بابٌ يفتح نافذةً، ولا شبكةَ فيه (بندا ٦٠ و٦١). */
+  if (action === 'mem-export') {
+    const { openMemoryExport } = await import('../modals/memory-exchange.js');
+    await openMemoryExport();
+    return true;
+  }
+
+  /*
+   * ⚠️ **الاستيرادُ أربعُ خطواتٍ لا واحدة** (بند ١١):
+   *    اختر ← حلِّل ← راجِع ← وافق. ولا كتابةَ قبل الرابعة.
+   *
+   * ⚠️ **والإلغاءُ لا يمرّ على سطرِ كتابةٍ واحد** (بند ٤٢):
+   *    `openEnrichmentReview` ترجع `null`، والدالّةُ تخرج قبل
+   *    `applyEnrichment` — لا «تراجُعٌ» بعد كتابة.
+   */
+  if (action === 'mem-import') {
+    try {
+      const [files, exchange, memory] = await Promise.all([
+        pickFiles({ accept: 'application/json,.json', multiple: false }),
+        import('../modals/memory-exchange.js'),
+        import('../services/memory/memory-service.js'),
+      ]);
+      const [file] = files;
+      if (!file) return true;
+
+      const text = await exchange.readEnrichmentFile(file);
+      const known = await memory.knownCanonicals();
+      const parsed = exchange.parseEnrichment(text, { knownCanonicals: known });
+      if (!parsed.ok) {
+        toastError(parsed.error);
+        return true;
+      }
+
+      const { planEnrichment, applyEnrichment } = await import('../services/memory/exchange.js');
+      const plan = await planEnrichment(parsed, { readCurrent: memory.readEnrichment });
+
+      const decision = await exchange.openEnrichmentReview({ parsed, plan });
+      if (!decision?.ok) {
+        toast('اتلغى — مااتكتبش حاجة');
+        return true;
+      }
+
+      const result = await applyEnrichment(plan, { writeEnrichment: memory.writeEnrichment });
+      toastOk(result.written
+        ? `اتسجّل ${result.written} إثراء · ${result.skipped} تعارض اتساب زي ما هو`
+        : 'مفيش جديد — الملفّ ده اتسجّل قبل كده');
       const main = $('#app-main');
       if (main) await renderLanguage(main);
     } catch (error) {

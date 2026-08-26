@@ -3813,3 +3813,47 @@ body:has(.shadow-app) .quick-fab { display: none; }
 .mem-stat b { font-size: 24px; line-height: 1.2; }
 .mem-stat span { font-size: 12px; color: var(--text-soft); }
 .mem-stat.is-err b { color: #D6414B; }
+
+/* ══════════════════════════════════════════════════════════════════
+   WS-C2 · تصديرُ الذاكرة ومراجعةُ الإثراء
+   ══════════════════════════════════════════════════════════════════ */
+
+.mem-acts { display: flex; flex-wrap: wrap; gap: var(--sp-2); margin-block-start: var(--sp-2); }
+
+.mx-export, .mx-review { display: grid; gap: var(--sp-2); }
+.mx-note { margin: 0; font-size: 13px; line-height: 1.8; color: var(--text-soft); }
+.mx-warn { margin: 0; font-size: 12px; line-height: 1.8; color: #9c5b0e; }
+.mx-meta { margin: 0; font-size: 11px; color: var(--text-soft); }
+
+.mx-kinds { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--sp-2); }
+.mx-kinds button {
+  font: inherit; text-align: start; display: grid; gap: 2px;
+  padding: var(--sp-3); border-radius: 14px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--text);
+  cursor: pointer; min-block-size: 44px;
+}
+.mx-kinds button span { font-size: 12px; color: var(--text-soft); }
+.mx-kinds button.on { border-color: var(--accent); background: var(--accent-wash); }
+
+.mx-acts { display: flex; flex-wrap: wrap; gap: var(--sp-2); }
+.mx-details { font-size: 12px; }
+.mx-pre {
+  max-block-size: 260px; overflow: auto; font-size: 11px;
+  background: var(--accent-wash); padding: var(--sp-2); border-radius: 10px;
+  white-space: pre-wrap; word-break: break-word;
+}
+
+.mx-sum { margin: 0; font-size: 14px; }
+.mx-sum b { font-size: 18px; }
+.mx-sum .is-warn { color: #9c5b0e; }
+.mx-sum .is-bad { color: #D6414B; }
+.mx-h { margin: var(--sp-2) 0 0; font-size: 13px; }
+.mx-h.is-warn { color: #9c5b0e; }
+.mx-h.is-bad { color: #D6414B; }
+.mx-list { margin: 0; padding-inline-start: 0; list-style: none; display: grid; gap: 6px; }
+.mx-list li { display: grid; gap: 2px; font-size: 13px; padding-block: 6px; }
+.mx-dim { font-size: 12px; color: var(--text-soft); }
+.mx-keep { font-size: 12px; color: #1F9D62; }
+.mx-conflicts li { border-inline-start: 3px solid #C9A227; padding-inline-start: var(--sp-2); }
+.mx-dropped li { border-inline-start: 3px solid #D6414B; padding-inline-start: var(--sp-2); }
+.mx-empty { margin: 0; font-size: 13px; color: var(--text-soft); }

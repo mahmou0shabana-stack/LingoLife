@@ -232,6 +232,18 @@ export async function recordSegmentPractice(session, segment, repetitions, optio
     meaning: 'practiced',
     impliesRealUsage: false,
     impliesMastery: false,
+    /*
+     * ⚠️ **ومنشأُ التصحيح يمرّ — إن كان** (WS-C2، بند ٥٦).
+     *
+     *    `null` لكلّ تدريبٍ عاديّ، فالصفوفُ القديمةُ لا ينقصها شيءٌ
+     *    وقارئُها يسأل «هل هي موجودة؟». ووجودُها يجعل «اتدرّبت على
+     *    تصحيح الغلطة دي ٥ مرّات» **حقيقةً مرتبطةً** لا استنتاجًا من
+     *    تطابق نصّين — وتطابقُ النصّ يكذب حين تتكرّر الجملةُ في مصدرين.
+     *
+     * ⚠️ **ولا يغيّر معنى الصفّ**: هو تدريبٌ كأيّ تدريب، وليس واقعةَ
+     *    خطأٍ ثانية (بند ٦).
+     */
+    correctionOf: segment.correctionOf || null,
   });
 
   await shadowSessions.update(session.id, {

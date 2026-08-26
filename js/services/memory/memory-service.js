@@ -30,7 +30,7 @@
 
 import {
   memoryOccurrences, savedItems, practiceEvidence, mistakeComparisons,
-  expressions, scripts, studyDrafts,
+  expressions, scripts, studyDrafts, conversations, words,
 } from '../../db/repositories.js';
 import { STATE } from '../../db/schema.js';
 import { SAVED_KIND, savedTagLabel } from '../saved-service.js';
@@ -180,8 +180,13 @@ export async function flagsForWords(texts) {
   }
 
   for (const row of practiceRows) {
-    const words = new Set(canonical(row.text || '').split(' ').filter(Boolean));
-    for (const key of words) if (wanted.has(key)) out.get(key).practised += 1;
+    /*
+     * ⚠️ **ولا يُسمَّى `words`** — هذا اسمُ مستودعِ الكلمات المستورَد
+     *    أعلى الملفّ، وتظليلُه هنا يجعل قارئًا لاحقًا يظنّ أنه يقرأ
+     *    القاعدةَ وهو يقرأ كلماتِ جملة.
+     */
+    const spoken = new Set(canonical(row.text || '').split(' ').filter(Boolean));
+    for (const key of spoken) if (wanted.has(key)) out.get(key).practised += 1;
   }
 
   return out;
@@ -223,10 +228,17 @@ export async function entityMemory(text, kind = ENTITY_KIND.WORD) {
       });
     }
     bySource.get(row.sourceKey).positions.push({
+      /* ⚠️ **المعرِّفُ يمرّ** — بابُ السياق يحتاج ظهورًا بعينه لا مصدرًا. */
+      occurrenceId: row.id,
       sentenceIndex: row.sentenceIndex,
       wordIndex: row.wordIndex,
       surface: row.surface,
       sentence: row.sentence,
+      /* منشأُ المحادثة — يُعرَض ولا يُفهرَس (بندا ٢٩ و٣٠). */
+      speaker: row.speaker || null,
+      unitKey: row.unitKey || '',
+      unitTranslation: row.unitTranslation || null,
+      context: [],
     });
   }
   for (const entry of bySource.values()) {
@@ -271,6 +283,26 @@ export async function entityMemory(text, kind = ENTITY_KIND.WORD) {
     errors: errors.length,
   };
 
+  /*
+   * ⚠️ **وسياقُ كلّ ظهورٍ يُقرأ — ولا يُخترَع** (WS-C2، بنود ١٧…٢٢).
+   *
+   *    الوسومُ في `relationships` لا في صفّ الظهور، فتنجو من إعادة
+   *    بناء الفهرس. راجع `memory/context.js`.
+   *
+   * ⚠️ **ويُبتلَع خطؤه**: السياقُ زينةٌ معرفيّة، وتعذُّرُ قراءته لا
+   *    يجوز أن يُخفي تاريخَ الكلمة كلَّه.
+   */
+  let contexts = [];
+  try {
+    const ctxMod = await import('./context.js');
+    const shown = [...bySource.values()].flatMap((one) => one.positions.slice(0, 1));
+    await Promise.all(shown.map(async (pos) => {
+      const of = await ctxMod.contextOf(pos.occurrenceId);
+      pos.context = of.user.map((one) => one.label);
+    }));
+    contexts = await ctxMod.contextDistribution(occRows);
+  } catch { contexts = []; }
+
   return {
     text: (text || '').trim(),
     canonical: key,
@@ -291,12 +323,28 @@ export async function entityMemory(text, kind = ENTITY_KIND.WORD) {
     practices: practised
       .map((row) => ({ at: row.practicedAt, repetitions: row.repetitions, source: row.sourceLabel }))
       .sort((a, b) => (b.at || 0) - (a.at || 0)),
+    /*
+     * ⚠️ **ومع كلّ غلطةٍ تكرارُها وتدريبُها — من وقائعَ مرتبطةٍ لا من
+     *    تطابق نصوص** (WS-C2، بندا ٧ و٥٦).
+     *
+     *    `times` تُحسَب من `patternKey` وحدَه (نفسُ سياسة WS-C
+     *    المحافِظة — بند ٣٨). و`practices` من `practiceEvidence
+     *    .correctionOf` — أي من **رابطٍ صريح**، فلا تُنسَب إليها
+     *    تدريباتٌ على جملةٍ تشبهها في مصدرٍ آخر.
+     */
     errors: errors.map((row) => ({
       id: row.id, wrong: row.wrong, natural: row.natural,
       mistakeType: row.mistakeType, at: row.occurredAt || null,
       patternKey: row.patternKey || '', origin: row.origin || null,
+      times: row.patternKey
+        ? errorRows.filter((other) => other.state === STATE.ACTIVE
+          && other.patternKey === row.patternKey).length
+        : 1,
+      practices: practiceRows.filter((one) => one.correctionOf === row.id).length,
     })),
     expressions: containing,
+    /** توزيعُ السياق — **مشتقٌّ ومُعلَنٌ أنه كذلك** (بند ٢٢). */
+    contexts,
     /** ⚠️ `null` تعني **لا نعرف** — والشاشةُ تكتبها ولا تخفيها. */
     firstSeen: dated[0]?.at ?? null,
     lastSeen: dated.at(-1)?.at ?? null,
@@ -316,6 +364,71 @@ export function statusOf(flags) {
 }
 
 /* ------------------------------------------------------------------ *
+ * بيتُ الإثراء — `words` أخيرًا يُكتَب فيه
+ * ------------------------------------------------------------------ */
+
+/**
+ * يقرأ إثراءَ كيان — أو `null`.
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ ولماذا `words` لا مخزنٌ جديد
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * `words` بيتُ الكلمة منذ v1 و`normalizedText` فيه **فريد** — وهو
+ * بالضبط ما يحتاجه الإثراء: صفٌّ واحدٌ لكلّ صيغة. وكان فارغًا لأن
+ * `lemma`/`pos` تحتاجان صرفًا لا نملكه (WS5)، لا لأنه بيتٌ خطأ.
+ *
+ * ⚠️ **و`lemma`/`pos` يبقيان فارغَين**: الإثراءُ يصف الاستعمال
+ *    (مستوى · مجال · ملاحظة) ولا يدّعي تحليلًا صرفيًّا. وقبولُ `lemma`
+ *    من تحليلٍ خارجيّ يعني تصديقَ ادّعاءٍ لغويٍّ لا نستطيع التحقّق منه
+ *    (بند ٦٨ في WS-C).
+ *
+ * ⚠️ **والإثراءُ حقلٌ داخل الصفّ لا صفٌّ ثانٍ**: فلا يمكن أن يوجد
+ *    إثراءٌ يتيمٌ بلا كيان.
+ */
+export async function readEnrichment(key) {
+  const canon = canonical(key);
+  if (!canon) return null;
+  const [row] = await words.byIndex('normalizedText', canon);
+  return row ? { enrichment: row.enrichment || null, row } : { enrichment: null, row: null };
+}
+
+/**
+ * يكتب إثراءَ كيان — **استبدالٌ بمفتاحه لا إضافة** (بند ١٥).
+ *
+ * ⚠️ وحتميُّ التكرار بحكم البنية: نفسُ `normalizedText` يجد نفسَ الصفّ
+ *    فيُحدَّث. فاستيرادُ الملفّ مرّتين لا يُنتج صفَّين.
+ */
+export async function writeEnrichment(key, enrichment) {
+  const canon = canonical(key);
+  if (!canon) return null;
+  const [row] = await words.byIndex('normalizedText', canon);
+  if (row) return words.update(row.id, { enrichment });
+  return words.create({
+    text: String(key || '').trim(),
+    normalizedText: canon,
+    /* ⚠️ فارغان عمدًا — راجع الشرحَ فوق `readEnrichment`. */
+    lemma: null,
+    pos: null,
+    enrichment,
+  });
+}
+
+/** مفاتيحُ الكيانات المعروفة — يقرؤها المستوردُ ليرفض المجهول (بند ١٨). */
+export async function knownCanonicals() {
+  const [occRows, savedRows, wordRows] = await Promise.all([
+    memoryOccurrences.getAll(),
+    savedItems.getAll(),
+    words.getAll(),
+  ]);
+  return new Set([
+    ...occRows.map((row) => row.canonical),
+    ...alive(savedRows).map((row) => row.normalizedText || canonical(row.text)),
+    ...wordRows.map((row) => row.normalizedText),
+  ].filter(Boolean));
+}
+
+/* ------------------------------------------------------------------ *
  * اللوحة والمكتبة
  * ------------------------------------------------------------------ */
 
@@ -326,14 +439,16 @@ export function statusOf(flags) {
  *    والصفرُ يُعرَض حين يكون صادقًا.
  */
 export async function memoryOverview({ limit = 12 } = {}) {
-  const [occRows, savedRows, errorRows, practiceRows, scriptRows, draftRows] = await Promise.all([
-    memoryOccurrences.getAll(),
-    savedItems.getAll(),
-    mistakeComparisons.getAll(),
-    practiceEvidence.getAll(),
-    scripts.getAll(),
-    studyDrafts.getAll(),
-  ]);
+  const [occRows, savedRows, errorRows, practiceRows, scriptRows, draftRows, convRows] =
+    await Promise.all([
+      memoryOccurrences.getAll(),
+      savedItems.getAll(),
+      mistakeComparisons.getAll(),
+      practiceEvidence.getAll(),
+      scripts.getAll(),
+      studyDrafts.getAll(),
+      conversations.getAll(),
+    ]);
 
   const byForm = new Map();
   for (const row of occRows) {
@@ -362,7 +477,13 @@ export async function memoryOverview({ limit = 12 } = {}) {
       sources: new Set(occRows.map((row) => row.sourceKey)).size,
       /* ما يمكن فهرستُه — فيُقارَن بما فُهرِس فعلًا. */
       indexable: alive(scriptRows).filter((r) => (r.text || '').trim()).length
-        + alive(draftRows).filter((r) => (r.text || '').trim()).length,
+        + alive(draftRows).filter((r) => (r.text || '').trim()).length
+        + alive(convRows).length,
+      /*
+       * ⚠️ **تفصيلٌ بالنوع — ومواضعُ ومصادرُ لا رقمٌ يخلطهما** (بند ٦٤).
+       *    محادثةٌ فيها الكلمةُ ثلاثًا = ٣ مواضع في **مصدرٍ واحد**.
+       */
+      byKind: kindBreakdown(occRows),
     },
     saved: {
       total: saved.length,
@@ -382,6 +503,19 @@ export async function memoryOverview({ limit = 12 } = {}) {
     },
     recurring,
   };
+}
+
+/** مواضعُ ومصادرُ لكلّ نوعِ مصدر — **عددان مختلفان لا واحد**. */
+function kindBreakdown(rows) {
+  const out = {};
+  for (const row of rows) {
+    if (!out[row.kind]) out[row.kind] = { positions: 0, sources: new Set() };
+    out[row.kind].positions += 1;
+    out[row.kind].sources.add(row.sourceKey);
+  }
+  return Object.fromEntries(
+    Object.entries(out).map(([k, v]) => [k, { positions: v.positions, sources: v.sources.size }])
+  );
 }
 
 /** كم نمطَ خطأٍ وقع أكثرَ من مرّة — تكرارٌ صريحٌ لا تشابهٌ مظنون. */

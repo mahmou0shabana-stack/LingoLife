@@ -80,8 +80,16 @@ describe('نطاقُ التدريب · الحارسُ المعماريّ', () =>
     expect(`splice-sites:${drops}`).toBe('splice-sites:1');
 
     const callers = codeLines.filter((l) => /(?<!function )dropExternalSource\(\)/.test(l)).length;
-    /* إقفالُ الصندوق · الرجوعُ للأصل · استبدالُ مؤقّتٍ · دخولُ مسودّة. */
-    expect(`call-sites:${callers}`).toBe('call-sites:4');
+    /*
+     * إقفالُ الصندوق · الرجوعُ للأصل · استبدالُ مؤقّتٍ · دخولُ مسودّة ·
+     * دخولُ تصحيحِ غلطة (WS-C2).
+     *
+     * ⚠️ **والخامسُ استبدالٌ لا بابُ خروجٍ ثانٍ**: `enterCorrectionSource`
+     *    تُسقط المصدرَ المُركَّبَ القائمَ لتضع مكانَه — كما تفعل
+     *    `enterDraftSource` بحرفها. وبابُ **الخروج** إلى الأصل يبقى
+     *    واحدًا: `returnToOriginal`، ويحرسه السطرُ تحت.
+     */
+    expect(`call-sites:${callers}`).toBe('call-sites:5');
 
     const at = src.indexOf("case 'scratch-clear':");
     expect(at > 0).toBe(true);

@@ -530,3 +530,278 @@ describe('WS-C · القاعدة', () => {
     await forgetSource(src.kind, src.id);
   });
 });
+
+/* ══════════════════════════════════════════════════════════════════
+   WS-C2 · تمريرةُ الإكمال
+   ══════════════════════════════════════════════════════════════════ */
+
+describe('WS-C2 · فهرسةُ المحادثات', () => {
+  it('٤١ · المحادثةُ **مصدرٌ واحدٌ بأجزاء** — لا مصدرٌ لكلّ جزء (بند ٤٥)', () => {
+    const rows = rowsForSource({
+      kind: SOURCE_KIND.CONVERSATION, id: 'CNV_1', title: 'محادثة',
+      units: [
+        { key: 'P1', text: 'Документ готов.', speaker: 'المتحدث ١', order: 1 },
+        { key: 'P2', text: 'Документ направили на согласование.', speaker: 'المتحدث ٢', order: 2 },
+        { key: 'P3', text: 'Я проверю согласование завтра.', speaker: 'المتحدث ١', order: 3 },
+      ],
+    });
+
+    const soglas = rows.filter((r) => r.canonical === 'согласование');
+    const dokument = rows.filter((r) => r.canonical === 'документ');
+
+    /* ⚠️ موضعان لكلٍّ — والمصدرُ **واحد**. */
+    expect(soglas).toHaveLength(2);
+    expect(dokument).toHaveLength(2);
+    expect(new Set(rows.map((r) => r.sourceKey)).size).toBe(1);
+    /* وكلُّ موضعٍ يعرف جزأَه ومتحدّثَه (بندا ٢٧ و٢٩). */
+    expect(soglas[0].unitKey).toBe('P2');
+    expect(soglas[1].unitKey).toBe('P3');
+    expect(soglas[0].speaker).toBe('المتحدث ٢');
+  });
+
+  it('٤٢ · ⚠️ وجزءان مختلفان بصمتان — فتعديلُ جزءٍ لا يزيح غيرَه (بند ٥٤)', () => {
+    const one = occurrenceId({
+      canonical: 'док', sourceKey: 'conversation:C', unitKey: 'P1', sentenceIndex: 0, wordIndex: 0,
+    });
+    const two = occurrenceId({
+      canonical: 'док', sourceKey: 'conversation:C', unitKey: 'P2', sentenceIndex: 0, wordIndex: 0,
+    });
+    expect(one === two).toBe(false);
+    /* والسكريبتُ بلا وحدةٍ يبقى ببصمته القديمة حرفيًّا. */
+    expect(occurrenceId({ canonical: 'док', sourceKey: 'script:A', sentenceIndex: 1, wordIndex: 2 }))
+      .toBe('MOC_script:A_1_2_док');
+  });
+
+  it('٤٣ · ⚠️ والمتحدّثُ والترجمةُ لا يدخلان الفهرس (بندا ٢٩ و٣٠)', () => {
+    const rows = rowsForSource({
+      kind: SOURCE_KIND.CONVERSATION, id: 'CNV_2',
+      units: [{
+        key: 'P1', text: 'Документ готов.',
+        speaker: 'المتحدث', translation: 'المستند جاهز.',
+      }],
+    });
+    const keys = rows.map((r) => r.canonical);
+    /* «المتحدث» ليست مفردةً روسيّة، والعربيُّ ترجمةٌ لا مادّةُ فهرسة. */
+    expect(keys.some((k) => k.includes('المتحدث'))).toBe(false);
+    expect(keys.some((k) => k.includes('المستند'))).toBe(false);
+    expect(keys).toContain('документ');
+    /* والترجمةُ محفوظةٌ في المنشأ تُعرَض. */
+    expect(rows[0].unitTranslation).toBe('المستند جاهز.');
+  });
+
+  it('٤٤ · وإزالةُ كلمةٍ من جزءٍ تُسقط موضعَها وحدَه', () => {
+    const before = rowsForSource({
+      kind: SOURCE_KIND.CONVERSATION, id: 'CNV_3',
+      units: [
+        { key: 'P1', text: 'Документ направили на согласование.' },
+        { key: 'P2', text: 'Я проверю согласование завтра.' },
+      ],
+    });
+    const after = rowsForSource({
+      kind: SOURCE_KIND.CONVERSATION, id: 'CNV_3',
+      units: [
+        { key: 'P1', text: 'Документ направили на согласование.' },
+        { key: 'P2', text: 'Я проверю завтра.' },
+      ],
+    });
+    const count = (rows) => rows.filter((r) => r.canonical === 'согласование').length;
+    expect(count(before)).toBe(2);
+    expect(count(after)).toBe(1);
+    /* وبصمةُ الجزء الأوّل لم تتغيّر — فملاحظتُك عليه تبقى في مكانها. */
+    const keep = (rows) => rows.find((r) => r.canonical === 'согласование' && r.unitKey === 'P1').id;
+    expect(keep(after)).toBe(keep(before));
+  });
+});
+
+describe('WS-C2 · سياقُ الظهور', () => {
+  it('٤٥ · ⚠️ ولا يُخزَّن في الفهرس المشتقّ — يحرسه فحصُ نصّ (بندا ٥٣ و٥٤)', async () => {
+    const src = await (await fetch('../js/services/memory/context.js')).text();
+    const code = src.split('\n').filter((l) => !/^\s*(\*|\/\*|\/\/)/.test(l)).join('\n');
+    /*
+     * الملاحظةُ تُكتَب بـ`link`/`unlink` في `relationships` — ولا
+     * `memoryOccurrences.update` ولا `putRaw` هنا إطلاقًا. فإعادةُ بناء
+     * الفهرس لا تمسّها.
+     */
+    expect(code.includes('memoryOccurrences.update')).toBe(false);
+    expect(code.includes('memoryOccurrences.putRaw')).toBe(false);
+    expect(code.includes('memoryOccurrences.putManyRaw')).toBe(false);
+    expect(code.includes("link(")).toBe(true);
+  });
+
+  it('٤٦ · ⚠️ وإعادةُ بناء الفهرس لا تمسّ الروابط (بند ٥٤)', async () => {
+    const src = await (await fetch('../js/services/memory/indexer.js')).text();
+    const code = src.split('\n').filter((l) => !/^\s*(\*|\/\*|\/\/)/.test(l)).join('\n');
+    for (const banned of ['relationships', 'unlink', 'link-service']) {
+      expect(`${banned}:${code.includes(banned)}`).toBe(`${banned}:false`);
+    }
+  });
+
+  it('٤٧ · والمشتقُّ من المصدر متمايزٌ عن وسمِك (بندا ٢٤ و٤٤)', async () => {
+    const { CONTEXT_ORIGIN } = await import('../js/services/memory/context.js');
+    expect(CONTEXT_ORIGIN.USER).toBe(ORIGIN.USER);
+    expect(CONTEXT_ORIGIN.DERIVED_SOURCE).toBe('derived_source');
+    expect(CONTEXT_ORIGIN.USER === CONTEXT_ORIGIN.DERIVED_SOURCE).toBe(false);
+  });
+});
+
+describe('WS-C2 · تصحيحُ الغلطة تدريبٌ لا غلطةٌ ثانية', () => {
+  it('٤٨ · ⚠️ ولا مُشغِّلَ ثانٍ ولا مسارَ نطقٍ جديد (بند ٢)', async () => {
+    const src = await (await fetch('../js/views/shadow-view.js')).text();
+    const at = src.indexOf('async function enterCorrectionSource');
+    expect(at > 0).toBe(true);
+    const body = src.slice(at, at + 3200);
+    /* نفسُ الباب: مقاطعُ في نفس الجلسة ونافذةُ مصدر. */
+    expect(body.includes('player.pushSegment')).toBe(true);
+    expect(body.includes('player.setSourceWindow')).toBe(true);
+    /* ولا جلسةَ ولا مسار. */
+    expect(body.includes('createSession')).toBe(false);
+    expect(body.includes('navigate(')).toBe(false);
+    /* ولا محرّكَ نطقٍ خاصّ. */
+    expect(body.includes('speechSynthesis')).toBe(false);
+    expect(body.includes('createPlaybackController')).toBe(false);
+  });
+
+  it('٤٩ · ⚠️ والنصُّ الفعّالُ هو الصحيحُ لا الخطأ (بند ٣)', async () => {
+    const src = await (await fetch('../js/views/shadow-view.js')).text();
+    const at = src.indexOf('async function enterCorrectionSource');
+    const body = src.slice(at, at + 3200);
+    expect(body.includes('error?.natural')).toBe(true);
+    /* ⚠️ ولا يدخل `wrong` قائمةَ المقاطع أبدًا — الخطأُ تاريخٌ يُقرأ. */
+    expect(body.includes('error.wrong')).toBe(false);
+    expect(body.includes('sourceTextSnapshot: text.trim()')).toBe(true);
+  });
+
+  it('٥٠ · ⚠️ ولا يكتب في سجلّ الأخطاء إطلاقًا (بند ٦)', async () => {
+    const src = await (await fetch('../js/views/shadow-view.js')).text();
+    const at = src.indexOf('async function enterCorrectionSource');
+    const body = src.slice(at, at + 3200);
+    for (const banned of ['recordError', 'mistakeComparisons.create', 'patternKey']) {
+      expect(`${banned}:${body.includes(banned)}`).toBe(`${banned}:false`);
+    }
+  });
+
+  it('٥١ · والتدريبُ يحمل منشأَ التصحيح — رابطٌ لا تطابقُ نصّ (بند ٥٦)', async () => {
+    const src = await (await fetch('../js/services/shadow/shadow-session-service.js')).text();
+    expect(src.includes('correctionOf: segment.correctionOf || null')).toBe(true);
+    /* ⚠️ ولا يتغيّر معنى الصفّ: هو تدريبٌ لا واقعةُ خطأ. */
+    expect(src.includes("meaning: 'practiced'")).toBe(true);
+    expect(src.includes('impliesMastery: false')).toBe(true);
+  });
+});
+
+describe('WS-C2 · واجهةُ التبادل', () => {
+  it('٥٢ · ⚠️ والمراجعةُ لا تكتب — الإلغاءُ لا يمرّ على كتابة (بند ٤٢)', async () => {
+    const src = await (await fetch('../js/modals/memory-exchange.js')).text();
+    const code = src.split('\n').filter((l) => !/^\s*(\*|\/\*|\/\/)/.test(l)).join('\n');
+    /* البابُ لا يستورد `applyEnrichment` أصلًا — فلا يستطيع الكتابة. */
+    expect(code.includes('applyEnrichment')).toBe(false);
+    expect(code.includes('writeEnrichment')).toBe(false);
+    expect(code.includes('putRaw')).toBe(false);
+  });
+
+  it('٥٣ · ⚠️ ولا نداءَ شبكةٍ ولا ذكاءٍ في بابِ التبادل (بندا ٦٠ و٦١)', async () => {
+    const src = await (await fetch('../js/modals/memory-exchange.js')).text();
+    const code = src.split('\n').filter((l) => !/^\s*(\*|\/\*|\/\/)/.test(l)).join('\n');
+    for (const banned of ['fetch(', 'openai', 'anthropic', 'XMLHttpRequest', 'api.openai']) {
+      expect(`${banned}:${code.includes(banned)}`).toBe(`${banned}:false`);
+    }
+  });
+
+  it('٥٤ · والمراجعةُ تعرض المرفوضَ لا تُسقطه بصمت (بند ١٣)', async () => {
+    const src = await (await fetch('../js/modals/memory-exchange.js')).text();
+    expect(src.includes('parsed.dropped')).toBe(true);
+    expect(src.includes('plan.conflicts')).toBe(true);
+    expect(src.includes('parsed.unknown')).toBe(true);
+    /* ⚠️ والجامُّ ثانويٌّ داخل `details` لا تجربةً أولى (بند ١٢). */
+    expect(src.includes('<details class="mx-details">')).toBe(true);
+  });
+
+  it('٥٥ · ⚠️ ولا يُخلَق ظهورٌ من ملفٍّ مستورَد — مهما ادّعى (بند ٥٢)', () => {
+    const evil = {
+      format: FORMAT, version: FORMAT_VERSION,
+      enrichment: {
+        entities: [{
+          canonical: 'согласование',
+          register: 'formal',
+          encounteredInConversation: true,
+          conversationId: 'CNV_9',
+          speaker: 'المتحدث ٢',
+          sentenceIndex: 0,
+        }],
+      },
+    };
+    const parsed = parseEnrichment(evil);
+    const one = parsed.entities[0];
+    expect(one.register).toBe('formal');
+    for (const banned of ['encounteredInConversation', 'conversationId', 'speaker', 'sentenceIndex']) {
+      expect(`${banned}:${banned in one}`).toBe(`${banned}:false`);
+      expect(parsed.dropped).toContain(banned);
+    }
+  });
+
+  /*
+   * ═══════════════════════════════════════════════════════════════
+   * ⚠️ حارسُ الأخضرِ الكاذب: زرٌّ في نافذةٍ لا يسمعه مستمعُ `main`
+   * ═══════════════════════════════════════════════════════════════
+   *
+   * «تدرّب على الصح» كان له `case` في مُبدِّل `data-sh`، وذلك
+   * المُبدِّلُ معلَّقٌ على `main` بينما النوافذُ تُلحَق بـ
+   * `document.body`. فالنقرةُ لم تصل يومًا، والنافذةُ كانت تُغلَق
+   * فيبدو أن شيئًا حدث — ومرّ تأكيدي صدفةً لأن جملةَ السكريبت
+   * والتصحيحَ ينتهيان بالكلمة نفسِها.
+   *
+   * فهذا الحارسُ عامٌّ لا خاصٌّ بزرَّين: كلُّ `data-sh` تُرسَم داخل
+   * `openWordMemory` يجب أن تُوصَل داخلها، وألّا يكون لها `case`.
+   */
+  it('٥٦ · ⚠️ أزرارُ نافذة الذاكرة موصولةٌ داخلها لا في مستمع الشاشة', async () => {
+    const src = await (await fetch('../js/views/shadow-view.js')).text();
+    const start = src.indexOf('async function openWordMemory(');
+    expect(start > -1).toBe(true);
+    const end = src.indexOf('\n}\n', start);
+    const body = src.slice(start, end);
+
+    const actions = [...new Set(
+      [...body.matchAll(/data-sh="([a-z-]+)"/g)].map((m) => m[1])
+    )];
+    /* حتى لا يمرّ الحارسُ فارغًا لو تغيّر شكلُ الرسم. */
+    expect(actions.length >= 2).toBe(true);
+    expect(actions).toContain('fix-practice');
+    expect(actions).toContain('occ-context');
+
+    for (const one of actions) {
+      /* موصولٌ داخل النافذة نفسِها. */
+      expect(`${one}:wired`).toBe(
+        `${one}:${body.includes(`closest('[data-sh="${one}"]')`) ? 'wired' : 'unwired'}`
+      );
+      /* ولا `case` له في مُبدِّل `main` — لأنّه لن يُنادى أبدًا. */
+      expect(`${one}:${src.includes(`case '${one}'`)}`).toBe(`${one}:false`);
+    }
+  });
+
+  it('٥٧ · ⚠️ والإغلاقُ نداءٌ حقيقيٌّ لا نقرةٌ ملفَّقة على مُحدِّد', async () => {
+    const modal = await (await fetch('../js/components/modal.js')).text();
+    expect(modal.includes('export function closeOverlayOf')).toBe(true);
+    expect(modal.includes('overlay.__close = finish')).toBe(true);
+
+    const src = await (await fetch('../js/views/shadow-view.js')).text();
+    const code = src.split('\n').filter((l) => !/^\s*(\*|\/\*|\/\/)/.test(l)).join('\n');
+    expect(code.includes('closeOverlayOf')).toBe(true);
+    /* والنقرةُ الملفَّقةُ على زرِّ النافذة راحت بلا رجعة. */
+    expect(code.includes(".overlay [data-close]")).toBe(false);
+    expect(code.includes('.overlay button[type="submit"]')).toBe(false);
+  });
+
+  it('٥٨ · ⚠️ والدخولُ في التصحيح بعد أن تُغلَق النافذة فعلًا (بند ٤)', async () => {
+    const src = await (await fetch('../js/views/shadow-view.js')).text();
+    const start = src.indexOf('async function openWordMemory(');
+    const end = src.indexOf('\n}\n', start);
+    const body = src.slice(start, end);
+    /* النيّةُ تُسجَّل داخل النافذة… */
+    expect(body.includes('leavingFor = fixBtn.dataset.id')).toBe(true);
+    /* …و`await showModal` يفصل بينها وبين التنفيذ. */
+    expect(body.includes('await showModal({')).toBe(true);
+    expect(body.indexOf('await showModal({') < body.indexOf('enterCorrectionSource(error)')).toBe(true);
+    /* ولا انتظارَ زمنيٌّ أعمى بدل الوعد. */
+    expect(body.includes('setTimeout')).toBe(false);
+  });
+});

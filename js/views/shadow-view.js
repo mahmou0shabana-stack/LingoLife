@@ -14,7 +14,7 @@ import { icon } from '../components/icons.js';
 import { formatDate } from '../utils/dates.js';
 import { counted } from '../utils/plural.js';
 import { toast, toastOk, toastError } from '../components/toast.js';
-import { showModal, confirmAction } from '../components/modal.js';
+import { showModal, confirmAction, closeOverlayOf } from '../components/modal.js';
 import { navigate } from '../router.js';
 import { splitWords, splitSentences } from '../services/shadow/segmenter.js';
 import { openLightbox } from '../components/lightbox.js';
@@ -2495,6 +2495,14 @@ function renderWords() {
    ذاكرةُ اللغة داخل الظلّ (WS-C، بنود ٢٣ و٢٤ و٤٢ و٥١)
    ══════════════════════════════════════════════════════════════════ */
 
+/** أسماءٌ عربيّةٌ لأنواع المصادر — لا `conversation` في شاشةٍ عربيّة. */
+const SRC_LABEL = Object.freeze({
+  script: 'سكريبت',
+  draft: 'مسودّة',
+  conversation: 'محادثة',
+  external: 'نصّ مؤقّت',
+});
+
 /**
  * علاماتُ الجملة الجارية — تُجلَب **دفعةً واحدةً لكلّ جملة**.
  *
@@ -2584,7 +2592,25 @@ async function openWordMemory() {
     ? new Date(at).toLocaleDateString('ar-EG', { day: 'numeric', month: 'long', year: 'numeric' })
     : 'مش معروف');
 
-  return showModal({
+  /*
+   * ═══════════════════════════════════════════════════════════════
+   * ⚠️ أزرارُ النافذة تُوصَل **داخل** النافذة — لا في مستمع الشاشة
+   * ═══════════════════════════════════════════════════════════════
+   *
+   * مستمعُ `data-sh` معلَّقٌ على `main`، والنوافذُ تُلحَق بـ
+   * `document.body`. فنقرةٌ داخل نافذةٍ لا تمرّ بـ`main` أبدًا،
+   * ومهما كتبتَ لها `case` في ذلك المُبدِّل فلن تُنفَّذ.
+   *
+   * وهذا بعينه ما أوقعني: «تدرّب على الصح» **بدا** أنه اشتغل —
+   * النافذةُ تُغلَق والشاشةُ تبقى — بينما المصدرُ لم يتبدّل لأن
+   * الحالةَ لم تُنادَ قطّ. وأسوأُ منه أن تأكيدي مرّ صدفةً: جملةُ
+   * السكريبت والتصحيحُ ينتهيان بـ«согласование.» نفسِها.
+   *
+   * والدرسُ مكتوبٌ منذ WS40 فوق `wireModalActions` — ولم أقرأه.
+   */
+  let leavingFor = null;
+
+  await showModal({
     title: `ذاكرة: ${word}`,
     wide: true,
     submitLabel: 'اقفل',
@@ -2621,17 +2647,49 @@ async function openWordMemory() {
         ${raw(memory.captureTags.length
           ? html`<p class="mem-tags">${memory.captureTags.join(' · ')}</p>` : '')}
 
+        <!--
+          ⚠️ **مواضعُ ومصادرُ عددان لا واحد** (WS-C2، بند ٤٥): محادثةٌ
+             فيها الكلمةُ ثلاثًا = ٣ مواضع في **مصدرٍ واحد**. والمتحدّثُ
+             يُعرَض إن عُرف — «سمعتُها من المتحدّث الثاني» (بند ٢٩).
+
+          ⚠️ **ولكلّ موضعٍ سياقُه هو** (بند ٢٠): وسمُ ظهورٍ لا يصبغ
+             الظهوراتِ الأخرى — «المرّة دي كانت في فحص» غيرُ «الكلمة دي
+             مهنيّة».
+        -->
         ${raw(memory.sources.length ? html`
           <h4 class="mem-h">فين ظهرت</h4>
-          <ul class="mem-list">
+          <ul class="mem-list mem-srcs">
             ${raw(memory.sources.slice(0, 6).map((one) => html`
               <li>
                 <b>${one.title || one.kind}</b>
-                <span class="mem-dim">${one.positions.length} موضع</span>
+                <span class="mem-dim">
+                  ${SRC_LABEL[one.kind] || one.kind} · ${one.positions.length} موضع
+                  ${one.positions[0]?.speaker ? `· ${one.positions[0].speaker}` : ''}
+                </span>
                 <span class="mem-ex" dir="ltr" lang="ru">${one.positions[0]?.sentence || ''}</span>
+                <button type="button" class="mem-ctx" data-sh="occ-context"
+                        data-id="${one.positions[0]?.occurrenceId || ''}">
+                  سياق المرّة دي${one.positions[0]?.context?.length
+                    ? `: ${one.positions[0].context.join(' · ')}` : ''}
+                </button>
               </li>`).join(''))}
           </ul>` : '<p class="mem-empty">لسه مظهرتش في نصّ مفهرَس</p>')}
 
+        ${raw(memory.contexts?.length ? html`
+          <!--
+            ⚠️ **«ظهر غالبًا في…» لا «كلمةٌ مهنيّة»** (بند ٢٢): توزيعٌ
+               مشتقٌّ من ظهوراتٍ حقيقيّة، ولا يصبغ الكيانَ نفسَه.
+          -->
+          <h4 class="mem-h">ظهر غالبًا في سياق</h4>
+          <p class="mem-dist">
+            ${memory.contexts.map((one) => `${one.label} ${one.times}×`).join(' · ')}
+          </p>` : '')}
+
+        <!--
+          ⚠️ **وكلُّ غلطةٍ بابٌ للتدريب على صحّتها** (WS-C2، بند ٢).
+             الزرُّ هنا لا في شاشةٍ رابعة: أنت تنظر إلى الغلطة، والفعلُ
+             حيث تنظر.
+        -->
         ${raw(memory.errors.length ? html`
           <h4 class="mem-h">غلطات فيها</h4>
           <ul class="mem-list mem-errs">
@@ -2639,7 +2697,12 @@ async function openWordMemory() {
               <li>
                 <span class="mem-wrong" dir="ltr" lang="ru">✗ ${one.wrong}</span>
                 <span class="mem-right" dir="ltr" lang="ru">✓ ${one.natural}</span>
-                <span class="mem-dim">${ERROR_TYPE_LABEL[one.mistakeType] || ''} · ${when(one.at)}</span>
+                <span class="mem-dim">${ERROR_TYPE_LABEL[one.mistakeType] || ''} · ${when(one.at)}
+                  ${one.times > 1 ? `· اتكرّرت ${one.times} مرّات` : ''}
+                  ${one.practices ? `· اتدرّبت عليها ${one.practices}` : ''}</span>
+                <button type="button" class="mem-fix" data-sh="fix-practice" data-id="${one.id}">
+                  تدرّب على الصح
+                </button>
               </li>`).join(''))}
           </ul>` : '')}
 
@@ -2649,6 +2712,129 @@ async function openWordMemory() {
             ${memory.expressions.slice(0, 6).map((one) => one.text).join(' · ')}
           </p>` : '')}
       </div>`,
+    onMount(root) {
+      /*
+       * ⚠️ **وإشارةُ القطع هنا أيضًا.** المستمعُ يموت مع النافذة
+       *    طبعًا، لكنّ فعلَه (`enterCorrectionSource`) يعمل على
+       *    **الشاشة**. فلو غادرتَ الظلَّ والنافذةُ مفتوحة، وجب أن
+       *    يموت معها لا أن يبدّل مصدرًا في شاشةٍ مفكَّكة.
+       */
+      root.addEventListener('click', (event) => {
+        /*
+         * ⚠️ **سياقُ ظهورٍ بعينه — لا وسمٌ على الكلمة كلِّها** (بند ٢٠).
+         *    ونافذتُه تعلو هذه ولا تغلقها: أنت لا تغادر ذاكرةَ الكلمة،
+         *    بل تفتح تفصيلًا فيها.
+         */
+        const ctxBtn = event.target.closest('[data-sh="occ-context"]');
+        if (ctxBtn) {
+          if (!ctxBtn.dataset.id) return toastError('مفيش موضع محدَّد');
+          return openOccurrenceContext(ctxBtn.dataset.id);
+        }
+
+        /*
+         * ⚠️ **الخروجُ أوّلًا ثمّ الدخول** (WS-C2، بند ٤). الدخولُ في
+         *    التصحيح يوقف المشغّل ويبدّل المصدر، وفعلُ ذلك ونافذةٌ
+         *    فوق الشاشة يترك المُشغّلَ يتبدّل خلف حجاب. فتُسجَّل
+         *    النيّةُ هنا، وتُنفَّذ بعد أن يُحلّ وعدُ النافذة فعلًا.
+         */
+        const fixBtn = event.target.closest('[data-sh="fix-practice"]');
+        if (!fixBtn?.dataset.id) return undefined;
+        leavingFor = fixBtn.dataset.id;
+        return closeOverlayOf(root);
+      }, wired());
+    },
+    onSubmit(_data, close) { close(); },
+  });
+
+  if (!leavingFor) return undefined;
+  const { mistakeComparisons } = await import('../db/repositories.js');
+  const error = await mistakeComparisons.get(leavingFor).catch(() => null);
+  if (!error) return toastError('الغلطة دي مش موجودة');
+  return enterCorrectionSource(error);
+}
+
+/**
+ * يفتح سياقَ ظهورٍ واحد — إضافةً وإزالةً (WS-C2، بنود ٢٠…٢٤).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ ووسمُك في `relationships` لا في صفّ الظهور
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * صفُّ الظهور **مشتقٌّ**: «أعِد بناء الفهرس» تمسحه وتعيده. فوسمٌ
+ * كتبتَه بداخله يموت مع أوّل إصلاح. والرابطُ ينجو لأن إعادةَ البناء
+ * لا تمسّ `relationships` أصلًا — وبند ٥٣ يسمّي هذا «حرجًا».
+ *
+ * ⚠️ **والمشتقُّ من المصدر يُعرَض ولا يُحرَّر** (بندا ١٩ و٤٤): تصنيفُ
+ *    المشهد ليس وسمَك، وحذفُ وسمِك لا يمسّه.
+ */
+async function openOccurrenceContext(occurrenceId) {
+  const [ctxMod, { memoryOccurrences }] = await Promise.all([
+    import('../services/memory/context.js'),
+    import('../db/repositories.js'),
+  ]);
+  const occurrence = await memoryOccurrences.get(occurrenceId).catch(() => null);
+  if (!occurrence) return toastError('الموضع ده مابقاش موجود');
+
+  const [vocab, current] = await Promise.all([
+    ctxMod.contextVocabulary(),
+    ctxMod.contextOf(occurrence),
+  ]);
+  let picked = new Set(current.user.map((one) => one.id));
+
+  return showModal({
+    title: 'سياق المرّة دي',
+    submitLabel: 'خلاص',
+    body: html`
+      <div class="occ-ctx">
+        <p class="occ-where">
+          <b dir="ltr" lang="ru">${occurrence.surface}</b>
+          <span class="mem-dim">${SRC_LABEL[occurrence.kind] || occurrence.kind}
+            · ${occurrence.sourceTitle || ''}
+            ${occurrence.speaker ? `· ${occurrence.speaker}` : ''}</span>
+        </p>
+        <p class="occ-sent" dir="ltr" lang="ru">${occurrence.sentence || ''}</p>
+
+        <!--
+          ⚠️ **نفسُ مفرداتِ التصنيف لا ثانيةٌ** (بند ١٨).
+        -->
+        <p class="occ-lbl">السياق بتاع الظهور ده إنت</p>
+        <div class="occ-tags" data-occ-tags>
+          ${raw(vocab.map((tag) => html`
+            <button type="button" class="occ-tag${picked.has(tag.id) ? ' on' : ''}"
+                    data-occ-tag="${tag.id}">${tag.label}</button>`).join(''))}
+        </div>
+
+        ${raw(current.derived.length ? html`
+          <p class="occ-lbl">من المصدر نفسه</p>
+          <p class="occ-derived">
+            ${current.derived.map((one) => one.label).join(' · ')}
+            <span class="mem-dim">— ده تصنيف المصدر، مش وسمك. مبيتشالش لما تشيل وسمك.</span>
+          </p>` : '')}
+
+        <p class="mem-note">
+          ده سياق <b>المرّة دي</b> بس. نفس الكلمة في مصدر تاني ممكن يبقى
+          سياقها مختلف تمامًا.
+        </p>
+      </div>`,
+    onMount(root) {
+      root.querySelector('[data-occ-tags]')?.addEventListener('click', async (event) => {
+        const btn = event.target.closest('[data-occ-tag]');
+        if (!btn) return;
+        const tagId = btn.dataset.occTag;
+        try {
+          if (picked.has(tagId)) {
+            await ctxMod.removeContext(occurrenceId, tagId);
+            picked.delete(tagId);
+          } else {
+            await ctxMod.addContext(occurrenceId, tagId);
+            picked.add(tagId);
+          }
+          btn.classList.toggle('on', picked.has(tagId));
+        } catch (error) {
+          toastError(error.message);
+        }
+      });
+    },
     onSubmit(_data, close) { close(); },
   });
 }
@@ -7051,6 +7237,82 @@ function dropExternalSource() {
 */
 
 /**
+ * يُدخل **الصيغةَ الصحيحة** من غلطةٍ مصدرًا فعّالًا (WS-C2، بنود ٢…٧).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ ولا مُشغِّلَ للأخطاء — البابُ هو نفسُه بابُ كلّ نصّ
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * البندُ ٢ يمنع `ErrorPlayer` و`CorrectionPlayer` ومسارَ نطقٍ ثانٍ
+ * بالاسم. والصيغةُ الصحيحةُ تدخل من **نفس** باب النصّ المؤقّت الذي
+ * دخلت منه المسودّةُ في WS-E — فترث مجّانًا: النطاقاتِ الثلاثة،
+ * والسرعةَ والتكرار، والنبرَ والنسخَ وتحليلَ النطق والحفظ (بند ٥).
+ * «مسارٌ مختصَر» لا وجودَ له هنا.
+ *
+ * ⚠️ **والنصُّ الفعّالُ هو الصحيح** (بند ٣): الخطأُ تاريخٌ يُقرأ، لا
+ *    مادّةٌ تُنطَق. ولا يدخل `ctx.segments` إطلاقًا.
+ *
+ * ⚠️ **وممارسةُ التصحيح ليست غلطةً ثانية** (بند ٦): لا شيءَ هنا يكتب
+ *    في `mistakeComparisons`. ما يُكتَب `practiceEvidence` كأيّ تدريب —
+ *    ومعه منشأٌ يقول إنه تصحيحُ غلطةٍ بعينها (بند ٥٦).
+ */
+async function enterCorrectionSource(error) {
+  if (!ctx || !player) return;
+  const correct = (error?.natural || '').trim();
+  if (!correct) return toastError('مفيش صيغة صحيحة نتدرّب عليها');
+
+  captureSource();
+  player.stop();
+
+  const resume = ctx.returnIndex ?? player.state.index;
+  if (externalRange()) dropExternalSource();
+  ctx.returnIndex = resume;
+
+  const from = ctx.segments.length;
+  const sourceId = `fix:${error.id}`;
+  const parts = splitSentences(correct).filter((one) => one.trim());
+  const texts = parts.length ? parts : [correct];
+
+  const made = texts.map((text, i) => ({
+    id: `${sourceId}-${i}`,
+    sessionId: ctx.session.id,
+    sourceObjectId: null,
+    sourceTextSnapshot: text.trim(),
+    translationSnapshot: null,
+    speaker: null,
+    isMine: 0,
+    order: from + i,
+    difficulty: 0,
+    repetitionsCompleted: 0,
+    lastPracticedAt: null,
+    practiceStatus: 'pending',
+    notes: '',
+    temporary: true,
+    sourceId,
+    /*
+     * ⚠️ **المنشأُ يقول من أين جاء** (بندا ٣ و٥٦) — فيصير ممكنًا غدًا
+     *    أن تقول «اتدرّبت على تصحيح الغلطة دي ٥ مرّات» بلا تخمينٍ من
+     *    تطابق النصوص.
+     */
+    correctionOf: error.id,
+  }));
+
+  ctx.segments.push(...made);
+  for (const seg of made) {
+    player.pushSegment({ id: seg.id, text: seg.sourceTextSnapshot, humanAudioUrl: null });
+  }
+  player.setSourceWindow({ from, to: ctx.segments.length - 1 });
+
+  await shiftView(async () => {
+    await restoreSource(`external:${sourceId}`, { from, to: ctx.segments.length - 1 });
+  });
+
+  renderModes();
+  paintSourceChip();
+  toastOk('اتدرّب على الصح — الغلطة نفسها لسه محفوظة');
+}
+
+/**
  * يُدخل المسودّةَ مصدرًا فعّالًا — بلا مغادرةِ الشاشة.
  *
  * ⚠️ **والصوتُ يُقطَع هنا لا يُترَك** (بند ٣٣): تبديلُ المصدر تبديلُ
@@ -8106,6 +8368,13 @@ function wireInteractions(main) {
         return returnToOriginal();
 
       /*
+       * ⚠️ **ولا `case` هنا لأزرار النوافذ** (WS-C2): «تدرّب على الصح»
+       *    و«سياق المرّة دي» يعيشان داخل نافذة ذاكرة الكلمة، وهذا
+       *    المُبدِّلُ معلَّقٌ على `main` وحده. فوُصِلا في `onMount`
+       *    الخاصّ بنافذتهما — حيث تصل النقرةُ فعلًا.
+       */
+
+      /*
        * ⚠️ **زرُّ الشريط = الجملةُ دائمًا (WS45، بند 1).** لا يقرأ
        *    انتقاءَ الكلمة ولا يتأثّر به — نسخُ الكلمة بابُه السكّة.
        */
@@ -9115,3 +9384,12 @@ function wireSpine(main) {
  *    تمرّ بنافذة المراجعة كما لو ضغطتَ الزرّ.
  */
 export const __wse = { enterDraftSource, returnToOriginal };
+
+/**
+ * بابُ قياسٍ لتصحيح الغلطة (WS-C2، بند ٦٣).
+ *
+ * ⚠️ ولا تناديه الشاشة: البابُ الحقيقيُّ زرُّ «تدرّب على الصح» داخل
+ *    لوحة الذاكرة. وهذا يفتح **نفسَ** الدالّة من المسبار حين يكون
+ *    الوصولُ إلى الزرّ داخل نافذةٍ عناءً لا يقيس شيئًا.
+ */
+export const __wsc2 = { enterCorrectionSource, openWordMemory };

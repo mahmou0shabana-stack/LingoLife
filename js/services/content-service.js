@@ -155,7 +155,7 @@ export async function addConversationPart(sceneId, { speaker, text, translation,
   const parts = await conversationParts.byIndex('conversationId', conversation.id);
   const order = parts.reduce((max, p) => Math.max(max, p.order ?? 0), 0) + 1;
 
-  return conversationParts.create({
+  const part = await conversationParts.create({
     conversationId: conversation.id,
     sceneId,
     order,
@@ -171,6 +171,58 @@ export async function addConversationPart(sceneId, { speaker, text, translation,
     timestampMs: null,
     notes: '',
   });
+
+  await touchConversationIndex(conversation.id);
+  return part;
+}
+
+/**
+ * يُحدِّث فهرسَ ذاكرة اللغة لهذه المحادثة وحدَها (WS-C2، بند ٣١).
+ *
+ * ⚠️ **والمحادثةُ كلُّها لا الجزءُ وحدَه**: المحادثةُ مصدرٌ واحدٌ بأجزاء
+ *    (بند ٤٥)، فإعادةُ فهرستها تعني إعادةَ بناء وحداتها كلِّها. وهو
+ *    رخيصٌ لأنها محادثةٌ واحدة — ولا يمسّ محادثةً أخرى ولا سكريبتًا.
+ *
+ * ⚠️ **ويُبتلَع خطؤه**: الفهرسُ مشتقٌّ، فتعذُّرُ تحديثه لا يجوز أن
+ *    يمنع حفظَ ما قيل في محادثتك.
+ */
+async function touchConversationIndex(conversationId) {
+  if (!conversationId) return;
+  try {
+    const [{ indexSource }, { SOURCE_KIND }, { conversations: convRepo }] = await Promise.all([
+      import('./memory/indexer.js'),
+      import('./memory/identity.js'),
+      import('../db/repositories.js'),
+    ]);
+    const conversation = await convRepo.get(conversationId);
+    if (!conversation || conversation.state !== STATE.ACTIVE) return;
+
+    const parts = (await conversationParts.byIndex('conversationId', conversationId))
+      .filter((row) => row.state === STATE.ACTIVE && (row.text || '').trim())
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+    await indexSource({
+      kind: SOURCE_KIND.CONVERSATION,
+      id: conversationId,
+      title: conversation.title || 'محادثة',
+      sceneId: conversation.sceneId || null,
+      units: parts.map((part) => ({
+        key: part.id,
+        text: part.text,
+        order: part.order ?? null,
+        speaker: part.speaker || null,
+        personId: part.personId || null,
+        translation: part.translation || null,
+      })),
+    });
+  } catch {
+    /* فهرسٌ مشتقٌّ — تعذُّرُه لا يمنع حفظَ محادثتك. */
+  }
+}
+
+/** يُعيد فهرسةَ محادثةٍ بعد تعديلٍ أو حذفِ جزء — بابٌ واحدٌ للثلاثة. */
+export async function reindexConversation(conversationId) {
+  return touchConversationIndex(conversationId);
 }
 
 /** أجزاء المحادثة مرتّبة. */

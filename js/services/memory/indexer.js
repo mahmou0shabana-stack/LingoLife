@@ -33,7 +33,9 @@
  * جملةٍ تنتقل إليها. والفهرسُ يجعل السؤالَ فهرسًا واحدًا.
  */
 
-import { memoryOccurrences, scripts, studyDrafts } from '../../db/repositories.js';
+import {
+  memoryOccurrences, scripts, studyDrafts, conversations, conversationParts,
+} from '../../db/repositories.js';
 import { STATE } from '../../db/schema.js';
 import { splitSentences, splitWords } from '../shadow/segmenter.js';
 import {
@@ -41,36 +43,62 @@ import {
 } from './identity.js';
 
 /**
- * يبني صفوفَ مصدرٍ واحدٍ من نصِّه — **دالّةٌ خالصةٌ لا تلمس القاعدة**.
+ * يبني صفوفَ مصدرٍ واحدٍ — **دالّةٌ خالصةٌ لا تلمس القاعدة**.
  *
- * فتُختبَر بلا متصفّح، ويُقاس ناتجُها حرفًا حرفًا.
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ والمصدرُ قد يكون **وحدةً واحدةً أو وحدات**
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * السكريبتُ والمسودّةُ نصٌّ واحد. والمحادثةُ **مصدرٌ واحدٌ فيه أجزاء**
+ * (بند ٤٥): كلُّ جزءٍ له متحدّثُه وترتيبُه وترجمتُه، وكلمةٌ في جزأين
+ * موضعان — والمصدرُ **واحد** لا اثنان.
+ *
+ * فالتوقيعُ يقبل `text` (وحدةٌ ضمنيّةٌ واحدة) أو `units` (قائمة).
+ * والقديمُ لم يُمَسّ: `rowsForSource({ text })` تعمل كما كانت حرفيًّا.
+ *
+ * @param {{kind, id, title?, text?, units?, sceneId?}} source
  */
-export function rowsForSource({ kind, id, title = '', text = '', sceneId = null }) {
-  const sentences = splitSentences(text || '', { requireCyrillic: true });
+export function rowsForSource({ kind, id, title = '', text = '', units = null, sceneId = null }) {
   const src = sourceKey(kind, id);
+  const list = units || [{ key: '', text }];
   const out = [];
 
-  sentences.forEach((sentence, sentenceIndex) => {
-    for (const pos of wordPositions(sentence, splitWords)) {
-      out.push({
-        id: occurrenceId({
-          canonical: pos.canonical, sourceKey: src, sentenceIndex, wordIndex: pos.wordIndex,
-        }),
-        canonical: pos.canonical,
-        /* ⚠️ الصورةُ كما كُتبت — لا تُشتقّ من المفتاح أبدًا (بند ٤). */
-        surface: pos.surface,
-        sourceKey: src,
-        kind,
-        sourceId: id,
-        sourceTitle: title || '',
-        sceneId,
-        sentenceIndex,
-        wordIndex: pos.wordIndex,
-        /* الجملةُ المحيطة — «أرِني السياق» بلا فتح المصدر (بند ٣٠). */
-        sentence,
-      });
-    }
-  });
+  for (const unit of list) {
+    const sentences = splitSentences(unit.text || '', { requireCyrillic: true });
+    sentences.forEach((sentence, sentenceIndex) => {
+      for (const pos of wordPositions(sentence, splitWords)) {
+        out.push({
+          id: occurrenceId({
+            canonical: pos.canonical, sourceKey: src, unitKey: unit.key || '',
+            sentenceIndex, wordIndex: pos.wordIndex,
+          }),
+          canonical: pos.canonical,
+          /* ⚠️ الصورةُ كما كُتبت — لا تُشتقّ من المفتاح أبدًا (بند ٤). */
+          surface: pos.surface,
+          sourceKey: src,
+          kind,
+          sourceId: id,
+          sourceTitle: title || '',
+          sceneId,
+          /* ⚠️ **مِن أيّ جزء** — والمتحدّثُ معه إن عُرف (بندا ٢٧ و٢٩). */
+          unitKey: unit.key || '',
+          unitOrder: unit.order ?? null,
+          speaker: unit.speaker || null,
+          personId: unit.personId || null,
+          sentenceIndex,
+          wordIndex: pos.wordIndex,
+          /* الجملةُ المحيطة — «أرِني السياق» بلا فتح المصدر (بند ٣٠). */
+          sentence,
+          /*
+           * ⚠️ **الترجمةُ تُصحَب ولا تُفهرَس** (بند ٣٠): العربيُّ سياقٌ
+           *    يُعرَض، ولا يدخل `canonical` أبدًا — والمفهرَسُ ما خرج
+           *    من `unit.text` وحدَه، وهو الروسيّ.
+           */
+          unitTranslation: unit.translation || null,
+        });
+      }
+    });
+  }
 
   return out;
 }
@@ -105,6 +133,58 @@ const SOURCES = [
           text: row.text,
           sceneId: row.sceneId || null,
         }));
+    },
+  },
+  {
+    /*
+     * ⚠️ **المحادثةُ مصدرٌ واحدٌ بأجزاء — لا مصدرٌ لكلّ جزء** (بند ٤٥).
+     *
+     *    ولو جعلنا كلَّ جزءٍ مصدرًا لقالت ذاكرةُ الكلمة «ظهرت في ٣
+     *    مصادر» عن محادثةٍ واحدة — وهو كذبٌ عن اتّساع لغتك. والمواضعُ
+     *    ثلاثةٌ بحقّ، والمصدرُ واحدٌ بحقّ، والعددان مختلفان عمدًا.
+     */
+    kind: SOURCE_KIND.CONVERSATION,
+    async read() {
+      const [convRows, partRows] = await Promise.all([
+        conversations.getAll(),
+        conversationParts.getAll(),
+      ]);
+      const live = convRows.filter((row) => row.state === STATE.ACTIVE);
+      const byConv = new Map(live.map((row) => [row.id, []]));
+
+      for (const part of partRows) {
+        if (part.state !== STATE.ACTIVE) continue;
+        if (!byConv.has(part.conversationId)) continue;
+        if (!(part.text || '').trim()) continue;
+        byConv.get(part.conversationId).push(part);
+      }
+
+      return live
+        .map((row) => {
+          const parts = (byConv.get(row.id) || [])
+            .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+          return {
+            kind: SOURCE_KIND.CONVERSATION,
+            id: row.id,
+            title: row.title || 'محادثة',
+            sceneId: row.sceneId || null,
+            units: parts.map((part) => ({
+              /* ⚠️ **معرِّفُ الجزء هو الوحدة** — تعديلُ جزءٍ لا يزيح غيرَه. */
+              key: part.id,
+              text: part.text,
+              order: part.order ?? null,
+              /*
+               * ⚠️ **المتحدّثُ يُحفَظ ولا يُفهرَس** (بند ٢٩): «المتحدث»
+               *    و«أنا» ليستا مفرداتٍ روسيّة، ولا تدخلان `canonical`
+               *    — تُكتَب في المنشأ وحدَه.
+               */
+              speaker: part.speaker || null,
+              personId: part.personId || null,
+              translation: part.translation || null,
+            })),
+          };
+        })
+        .filter((one) => one.units.length);
     },
   },
 ];
@@ -156,17 +236,24 @@ export async function rebuildIndex({ onProgress = null } = {}) {
 
   let written = 0;
   let sources = 0;
+  /** ⚠️ عددٌ لكلّ نوعٍ — «٣ مصادر» بلا تفصيلٍ لا يقول شيئًا (بند ٣٢). */
+  const byKind = {};
+
   for (const group of SOURCES) {
     /* eslint-disable-next-line no-await-in-loop -- مصدرٌ بعد مصدرٍ عمدًا */
     const list = await group.read();
+    byKind[group.kind] = { sources: 0, positions: 0 };
     for (const source of list) {
       /* eslint-disable-next-line no-await-in-loop -- تسلسلٌ يحفظ الذاكرة */
-      written += await indexSource(source);
+      const n = await indexSource(source);
+      written += n;
       sources += 1;
+      byKind[group.kind].sources += 1;
+      byKind[group.kind].positions += n;
       onProgress?.({ sources, written });
     }
   }
-  return { sources, written };
+  return { sources, written, byKind };
 }
 
 /**
@@ -174,10 +261,25 @@ export async function rebuildIndex({ onProgress = null } = {}) {
  */
 export async function indexStats() {
   const rows = await memoryOccurrences.getAll();
+  /*
+   * ⚠️ **المواضعُ غيرُ المصادر** (بند ٦٤): محادثةٌ فيها الكلمةُ ثلاث
+   *    مرّاتٍ = ٣ مواضع في **مصدرٍ واحد**. وخلطُ العددين في اللوحة
+   *    يجعل «١٢» تعني شيئًا لا يعرفه قارئُها.
+   */
+  const byKind = {};
+  for (const row of rows) {
+    if (!byKind[row.kind]) byKind[row.kind] = { positions: 0, sources: new Set() };
+    byKind[row.kind].positions += 1;
+    byKind[row.kind].sources.add(row.sourceKey);
+  }
+
   return {
     positions: rows.length,
     forms: new Set(rows.map((row) => row.canonical)).size,
     sources: new Set(rows.map((row) => row.sourceKey)).size,
+    byKind: Object.fromEntries(
+      Object.entries(byKind).map(([k, v]) => [k, { positions: v.positions, sources: v.sources.size }])
+    ),
   };
 }
 

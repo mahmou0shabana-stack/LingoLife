@@ -5565,3 +5565,47 @@ body.shadow-open { overflow: hidden; }
   /* ⚠️ ٤٤px هدفَ لمسٍ على اللوح (بند ٥٠). */
   min-block-size: 44px; inline-size: 100%;
 }
+
+/* WS-C2 · زرُّ «تدرّب على الصح» داخل نافذة الذاكرة */
+.mem-fix {
+  font: inherit; font-size: 12px;
+  margin-block-start: 4px;
+  padding: 8px 14px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--text);
+  cursor: pointer; align-self: start;
+  /* ⚠️ ٤٤px هدفَ لمسٍ على اللوح (بند ٥٩) — الحشوُ لا الخطّ. */
+  min-block-size: 44px;
+}
+.mem-fix:hover { border-color: var(--accent); }
+.mem-errs li { padding-block-end: var(--sp-2); border-block-end: 1px solid var(--line); }
+.mem-errs li:last-child { border-block-end: 0; }
+
+/* WS-C2 · سياقُ الظهور الواحد */
+.mem-ctx {
+  font: inherit; font-size: 11px;
+  margin-block-start: 4px; padding: 8px 12px;
+  border-radius: 999px; border: 1px dashed var(--line);
+  background: none; color: var(--text-soft); cursor: pointer;
+  align-self: start; min-block-size: 44px;
+}
+.mem-ctx:hover { border-style: solid; color: var(--text); }
+.mem-srcs li { padding-block-end: var(--sp-2); }
+.mem-dist { margin: 0; font-size: 13px; color: var(--text-soft); }
+.mem-kinds { margin: 0; padding-inline-start: 0; list-style: none; display: grid; gap: 4px; }
+.mem-kinds li { display: flex; gap: var(--sp-2); font-size: 13px; }
+
+.occ-ctx { display: grid; gap: var(--sp-2); }
+.occ-where { margin: 0; display: grid; gap: 2px; }
+.occ-where b { font-size: 20px; }
+.occ-sent { margin: 0; font-size: 13px; color: var(--text-soft); }
+.occ-lbl { margin: var(--sp-2) 0 0; font-size: 12px; color: var(--text-soft); }
+.occ-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.occ-tag {
+  font: inherit; font-size: 13px; padding: 10px 16px;
+  border-radius: 999px; border: 1px solid var(--line);
+  background: var(--surface); color: var(--text); cursor: pointer;
+  /* ⚠️ ٤٤px — وسمُ سياقٍ يُلمَس بإصبعٍ على لوح (بند ٥٩). */
+  min-block-size: 44px;
+}
+.occ-tag.on { border-color: var(--accent); background: var(--accent-wash); }
+.occ-derived { margin: 0; font-size: 13px; }
