@@ -1,0 +1,275 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>فحص Drive عبر جهازين — LingoLife</title>
+  <style>
+    :root { color-scheme: light; }
+    body {
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: #F5F1E6; color: #1F2430;
+      margin: 0; padding: 20px; line-height: 1.75;
+      max-width: 780px; margin-inline: auto;
+    }
+    h1 { font-size: 20px; margin: 0 0 4px; }
+    .sub { color: #6B7280; font-size: 14px; margin-bottom: 18px; }
+    .card {
+      background: #fff; border: 1px solid #E5E1D6; border-radius: 16px;
+      padding: 16px; margin-bottom: 14px;
+    }
+    .card h2 { font-size: 16px; margin: 0 0 8px; }
+    button {
+      font: inherit; font-weight: 700; cursor: pointer;
+      padding: 14px 18px; border-radius: 12px; border: 0;
+      background: #6C5CE7; color: #fff; min-height: 48px; width: 100%;
+      margin-top: 8px;
+    }
+    button.ghost { background: #fff; color: #1F2430; border: 1px solid #E5E1D6; }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    pre {
+      background: #1F2430; color: #E8E6F5; padding: 12px; border-radius: 10px;
+      font-size: 12px; line-height: 1.6; overflow: auto; max-height: 340px;
+      white-space: pre-wrap; word-break: break-word; direction: ltr; text-align: left;
+    }
+    .verdict { padding: 14px; border-radius: 12px; font-weight: 700; margin-top: 10px; }
+    .pass { background: #E6F5EC; color: #1F9D62; border: 1px solid #BFE5D0; }
+    .fail { background: #FCEAEB; color: #D6414B; border: 1px solid #F3C9CC; }
+    .warn { background: #FCF1DC; color: #B57A1B; border: 1px solid #EFDCB4; }
+    code { background: #EFECFD; padding: 1px 6px; border-radius: 5px; font-size: 13px; }
+    ol { padding-inline-start: 20px; }
+  </style>
+</head>
+<body>
+  <h1>فحص Drive عبر جهازين</h1>
+  <div class="sub">
+    يجيب سؤالًا واحدًا: هل يرى الجهازُ الثاني — بنفس الحساب ونفس مُعرِّف
+    العميل — ملفًّا أنشأه الجهازُ الأوّل تحت صلاحية <code>drive.file</code>؟
+    <strong>كلُّ WS-H مبنيٌّ على أن الجواب «نعم».</strong>
+  </div>
+
+  <div class="card">
+    <h2>الطريقة</h2>
+    <ol>
+      <li>افتح الصفحة دي على <strong>التابلت</strong> واضغط «أ · اكتب».</li>
+      <li>افتح نفس الصفحة على <strong>الموبايل</strong> (نفس حساب Google)
+          واضغط «ب · دوّر».</li>
+      <li>لو الموبايل لقى ملفّ التابلت → نجح.</li>
+    </ol>
+    <p class="sub" style="margin:0">
+      بيكتب ملفًّا صغيرًا واحدًا في مجلّد <code>LingoLife/</code> ومش
+      بيلمس أيَّ حاجة تانية. تقدر تمسحه بزرّ «نضّف» تحت.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>أ · جهاز الكتابة</h2>
+    <button id="write">أ · اكتب ملفَّ فحصٍ على Drive</button>
+  </div>
+
+  <div class="card">
+    <h2>ب · جهاز الاكتشاف</h2>
+    <button id="discover" class="ghost">ب · دوّر على ملفّ الجهاز التاني</button>
+  </div>
+
+  <div class="card">
+    <h2>تنضيف</h2>
+    <button id="clean" class="ghost">امسح ملفّات الفحص</button>
+  </div>
+
+  <div id="verdict"></div>
+  <pre id="log">جاهز.</pre>
+
+  <script type="module">
+    import { DRIVE_CLIENT_ID, DRIVE_SCOPE } from '../js/services/cloud/drive-config.js';
+    import { requestToken, currentToken, authStatus } from '../js/services/cloud/drive-auth.js';
+
+    const logEl = document.getElementById('log');
+    const verdictEl = document.getElementById('verdict');
+    const lines = [];
+    const log = (...parts) => {
+      lines.push(parts.map((p) => (typeof p === 'string' ? p : JSON.stringify(p, null, 1))).join(' '));
+      logEl.textContent = lines.join('\n');
+      logEl.scrollTop = logEl.scrollHeight;
+    };
+    const verdict = (cls, text) => {
+      verdictEl.innerHTML = `<div class="verdict ${cls}">${text}</div>`;
+    };
+
+    /*
+     * هُويّةُ تركيبٍ محلّيّةٌ ثابتة — عشان الجهاز يعرف ملفَّه من ملفّ غيره.
+     * في localStorage، فتختلف بين التابلت والموبايل تلقائيًّا.
+     */
+    const INSTALL_KEY = 'llife.driveCheck.install';
+    let install = localStorage.getItem(INSTALL_KEY);
+    if (!install) {
+      install = `CHK_${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
+      localStorage.setItem(INSTALL_KEY, install);
+    }
+    log('[install]', install);
+    log('[client_id]', DRIVE_CLIENT_ID);
+    log('[scope]', DRIVE_SCOPE);
+    log('[origin]', location.origin);
+
+    const API = 'https://www.googleapis.com/drive/v3';
+    const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
+    const MARK = 'llifeDriveCheck';
+
+    let calls = 0;
+    async function api(url, options = {}) {
+      calls += 1;
+      const token = currentToken();
+      const started = performance.now();
+      const response = await fetch(url, {
+        ...options,
+        headers: { Authorization: `Bearer ${token}`, ...(options.headers || {}) },
+      });
+      const ms = Math.round(performance.now() - started);
+      const text = await response.text();
+      let body = null;
+      try { body = text ? JSON.parse(text) : null; } catch { body = { raw: text }; }
+      log(`[api ${response.status} ${ms}ms]`, url.replace('https://www.googleapis.com', ''));
+      if (!response.ok) {
+        log('[error]', body);
+        throw new Error(`${response.status}: ${body?.error?.message || text}`);
+      }
+      return body;
+    }
+
+    async function authorize() {
+      log('[auth] بيطلب رمز…');
+      const started = performance.now();
+      const result = await requestToken();
+      log(`[auth] تمّ في ${Math.round(performance.now() - started)}ms`, authStatus());
+      return result;
+    }
+
+    /** يجد مجلّد LingoLife أو ينشئه. */
+    async function ensureRoot() {
+      const q = encodeURIComponent(
+        "mimeType = 'application/vnd.google-apps.folder' and name = 'LingoLife' and trashed = false"
+      );
+      const found = await api(`${API}/files?q=${q}&fields=files(id,name,createdTime)&spaces=drive`);
+      if (found.files?.length) {
+        log('[root] موجود', found.files[0]);
+        return found.files[0].id;
+      }
+      const created = await api(`${API}/files?fields=id`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: 'LingoLife',
+          mimeType: 'application/vnd.google-apps.folder',
+          appProperties: { llifeKind: 'root' },
+        }),
+      });
+      log('[root] اتعمل', created);
+      return created.id;
+    }
+
+    document.getElementById('write').addEventListener('click', async () => {
+      try {
+        verdict('warn', 'شغّال…');
+        await authorize();
+        const root = await ensureRoot();
+
+        const payload = {
+          writtenBy: install,
+          at: new Date().toISOString(),
+          note: 'ملف فحص drive.file عبر جهازين',
+        };
+        const boundary = 'llifecheck' + Date.now();
+        const metadata = {
+          name: `drive-check-${install}.json`,
+          parents: [root],
+          appProperties: { [MARK]: '1', llifeKind: 'check', llifeInstall: install },
+        };
+        const body =
+          `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n`
+          + `${JSON.stringify(metadata)}\r\n`
+          + `--${boundary}\r\nContent-Type: application/json\r\n\r\n`
+          + `${JSON.stringify(payload)}\r\n--${boundary}--`;
+
+        const created = await api(
+          `${UPLOAD}/files?uploadType=multipart&fields=id,name,appProperties,createdTime`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': `multipart/related; boundary=${boundary}` },
+            body,
+          }
+        );
+        log('[write] اتكتب', created);
+        verdict('pass',
+          `✓ الجهاز ده (${install}) كتب ملفَّه. دلوقتي افتح نفس الصفحة على الجهاز التاني واضغط «ب».`);
+      } catch (error) {
+        log('[FAIL]', error.message);
+        verdict('fail', `✗ فشل الكتابة: ${error.message}`);
+      }
+    });
+
+    document.getElementById('discover').addEventListener('click', async () => {
+      try {
+        verdict('warn', 'شغّال…');
+        await authorize();
+
+        const q = encodeURIComponent(
+          `appProperties has { key='${MARK}' and value='1' } and trashed = false`
+        );
+        const found = await api(
+          `${API}/files?q=${q}&fields=files(id,name,appProperties,createdTime,size)&spaces=drive`
+        );
+        const files = found.files || [];
+        log('[discover] عدد الملفّات المرئية:', files.length);
+        for (const file of files) log('  ·', file.name, file.appProperties?.llifeInstall || '?');
+
+        const mine = files.filter((f) => f.appProperties?.llifeInstall === install);
+        const others = files.filter((f) => f.appProperties?.llifeInstall !== install);
+
+        if (!files.length) {
+          verdict('warn',
+            '⚠ مفيش ولا ملفّ. اكتب من الجهاز الأوّل الأوّل (زرّ «أ»).');
+          return;
+        }
+
+        if (!others.length) {
+          verdict('warn',
+            `⚠ شايف ملفّاتك إنت بس (${mine.length}). لو ده الجهاز التاني فعلًا، `
+            + 'يبقى الاكتشاف عبر الأجهزة فشل. لو ده نفس الجهاز الأوّل، جرّب على الجهاز التاني.');
+          return;
+        }
+
+        /* والقراءةُ الفعليّةُ للمحتوى — لا رؤيةُ البيان وحدَها. */
+        const target = others[0];
+        const content = await api(`${API}/files/${target.id}?alt=media`);
+        log('[read] محتوى ملفّ الجهاز التاني:', content);
+
+        verdict('pass',
+          `✓✓ نجح. الجهاز ده (${install}) شاف وقرأ ملفّ الجهاز `
+          + `(${target.appProperties?.llifeInstall}) بصلاحية drive.file. `
+          + `عدد نداءات API: ${calls}.`);
+      } catch (error) {
+        log('[FAIL]', error.message);
+        verdict('fail', `✗ فشل الاكتشاف: ${error.message}`);
+      }
+    });
+
+    document.getElementById('clean').addEventListener('click', async () => {
+      try {
+        await authorize();
+        const q = encodeURIComponent(
+          `appProperties has { key='${MARK}' and value='1' } and trashed = false`
+        );
+        const found = await api(`${API}/files?q=${q}&fields=files(id,name)&spaces=drive`);
+        for (const file of found.files || []) {
+          await api(`${API}/files/${file.id}`, { method: 'DELETE' });
+          log('[clean] اتمسح', file.name);
+        }
+        verdict('pass', `✓ اتمسح ${(found.files || []).length} ملف فحص.`);
+      } catch (error) {
+        log('[FAIL]', error.message);
+        verdict('fail', `✗ ${error.message}`);
+      }
+    });
+  </script>
+</body>
+</html>

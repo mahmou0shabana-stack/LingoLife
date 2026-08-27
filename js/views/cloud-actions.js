@@ -13,7 +13,8 @@ import { toast, toastOk, toastError } from '../components/toast.js';
 import { confirmAction, showModal } from '../components/modal.js';
 import { html, raw, formatBytes } from '../utils/dom.js';
 import { relativeTime } from '../utils/dates.js';
-import { cloud, isCloudActive } from '../services/cloud/cloud-service.js';
+import { cloud, isCloudActive, attachCloud, detachCloud }
+  from '../services/cloud/cloud-service.js';
 import { media } from '../db/repositories.js';
 import { openConflictReview } from '../modals/conflict-review.js';
 import { storageReport as mediaStorageReport, removeLocalCopies }
@@ -59,11 +60,29 @@ export async function handleCloudAction(action, element, refresh) {
       return true;
     }
     /*
-     * ⚠️ **ولا يُركَّب ناقلٌ من هنا اليوم.** حين يوجد مُعرِّفُ عميلٍ
-     *    حقيقيّ، يُستورَد مُنفِّذُ Drive ويُمرَّر إلى `attachCloud`
-     *    — وباقي هذا الملفّ لا يتغيّر حرفًا.
+     * ⚠️ **والناقلُ يُركَّب هنا ولا يُختار في أيّ مكانٍ آخر.** سطرٌ
+     *    واحدٌ يفرّق بين المحاكي وDrive، وكلُّ ما فوقه — منسّقٌ وطابورٌ
+     *    ونسخٌ وشاشات — لا يعرف أيَّهما رُكِّب.
      */
-    toast('الربط لسه مش مفعّل');
+    const { createDriveTransport } = await import('../services/cloud/drive-transport.js');
+    const dismiss = toast('بيفتح نافذة Google…', { duration: BUSY });
+    try {
+      const transport = createDriveTransport();
+      attachCloud(transport);
+      const state = await cloud.sync.connect();
+      dismiss();
+
+      if (state.state === 'AUTH_REQUIRED' || state.state === 'ERROR') {
+        toastError(state.error?.message || 'مقدرناش نربط Drive');
+      } else {
+        toastOk(`اتربط${state.account ? ` · ${state.account}` : ''}`);
+      }
+    } catch (error) {
+      dismiss();
+      await detachCloud().catch(() => {});
+      toastError(say(error));
+    }
+    await refresh();
     return true;
   }
 
@@ -75,8 +94,15 @@ export async function handleCloudAction(action, element, refresh) {
       confirmLabel: 'افصل',
     });
     if (!ok) return true;
+    /*
+     * ⚠️ **والفصلُ يسحب الإذنَ من Google أيضًا** (داخل `transport.disconnect`)
+     *    لا ينسى الرمزَ محلّيًّا وحدَه. ولولا ذلك لبقي الإذنُ ممنوحًا في
+     *    حسابك، فيأخذ أوّلُ تبويبٍ يفتح التطبيقَ رمزًا صامتًا — و«افصل»
+     *    تكون قد كذبت.
+     */
     await cloud.sync.disconnect();
-    toastOk('اتفصل — بياناتك زي ما هي');
+    await detachCloud();
+    toastOk('اتفصل، والإذن اتسحب من Google — بياناتك زي ما هي');
     await refresh();
     return true;
   }
