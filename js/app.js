@@ -367,6 +367,22 @@ function wireActions() {
       case 'add-images': return handleAddImages(sceneId);
       case 'add-audio': return handleAddAudio(sceneId);
       case 'open-image': return openLightbox(id, sceneId);
+
+      /*
+       * ⚠️ **جلبُ بايتاتٍ غائبة — ثم المسارُ العاديّ حرفًا بحرف** (WS-H
+       *    بند ٨). بعد `ensureBytes` يُفتَح نفسُ العارض، ويُشغَّل نفسُ
+       *    المشغّل. فلا «عارضُ سحابة» ولا «مشغّلُ سحابة».
+       */
+      case 'fetch-media': {
+        const { handleSceneMediaFetch } = await import('./views/cloud-actions.js');
+        return handleSceneMediaFetch(id, sceneId);
+      }
+      case 'scene-offline-all':
+      case 'scene-offline-audio':
+      case 'scene-offline-image': {
+        const { handleSceneOffline } = await import('./views/cloud-actions.js');
+        return handleSceneOffline(action, id);
+      }
       case 'record-audio': return handleRecord(sceneId, target, AUDIO_ROLE.NOTE);
       case 'record-retell': return handleRecord(sceneId, target, AUDIO_ROLE.RETELLING);
 
@@ -650,7 +666,7 @@ function wireActions() {
       }
 
       default: {
-        if (await handleSettingsAction(action)) return;
+        if (await handleSettingsAction(action, target)) return;
         // `target` لازم للسلة: مفتاح الصفّ فيه اسم الـ store مع المعرّف،
         // فالمعرّف وحده لا يكفي لمعرفة أي مستودع نستعيد منه.
         if (await handleTrashAction(action, id, target)) return;

@@ -9,7 +9,7 @@ import { getSceneFull } from '../services/scene-service.js';
 import { transcriptOf } from '../services/transcript-service.js';
 import { briefSimilar } from '../services/similarity/similar.js';
 import { listConversationParts, listSceneExpressions, getBlock, scriptTypeLabel, registerLabel, registerClass } from '../services/content-service.js';
-import { urlFor, releaseUrls, AUDIO_ROLE_LABEL, AUDIO_ROLE } from '../services/media-service.js';
+import { urlFor, releaseUrls, isCloudOnly, AUDIO_ROLE_LABEL, AUDIO_ROLE } from '../services/media-service.js';
 import { html, raw, formatDuration } from '../utils/dom.js';
 import { formatDate } from '../utils/dates.js';
 import { typeLabel } from '../services/type-service.js';
@@ -73,6 +73,48 @@ function wave(seed = 1) {
   return `<span class="wave" aria-hidden="true">${bars}</span>`;
 }
 
+/**
+ * شريطُ «الذكرى دي متاحة أوفلاين؟» (WS-H · بنود C و D و ٨).
+ *
+ * ⚠️ **ولا يظهر إلّا حين يكون فيه خبر.** ذكرى كلُّ ملفّاتها هنا لا
+ *    تحتاج شريطًا يقول ذلك — والشريطُ الذي يظهر دائمًا يُقرَأ مرّةً ثم
+ *    لا يُرى بعدها أبدًا، فيضيع حين يصير له معنًى.
+ *
+ * ⚠️ **والأرقامُ من السجلّات لا من الشبكة**: `media.bytes` مكتوبٌ منذ
+ *    الإضافة، فالشريطُ يُرسَم بلا نداءِ Drive واحد.
+ */
+function sectionOffline(scene, report) {
+  if (!report || report.complete || !report.missing.count) return '';
+
+  const kinds = [
+    report.missing.audio ? `${counted(report.missing.audio, 'صوت', 'صوتين', 'أصوات')}` : '',
+    report.missing.image ? `${counted(report.missing.image, 'صورة', 'صورتين', 'صور')}` : '',
+  ].filter(Boolean).join(' و');
+
+  return html`
+    <section class="sec scene-offline">
+      <div class="scene-offline-text">
+        <strong>${kinds} من الذكرى دي لسه على Drive</strong>
+        <span class="text-sm">
+          السجلّات كلها هنا — الملفّات بتتنزّل لمّا تحتاجها.
+        </span>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-sm" data-action="scene-offline-all" data-id="${scene.id}">
+          خلّي الذكرى أوفلاين
+        </button>
+        ${raw(report.missing.audio ? html`
+          <button class="btn btn-ghost btn-sm" data-action="scene-offline-audio" data-id="${scene.id}">
+            الصوت بس
+          </button>` : '')}
+        ${raw(report.missing.image ? html`
+          <button class="btn btn-ghost btn-sm" data-action="scene-offline-image" data-id="${scene.id}">
+            الصور بس
+          </button>` : '')}
+      </div>
+    </section>`;
+}
+
 /* ============================================================
    الأقسام
    ============================================================ */
@@ -103,6 +145,21 @@ function sectionImages(scene, images, coverId) {
           shown
             .map((m, i) => {
               const isLast = i === shown.length - 1 && extra > 0;
+              /*
+               * ⚠️ **وصورةٌ بايتاتُها على Drive تُعرَض مكانَها لا `src=null`**
+               *    (WS-H · بند ٨). `urlFor` تعيد `null` بالتصميم حين لا توجد
+               *    بايتات، ووضعُها في `src` يرسم أيقونةَ صورةٍ مكسورةٍ تقول
+               *    «ضاعت» — والحقيقةُ أنها موجودةٌ وتحتاج ضغطةً.
+               */
+              if (isCloudOnly(m)) {
+                return html`
+                  <button class="tile tile-cloud" data-action="fetch-media"
+                          data-id="${m.id}" data-scene="${scene.id}">
+                    ${raw(icon('db', 22))}
+                    <span class="tile-cloud-label">على Drive · اضغط تنزّلها</span>
+                    ${raw(m.id === coverId ? '<span class="badge-cover">الغلاف</span>' : '')}
+                  </button>`;
+              }
               return html`
                 <button class="tile" data-action="open-image" data-id="${m.id}" data-scene="${scene.id}">
                   <img src="${urlFor(m)}" alt="${m.caption || 'صورة من الذكرى'}" loading="lazy">
@@ -694,6 +751,21 @@ export async function renderScene(main, sceneId, options = {}) {
   const images = mediaItems.filter((m) => m.kind === 'image');
   const audio = mediaItems.filter((m) => m.kind === 'audio');
 
+  /*
+   * تقريرُ الأوفلاين للذكرى — يُحسَب من نفس الصفوف المرسومة، فلا
+   * قائمةَ ملفّاتٍ موازيةٌ تتقادم (WS-H · بند C).
+   */
+  const offlineMissing = mediaItems.filter((m) => isCloudOnly(m));
+  const offline = {
+    complete: offlineMissing.length === 0,
+    missing: {
+      count: offlineMissing.length,
+      audio: offlineMissing.filter((m) => m.kind === 'audio').length,
+      image: offlineMissing.filter((m) => m.kind === 'image').length,
+      bytes: offlineMissing.reduce((sum, m) => sum + (m.bytes || 0), 0),
+    },
+  };
+
   const [parts, expressionList, notesBlock, threads, pivots, tree, transcript, similar] = await Promise.all([
     listConversationParts(sceneId),
     listSceneExpressions(sceneId),
@@ -867,6 +939,7 @@ export async function renderScene(main, sceneId, options = {}) {
     </section>
 
     <div class="board">
+      ${raw(sectionOffline(scene, offline))}
       ${raw(sectionImages(scene, images, scene.coverMediaId))}
       ${raw(sectionVoices(scene, audio))}
       ${raw(sectionLanguage(scene, expressionList))}

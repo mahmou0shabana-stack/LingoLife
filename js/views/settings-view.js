@@ -27,6 +27,7 @@ import { icon } from '../components/icons.js';
 import { counted } from '../utils/plural.js';
 import { unknownOriginCount, claimUnknownOrigins } from '../services/language-service.js';
 import { APP_VERSION, BUILD_ID } from '../config.js';
+import { cloudPanels, cloudSettingsData } from './cloud-settings.js';
 
 export async function renderSettings(main) {
   main.innerHTML = html`<div class="loading"><span class="spinner"></span> بيتم قراءة حالة التخزين…</div>`;
@@ -51,6 +52,9 @@ export async function renderSettings(main) {
 
   // ظهورات كُتبت قبل بند 38 — راجع ترقية v10.
   const unknownOrigins = await unknownOriginCount();
+
+  // ثلاثُ لوحاتِ السحابة — تُقرأ من القاعدة، بلا نداءِ شبكةٍ واحد.
+  const cloudData = await cloudSettingsData();
 
   main.innerHTML = html`
     <div class="view-head">
@@ -168,7 +172,9 @@ export async function renderSettings(main) {
         : ''
     )}
 
-    ${raw(privacyPanel(native))}
+    ${raw(cloudPanels(cloudData))}
+
+    ${raw(privacyPanel(native, cloudData))}
     ${raw(originsPanel(unknownOrigins))}
 
     <div class="panel">
@@ -186,13 +192,7 @@ export async function renderSettings(main) {
       </button>
     </div>
 
-    <div class="not-yet">
-      ${raw(icon('info', 18))}
-      <div>
-        <strong>المرحلة 3:</strong> ربط Google Drive، المزامنة التلقائية،
-        واسترجاع العالم من السحابة.
-      </div>
-    </div>`;
+    `;
 }
 
 /**
@@ -202,16 +202,39 @@ export async function renderSettings(main) {
  * هناك: أن تعرف **بعد شهر** ماذا وافقتَ عليه ومتى وكم كلمة خرجت، وأن
  * تسحبه من مكانٍ تعرفه — هذا ما يجعل الموافقة موافقة.
  */
-function privacyPanel({ consent, stats }) {
+function privacyPanel({ consent, stats }, cloudData = null) {
+  const linked = Boolean(cloudData?.active);
+
   return html`
     <div class="panel">
       <h3>${raw(icon('info', 18))} ما يغادر جهازك</h3>
 
       <p class="field-hint" style="margin-bottom:var(--sp-3)">
-        LingoLife بيشتغل كله على جهازك. الاستثناء الوحيد هو
-        <strong>النطق الأصلي</strong>: بيبعت <strong>الكلمة الروسية بس</strong>
-        لخوادم خارجية (${NATIVE_HOSTS.join(' · ')}) عشان يجيب تسجيل لناطق أصلي.
+        LingoLife بيشتغل كله على جهازك. اللي بيخرج منه
+        ${linked ? 'دلوقتي' : 'ممكن يخرج'} حاجتين بس، ومحدش منهم شغّال
+        من غير ما تفتحه بنفسك:
       </p>
+
+      <ol class="field-hint" style="margin:0 0 var(--sp-3); padding-inline-start:var(--sp-4)">
+        <li>
+          <strong>النطق الأصلي</strong> — بيبعت <strong>الكلمة الروسية بس</strong>
+          لخوادم خارجية (${NATIVE_HOSTS.join(' · ')}) عشان يجيب تسجيل لناطق أصلي.
+        </li>
+        <li style="margin-top:6px">
+          <strong>Google Drive</strong> — لو ربطته، بتروحه
+          <strong>ذكرياتك وسجلّاتك وملفّاتك الصوت والصور</strong>، عشان
+          تتزامن على أجهزتك وتتحفظ كنسخ احتياطية.
+          <!--
+            ⚠️ **وهذه الجملةُ صحّحت كذبةً كانت قائمة.** كان النصُّ يقول إن
+               الاستثناءَ الوحيدَ هو النطقُ الأصليّ — وكان صادقًا قبل WS-H
+               وصار كاذبًا بعده. ونصُّ خصوصيّةٍ متأخّرٌ عن الكود أسوأُ من
+               غيابه: يُقرَأ فيُصدَّق.
+          -->
+          <span class="cloud-badge is-${linked ? 'busy' : 'muted'}">
+            ${linked ? 'مربوط دلوقتي' : 'مش مربوط'}
+          </span>
+        </li>
+      </ol>
 
       <div class="kv-row">
         <span class="k">النطق الأصلي</span>
@@ -256,8 +279,8 @@ function privacyPanel({ consent, stats }) {
                 اقفل النطق الأصلي وامسح اللي اتجاب
               </button>`
           : html`<p class="field-hint" style="margin-top:var(--sp-3)">
-              مفيش حاجة بتخرج من جهازك دلوقتي. التفعيل من داخل شاشة الظلّ،
-              بزرّ مصدر الصوت.
+              النطق الأصلي مطفي — التفعيل من داخل شاشة الظلّ، بزرّ مصدر الصوت.
+              ${linked ? '' : 'وDrive مش مربوط، يعني مفيش حاجة بتخرج من جهازك دلوقتي.'}
             </p>`
       )}
       ${raw(
@@ -339,7 +362,17 @@ async function refresh() {
   if (main) await renderSettings(main);
 }
 
-export async function handleSettingsAction(action) {
+export async function handleSettingsAction(action, target = null) {
+  /*
+   * ⚠️ **وأفعالُ السحابة في ملفٍّ منفصل** — لا لأن هذا الملفَّ طال (وقد
+   *    طال)، بل لأن خلطَها هنا كان سيجعل شاشةَ الإعدادات تستورد طبقةَ
+   *    السحابة كلَّها لتعرض عدّادَ تخزينٍ محلّيّ.
+   */
+  if (action.startsWith('cloud-')) {
+    const { handleCloudAction } = await import('./cloud-actions.js');
+    return handleCloudAction(action, target, refresh);
+  }
+
   if (action === 'claim-origins') {
     const n = await claimUnknownOrigins();
     toastOk(n
