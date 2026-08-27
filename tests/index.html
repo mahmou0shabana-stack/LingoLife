@@ -145,6 +145,7 @@
       await import('./practice.test.js');
       await import('./sync-real.test.js');
       await import('./progress.test.js');
+      await import('./pairing.test.js');
 
       const result = await run((event) => {
         if (event.type === 'suite') {

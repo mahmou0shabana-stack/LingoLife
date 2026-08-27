@@ -129,13 +129,25 @@ export async function handleCloudAction(action, element, refresh) {
     return withProgress({
       key: 'cloud-sync',
       title: 'مزامنة',
-      stages: ['بيتحقّق', 'بيجيب التغييرات', 'بيرفع الملفّات', 'بيرفع تغييراتك'],
+      stages: [
+        'بيتحقّق', 'بيجيب التغييرات', 'بينشر بياناتك القديمة',
+        'بيرفع الملفّات', 'بيرفع تغييراتك',
+      ],
     }, async (bar) => {
       const STEP = {
-        'يتحقّق': 0, 'بيجيب التغييرات': 1, 'بيرفع الملفّات': 2, 'بيرفع تغييراتك': 3,
+        'يتحقّق': 0,
+        'بيجيب التغييرات': 1,
+        'بينشر بياناتك القديمة': 2,
+        'بيرفع الملفّات': 3,
+        'بيرفع تغييراتك': 4,
       };
       const stop = cloud.sync.subscribe((snap) => {
-        if (snap.step && STEP[snap.step] !== undefined) bar.stage(STEP[snap.step], snap.step);
+        if (!snap.step || STEP[snap.step] === undefined) return;
+        bar.stage(STEP[snap.step], snap.step);
+        /* ونشرُ خطِّ الأساس يعرف مجموعَه سلفًا — فالنسبةُ حقيقيّة. */
+        if (snap.baseline?.total) {
+          bar.set({ done: snap.baseline.done, total: snap.baseline.total });
+        }
       });
       try {
         const result = await cloud.sync.syncNow();
@@ -145,11 +157,7 @@ export async function handleCloudAction(action, element, refresh) {
         } else if (result.held) {
           bar.done('المزامنة موقوفة بعد استرجاع — محتاجة قرارك');
         } else if (result.ok) {
-          const bits = [];
-          if (result.pushed?.uploaded) bits.push(`اترفع ${result.pushed.changes} تغيير`);
-          if (result.applied?.packages) bits.push(`وصل ${result.applied.packages} حزمة`);
-          if (result.media?.uploaded) bits.push(`اترفع ${result.media.uploaded} ملف`);
-          bar.done(bits.length ? `${bits.join(' · ')} · ${result.ms}ms` : 'كل حاجة متزامنة');
+          bar.done(syncSummary(result.counts));
         } else {
           bar.fail(say(result.error), {
             retry: () => handleCloudAction('cloud-sync-now', element, refresh),
@@ -689,4 +697,63 @@ export async function handleSceneOffline(action, sceneId) {
 
   const { reloadScene } = await import('../ui-state.js');
   await reloadScene(sceneId);
+}
+
+
+/* ================================================================== *
+ * نصُّ نتيجة المزامنة — من الأرقام لا من «لم يُرمَ استثناء»
+ * ================================================================== */
+
+/**
+ * ⚠️ **«كل حاجة متزامنة» كانت تُقال من `result.ok` وحدَها.**
+ *
+ *    وهي جملةٌ تدّعي **تقاربَ حالة**، بينما `ok` لا تعني إلّا أن الدورةَ
+ *    انتهت بلا استثناء. وقد قالها الموبايلُ حرفيًّا ولم يصله شيءٌ من
+ *    التابلت — لأن التابلتَ لم يرفع، ولأن لا أحدَ كان يعدّ.
+ *
+ *    فالقاعدةُ الآن:
+ *      · وصلت حزمٌ وطُبِّقت  → نقول ماذا وصل وكم طُبِّق؛
+ *      · وصلت حزمٌ ولم تُطبَّق → **لا نقول «متزامن»** بل نقول إنها لم تُطبَّق؛
+ *      · لم يصل شيءٌ ولم يُرفَع → «مفيش تغييرات جديدة» بأصفارٍ صريحة —
+ *        وهي جملةٌ عن **هذه الدورة**، لا شهادةُ تطابقٍ بين الجهازين.
+ */
+export function syncSummary(counts) {
+  if (!counts) return 'اكتملت دورة المزامنة';
+
+  const lines = [];
+  const {
+    packagesDiscovered = 0, packagesApplied = 0, packagesFailed = 0,
+    recordsReceived = 0, recordsApplied = 0, recordsUnchanged = 0,
+    baselinePublished = 0, changesUploaded = 0,
+    mediaUploaded = 0, mediaFailed = 0, mediaPending = 0,
+  } = counts;
+
+  /* ⚠️ فشلُ تطبيقِ حزمةٍ اكتُشفت يمنع أيَّ صياغةٍ خضراء. */
+  if (packagesFailed) {
+    lines.push(`⚠️ ${packagesFailed} حزمة وصلت وما اتطبّقتش`);
+  }
+
+  if (recordsReceived) {
+    lines.push(`نزّلنا ${recordsReceived} تغيير من جهاز تاني`);
+    lines.push(`طبّقنا ${recordsApplied}`);
+    if (recordsUnchanged) lines.push(`${recordsUnchanged} كانوا موجودين بالفعل`);
+  } else if (packagesDiscovered && !packagesApplied) {
+    lines.push(`لقينا ${packagesDiscovered} حزمة بس ما اتطبّقش منها حاجة`);
+  }
+
+  if (baselinePublished) lines.push(`نشرنا ${baselinePublished} سجل قديم لأول مرة`);
+  if (changesUploaded) lines.push(`رفعنا ${changesUploaded} تغيير`);
+  if (mediaUploaded) lines.push(`رفعنا ${mediaUploaded} ملف`);
+  if (mediaFailed) lines.push(`⚠️ ${mediaFailed} ملف فشل رفعه`);
+  if (mediaPending) lines.push(`${mediaPending} ملف لسه مستني`);
+
+  if (!lines.length) {
+    /*
+     * ⚠️ ولا نقول «كل حاجة متزامنة»: هذه الدورةُ لم تجد جديدًا، وهذا
+     *    كلُّ ما نعرفه. والتطابقُ الكاملُ ادّعاءٌ لا يملك أيُّ طرفٍ
+     *    إثباتَه من جانبه وحدَه.
+     */
+    return 'مفيش تغييرات جديدة · رفع 0 · تنزيل 0 · ملفات 0';
+  }
+  return `اكتملت دورة المزامنة — ${lines.join(' · ')}`;
 }

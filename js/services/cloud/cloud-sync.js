@@ -43,6 +43,7 @@ import { SYNC, createStateMachine, autoSyncAllowed } from './sync-state.js';
 import { detectReplacement, rememberVector, forgetVector } from './restore-guard.js';
 import { INSTALL, readInstall, writeInstall } from './install-store.js';
 import { JOURNAL, journal } from './sync-journal.js';
+import { baselineStatus, publishBaseline } from '../sync/baseline.js';
 
 const PEERS = 'syncPeers';
 
@@ -321,6 +322,9 @@ export function createCloudSync(transport, {
           return { ok: false, conflicts: outcome.conflicts, plan: pendingPlan };
         }
 
+        /* ---- ٦¼. خطُّ الأساس: ما وُجد قبل السجلّ ---- */
+        const baseline = await publishPending();
+
         /* ---- ٦½. البايتاتُ قبل السجلّات ---- */
         const media = await pushMedia();
 
@@ -336,26 +340,57 @@ export function createCloudSync(transport, {
         const after = transport.stats();
         const ops = opDelta(before, after);
         const ms = Math.round(performance.now() - started);
-        note('sync', { ops, ms });
-        journal(JOURNAL.SYNC_END, {
-          ms,
-          apiCalls: ops.total || 0,
-          ops,
+
+        /*
+         * ═══════════════════════════════════════════════════════════
+         * ⚠️ **العدّادُ يُبنى هنا من الأرقام الحقيقيّة — لا في الشاشة**
+         * ═══════════════════════════════════════════════════════════
+         *
+         * الشاشةُ كانت تقول «كل حاجة متزامنة» من شرطٍ واحد: `result.ok`.
+         * وهو صادقٌ في أنه «لم يُرمَ استثناء» وكاذبٌ في كلّ ما عداه —
+         * وقد قالها الموبايلُ ولم يصله حرفٌ من التابلت.
+         *
+         * فالحقيقةُ تُحسَب حيث تقع: هنا. والشاشةُ تعرض ما تجده.
+         */
+        const counts = {
+          devices: outcome.devices,
+          packagesDiscovered: outcome.discovered,
+          packagesDownloaded: outcome.downloaded,
           packagesApplied: outcome.applied.packages,
-          uploadedPackage: Boolean(pushed.uploaded),
-          changesPushed: pushed.changes || 0,
-          mediaUploaded: media.uploaded,
-          pendingAfter: pending,
-        });
+          packagesSkipped: outcome.skipped,
+          packagesFailed: outcome.applied.quarantined.length,
+
+          recordsReceived: outcome.received,
+          recordsApplied: outcome.applied.creates + outcome.applied.updates
+            + outcome.applied.deletes,
+          recordsCreated: outcome.applied.creates,
+          recordsUpdated: outcome.applied.updates,
+          recordsDeleted: outcome.applied.deletes,
+          recordsUnchanged: Math.max(0, outcome.received - (outcome.applied.creates
+            + outcome.applied.updates + outcome.applied.deletes)),
+          recordsConflicted: 0,
+
+          baselinePublished: baseline.written,
+          baselineRemaining: baseline.remaining,
+          changesUploaded: pushed.changes || 0,
+          packageUploaded: Boolean(pushed.uploaded),
+
+          mediaUploaded: media.uploaded || 0,
+          mediaFailed: media.failed || 0,
+          mediaPending: media.remaining ?? 0,
+        };
+
+        note('sync', { ops, ms });
+        journal(JOURNAL.SYNC_END, { ms, apiCalls: ops.total || 0, ops, ...counts });
 
         machine.to(pending ? SYNC.LOCAL_PENDING : SYNC.READY, {
           pending, lastSyncAt, step: null, error: null,
-          applied: outcome.applied, pushed, media,
+          applied: outcome.applied, pushed, media, counts,
         });
 
         return {
-          ok: true, applied: outcome.applied, pushed, media, pending,
-          ops, ms,
+          ok: true, applied: outcome.applied, pushed, media, baseline, pending,
+          counts, ops, ms,
         };
       } catch (error) {
         note('sync-failed', describe(error));
@@ -392,6 +427,10 @@ export function createCloudSync(transport, {
     }
 
     const applied = { packages: 0, creates: 0, updates: 0, deletes: 0, quarantined: [] };
+    /* ⚠️ أرقامٌ تُعَدّ حيث تقع الأحداث — لا تُقدَّر في الشاشة. */
+    let downloaded = 0;
+    let received = 0;
+    let skipped = 0;
 
     journal(JOURNAL.PKG_DISCOVERED, {
       count: listed.length,
@@ -409,6 +448,8 @@ export function createCloudSync(transport, {
       });
       if (!pkg) continue;
 
+      downloaded += 1;
+      received += pkg.changes?.length ?? 0;
       journal(JOURNAL.PKG_DOWNLOADED, {
         from: pkg.sourceDeviceId,
         seq: entry.seq ?? pkg.maxSeq ?? null,
@@ -448,7 +489,12 @@ export function createCloudSync(transport, {
          */
         pendingPlan = plan;
         pendingPackages = [pkg];
-        return { conflicts: unresolved(plan), applied };
+        return {
+          conflicts: unresolved(plan), applied,
+          devices: states.filter((row) => row.device !== me).length,
+          discovered: listed.length,
+          downloaded, received, skipped,
+        };
       }
 
       const hasWork = plan.creates.length || plan.updates.length || plan.deletes.length
@@ -475,6 +521,7 @@ export function createCloudSync(transport, {
          *    لأن المحرّكَ يعرف أن كلَّ تغييرٍ فيها مطبَّقٌ سلفًا. فهذا
          *    السطرُ هو ما يُقرأ حين يُسأل «هل تكرّرت السجلّات؟».
          */
+        skipped += 1;
         journal(JOURNAL.RECORDS_SKIPPED, {
           from: pkg.sourceDeviceId,
           why: 'كلُّ تغييراتها مطبَّقةٌ سلفًا',
@@ -493,7 +540,54 @@ export function createCloudSync(transport, {
 
     pendingPlan = null;
     pendingPackages = [];
-    return { conflicts: null, applied };
+    return {
+      conflicts: null, applied,
+      devices: states.filter((row) => row.device !== me).length,
+      discovered: listed.length,
+      downloaded, received, skipped,
+    };
+  }
+
+  /**
+   * ينشر ما وُجد قبل السجلّ — **الخطوةُ التي كانت غائبةً تمامًا**.
+   *
+   * ═══════════════════════════════════════════════════════════════
+   * ⚠️ **لماذا داخل الدورة لا زرًّا منفصلًا**
+   * ═══════════════════════════════════════════════════════════════
+   *
+   * لأن المستخدمَ لا يعرف — ولا يجب أن يعرف — أن قاعدتَه أقدمُ من
+   * سجلِّ التغيير. هو يضغط «زامن دلوقتي» ويتوقّع أن تصل بياناتُه.
+   * وزرٌّ اسمُه «انشر بياناتك القديمة» يحمّله عبءَ فهمِ عطبٍ داخليّ.
+   *
+   * ⚠️ **وحتميّةٌ فلا تكلّف شيئًا بعد أوّل مرّة**: `baselineStatus`
+   *    قراءةٌ محلّيّةٌ بحتة، وحين لا شيءَ ينتظر تخرج بصفر كتابات وصفر
+   *    نداءاتِ شبكة — فالدورةُ الساكنة تبقى ساكنة.
+   */
+  async function publishPending() {
+    const status = await baselineStatus().catch(() => null);
+    if (!status || !status.pending) {
+      return { written: 0, remaining: 0, ran: false };
+    }
+
+    machine.patch({ step: 'بينشر بياناتك القديمة' });
+    journal(JOURNAL.BASELINE_START, {
+      pending: status.pending, total: status.total, stores: Object.keys(status.perStore).length,
+    });
+
+    const result = await publishBaseline({
+      onProgress: (p) => machine.patch({
+        step: 'بينشر بياناتك القديمة',
+        baseline: { store: p.store, done: p.done, total: p.total },
+      }),
+    }).catch((error) => {
+      journal(JOURNAL.SYNC_FAILED, { at: 'baseline', ...describe(error) });
+      return { written: 0, remaining: status.pending, byStore: {}, complete: false };
+    });
+
+    journal(JOURNAL.BASELINE_DONE, {
+      written: result.written, remaining: result.remaining, byStore: result.byStore,
+    });
+    return { ...result, ran: true };
   }
 
   /**
@@ -566,7 +660,30 @@ export function createCloudSync(transport, {
       return { uploaded: false, changes: 0 };
     }
 
-    pkg.maxSeq = Math.max(0, ...Object.values(pkg.sourceVector || {}).map(Number));
+    /*
+     * ═══════════════════════════════════════════════════════════════
+     * ⚠️ **عطبٌ ثانٍ، ومن نفس عائلة الأوّل: نجاحٌ يمحو ما قبله**
+     * ═══════════════════════════════════════════════════════════════
+     *
+     * كان: `Math.max(...Object.values(sourceVector))` — أي **أعلى رقمٍ
+     * في المتّجه كلِّه، بما فيه أرقامُ الأجهزة الأخرى**.
+     *
+     * واسمُ ملفّ الحزمة `pkg-<جهاز>-<ترتيب>.json`. فحين يستقبل الموبايلُ
+     * خطَّ أساس التابلت (٢٠ تغييرًا) يصير متّجهُه
+     * `{تابلت: 20, موبايل: 2}` — ويصير `maxSeq = 20` **لكلّ حزمةٍ يرفعها
+     * بعد ذلك**، لأن رقمَ التابلت يطغى على رقمه هو.
+     *
+     * فحزمتُه الأولى تُكتَب `pkg-موبايل-000000020.json`، وحزمتُه الثانية
+     * — التي فيها الذكرى الجديدة — تأخذ **نفسَ الاسم**، فيقول الناقلُ
+     * `deduped: true` ويعيد معرِّفَ الملفّ القديم. رفعٌ «ناجح» لم يرفع
+     * شيئًا، وتغييرٌ ضاع بلا رسالة.
+     *
+     * والصوابُ ما يقوله عقدُ التسمية نفسُه: «حتميٌّ من (المؤلِّف،
+     * الترتيب)» — وترتيبُ **المؤلِّف** هو رقمُه هو، وهو وحدَه المتزايدُ
+     * حتمًا مع كلّ حزمةٍ يؤلّفها.
+     */
+    const me = deviceId();
+    pkg.maxSeq = Number(pkg.sourceVector?.[me] ?? 0);
     const result = await transport.pushPackage(pkg);
     journal(JOURNAL.PKG_UPLOADED, {
       seq: pkg.maxSeq,

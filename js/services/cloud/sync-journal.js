@@ -45,6 +45,10 @@ export const JOURNAL = Object.freeze({
   SYNC_FAILED: 'sync.failed',
   SYNC_SKIPPED: 'sync.skipped',
 
+  /* خطُّ الأساس */
+  BASELINE_START: 'baseline.start',
+  BASELINE_DONE: 'baseline.done',
+
   /* الحزم */
   PKG_DISCOVERED: 'pkg.discovered',
   PKG_DOWNLOADED: 'pkg.downloaded',
