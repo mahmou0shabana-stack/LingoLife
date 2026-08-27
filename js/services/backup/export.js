@@ -33,13 +33,13 @@ export function backupFilename(date = new Date()) {
  * @param {(p: {phase: string, done: number, total: number, label: string}) => void} [onProgress]
  * @returns {Promise<{ blob: Blob, manifest: object, filename: string }>}
  */
-export async function buildBackup(onProgress = () => {}) {
+export async function buildBackup(onProgress = () => {}, { withBlobs = true } = {}) {
   const zip = createZipBuilder();
 
   // نصّ للبشر أولًا، فيظهر في رأس الأرشيف عند فتحه بأي أداة.
   zip.addText(PATHS.README, README_TEXT);
 
-  const manifest = await serializeInto(zip, onProgress);
+  const manifest = await serializeInto(zip, onProgress, { withBlobs });
 
   onProgress({ phase: 'finalize', done: 0, total: 1, label: 'ختم الملف' });
   zip.addText(PATHS.MANIFEST, JSON.stringify(manifest, null, 2));
@@ -50,6 +50,7 @@ export async function buildBackup(onProgress = () => {}) {
     blob,
     manifest: { ...manifest, bytes: { ...manifest.bytes, total: blob.size } },
     filename: backupFilename(new Date(manifest.createdAt)),
+    withBlobs,
   };
 }
 

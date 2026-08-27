@@ -312,9 +312,66 @@ const urlCache = new Map();
  * الروابط مخزّنة مؤقتًا ثم تُحرَّر بـ releaseUrls عند مغادرة الشاشة —
  * بدون ذلك تتسرّب الذاكرة على التابلت.
  */
+/* ------------------------------------------------------------------ *
+ * الوسائطُ السحابيّة — جلبٌ كسولٌ بلا مشغّلٍ ثانٍ (WS-H، بندا ٧ و١٧)
+ * ------------------------------------------------------------------ */
+
+/**
+ * جالبُ البايتات الغائبة — يُحقَن من طبقة السحابة عند الربط.
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **ولماذا حقنٌ لا استيراد؟**
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * لو استوردت خدمةُ الوسائط طبقةَ السحابة لصارت **كلُّ صورةٍ في التطبيق**
+ * تجرّ معها Google Drive — في الإقلاع، وفي الاختبار، وعند من لم يربط
+ * حسابًا أصلًا. والاتّجاهُ الصحيح معكوس: السحابةُ تُعرّف نفسَها للوسائط،
+ * والوسائطُ لا تعرف أن السحابة موجودة.
+ *
+ * فبلا ربط: `null`، والسلوكُ كما كان قبل WS-H بالضبط.
+ */
+let cloudFetcher = null;
+
+/** تُنادى مرّةً عند ربط السحابة. */
+export function setCloudFetcher(fetcher) {
+  cloudFetcher = typeof fetcher === 'function' ? fetcher : null;
+}
+
+/** هل وصف الوسيط موجودٌ وبايتاتُه لا؟ */
+export function isCloudOnly(record) {
+  return Boolean(record) && !record.blob && record.blobPending === 1;
+}
+
+/**
+ * يضمن وجودَ البايتات ثم يعيد الصفَّ الكامل.
+ *
+ * ⚠️ **وبعدها يُستعمَل المسارُ العاديّ حرفًا بحرف**: `urlFor` نفسُها،
+ *    و`audio-service` نفسُها، و`lightbox` نفسُها. فلا «مشغّلُ سحابة»
+ *    ولا «عارضُ سحابة» — هما نفسُ الاثنين، والفرقُ أن البايتات وصلت.
+ */
+export async function ensureBytes(mediaId, { role = 'original' } = {}) {
+  const record = await media.get(mediaId);
+  if (!record) return { ok: false, reason: 'الوسيط غير موجود' };
+  if (record.blob) return { ok: true, record, alreadyLocal: true };
+  if (!isCloudOnly(record)) {
+    return { ok: false, reason: 'الملف مش موجود ومش على Drive', record };
+  }
+  if (!cloudFetcher) return { ok: false, reason: 'Google Drive مش متصل', record };
+
+  const outcome = await cloudFetcher(mediaId, role);
+  if (!outcome?.ok) return { ok: false, reason: outcome?.reason || 'فشل التنزيل', record };
+  return { ok: true, record: await media.get(mediaId), alreadyLocal: false };
+}
+
 export function urlFor(mediaRecord, { thumb = true } = {}) {
   if (!mediaRecord) return null;
   const blob = thumb && mediaRecord.thumbBlob ? mediaRecord.thumbBlob : mediaRecord.blob;
+  /*
+   * ⚠️ **وتبقى متزامنةً تعيد `null`.** جعلُها غيرَ متزامنةٍ كان سيقلب
+   *    ثمانيةَ عشرَ موضعَ نداءٍ في الشاشات إلى انتظار — أي إعادةَ كتابة
+   *    كلِّ ما يعرض صورةً. فالعقدُ باقٍ: من أراد البايتات ينادي
+   *    `ensureBytes` أوّلًا، ومن أراد أن يعرض حالةً ينادي `isCloudOnly`.
+   */
   if (!blob) return null;
 
   const key = `${mediaRecord.id}:${thumb && mediaRecord.thumbBlob ? 't' : 'o'}`;

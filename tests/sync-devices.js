@@ -23,6 +23,7 @@ import { openNamed, closeDB, req } from '../js/db/database.js';
 import { STORE_NAMES } from '../js/db/schema.js';
 import { useSlots, deleteDatabase } from '../js/db/db-slots.js';
 import { __forceDeviceId, setDeviceLabel } from '../js/services/sync/device.js';
+import { useInstallNamespace, clearInstall, INSTALL } from '../js/services/cloud/install-store.js';
 import { localVector, createPackageFor, receivePackage } from '../js/services/sync/sync-service.js';
 import { planMerge } from '../js/services/sync/merge-planner.js';
 import { applyMerge } from '../js/services/sync/merge-apply.js';
@@ -42,11 +43,20 @@ const slotsOf = (name) => ({
   pointer: `llife-sync.${name}.activeDB`,
 });
 
-/** يجعل جهازًا هو الجهازَ الفعّال في هذه اللحظة. */
+/**
+ * يجعل جهازًا هو الجهازَ الفعّال في هذه اللحظة.
+ *
+ * ⚠️ **وثلاثةُ أشياءَ تتبدّل معًا أو لا يتبدّل شيء**: خانةُ القاعدة،
+ *    ومعرِّفُ الجهاز، و**نطاقُ مفاتيح التركيب**. وقد نُسي الثالثُ أوّلَ
+ *    مرّة فتشارك «التابلت» و«الموبايل» كونًا واحدًا ونقطةَ تفتيشٍ واحدة،
+ *    فرأى أحدُهما رفعَ الآخر ملكًا له — وسقطت خمسةُ اختبارات بلا سببٍ
+ *    ظاهر. فما يفرِّق القاعدتين يجب أن يفرِّق التركيبين.
+ */
 export function activate(name) {
   const { a, b, pointer } = slotsOf(name);
   closeDB();
   useSlots(a, b, pointer);
+  useInstallNamespace(name);
   __forceDeviceId(`DEV_${name.toUpperCase()}`);
   setDeviceLabel(name);
   return `DEV_${name.toUpperCase()}`;
@@ -64,7 +74,13 @@ export async function resetDevices(names = [TABLET, MOBILE, LAPTOP, SPARE]) {
     try {
       localStorage.removeItem(pointer);
     } catch { /* تصفّحٌ خاصّ */ }
+
+    // ومفاتيحُ التركيب أيضًا: كونٌ قديمٌ باقٍ يجعل سيناريو الوصل التالي
+    // يظنّ نفسَه موصولًا سلفًا.
+    useInstallNamespace(name);
+    clearInstall(Object.values(INSTALL));
   }
+  useInstallNamespace('');
 }
 
 /** ينفّذ عملًا بهُويّة جهازٍ بعينه. */

@@ -64,10 +64,12 @@ async function keysOf(storeName) {
  * @param {(progress: {phase: string, done: number, total: number, label: string}) => void} [onProgress]
  * @returns {Promise<object>} الـ manifest
  */
-export async function serializeInto(zip, onProgress = () => {}) {
+export async function serializeInto(zip, onProgress = () => {}, { withBlobs = true } = {}) {
   const counts = {};
   const blobEntries = [];
   let blobBytes = 0;
+  /** وسائطُ يعرفها البيانُ ولم تدخل بايتاتُها (النسخةُ الخفيفة). */
+  const omitted = [];
 
   /* ---- 1. الوسائط أولًا: البايتات الحقيقية ---- */
   const mediaIds = await keysOf('media');
@@ -86,7 +88,35 @@ export async function serializeInto(zip, onProgress = () => {}) {
 
     const { blob, thumbBlob, ...meta } = record;
 
-    if (blob instanceof Blob) {
+    if (blob instanceof Blob && !withBlobs) {
+      /*
+       * ═══════════════════════════════════════════════════════════
+       * ⚠️ **النسخةُ الخفيفة ليست صيغةً ثانية** (WS-H، بند J)
+       * ═══════════════════════════════════════════════════════════
+       *
+       * نفسُ الـZIP ونفسُ البيان ونفسُ المحقِّق ونفسُ الاسترجاع الذرّيّ.
+       * الفرقُ الوحيد: `blobs/` لا تُكتَب، والبيانُ **يظلّ يصف** ما كان
+       * ليُكتَب فيها.
+       *
+       * وهذا يعمل بلا سطرٍ جديدٍ في الاسترجاع لأن الآلةَ القائمة تتوقّعه
+       * أصلًا: `validate.js` يصنّف الملفَّ الغائب **تحذيرًا لا فادحًا**،
+       * و`restore.js` يكتب `blob: null` حين لا يجد المدخل. فما بدا
+       * ميزةً جديدةً كان حالةً من الدرجة الأولى في التصميم منذ البداية.
+       *
+       * ⚠️ **ولماذا نحتاجها أصلًا؟** لأن نسخةً كاملةً أسبوعيّةً بحجم
+       *    ٢٫٤ جيجابايت تأكل حصّةَ Drive في شهر، و٩٥٪ منها بايتاتٌ
+       *    **موجودةٌ على Drive أصلًا** في مخزن الوسائط. فالكاملةُ
+       *    للإنقاذ من العدم، والخفيفةُ للرجوع أسبوعًا للوراء.
+       */
+      omitted.push({
+        mediaId: record.id,
+        role: BLOB_ROLE.ORIGINAL,
+        bytes: blob.size,
+        mime: record.mime || blob.type || null,
+      });
+      meta._originalEntry = null;
+      meta._omitted = 1;
+    } else if (blob instanceof Blob) {
       const path = originalPath(record.id, record.mime);
       const crcValue = await crc32Blob(blob);
       await zip.addBlob(path, blob, crcValue);
@@ -105,7 +135,10 @@ export async function serializeInto(zip, onProgress = () => {}) {
       meta._originalEntry = null;
     }
 
-    if (thumbBlob instanceof Blob) {
+    if (thumbBlob instanceof Blob && !withBlobs) {
+      omitted.push({ mediaId: record.id, role: BLOB_ROLE.THUMBNAIL, bytes: thumbBlob.size, mime: 'image/webp' });
+      meta._thumbnailEntry = null;
+    } else if (thumbBlob instanceof Blob) {
       const path = thumbnailPath(record.id);
       const crcValue = await crc32Blob(thumbBlob);
       await zip.addBlob(path, thumbBlob, crcValue);
@@ -168,6 +201,16 @@ export async function serializeInto(zip, onProgress = () => {}) {
     totalRecords,
     bytes: { blobs: blobBytes },
     blobs: blobEntries,
+    /**
+     * نوعُ النسخة — **يُكتَب دائمًا** حتى للنسخ الكاملة.
+     *
+     * ⚠️ وقارئٌ قديمٌ لا يعرف الحقل يتجاهله ويقرأ النسخةَ كما كان
+     *    يقرؤها، فلا يرتفع `BACKUP_FORMAT_VERSION` ولا تُبطَل نسخةٌ
+     *    قديمةٌ واحدة.
+     */
+    backupKind: withBlobs ? 'full' : 'light',
+    /** ما يعرفه البيانُ ولم يحمله الأرشيف — للنسخة الخفيفة. */
+    omittedBlobs: omitted,
     excluded: Object.entries(EXCLUDED_STORES).map(([store, reason]) => ({ store, reason })),
   };
 }

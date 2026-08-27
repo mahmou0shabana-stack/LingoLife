@@ -147,6 +147,41 @@ export async function createSyncPackage({ peerVector = {}, peerId = null } = {})
 
     for (const entry of [...folded.values()]) {
       const policy = policyOf(entry.store);
+      const local = policy.localFields || [];
+
+      /*
+       * ═══════════════════════════════════════════════════════════
+       * ⚠️ **والحقلُ المحلّيُّ يُقصّ من قائمة الحقول كما يُقصّ من الصفّ**
+       * ═══════════════════════════════════════════════════════════
+       *
+       * عيبٌ كامنٌ من WS-G كُشف وأنا أصمّم النقل، ولم يكن يظهر لأن لا
+       * أحدَ كان يعدّل حقلًا محلّيًّا وحدَه:
+       *
+       *   تغيّر `shadowSessions.currentSegmentIndex` وحدَه
+       *     → سطرُ سجلٍّ `fields: ['currentSegmentIndex']`
+       *     → `stripLocal` تحذفه من `record` ولا تحذفه من `fields`
+       *     → الجارُ يقرأ `change.record['currentSegmentIndex']`
+       *       فيجدها `undefined` **ويكتبها فوق قيمته الصحيحة**.
+       *
+       * أي أن موضعَ قراءتك على الموبايل كان سيُمحى كلّما حرّكتَ موضعَك
+       * على التابلت — وهو نفسُ ما يمنعه بند ٧٧، من الباب الخلفيّ.
+       *
+       * ⚠️ **وتغييرٌ لم يبقَ منه حقلٌ واحد لا يُرسَل أصلًا**: هو خبرٌ عن
+       *    هذا الجهاز وحدَه، وإرسالُه يكبّر الحزمةَ بلا معنًى.
+       */
+      const publicFields = entry.fields === null
+        ? null
+        : entry.fields.filter((field) => !local.includes(field));
+
+      if (entry.op === OP.PUT && publicFields !== null && publicFields.length === 0) {
+        skipped.push({
+          store: entry.store,
+          recordId: entry.recordId,
+          why: 'لم يتغيّر إلا حقلٌ محلّيّ — خبرٌ لا يخصّ أحدًا غير هذا الجهاز',
+        });
+        continue;
+      }
+
       const change = {
         originDevice: entry.originDevice,
         originSeq: entry.originSeq,
@@ -155,7 +190,7 @@ export async function createSyncPackage({ peerVector = {}, peerId = null } = {})
         op: entry.op,
         rev: entry.rev ?? null,
         baseRev: entry.baseRev ?? null,
-        fields: entry.fields ?? null,
+        fields: publicFields,
         at: entry.at,
       };
 
