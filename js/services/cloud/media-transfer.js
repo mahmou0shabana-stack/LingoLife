@@ -27,6 +27,7 @@
 
 import { media } from '../../db/repositories.js';
 import { BLOB_ROLE, FAIL, TransportError, classify, sha256Hex } from './transport.js';
+import { JOURNAL, journal } from './sync-journal.js';
 
 /** حالاتُ عنصرٍ في الطابور. */
 export const TRANSFER = Object.freeze({
@@ -226,14 +227,35 @@ export function createTransferManager(transport) {
       },
     });
 
+    journal(JOURNAL.MEDIA_HASH_WANTED, {
+      mediaId: item.mediaId, role: item.role,
+      /* البصمةُ نفسُها لا تُكتَب — طولُها بلا فائدةٍ للقارئ، ومصدرُها هو المفيد. */
+      source: item.sha256 ? 'السجلّ' : (remote?.sha256 ? 'Drive' : 'لا شيء'),
+    });
+
     if (expected) {
       const actual = await sha256Hex(blob);
       if (actual !== expected) {
+        journal(JOURNAL.MEDIA_VERIFY_FAILED, { mediaId: item.mediaId, role: item.role });
         throw new TransportError(
           FAIL.REMOTE_CORRUPT,
           `بصمة الملف لا تطابق المتوقّع (${item.mediaId})`
         );
       }
+      journal(JOURNAL.MEDIA_DOWNLOADED, {
+        mediaId: item.mediaId, role: item.role, bytes: blob.size, verified: true,
+      });
+    } else {
+      /*
+       * ⚠️ **ويُقال صراحةً حين لا بصمةَ تُقارَن.** لا `contentHash` في
+       *    السجلّ ولا `sha256` على ملفّ Drive — فالبايتاتُ تُقبَل بلا
+       *    فحص. وهو ممكنٌ فقط لملفٍّ رُفع خارج `media-upload` (فهي تكتب
+       *    البصمةَ دائمًا). فيُسجَّل كي يظهر في الدفتر بدل أن يمرّ
+       *    كأنّه تحقّقٌ ناجح.
+       */
+      journal(JOURNAL.MEDIA_DOWNLOADED, {
+        mediaId: item.mediaId, role: item.role, bytes: blob.size, verified: false,
+      });
     }
     return { blob, fileId: remote?.fileId || null };
   }

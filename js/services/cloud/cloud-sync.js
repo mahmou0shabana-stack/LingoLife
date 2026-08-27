@@ -42,6 +42,7 @@ import { FAIL, TransportError, assertTransport, classify } from './transport.js'
 import { SYNC, createStateMachine, autoSyncAllowed } from './sync-state.js';
 import { detectReplacement, rememberVector, forgetVector } from './restore-guard.js';
 import { INSTALL, readInstall, writeInstall } from './install-store.js';
+import { JOURNAL, journal } from './sync-journal.js';
 
 const PEERS = 'syncPeers';
 
@@ -64,7 +65,18 @@ const writeUniverse = (value) => writeInstall(INSTALL.UNIVERSE, value || null);
  *    المحاكيَ والتطبيقَ يشغّل Drive **بنفس السطور بالضبط** — لا مسارَ
  *    اختبارٍ يوازي مسارَ الإنتاج فيتفرّقان.
  */
-export function createCloudSync(transport, { debounceMs = DEBOUNCE_MS } = {}) {
+export function createCloudSync(transport, {
+  debounceMs = DEBOUNCE_MS,
+  /**
+   * رافعُ البايتات — يُحقَن كما يُحقَن الناقلُ تمامًا.
+   *
+   * ⚠️ **ويبقى اختياريًّا** كي لا ينكسر مُنشِئٌ قائمٌ في اختبارٍ يبني
+   *    المنسّقَ وحدَه. وحين يغيب، الدورةُ كما كانت: سجلّاتٌ بلا بايتات.
+   */
+  uploader = null,
+  /** أقصى ما يُرفَع من ملفّاتٍ في الدورة الواحدة. */
+  mediaPerSync = 12,
+} = {}) {
   assertTransport(transport);
 
   const machine = createStateMachine(SYNC.DISCONNECTED);
@@ -76,6 +88,13 @@ export function createCloudSync(transport, { debounceMs = DEBOUNCE_MS } = {}) {
   let lastSyncAt = null;
   const opLog = [];
 
+  /*
+   * ⚠️ **وسطرٌ واحدٌ يذهب إلى مكانين — والدفترُ هو الذي يُقرأ.**
+   *    `opLog` تاريخٌ قصيرٌ داخل هذا المنسّق تقرؤه `diagnostics()`،
+   *    و`journal` دفترُ التطبيق كلِّه الذي يجمع الناقلَ والوسائطَ معه.
+   *    فمن يقرأ `diagnostics` يرى ترتيبَ الدورة، ومن يقرأ الدفترَ يرى
+   *    ما قاله Drive بين كلّ خطوتين.
+   */
   const note = (event, detail = {}) => {
     opLog.push({ event, at: Date.now(), ...detail });
     if (opLog.length > 200) opLog.shift();
@@ -143,6 +162,7 @@ export function createCloudSync(transport, { debounceMs = DEBOUNCE_MS } = {}) {
       const replacement = await detectReplacement();
       if (replacement.replaced) {
         note('restore-detected', replacement);
+        journal(JOURNAL.RESTORE_HOLD, { replaced: true });
         machine.to(SYNC.RESTORED_HOLD, { replacement });
         return machine.snapshot();
       }
@@ -202,6 +222,7 @@ export function createCloudSync(transport, { debounceMs = DEBOUNCE_MS } = {}) {
       const created = await transport.createUniverse();
       writeUniverse(created.universeId);
       note('universe-created', created);
+      journal(JOURNAL.UNIVERSE, { created: true, universeId: created.universeId });
       return { universeId: created.universeId, fresh: true, mismatch: false };
     }
 
@@ -216,6 +237,7 @@ export function createCloudSync(transport, { debounceMs = DEBOUNCE_MS } = {}) {
     }
 
     if (!mine) writeUniverse(found.universeId);
+    journal(JOURNAL.UNIVERSE, { found: true, universeId: found.universeId, joined: !mine });
     return { universeId: found.universeId, fresh: false, mismatch: false, joined: !mine };
   }
 
@@ -231,6 +253,7 @@ export function createCloudSync(transport, { debounceMs = DEBOUNCE_MS } = {}) {
   async function syncNow({ resolutions = [], force = false } = {}) {
     if (running) return running;
     if (machine.state === SYNC.DISCONNECTED) {
+      journal(JOURNAL.SYNC_SKIPPED, { why: 'غير متصل' });
       return { ok: false, reason: 'غير متصل' };
     }
     if (machine.state === SYNC.RESTORED_HOLD && !force) {
@@ -258,6 +281,7 @@ export function createCloudSync(transport, { debounceMs = DEBOUNCE_MS } = {}) {
       const replacement = await detectReplacement().catch(() => null);
       if (replacement?.replaced) {
         note('restore-detected', replacement);
+        journal(JOURNAL.RESTORE_HOLD, { replaced: true });
         machine.to(SYNC.RESTORED_HOLD, { replacement });
         return {
           ok: false, held: true, replacement,
@@ -269,6 +293,10 @@ export function createCloudSync(transport, { debounceMs = DEBOUNCE_MS } = {}) {
     running = (async () => {
       const started = performance.now();
       const before = transport.stats();
+      journal(JOURNAL.SYNC_START, {
+        device: deviceId(), transport: transport.id, force,
+        resolutions: resolutions.length,
+      });
       machine.to(SYNC.SYNCING, { step: 'يتحقّق' });
 
       try {
@@ -285,12 +313,16 @@ export function createCloudSync(transport, { debounceMs = DEBOUNCE_MS } = {}) {
         machine.patch({ step: 'بيجيب التغييرات' });
         const outcome = await pullAndApply(resolutions);
         if (outcome.conflicts) {
+          journal(JOURNAL.CONFLICT, { count: outcome.conflicts.length });
           machine.to(SYNC.CONFLICT, {
             conflicts: outcome.conflicts,
             step: null,
           });
           return { ok: false, conflicts: outcome.conflicts, plan: pendingPlan };
         }
+
+        /* ---- ٦½. البايتاتُ قبل السجلّات ---- */
+        const media = await pushMedia();
 
         /* ---- ٧. ارفع ---- */
         machine.patch({ step: 'بيرفع تغييراتك' });
@@ -303,19 +335,31 @@ export function createCloudSync(transport, { debounceMs = DEBOUNCE_MS } = {}) {
 
         const after = transport.stats();
         const ops = opDelta(before, after);
-        note('sync', { ops, ms: Math.round(performance.now() - started) });
+        const ms = Math.round(performance.now() - started);
+        note('sync', { ops, ms });
+        journal(JOURNAL.SYNC_END, {
+          ms,
+          apiCalls: ops.total || 0,
+          ops,
+          packagesApplied: outcome.applied.packages,
+          uploadedPackage: Boolean(pushed.uploaded),
+          changesPushed: pushed.changes || 0,
+          mediaUploaded: media.uploaded,
+          pendingAfter: pending,
+        });
 
         machine.to(pending ? SYNC.LOCAL_PENDING : SYNC.READY, {
           pending, lastSyncAt, step: null, error: null,
-          applied: outcome.applied, pushed,
+          applied: outcome.applied, pushed, media,
         });
 
         return {
-          ok: true, applied: outcome.applied, pushed, pending,
-          ops, ms: Math.round(performance.now() - started),
+          ok: true, applied: outcome.applied, pushed, media, pending,
+          ops, ms,
         };
       } catch (error) {
         note('sync-failed', describe(error));
+        journal(JOURNAL.SYNC_FAILED, describe(error));
         machine.to(stateForFailure(error), { error: describe(error), step: null });
         return { ok: false, error: describe(error) };
       } finally {
@@ -349,13 +393,27 @@ export function createCloudSync(transport, { debounceMs = DEBOUNCE_MS } = {}) {
 
     const applied = { packages: 0, creates: 0, updates: 0, deletes: 0, quarantined: [] };
 
+    journal(JOURNAL.PKG_DISCOVERED, {
+      count: listed.length,
+      peers: states.filter((s) => s.device !== me).length,
+      /* أرقامُ التسلسل — وهي ما يُقارَن بين الجهازين حين يُشتبَه في فجوة. */
+      seqs: listed.map((entry) => entry.seq ?? null).filter((s) => s !== null).slice(0, 20),
+    });
+
     for (const entry of listed) {
       /* eslint-disable-next-line no-await-in-loop -- حزمةٌ بعد حزمةٍ عمدًا */
       const pkg = await transport.pullPackage(entry.fileId).catch((error) => {
         applied.quarantined.push({ fileId: entry.fileId, why: describe(error).message });
+        journal(JOURNAL.PKG_QUARANTINED, { seq: entry.seq ?? null, why: 'التنزيل فشل' });
         return null;
       });
       if (!pkg) continue;
+
+      journal(JOURNAL.PKG_DOWNLOADED, {
+        from: pkg.sourceDeviceId,
+        seq: entry.seq ?? pkg.maxSeq ?? null,
+        changes: pkg.changes?.length ?? 0,
+      });
 
       const inspection = inspectSyncPackage(pkg);
       if (!inspection.ok) {
@@ -403,6 +461,25 @@ export function createCloudSync(transport, { debounceMs = DEBOUNCE_MS } = {}) {
         applied.creates += plan.creates.length;
         applied.updates += plan.updates.length;
         applied.deletes += plan.deletes.length;
+        journal(JOURNAL.RECORDS_APPLIED, {
+          from: pkg.sourceDeviceId,
+          creates: plan.creates.length,
+          updates: plan.updates.length,
+          deletes: plan.deletes.length,
+          relationships: plan.relationshipAdds.length + plan.relationshipRemoves.length,
+        });
+      } else {
+        /*
+         * ⚠️ **وحزمةٌ بلا عملٍ ليست عطبًا — هي دليلُ الحتميّة.**
+         *    إعادةُ تطبيق حزمةٍ رأيناها من قبل تنتهي هنا: الخطّةُ خاليةٌ
+         *    لأن المحرّكَ يعرف أن كلَّ تغييرٍ فيها مطبَّقٌ سلفًا. فهذا
+         *    السطرُ هو ما يُقرأ حين يُسأل «هل تكرّرت السجلّات؟».
+         */
+        journal(JOURNAL.RECORDS_SKIPPED, {
+          from: pkg.sourceDeviceId,
+          why: 'كلُّ تغييراتها مطبَّقةٌ سلفًا',
+          changes: pkg.changes?.length ?? 0,
+        });
       }
       applied.packages += 1;
 
@@ -420,6 +497,61 @@ export function createCloudSync(transport, { debounceMs = DEBOUNCE_MS } = {}) {
   }
 
   /**
+   * يرفع بايتاتِ الوسائط التي لم تُرفَع بعد — **قبل** حزمةِ السجلّات.
+   *
+   * ═══════════════════════════════════════════════════════════════
+   * ⚠️ **وهذه الخطوةُ كانت ناقصةً بالكامل، ولم يكشفها اختبار**
+   * ═══════════════════════════════════════════════════════════════
+   *
+   * `media-upload.js` مكتوبٌ منذ WS-H وسليم، لكن **لم يكن يناديه إلّا
+   * زرٌّ في `cloud-actions`**. أي أن الدورةَ التلقائيّة ترفع السجلّاتِ
+   * وحدَها. فيصل الموبايلَ صفُّ تسجيلٍ صوتيّ كامل — اسمُه ومدّتُه
+   * وارتباطُه بالجملة — ويضغط تشغيل، فيسأل Drive عن بايتاتٍ لم يضعها
+   * أحدٌ هناك. وهو أسوأُ من ألّا يظهر الصفّ: وعدٌ مكتوبٌ بلا وفاء.
+   *
+   * ومرّت لأن الاختبارات كانت تنادي `uploadPending` **صراحةً** قبل أن
+   * تتحقّق — فأثبتت أن الرافع يعمل، لا أن أحدًا يناديه.
+   *
+   * ⚠️ **والترتيب: البايتاتُ ثم السجلّ.** لو رفعنا الحزمةَ أوّلًا لَكان
+   *    بين اللحظتين نافذةٌ يرى فيها الجارُ الصفَّ بلا بايتاته. وهي
+   *    ثوانٍ، لكنها بالضبط الثواني التي يضغط فيها المستخدمُ «شغّل».
+   *
+   * ⚠️ **وبحدٍّ أعلى في الدورة الواحدة.** أربعون تسجيلًا في دورةٍ
+   *    تلقائيّةٍ تحبس الشبكةَ دقائق؛ والباقي يلحق في الدورة التالية،
+   *    و«نزّل كل الملفّات» يبقى للدفعات الكبيرة الصريحة.
+   */
+  async function pushMedia() {
+    if (!uploader || mediaPerSync <= 0) return { uploaded: 0, skipped: 0, failed: 0, ran: false };
+
+    /*
+     * ⚠️ **ولا نداءَ شبكةٍ إن لم يكن ثمّة ما يُرفَع.** `pending()` قراءةٌ
+     *    محلّيّةٌ بحتة، فالدورةُ الساكنة تخرج من هنا بصفر نداءات — وهو
+     *    شرطُ «مزامنةٌ بلا تغييرٍ لا ترفع شيئًا» بحرفه.
+     */
+    const waiting = await uploader.pending().catch(() => []);
+    if (!waiting.length) return { uploaded: 0, skipped: 0, failed: 0, ran: false };
+
+    machine.patch({ step: 'بيرفع الملفّات' });
+    journal(JOURNAL.MEDIA_HASH_WANTED, {
+      waiting: waiting.length,
+      limit: mediaPerSync,
+      audio: waiting.filter((row) => row.kind === 'audio').length,
+    });
+
+    const report = await uploader.uploadPending({ limit: mediaPerSync }).catch((error) => {
+      journal(JOURNAL.SYNC_FAILED, { at: 'media', ...describe(error) });
+      return { uploaded: 0, skipped: 0, failed: 0, errors: [] };
+    });
+
+    journal(JOURNAL.MEDIA_UPLOADED, {
+      uploaded: report.uploaded, skipped: report.skipped,
+      failed: report.failed, bytes: report.bytes || 0,
+      stoppedBy: report.stoppedBy || null,
+    });
+    return { ...report, ran: true };
+  }
+
+  /**
    * يرفع حزمةً بما لم يصل الجيران.
    *
    * ⚠️ **ولا يُرفَع شيءٌ إن لم يتغيّر شيء** (بند ٢٨). ومعرفةُ ذلك
@@ -429,10 +561,18 @@ export function createCloudSync(transport, { debounceMs = DEBOUNCE_MS } = {}) {
   async function pushLocal() {
     const known = await knownEverywhere();
     const pkg = await createSyncPackage({ peerVector: known, peerId: null });
-    if (!pkg.changes.length) return { uploaded: false, changes: 0 };
+    if (!pkg.changes.length) {
+      journal(JOURNAL.PKG_SKIPPED, { why: 'مفيش تغييرٌ لم يصل الجيران' });
+      return { uploaded: false, changes: 0 };
+    }
 
     pkg.maxSeq = Math.max(0, ...Object.values(pkg.sourceVector || {}).map(Number));
     const result = await transport.pushPackage(pkg);
+    journal(JOURNAL.PKG_UPLOADED, {
+      seq: pkg.maxSeq,
+      changes: pkg.changes.length,
+      deduped: Boolean(result.deduped),
+    });
 
     await transport.pushDeviceState(deviceId(), {
       label: deviceLabel(),

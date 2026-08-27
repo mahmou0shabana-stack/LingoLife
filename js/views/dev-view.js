@@ -44,6 +44,9 @@ import {
 import { pickFiles } from '../services/media-service.js';
 import { appBuild } from '../services/dev/build.js';
 import { openImproveModal } from '../modals/improve-modal.js';
+import {
+  cloudDiagnostics, journalText, journalCounts, journalClear,
+} from '../services/cloud/cloud-service.js';
 
 /** حالة اللوحة — خارج الـDOM، كباقي الشاشات متعدّدة المراحل. */
 let state = null;
@@ -82,7 +85,10 @@ export async function renderDev(main) {
           ${view.total ? `${counted(view.total, 'ملاحظة', 'ملاحظتين', 'ملاحظة')} · كل رقم هنا بيتفتح` : 'لسه مفيش ملاحظات'}
         </p>
       </div>
-      <button class="btn btn-primary" data-dev="new">${raw(icon('plus'))} ملاحظة جديدة</button>
+      <div class="dv-headbtns">
+        <button class="btn btn-ghost" data-dev="journal" title="دفتر المزامنة">🛰 دفتر المزامنة</button>
+        <button class="btn btn-primary" data-dev="new">${raw(icon('plus'))} ملاحظة جديدة</button>
+      </div>
     </header>
 
     ${raw(view.total === 0 ? emptyState() : html`
@@ -552,6 +558,7 @@ export function wireDev(main, rerender) {
       case 'brief': return navigate(`/dev/brief/${id}`);
       case 'goto': return navigate(node.dataset.path);
       case 'new': return openImproveModal().then(rerender);
+      case 'journal': return openSyncJournal();
 
       case 'status':
         state.filters.status = state.filters.status === id ? '' : id;
@@ -1026,4 +1033,90 @@ async function copyIssue(id) {
   const bundle = await collectIssues([issue], { title: issue.title });
   await copyToClipboard(briefMarkdown(bundle));
   toastOk('اتنسخت');
+}
+
+
+/* ================================================================== *
+ * دفترُ المزامنة — خلف المختبر، لا في شاشة المستخدم
+ * ================================================================== */
+
+/**
+ * يعرض دفترَ المزامنة ويتيح نسخَه.
+ *
+ * ⚠️ **ومكانُه هنا لا في «الإعدادات».** شاشةُ المستخدم تقول له حالةً
+ *    واحدةً بالعربيّة: «متزامن»، «فيه تغييرات لسه»، «مفيش نت». أمّا
+ *    `pkg.uploaded seq=41 http 200 12ms` فلا معنى له إلّا في تشخيص —
+ *    ووجودُه في الشاشة العاديّة ضجيجٌ يخيف.
+ *
+ * ⚠️ **والنصُّ منقّى مرّتين**: عند الكتابة وعند التصدير. راجع ترويسةَ
+ *    `sync-journal.js` — فهذا النصُّ بالذات هو ما سيُنسَخ من التابلت
+ *    ويُلصَق في محادثة.
+ */
+async function openSyncJournal() {
+  const [diag, counts] = await Promise.all([
+    cloudDiagnostics().catch((error) => ({ error: error?.message || String(error) })),
+    Promise.resolve(journalCounts()),
+  ]);
+
+  const text = journalText();
+  const summary = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+
+  /*
+   * ⚠️ **ولا `esc()` هنا — `html` تُهرّب بنفسها.** أوّلُ صياغةٍ هرّبت
+   *    مرّتين، وأمسكه «فحصُ التهريب المزدوج» في المجموعة. والنتيجةُ
+   *    كانت ستكون `&quot;` ظاهرةً للعين في الدفتر.
+   */
+  const head = diag?.connected
+    ? `${diag.device?.label || diag.device?.id || '—'} · ${diag.state}`
+    : 'مفيش ربط سحابيّ في الجلسة دي';
+
+  showModal({
+    title: '🛰 دفتر المزامنة',
+    wide: true,
+    actions: [{ label: 'اقفل', value: null, variant: 'ghost' }],
+    body: html`
+      <p class="field-hint">${head}</p>
+
+      ${raw(diag?.connected ? html`
+      <div class="dv-jrow">
+        <span>هُويّة الجهاز</span><code>${diag.device?.id || '—'}</code>
+      </div>
+      <div class="dv-jrow">
+        <span>تغييرات لسه ما وصلتش</span><code>${diag.pendingChanges ?? 0}</code>
+      </div>
+      <div class="dv-jrow">
+        <span>نداءات الناقل</span><code>${JSON.stringify(diag.transportOps || {})}</code>
+      </div>` : '')}
+
+      ${raw(summary.length ? html`
+      <h4>الأحداث</h4>
+      <div class="dv-jcounts">
+        ${raw(summary.map(([event, n]) => html`
+          <span class="dv-jchip"><b>${n}</b> ${event}</span>`).join(''))}
+      </div>` : '<p class="field-hint">الدفتر فاضي — شغّل مزامنة الأول.</p>')}
+
+      <h4>السطور</h4>
+      <pre class="dv-journal" dir="ltr">${text || '—'}</pre>
+
+      <div class="btn-row">
+        <button class="btn" data-jr="copy">انسخ الدفتر</button>
+        <button class="btn btn-ghost" data-jr="clear">فضّي الدفتر</button>
+      </div>`,
+    onMount(root) {
+      root.addEventListener('click', async (event) => {
+        const what = event.target.closest('[data-jr]')?.dataset.jr;
+        if (what === 'copy') {
+          const ok = await copyToClipboard(journalText());
+          return ok ? toastOk('اتنسخ') : toastError('مقدرناش ننسخ');
+        }
+        if (what === 'clear') {
+          journalClear();
+          const box = root.querySelector('.dv-journal');
+          if (box) box.textContent = '—';
+          return toastOk('الدفتر اتفضّى');
+        }
+        return null;
+      });
+    },
+  });
 }

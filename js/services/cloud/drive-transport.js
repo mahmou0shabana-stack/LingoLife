@@ -43,6 +43,7 @@ import {
   hasValidToken, rememberAccount, currentAccount,
 } from './drive-auth.js';
 import { newId } from '../../utils/ids.js';
+import { JOURNAL, journal } from './sync-journal.js';
 
 const API = 'https://www.googleapis.com/drive/v3';
 const UPLOAD = 'https://www.googleapis.com/upload/drive/v3';
@@ -147,8 +148,16 @@ export function createDriveTransport({ onOps = null } = {}) {
     retry = 0, reauthed = false } = {}) {
     tick(op);
     const token = currentToken();
-    if (!token) throw new TransportError(FAIL.AUTH, 'مفيش إذن Drive صالح');
+    if (!token) {
+      journal(JOURNAL.AUTH_REQUIRED, { op, why: 'مفيش رمزٌ في الذاكرة' });
+      throw new TransportError(FAIL.AUTH, 'مفيش إذن Drive صالح');
+    }
 
+    /*
+     * ⚠️ **ويُقاس زمنُ النداء لا نجاحُه وحدَه.** «رفع تمّ» لا يقول شيئًا
+     *    حين يشتكي المستخدم أن المزامنة بطيئة على شبكةٍ ضعيفة.
+     */
+    const started = Date.now();
     let response;
     try {
       response = await fetch(url, {
@@ -158,12 +167,21 @@ export function createDriveTransport({ onOps = null } = {}) {
       });
     } catch {
       /* فشلُ الشبكة نفسِها — لا ردَّ أصلًا. */
+      journal(JOURNAL.HTTP, { op, method, status: 0, ms: Date.now() - started, note: 'لا ردّ' });
       if (retry < MAX_RETRY) {
+        journal(JOURNAL.RETRY, { op, attempt: retry + 1, why: 'شبكة' });
         await sleep(2 ** retry * 500);
         return call(op, url, { method, headers, body, raw, retry: retry + 1, reauthed });
       }
       throw new TransportError(FAIL.OFFLINE, 'مفيش إنترنت — Drive مش رادّ');
     }
+
+    /*
+     * ⚠️ **ولا يُكتَب في الدفتر إلّا `op` و`method` والحالة.**
+     *    والعنوانُ نفسُه لا يُكتَب: بعضُ عناوين Drive تحمل معرِّفاتِ
+     *    ملفّات، والدفترُ يُنسَخ ويُرسَل. والترويسةُ لا تُقترَب أصلًا.
+     */
+    journal(JOURNAL.HTTP, { op, method, status: response.status, ms: Date.now() - started });
 
     if (response.ok) return raw ? response : safeJson(response);
 
@@ -174,7 +192,9 @@ export function createDriveTransport({ onOps = null } = {}) {
       invalidateToken();
       try {
         await requestToken({ silent: true });
+        journal(JOURNAL.AUTH_REFRESHED, { op });
       } catch {
+        journal(JOURNAL.AUTH_REQUIRED, { op, status: response.status, why: 'الصامتُ فشل' });
         throw new TransportError(FAIL.AUTH, 'انتهى إذن Drive — محتاج تربط تاني');
       }
       return call(op, url, { method, headers, body, raw, retry, reauthed: true });
@@ -182,6 +202,7 @@ export function createDriveTransport({ onOps = null } = {}) {
 
     if ((category === FAIL.RATE_LIMIT || category === FAIL.TRANSIENT_SERVER) && retry < MAX_RETRY) {
       const after = Number(response.headers.get('retry-after'));
+      journal(JOURNAL.RETRY, { op, attempt: retry + 1, status: response.status, category });
       await sleep(Number.isFinite(after) && after > 0 ? after * 1000 : 2 ** retry * 700);
       return call(op, url, { method, headers, body, raw, retry: retry + 1, reauthed });
     }

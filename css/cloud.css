@@ -254,3 +254,37 @@
   min-height: 44px;
 }
 .tile-cloud-label { font-size: 12px; line-height: 1.5; padding: 0 var(--sp-2); text-align: center; }
+
+/* ==================================================================
+   دفترُ المزامنة في مختبر التطوّر (WS-H · طورُ التحقّق)
+
+   ⚠️ **وهو ليس شاشةَ مستخدم.** لا لونَ تنبيهٍ ولا أيقوناتٍ كبيرة —
+      نصٌّ أحاديُّ العرض يُقرأ ويُنسَخ. وكلُّ ما يُطلَب منه أن يبقى
+      مقروءًا على عرض التابلت وألّا يدفع الصفحةَ أفقيًّا.
+   ================================================================== */
+
+.dv-headbtns { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+.dv-jrow {
+  display: flex; justify-content: space-between; gap: 12px;
+  padding: 6px 0; border-bottom: 1px solid var(--line, #E5E1D6);
+  font-size: 14px;
+}
+.dv-jrow code { font-size: 12px; word-break: break-all; }
+
+.dv-jcounts { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0 4px; }
+.dv-jchip {
+  background: var(--chip, #EFECFD); border-radius: 999px;
+  padding: 3px 10px; font-size: 12px; white-space: nowrap;
+}
+.dv-jchip b { margin-inline-end: 4px; }
+
+/* ⚠️ التمريرُ داخل الصندوق لا في الصفحة — والسطرُ لا يُلَفّ فيضيع ترتيبُه. */
+.dv-journal {
+  max-height: 46vh; overflow: auto;
+  background: #1F2430; color: #D8DEE9;
+  border-radius: 10px; padding: 10px 12px;
+  font-family: ui-monospace, "PT Mono", monospace;
+  font-size: 11.5px; line-height: 1.6;
+  white-space: pre; tab-size: 2;
+}

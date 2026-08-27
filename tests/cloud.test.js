@@ -79,16 +79,38 @@ function realPng(size = 8) {
  * ⚠️ ولكلّ جهازٍ **طاقمُه الكامل**: منسّقُ مزامنةٍ ومنزّلٌ ورافع. فما
  *    يُختبَر هو ما يركّبه `attachCloud` في التطبيق حرفًا بحرف.
  */
-function makeCloud(names = [TABLET, MOBILE]) {
+function makeCloud(names = [TABLET, MOBILE], { uploader = true, mediaPerSync = 12 } = {}) {
   const cloud = createMockCloud();
   const rigs = {};
   for (const name of names) {
     const transport = createMockTransport(cloud);
+    const uploads = createBlobUploader(transport);
     rigs[name] = {
       transport,
-      sync: createCloudSync(transport, { debounceMs: 5 }),
+      uploads,
+      /*
+       * ═══════════════════════════════════════════════════════════
+       * ⚠️ **والرافعُ يُمرَّر هنا لأن `attachCloud` يمرّره — وهذا هو
+       *    بيتُ الداء الذي مرّ**
+       * ═══════════════════════════════════════════════════════════
+       *
+       * كان هذا الطاقمُ يبني الثلاثةَ جنبًا إلى جنبٍ **بلا** أن يصل
+       * الرافعُ إلى المنسّق، بينما `attachCloud` في التطبيق… كان يفعل
+       * الشيءَ نفسَه. فاتّفق الاختبارُ والإنتاجُ على النقص، ومرّ.
+       *
+       * ثم كانت الاختباراتُ تنادي `uploadPending` صراحةً قبل أن
+       * تتحقّق — فأثبتت أن **الرافعَ يعمل**، لا أن **أحدًا يناديه**.
+       * وهذان سؤالان مختلفان، والثاني هو الذي يقع على المستخدم.
+       *
+       * فصار الطاقمُ يعكس التركيبَ الحقيقيّ. ومن أراد قياسَ الرفع
+       * اليدويّ وحدَه يمرّر `{ uploader: false }` صراحةً.
+       */
+      sync: createCloudSync(transport, {
+        debounceMs: 5,
+        uploader: uploader ? uploads : null,
+        mediaPerSync,
+      }),
       transfers: createTransferManager(transport),
-      uploads: createBlobUploader(transport),
     };
   }
   return { cloud, rigs };

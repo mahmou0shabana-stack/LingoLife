@@ -19,6 +19,7 @@ import { createBlobUploader } from './media-upload.js';
 import { assertTransport } from './transport.js';
 import { setCloudFetcher } from '../media-service.js';
 import { SYNC, SYNC_TEXT } from './sync-state.js';
+import { journalCounts } from './sync-journal.js';
 
 let active = null;
 
@@ -43,9 +44,16 @@ export function cloudSnapshot() {
  */
 export function attachCloud(transport, options = {}) {
   assertTransport(transport);
-  const sync = createCloudSync(transport, options);
   const transfers = createTransferManager(transport);
   const uploads = createBlobUploader(transport);
+
+  /*
+   * ⚠️ **والرافعُ يُمرَّر إلى المنسّق — وهذا هو ما كان ناقصًا.**
+   *    كان الثلاثةُ يُبنَون هنا جنبًا إلى جنبٍ بلا أن يعرف المنسّقُ
+   *    بالرافع، فترفع الدورةُ السجلّاتِ وتترك البايتات. الشرحُ كاملًا
+   *    فوق `pushMedia` في `cloud-sync.js`.
+   */
+  const sync = createCloudSync(transport, { ...options, uploader: uploads });
 
   /*
    * ⚠️ **وهنا يُغلَق آخرُ خيط**: خدمةُ الوسائط تتعلّم كيف تجلب بايتةً
@@ -98,26 +106,23 @@ export async function cloudDiagnostics() {
     connected: true, ...base,
     transfers: active.transfers.summary(),
     uploads: active.uploads.summary(),
+    /* ملخّصُ الدفتر — والتفاصيلُ تُقرأ من `journalRows`/`journalText`. */
+    journal: journalCounts(),
   };
 }
 
-/** مفاتيحُ ممنوعةٌ في أيّ ناتجِ تشخيصٍ أو حزمةٍ أو نسخة. */
-export const FORBIDDEN_KEYS = Object.freeze([
-  'access_token', 'accessToken', 'refresh_token', 'refreshToken',
-  'client_secret', 'clientSecret', 'authorization', 'Authorization',
-  'api_key', 'apiKey', 'id_token', 'idToken',
-]);
+/**
+ * الدفترُ نصًّا — هذا ما يُنسَخ من الجهاز الحقيقيّ ويُرسَل.
+ *
+ * ⚠️ **ويعمل بلا ربطٍ أيضًا.** أهمُّ ما يُقرأ أحيانًا هو دفترُ محاولةِ
+ *    ربطٍ **فشلت** — ولو اشترطنا `active` لَما أمكن قراءتُه ساعتها.
+ */
+export { journalText, journalRows, journalCounts, journalClear } from './sync-journal.js';
 
-/** يفحص أيَّ كائنٍ بحثًا عن سرٍّ تسرّب — يُستعمَل في الاختبار وقبل الرفع. */
-export function findSecrets(value, path = '$', found = []) {
-  if (!value || typeof value !== 'object') return found;
-  if (Array.isArray(value)) {
-    value.forEach((item, i) => findSecrets(item, `${path}[${i}]`, found));
-    return found;
-  }
-  for (const [key, child] of Object.entries(value)) {
-    if (FORBIDDEN_KEYS.includes(key)) found.push(`${path}.${key}`);
-    findSecrets(child, `${path}.${key}`, found);
-  }
-  return found;
-}
+/*
+ * ⚠️ **حارسُ الأسرار انتقل إلى `secrets.js` — ورقةٌ بلا استيراد.**
+ *    السببُ حلقةُ استيرادٍ حقيقيّة: `sync-journal` يحتاج القائمةَ ليُنقّي
+ *    كلَّ سطرٍ يُكتَب، وهو مستورَدٌ من `cloud-sync` المستورَد من هنا.
+ *    ويُعاد التصديرُ كما هو فلا ينكسر مستورِدٌ قائمٌ ولا اختبار.
+ */
+export { FORBIDDEN_KEYS, findSecrets } from './secrets.js';
