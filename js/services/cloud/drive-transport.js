@@ -634,8 +634,18 @@ export function createDriveTransport({ onOps = null } = {}) {
       return { fileId: created.id, bytes: blob.size, sha256, deduped: false };
     },
 
-    async fetchBlob(mediaId, role, { onProgress = null, signal = null } = {}) {
-      const remote = await transport.hasBlob(mediaId, role);
+    /**
+     * @param {{ known?: {fileId: string, bytes: number} }} options — وصفٌ
+     *   سبق أن سُئل عنه، فلا يُسأل مرّتين.
+     *
+     * ⚠️ **والبحثُ مرّتين قِيس فوُجد.** طابورُ التنزيل يسأل `hasBlob`
+     *    ليعرف البصمةَ ومعرِّفَ الملفّ، ثم كان `fetchBlob` يسأل ثانيةً
+     *    عن نفس الشيء — نداءٌ زائدٌ **لكلّ ملفّ**. وعلى «نزّل كل
+     *    الملفّات» بخمسمئة ملفٍّ يعني خمسمئة نداءٍ لا تشتري شيئًا،
+     *    وتقرّبك من حدّ المعدّل بلا سبب.
+     */
+    async fetchBlob(mediaId, role, { onProgress = null, signal = null, known = null } = {}) {
+      const remote = known?.fileId ? known : await transport.hasBlob(mediaId, role);
       if (!remote) {
         throw new TransportError(FAIL.REMOTE_CORRUPT, 'بايتات الوسيط مش موجودة على Drive');
       }

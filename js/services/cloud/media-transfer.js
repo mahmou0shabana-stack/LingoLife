@@ -217,6 +217,8 @@ export function createTransferManager(transport) {
     const expected = item.sha256 || remote?.sha256 || null;
 
     const blob = await transport.fetchBlob(item.mediaId, item.role, {
+      /* ⚠️ ويُمرَّر الوصفُ المعروف — فلا يُسأل الناقلُ عنه مرّتين. */
+      known: remote,
       onProgress: ({ loaded, total }) => {
         item.loaded = loaded;
         if (total) item.bytes = total;
