@@ -5609,3 +5609,89 @@ body.shadow-open { overflow: hidden; }
 }
 .occ-tag.on { border-color: var(--accent); background: var(--accent-wash); }
 .occ-derived { margin: 0; font-size: 13px; }
+
+/* ==================================================================
+   «صوتي» — تسجيلٌ وسجلٌّ ومقارنة (WS-I)
+
+   ⚠️ **هدفُ لمسٍ ٤٤px لكلّ ما يُضغَط.** اللوحةُ تُستعمَل بإصبعٍ على
+      تابلتٍ أو موبايلٍ وأنت تتدرّب — لا بفأرة.
+   ================================================================== */
+
+.vo-target {
+  background: var(--surface-soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: var(--sp-3);
+  margin-bottom: var(--sp-3);
+}
+.vo-scope {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  background: var(--accent-wash);
+  border-radius: var(--radius-pill);
+  padding: 1px 10px;
+  margin-bottom: 6px;
+}
+.vo-text {
+  margin: 0;
+  font-size: 17px;
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+
+.vo-compare,
+.vo-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-2);
+  margin-bottom: var(--sp-3);
+}
+.vo-compare > .btn,
+.vo-preview > .btn { flex: 1 1 auto; min-height: 44px; }
+
+.vo-rec,
+.vo-stop { min-height: 52px; font-size: 16px; }
+.vo-stop { background: var(--red); color: #fff; }
+
+/* شريطُ «بيسجّل» — نقطةٌ نابضةٌ ووقتٌ يجري، فالحالةُ لا تُخمَّن. */
+.vo-live {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3);
+  border-radius: var(--radius-md);
+  background: var(--red-bg);
+  color: var(--red);
+  font-weight: 700;
+  margin-bottom: var(--sp-2);
+}
+.vo-dot {
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--red);
+  animation: vo-pulse 1s ease-in-out infinite;
+}
+@keyframes vo-pulse { 50% { opacity: .25; } }
+@media (prefers-reduced-motion: reduce) {
+  .vo-dot { animation: none; }
+}
+
+.vo-history { margin-top: var(--sp-4); }
+.vo-history h4 { margin: 0 0 var(--sp-2); font-size: 15px; }
+
+.vo-list { display: flex; flex-direction: column; gap: var(--sp-2); }
+.vo-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 6px var(--sp-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  min-height: 44px;
+}
+.vo-row .btn-sm { min-width: 44px; min-height: 44px; }
+.vo-when { flex: 1 1 auto; font-size: 14px; }
+.vo-dur { color: var(--ink-faint); font-size: 13px; }
+.vo-del { color: var(--red); }

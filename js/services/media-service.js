@@ -27,6 +27,18 @@ export const AUDIO_ROLE = Object.freeze({
   RETELLING: 'retelling',
   PRONUNCIATION: 'pronunciation',
   NOTE: 'note',
+  /*
+   * ⚠️ **دورٌ جديدٌ أصغرُ ما يكفي** (WS-I · بند ١٨).
+   *
+   *    سُئل أوّلًا: أيكفي `pronunciation`؟ ولا يكفي — وهو مستعمَلٌ منذ
+   *    WS23 لتسجيلاتٍ تُلقى على الذكرى **بلا هدفِ تدريبٍ ولا مدًى**.
+   *    فلو خُلطا لَظهرت تلك التسجيلاتُ القديمةُ في سجلّ محاولاتِ كلّ
+   *    جملةٍ في الذكرى — وهو بالضبط الخلطُ الذي يمنعه بند ١٥.
+   *
+   *    والمعرِّفُ هو الهُويّة (راجع `audio-role-service`)، فتسميتُه
+   *    تُعدَّل من الشاشة بلا هجرة.
+   */
+  MY_VOICE: 'myVoice',
 });
 
 export const AUDIO_ROLE_LABEL = {
@@ -36,6 +48,7 @@ export const AUDIO_ROLE_LABEL = {
   retelling: 'إعادة سرد',
   pronunciation: 'نطق',
   note: 'ملاحظة صوتية',
+  myVoice: 'صوتي أنا',
 };
 
 /**

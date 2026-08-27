@@ -18,6 +18,7 @@
  */
 
 import { cancel as cancelSpeech, speak, DEFAULT_RATE } from './tts-controller.js';
+import { SCOPE, resolveTarget } from './practice-target.js';
 
 /** فاصل يمنع تراكب الأصوات عند التبديل السريع — من التطبيق القديم. */
 const ANTI_OVERLAP_MS = 60;
@@ -150,6 +151,19 @@ export function createPlaybackController({
      * و`native` يُدار خارج المحرّك: الشاشة تحقن الرابط في المقطع.
      */
     audioSource: normalizeAudioSource(settings.audioSource),
+    /**
+     * مدى المقطع الجزئيّ — `{from, to}` أو `null` (WS-I · بند ٢).
+     *
+     * ⚠️ **ولماذا يعرفه المحرّك أصلًا؟** لأنه كان لا يعرفه، فكان أوضحُ
+     *    زرٍّ في الشاشة (▶) يقرأ الجملةَ كلَّها وأنت محدِّدٌ أربعَ
+     *    كلمات. كان المدى يعيش في الشاشة وحدَها، فبقي المحرّك على
+     *    نطاقين — كلمةٌ أو جملة — والثالثُ لا وجودَ له عنده.
+     *
+     * ⚠️ **وليس وضعًا رابعًا في `PRACTICE_MODE`**: النطاقُ مدًى فوق
+     *    الجملة لا حالةَ تشغيلٍ مستقلّة، والتنقّلُ والتكرارُ والسرعة
+     *    تعمل عليه كما تعمل على الجملة بلا سطرٍ إضافيّ.
+     */
+    phraseRange: settings.phraseRange ?? null,
   };
 
   /** يُلغي أي دورة قديمة. راجع الشرح أعلى الملف. */
@@ -249,14 +263,32 @@ export function createPlaybackController({
     return config.practiceMode === PRACTICE_MODE.MY_ROLE && Boolean(segments[state.index]?.isMine);
   }
 
-  /** النصّ المنطوق حاليًا — جملة أو كلمة حسب الوضع. */
+  /**
+   * النصّ المنطوق حاليًا — **من المُحلِّ الواحد** (WS-I · بند ٤).
+   *
+   * ⚠️ **ولا يبني النصَّ بنفسه.** كان يبنيه بسطرين، فتفرّق عن مُحلِّ
+   *    الشاشة وصار للنطاق الواحد نصّان. والآن كلاهما ينادي
+   *    `resolveTarget` — فما يُسمَع هو ما يُنسَخ هو ما يُسجَّل عليه.
+   */
   function currentText() {
     const segment = segments[state.index];
     if (!segment) return '';
-    if (config.practiceMode === PRACTICE_MODE.WORD) {
-      return words[wordIndex]?.spoken || segment.text;
-    }
-    return segment.text;
+
+    const scope = config.practiceMode === PRACTICE_MODE.WORD
+      ? SCOPE.WORD
+      : (config.phraseRange ? SCOPE.PHRASE : SCOPE.SENTENCE);
+
+    const resolved = resolveTarget({
+      words,
+      sentence: segment.text,
+      scope,
+      wordIndex,
+      anchor: config.phraseRange?.from ?? -1,
+      focus: config.phraseRange?.to ?? -1,
+    });
+
+    /* مدًى صار غيرَ صالحٍ (تبدّلت الجملة) يسقط إلى الجملة لا إلى صمت. */
+    return resolved.ok ? resolved.text : segment.text;
   }
 
   function clearTimer() {

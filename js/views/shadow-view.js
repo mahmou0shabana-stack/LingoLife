@@ -17,6 +17,8 @@ import { toast, toastOk, toastError } from '../components/toast.js';
 import { showModal, confirmAction, closeOverlayOf } from '../components/modal.js';
 import { navigate } from '../router.js';
 import { splitWords, splitSentences } from '../services/shadow/segmenter.js';
+import { SCOPE, SCOPE_LABEL, resolveTarget } from '../services/shadow/practice-target.js';
+import { openVoiceAttempts } from '../modals/voice-attempts.js';
 import { openLightbox } from '../components/lightbox.js';
 import { openShadowForScript } from '../services/shadow/shadow-entry.js';
 import {
@@ -1537,7 +1539,7 @@ function shell() {
 
               <!-- ══════════ سكّة الأدوات ══════════ -->
               <div class="sh-toolrail" data-toolrail>
-                <span class="sh-rail-ctx sh-mono" data-rail-ctx>الظلّ</span>
+                <span class="sh-rail-ctx sh-mono" data-rail-ctx>تدريب</span>
                 <div class="sh-rail-tools" data-rail-tools></div>
                 <div class="sh-grow"></div>
                 <button class="sh-rail-toggle" data-sh="rail" aria-label="افتح الأدوات">‹</button>
@@ -1628,9 +1630,9 @@ function settingsDrawer() {
 
   return html`
     <div class="sh-drawer-veil" data-drawer-veil hidden></div>
-    <aside class="sh-drawer" data-drawer hidden aria-label="إعدادات الظلّ">
+    <aside class="sh-drawer" data-drawer hidden aria-label="إعدادات التدريب">
       <div class="sh-drawer-head">
-        <b>⚙︎ اضبط الظلّ</b>
+        <b>⚙︎ اضبط التدريب</b>
         <button data-sh="drawer-close" aria-label="إغلاق">✕</button>
       </div>
 
@@ -3012,6 +3014,16 @@ const TOOLS = [
    *    الجملة كلِّها — فلا يشترط انتقاءً.
    */
   { id: 'mistake', glyph: '⚠', label: 'سجّل غلطة' },
+  /*
+   * ⚠️ **«صوتي» فعلٌ لا لوحةٌ في السكّة** (WS-I · بند ٢١): يفتح نافذةً
+   *    فوق الشاشة ويُغلق السكّة — لأن ما بعده تسجيلٌ وسماع، والسكّةُ
+   *    تحجب الاثنين. وهو نفسُ ما فُعل بـ«تاريخي مع الكلمة» و«سجّل غلطة».
+   *
+   * ⚠️ **ويعمل على النطاقات الثلاثة بلا شرطٍ عليها**: الهدفُ يُحلّ من
+   *    `currentTarget()`، فإن كنتَ في مقطعٍ فالمقطع، وإن كنتَ ماسكًا
+   *    كلمةً فالكلمة، وإلّا فالجملة.
+   */
+  { id: 'myvoice', glyph: '🎙', label: 'صوتي' },
   /* ---- المقطع الجزئيّ: بابُه من كلمةٍ ممسوكة، وأدواتُه بعد التحديد ---- */
   {
     id: 'phrase-begin',
@@ -4153,7 +4165,7 @@ function renderRail() {
    * ⚠️ **واللافتةُ تقول على أيّ كلمةٍ أنت** — لا «كلمة» مجرّدة. كانت
    *    تقول اسمَ السياق وحده، وهو خبرٌ تعرفه من الأزرار نفسها.
    */
-  if (ctxLbl) ctxLbl.textContent = hasPickedWord() ? currentWordText() : 'الظلّ';
+  if (ctxLbl) ctxLbl.textContent = hasPickedWord() ? currentWordText() : 'تدريب';
 
   /*
    * ⚠️ **وأداةٌ اختفت لا تبقى لوحتُها مفتوحة.** تضغط «معناها» على
@@ -4211,6 +4223,11 @@ function pickTool(id) {
    */
   if (id === 'memory') { rail.open = false; renderRail(); return openWordMemory(); }
   if (id === 'mistake') { rail.open = false; renderRail(); return openErrorCapture(); }
+  if (id === 'myvoice') {
+    rail.open = false;
+    renderRail();
+    return openMyVoice();
+  }
   /*
    * ---- أفعالُ المقطع الجزئيّ (WS-A) ----
    *
@@ -5218,7 +5235,7 @@ function syncMediaSession(segment) {
   navigator.mediaSession.metadata = new MediaMetadata({
     title: segment?.sourceTextSnapshot?.slice(0, 80) || ctx.session?.title || 'ظلّ',
     artist: ctx.session?.title || 'LingoLife',
-    album: 'الظلّ',
+    album: 'تدريب النطق',
   });
 }
 
@@ -5275,7 +5292,7 @@ async function renderWells() {
   }));
 
   const live = Object.entries(WELLS).filter(([id, w]) => w.always || counts[id].length);
-  tabs.innerHTML = [`<button class="${well === 'source' ? 'on' : ''}" data-sh="well" data-v="source">المصدر</button>`]
+  tabs.innerHTML = [`<button class="${well === 'source' ? 'on' : ''}" data-sh="well" data-v="source">النصّ</button>`]
     .concat(live.map(([id, w]) => {
       /* عددٌ حين يفيد. و«الملخّص» ملفٌّ واحدٌ — «الملخّص 1» ثرثرة. */
       const n = counts[id].length;
@@ -6717,10 +6734,10 @@ async function toggleRecording(button) {
 
 function showTips() {
   showModal({
-    title: '✦ إزاي تستفيد من الظلّ',
+    title: '✦ إزاي تستفيد من التدريب',
     body: html`
       <p style="line-height:1.9;color:var(--ink-soft)">
-        <b>الفكرة:</b> تسمع الجملة وتكرّرها فورًا بصوتك — كأنك ظلّ للمتحدّث.
+        <b>الفكرة:</b> تسمع الجملة وتكرّرها فورًا بصوتك، وراء المتحدّث مباشرة.
         بيحسّن النطق والإيقاع أسرع من الحفظ.
       </p>
       <div class="kv-row"><span class="k">السرعة</span><span class="v">ابدأ 0.8× واطلع بالتدريج</span></div>
@@ -7474,6 +7491,7 @@ function beginPhrase() {
     phrase.to = -1;
   }
   paintPhrase();
+  syncPhraseRange();
   renderRail();
 }
 
@@ -7487,6 +7505,7 @@ function exitPhrase() {
   phrase.complete = false;
   phrase.segmentId = null;
   paintPhrase();
+  syncPhraseRange();
   /*
    * ⚠️ **والمفتاحُ يُعاد رسمُه — وإلّا قال «مقطع» ولا مقطعَ هناك.**
    *    `renderModes` تقرأ الحالَ لا متغيّرًا، فما دامت لا تُنادى يبقى
@@ -7528,6 +7547,7 @@ function pickPhraseWord(at) {
     phrase.complete = true;
   }
   paintPhrase();
+  syncPhraseRange();
   renderRail();
 }
 
@@ -7544,6 +7564,7 @@ function nudgePhrase(edge, delta) {
   }
   phrase.anchor = phrase.from;
   paintPhrase();
+  syncPhraseRange();
   renderRail();
 }
 
@@ -7553,14 +7574,89 @@ function phraseWords() {
   return (player.words || []).slice(phrase.from, phrase.to + 1);
 }
 
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * هدفُ التدريب الحاليّ — **البابُ الوحيد** (WS-I · بند ٤)
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * ⚠️ **ولا يُشتَقّ نصٌّ من DOM هنا ولا في أيّ معالِج زرّ.** كلُّ ما
+ *    يحتاجه القرارُ موجودٌ في الحالة: كلماتُ المحرّك، ونصُّ المقطع،
+ *    والوضعُ، والمدى. و`currentWordText()` تقرأ الرقاقةَ — فهي للعرض
+ *    وحدَه ولا تصلح مصدرًا للنطق.
+ */
+function currentTarget() {
+  const segment = activeSegment();
+  const scope = hasPhrase()
+    ? SCOPE.PHRASE
+    : (player?.state?.settings?.practiceMode === PRACTICE_MODE.WORD
+      ? SCOPE.WORD
+      : SCOPE.SENTENCE);
+
+  return resolveTarget({
+    words: player?.words || [],
+    sentence: segment?.sourceTextSnapshot || segment?.text || '',
+    scope,
+    wordIndex: rail.word >= 0 ? rail.word : (player?.state?.wordIndex ?? -1),
+    anchor: phrase.from,
+    focus: phrase.to,
+    segmentId: segment?.id || null,
+  });
+}
+
+/**
+ * يفتح لوحةَ «صوتي» على الهدف الحاليّ.
+ *
+ * ⚠️ **ويمرّر مُشغِّلَ المرجع لا نصَّه.** اللوحةُ لا تعرف مزوّدَ النطق
+ *    ولا سرعةَ الجلسة ولا ذاكرةَ التوليد — تنادي `speakScope` كما
+ *    ينادِيها الزرُّ ▶ بالضبط، فالمرجعُ الذي تسمعه في المقارنة هو
+ *    **نفسُه** الذي تسمعه في التدريب.
+ */
+function openMyVoice() {
+  const target = currentTarget();
+  const segment = activeSegment();
+  return openVoiceAttempts(
+    {
+      ...target,
+      sessionId: ctx?.session?.id || null,
+      sceneId: ctx?.session?.sceneId || null,
+      segmentId: segment?.id || null,
+      sourceType: ctx?.session?.sourceType || null,
+      sourceId: ctx?.session?.sourceId || null,
+    },
+    () => speakScope(target.text, { times: 1 })
+  );
+}
+
+/**
+ * يُعلم المحرّكَ بالمدى — أو يمحوه.
+ *
+ * ⚠️ **وبلا هذا السطر يبقى الزرُّ ▶ يقرأ الجملةَ كلَّها** وأنت محدِّدٌ
+ *    أربعَ كلمات. المدى كان يعيش في الشاشة وحدَها، والمحرّكُ لا يعرف
+ *    أن نطاقًا ثالثًا موجود.
+ */
+function syncPhraseRange() {
+  if (!player?.updateSettings) return;
+  player.updateSettings({
+    phraseRange: hasPhrase() ? { from: phrase.from, to: phrase.to } : null,
+  });
+}
+
 /** نصُّ المدى كما كُتب — للعرض وللحفظ. */
 function phraseText() {
   return phraseWords().map((w) => w.display).join(' ');
 }
 
-/** نصُّ المدى بلا ترقيم — للنطق. */
+/**
+ * نصُّ المدى للنطق — **بترقيمه** (WS-I · بند ٦).
+ *
+ * ⚠️ **كان يحذف الترقيم فيغيّر الجملة.** `w.spoken` تُجرَّد من الفواصل،
+ *    فكان «полностью заполнен, и документ» يُنطَق بلا وقفةٍ بعد
+ *    «заполнен» — أي بإيقاعٍ ليس إيقاعَ ما تتعلّمه. والفاصلةُ داخل مدًى
+ *    **بنيةٌ** لا ضجيج؛ وتجريدُها كان يليق بكلمةٍ مفردة وحدَها.
+ */
 function phraseSpoken() {
-  return phraseWords().map((w) => w.spoken).join(' ');
+  const target = currentTarget();
+  return target.scope === SCOPE.PHRASE && target.ok ? target.text : phraseText();
 }
 
 /**

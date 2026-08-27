@@ -142,6 +142,7 @@
       await import('./sync.test.js');
       await import('./cloud.test.js');
       await import('./drive.test.js');
+      await import('./practice.test.js');
 
       const result = await run((event) => {
         if (event.type === 'suite') {

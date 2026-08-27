@@ -51,6 +51,8 @@ export const BUILT_IN_ROLES = Object.freeze([
   { id: 'retelling', label: 'إعادة سرد', order: 4 },
   { id: 'pronunciation', label: 'نطق', order: 5 },
   { id: 'note', label: 'ملاحظة صوتية', order: 6 },
+  /* تسجيلُك أنت لهدفِ تدريبٍ بعينه (WS-I) — لا يُخلَط بـ`pronunciation`. */
+  { id: 'myVoice', label: 'صوتي أنا', order: 7 },
 ]);
 
 const BUILT_IN_BY_ID = new Map(BUILT_IN_ROLES.map((r) => [r.id, r]));

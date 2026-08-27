@@ -421,7 +421,12 @@ export const SOURCE_LABEL = Object.freeze({
   },
 });
 
-const UNKNOWN_SOURCE = { icon: '📄', kind: 'مصدر', unit: 'مقطع', fallback: '—' };
+/*
+ * ⚠️ **ولا يُكتَب لفظُ «مصدر» في الشاشة** (WS-I · بند ١). هذا وصفٌ
+ *    معروضٌ لا نوعٌ في المخطّط: `SOURCE_TYPE` كما هو، و`sourceType`
+ *    في القاعدة كما هو، والمتبدّلُ حرفان يقرؤهما إنسان.
+ */
+const UNKNOWN_SOURCE = { icon: '📄', kind: 'نصّ', unit: 'مقطع', fallback: '—' };
 
 /**
  * @param {object} session
