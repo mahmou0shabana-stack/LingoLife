@@ -15,6 +15,7 @@ import { countAll } from '../db/database.js';
 import { html, raw, formatBytes } from '../utils/dom.js';
 import { relativeTime } from '../utils/dates.js';
 import { toast, toastOk, toastError } from '../components/toast.js';
+import { withProgress, startProgress } from '../components/progress.js';
 import { confirmAction, showModal } from '../components/modal.js';
 import {
   nativeAudioConsent,
@@ -391,36 +392,53 @@ export async function handleSettingsAction(action, target = null) {
   }
 
   if (action === 'export-llife') {
-    const dismiss = toast('بيتجهّز… ابقَ في الصفحة', { duration: BUSY });
-    try {
-      const result = await exportBackup((p) =>
-        console.info(`[backup] ${p.phase}: ${p.label}`)
-      );
+    /*
+     * ⚠️ **وكان التقدُّمُ يُرسَل إلى `console.info`.**
+     *    `exportBackup` تبعث `{phase, done, total, label}` لكلّ مخزنٍ
+     *    ولكلّ وسيط — أرقامٌ حقيقيّةٌ كاملة — وكانت تُرمى في الطرفيّة
+     *    التي لا يفتحها أحدٌ على تابلت، بينما المستخدمُ أمام إشعارٍ
+     *    اختفى بعد ثوانٍ ونسخةٍ تُبنى دقيقة. فالأرقامُ كانت موجودةً
+     *    ومحجوبة.
+     */
+    return withProgress({
+      key: 'backup-export',
+      title: 'نسخة احتياطية كاملة',
+      stages: ['البيانات', 'الوسائط', 'ختم الملف', 'الحفظ'],
+    }, async (bar) => {
+      try {
+        const result = await exportBackup((p) => {
+          if (p.phase === 'data') bar.stage(0, p.label).set({ done: p.done, total: p.total });
+          else if (p.phase === 'media') bar.stage(1, p.label).set({ done: p.done, total: p.total });
+          else if (p.phase === 'finalize') bar.stage(2).indeterminate('بيختم الملف…');
+        });
 
-      dismiss();
+        bar.stage(3).indeterminate('بيحفظ…');
 
       if (result.cancelled) {
-        toast('اتلغى الحفظ — الملف اتجهّز بس مااتحفظش');
-      } else {
-        const where =
-          result.method === 'share'
-            ? 'اتبعت لشاشة المشاركة'
-            : result.method === 'picker'
-              ? 'اتحفظ في المكان اللي اخترته'
-              : 'اتنزّل في مجلد التنزيلات';
-        toastOk(
-          `${where} · ${result.totalRecords} سجل و${result.blobCount} ملف · ` +
-            `${formatBytes(result.bytes)}`
-        );
+          bar.cancelled('اتلغى الحفظ — الملف اتجهّز بس مااتحفظش');
+        } else {
+          const where =
+            result.method === 'share'
+              ? 'اتبعت لشاشة المشاركة'
+              : result.method === 'picker'
+                ? 'اتحفظ في المكان اللي اخترته'
+                : 'اتنزّل في مجلد التنزيلات';
+          bar.done(
+            `${where} · ${result.totalRecords} سجل و${result.blobCount} ملف · `
+            + `${formatBytes(result.bytes)}`
+          );
+        }
+        const main = document.querySelector('#app-main');
+        if (main) renderSettings(main);
+      } catch (err) {
+        console.error(err);
+        /* ⚠️ وإعادةُ المحاولة تعيد نفسَ الفعل — لا تفتح شاشةً أخرى. */
+        bar.fail(`فشل التصدير: ${err.message}`, {
+          retry: () => handleSettingsAction('export-llife'),
+        });
       }
-      const main = document.querySelector('#app-main');
-      if (main) renderSettings(main);
-    } catch (err) {
-      dismiss();
-      console.error(err);
-      toastError(`فشل التصدير: ${err.message}`);
-    }
-    return true;
+      return true;
+    });
   }
 
   if (action === 'restore-llife') {
@@ -429,17 +447,26 @@ export async function handleSettingsAction(action, target = null) {
     );
     if (!file) return true;
 
-    const dismissScan = toast('بنفحص الملف… مش بنلمس بياناتك', { duration: BUSY });
+    /*
+     * ⚠️ **والفحصُ العميقُ ليس لحظيًّا**: يفكّ الأرشيف ويتحقّق من بصمة
+     *    كلّ ملفٍّ داخله. على نسخةٍ فيها مئاتُ الوسائط يمشي دقيقةً —
+     *    والمستخدمُ ينتظر قبل أخطر فعلٍ في التطبيق. فيُرى.
+     */
+    const scan = startProgress({
+      key: 'backup-inspect',
+      title: 'فحص ملف النسخة',
+    });
+    if (!scan) return true;
     let inspection;
     try {
+      scan.indeterminate('بيفكّ الأرشيف ويتحقّق من الملفّات… مش بنلمس بياناتك');
       inspection = await inspectBackup(file, { deep: true });
     } catch (err) {
-      dismissScan();
       console.error(err);
-      toastError(`تعذّر قراءة الملف: ${err.message}`);
+      scan.fail(`تعذّر قراءة الملف: ${err.message}`);
       return true;
     }
-    dismissScan();
+    scan.close();
 
     if (!inspection.ok) {
       await showModal({
@@ -501,20 +528,38 @@ export async function handleSettingsAction(action, target = null) {
 
     if (choice !== 'submit') return true;
 
-    const busy = toast('بيسترجع… متقفلش الصفحة', { duration: BUSY });
-    try {
-      const result = await restoreBackup(inspection, {
-        onProgress: (p) => console.info(`[restore] ${p.phase}: ${p.label}`),
-      });
-      busy();
-      toastOk(`اترجّع ${result.totalRecords} سجل و${result.blobsRestored} ملف — بنعيد التحميل`);
-      setTimeout(() => window.location.reload(), 1400);
-    } catch (err) {
-      busy();
-      console.error(err);
-      toastError(`فشل الاسترجاع — بياناتك القديمة زي ما هي: ${err.message}`);
-    }
-    return true;
+    /*
+     * ⚠️ **ولا زرَّ إلغاءٍ هنا — عمدًا.**
+     *    الاسترجاعُ يبني خانةً ثانيةً كاملةً ثم يحوّل السهمَ إليها في
+     *    خطوةٍ واحدة. فالإلغاءُ في المنتصف لا يترك نصفَ استرجاع: يترك
+     *    خانةً مؤقّتةً تُهمَل، وبياناتُك القديمةُ لم تُمَسّ أصلًا. وزرٌّ
+     *    يوحي بغير ذلك — أو يوحي بأن ثمّة ما يُنقَذ — كذبٌ في أحرج
+     *    لحظةٍ يمرّ بها المستخدم.
+     */
+    return withProgress({
+      key: 'backup-restore',
+      title: 'استرجاع نسخة',
+      stages: ['تجهيز الخانة', 'البيانات', 'الوسائط', 'التحقّق', 'التحويل'],
+    }, async (bar) => {
+      const STEP = { prepare: 0, data: 1, media: 2, verify: 3, switch: 4 };
+      try {
+        const result = await restoreBackup(inspection, {
+          onProgress: (p) => {
+            const at = STEP[p.phase] ?? 0;
+            bar.stage(at, p.label);
+            if (Number.isFinite(p.done) && Number.isFinite(p.total) && p.total > 0) {
+              bar.set({ done: p.done, total: p.total });
+            }
+          },
+        });
+        bar.done(`اترجّع ${result.totalRecords} سجل و${result.blobsRestored} ملف — بنعيد التحميل`);
+        setTimeout(() => window.location.reload(), 1800);
+      } catch (err) {
+        console.error(err);
+        bar.fail(`فشل الاسترجاع — بياناتك القديمة زي ما هي: ${err.message}`);
+      }
+      return true;
+    });
   }
 
   if (action === 'export-json') {

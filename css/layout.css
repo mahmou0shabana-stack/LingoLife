@@ -427,6 +427,7 @@
   }
 
   .toast-host,
+  .pg-host,
   .update-banner {
     bottom: var(--sp-5);
     inset-inline-start: var(--sidebar-w);
@@ -450,6 +451,7 @@
   .app-nav,
   .fab,
   .toast-host,
+  .pg-host,
   .update-banner {
     display: none !important;
   }

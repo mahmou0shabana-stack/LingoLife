@@ -3857,3 +3857,101 @@ body:has(.shadow-app) .quick-fab { display: none; }
 .mx-conflicts li { border-inline-start: 3px solid #C9A227; padding-inline-start: var(--sp-2); }
 .mx-dropped li { border-inline-start: 3px solid #D6414B; padding-inline-start: var(--sp-2); }
 .mx-empty { margin: 0; font-size: 13px; color: var(--text-soft); }
+
+/* ==================================================================
+   لوحةُ التقدُّم للعمليّات الطويلة (قاعدةٌ عامّة)
+
+   ⚠️ **فوق الـtoast لا مكانَه.** الإشعارُ يمرّ، واللوحةُ تبقى — فلو
+      تشاركا الموضعَ لَغطّى إشعارٌ عابرٌ نسبةً يقرؤها المستخدم. ولذلك
+      ترتفع اللوحةُ عن قاع الشاشة بمقدارٍ يكفي لصفّ إشعارٍ تحتها.
+   ================================================================== */
+
+.pg-host {
+  position: fixed;
+  bottom: calc(var(--nav-h) + var(--sp-5) + 64px + env(safe-area-inset-bottom));
+  inset-inline: 0;
+  z-index: var(--z-toast);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: 0 var(--sp-4);
+  pointer-events: none;
+}
+
+.pg-card {
+  pointer-events: auto;
+  inline-size: min(420px, 100%);
+  background: var(--surface, #fff);
+  color: var(--ink, #1F2430);
+  border: 1px solid var(--line, #E5E1D6);
+  border-radius: var(--radius-lg, 16px);
+  box-shadow: 0 8px 28px rgb(0 0 0 / 18%);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: pg-in 180ms ease-out;
+}
+
+.pg-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.pg-title { font-size: 15px; }
+.pg-stage { font-size: 12px; color: var(--muted, #6B7280); white-space: nowrap; }
+.pg-label { font-size: 13px; color: var(--muted, #6B7280); }
+
+.pg-bar {
+  block-size: 8px;
+  border-radius: 999px;
+  background: var(--line, #E5E1D6);
+  overflow: hidden;
+}
+.pg-bar > i {
+  display: block;
+  block-size: 100%;
+  inline-size: 0;
+  border-radius: 999px;
+  background: var(--accent, #6C5CE7);
+  transition: inline-size 220ms ease-out;
+}
+
+/* شريطٌ غيرُ محدَّد — يتحرّك ولا يدّعي رقمًا. */
+.pg-bar.is-indef > i {
+  inline-size: 38%;
+  animation: pg-slide 1.1s ease-in-out infinite;
+}
+
+.pg-meta {
+  display: flex; gap: 10px; flex-wrap: wrap;
+  font-size: 12px; color: var(--muted, #6B7280);
+}
+.pg-meta b { color: var(--ink, #1F2430); font-size: 13px; }
+
+.pg-actions { display: flex; gap: 8px; }
+.pg-actions:empty { display: none; }
+/* ⚠️ هدفُ لمسٍ ٤٤px — نفسُ قاعدة WS44 على التابلت. */
+.pg-actions .btn { min-block-size: 44px; min-inline-size: 44px; }
+
+.pg-card.is-ok { border-color: #1F9D62; }
+.pg-card.is-ok .pg-label { color: #1F9D62; }
+.pg-card.is-failed { border-color: #D6414B; }
+.pg-card.is-failed .pg-label { color: #D6414B; }
+.pg-card.is-cancelled { border-color: var(--muted, #6B7280); }
+
+@keyframes pg-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; } }
+@keyframes pg-out { to { opacity: 0; transform: translateY(8px); } }
+.pg-leaving { animation: pg-out 160ms ease-in forwards; }
+
+@keyframes pg-slide {
+  0% { transform: translateX(-110%); }
+  100% { transform: translateX(320%); }
+}
+
+/*
+ * ⚠️ ومَن طلب تقليلَ الحركة يرى الشريطَ ساكنًا ممتلئًا جزئيًّا — ولا
+ *    يفقد المعلومة، إنما يفقد الحركة. والنصُّ يظلّ يقول المرحلة.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .pg-card { animation: none; }
+  .pg-bar.is-indef > i { animation: none; inline-size: 100%; opacity: .45; }
+  .pg-bar > i { transition: none; }
+}

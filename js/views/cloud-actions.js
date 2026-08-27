@@ -10,6 +10,7 @@
  */
 
 import { toast, toastOk, toastError } from '../components/toast.js';
+import { withProgress, startProgress } from '../components/progress.js';
 import { confirmAction, showModal } from '../components/modal.js';
 import { html, raw, formatBytes } from '../utils/dom.js';
 import { relativeTime } from '../utils/dates.js';
@@ -65,22 +66,32 @@ export async function handleCloudAction(action, element, refresh) {
      *    ونسخٌ وشاشات — لا يعرف أيَّهما رُكِّب.
      */
     const { createDriveTransport } = await import('../services/cloud/drive-transport.js');
-    const dismiss = toast('بيفتح نافذة Google…', { duration: BUSY });
+    /*
+     * ⚠️ **ولا نسبةَ هنا ولا يمكن أن تكون**: الانتظارُ على **المستخدم**
+     *    داخل نافذة Google — قد يثوانٍ وقد يدقيقة. فشريطٌ غيرُ محدَّدٍ
+     *    ونصٌّ يقول أين نحن بالضبط، لا رقمٌ يتحرّك بلا معنى.
+     */
+    const bar = startProgress({ key: 'cloud-connect', title: 'ربط Google Drive' });
+    if (!bar) return true;
     try {
+      bar.indeterminate('بيفتح نافذة Google — كمّل الدخول من هناك');
       const transport = createDriveTransport();
       attachCloud(transport);
+      bar.indeterminate('بيتأكّد من الإذن ويدوّر على مجلّد LingoLife…');
       const state = await cloud.sync.connect();
-      dismiss();
 
       if (state.state === 'AUTH_REQUIRED' || state.state === 'ERROR') {
-        toastError(state.error?.message || 'مقدرناش نربط Drive');
+        bar.fail(state.error?.message || 'مقدرناش نربط Drive', {
+          retry: () => handleCloudAction('cloud-connect', element, refresh),
+        });
       } else {
-        toastOk(`اتربط${state.account ? ` · ${state.account}` : ''}`);
+        bar.done(`اتربط${state.account ? ` · ${state.account}` : ''}`);
       }
     } catch (error) {
-      dismiss();
       await detachCloud().catch(() => {});
-      toastError(say(error));
+      bar.fail(say(error), {
+        retry: () => handleCloudAction('cloud-connect', element, refresh),
+      });
     }
     await refresh();
     return true;
@@ -108,27 +119,51 @@ export async function handleCloudAction(action, element, refresh) {
   }
 
   if (action === 'cloud-sync-now') {
-    const dismiss = toast('بيزامن…', { duration: BUSY });
-    try {
-      const result = await cloud.sync.syncNow();
-      dismiss();
-      if (result.conflicts) {
-        toast(`فيه ${result.conflicts.length} تعارض محتاج قرارك`);
-      } else if (result.held) {
-        toast('المزامنة موقوفة بعد استرجاع — محتاجة قرارك');
-      } else if (result.ok) {
-        toastOk(result.pushed?.uploaded
-          ? `اترفع ${result.pushed.changes} تغيير`
-          : 'كل حاجة متزامنة');
-      } else {
-        toastError(say(result.error));
+    /*
+     * ⚠️ **ومراحلُ المزامنة معروفةٌ سلفًا، وعددُها لا.**
+     *    الآلةُ تعلن `step` عند كلّ خطوة («بيجيب التغييرات»، «بيرفع
+     *    الملفّات»، «بيرفع تغييراتك») فتُعرَض كما هي. أمّا «كم حزمةً
+     *    سنجد على Drive» فلا يُعرَف قبل السؤال — ولذلك المرحلةُ
+     *    الأولى شريطٌ غيرُ محدَّد، لا شريطٌ يدّعي ٣٣٪.
+     */
+    return withProgress({
+      key: 'cloud-sync',
+      title: 'مزامنة',
+      stages: ['بيتحقّق', 'بيجيب التغييرات', 'بيرفع الملفّات', 'بيرفع تغييراتك'],
+    }, async (bar) => {
+      const STEP = {
+        'يتحقّق': 0, 'بيجيب التغييرات': 1, 'بيرفع الملفّات': 2, 'بيرفع تغييراتك': 3,
+      };
+      const stop = cloud.sync.subscribe((snap) => {
+        if (snap.step && STEP[snap.step] !== undefined) bar.stage(STEP[snap.step], snap.step);
+      });
+      try {
+        const result = await cloud.sync.syncNow();
+        stop();
+        if (result.conflicts) {
+          bar.done(`فيه ${result.conflicts.length} تعارض محتاج قرارك`);
+        } else if (result.held) {
+          bar.done('المزامنة موقوفة بعد استرجاع — محتاجة قرارك');
+        } else if (result.ok) {
+          const bits = [];
+          if (result.pushed?.uploaded) bits.push(`اترفع ${result.pushed.changes} تغيير`);
+          if (result.applied?.packages) bits.push(`وصل ${result.applied.packages} حزمة`);
+          if (result.media?.uploaded) bits.push(`اترفع ${result.media.uploaded} ملف`);
+          bar.done(bits.length ? `${bits.join(' · ')} · ${result.ms}ms` : 'كل حاجة متزامنة');
+        } else {
+          bar.fail(say(result.error), {
+            retry: () => handleCloudAction('cloud-sync-now', element, refresh),
+          });
+        }
+      } catch (error) {
+        stop();
+        bar.fail(say(error), {
+          retry: () => handleCloudAction('cloud-sync-now', element, refresh),
+        });
       }
-    } catch (error) {
-      dismiss();
-      toastError(say(error));
-    }
-    await refresh();
-    return true;
+      await refresh();
+      return true;
+    });
   }
 
   if (action === 'cloud-review') {
@@ -232,14 +267,46 @@ export async function handleCloudAction(action, element, refresh) {
     });
     if (!ok) return true;
 
-    await cloud.transfers.enqueue(report.cloudOnly.ids);
-    toast('التنزيل بدأ — تقدر تسيب الشاشة');
-    await cloud.transfers.idle();
-    const after = cloud.transfers.summary();
-    if (after.failed) toastError(`${after.failed} ملف فشل — تقدر تجرّب تاني`);
-    else toastOk(`اتنزّل ${after.completed} ملف`);
-    await refresh();
-    return true;
+    /*
+     * ⚠️ **و«الإلغاء» هنا آمنٌ فعلًا** — ولذلك يظهر. `cancelPending`
+     *    تُفرغ الطابورَ وتترك الجاريَ يكمل، وكلُّ ملفٍّ اكتمل يبقى.
+     *    فليس فيه نصفُ ملفٍّ مكتوبٌ في القاعدة: البايتاتُ تُكتَب بعد
+     *    اكتمال التنزيل والتحقّق من بصمته لا قبله.
+     */
+    return withProgress({
+      key: 'cloud-download-all',
+      title: 'تنزيل كل الملفّات',
+      onCancel: () => cloud.transfers.cancelPending(),
+    }, async (bar) => {
+      const stop = cloud.transfers.subscribe((snap) => {
+        bar.set({
+          label: snap.current.length
+            ? `بينزّل ${snap.current.length} ملف دلوقتي…`
+            : 'في الطابور…',
+          done: snap.completed,
+          total: snap.total,
+          bytes: snap.bytesTotal ? snap.bytesDone : undefined,
+          totalBytes: snap.bytesTotal || undefined,
+        });
+      });
+
+      await cloud.transfers.enqueue(report.cloudOnly.ids);
+      await cloud.transfers.idle();
+      stop();
+
+      const after = cloud.transfers.summary();
+      if (after.failed) {
+        bar.fail(`${after.failed} ملف فشل — اتنزّل ${after.completed}`, {
+          retry: () => handleCloudAction('cloud-retry-downloads', element, refresh),
+        });
+      } else if (after.cancelled) {
+        bar.cancelled(`اتوقّف — اتنزّل ${after.completed} من ${after.total}`);
+      } else {
+        bar.done(`اتنزّل ${after.completed} ملف · ${formatBytes(after.bytesDone)}`);
+      }
+      await refresh();
+      return true;
+    });
   }
 
   if (action === 'cloud-cancel-downloads') {
@@ -261,14 +328,45 @@ export async function handleCloudAction(action, element, refresh) {
   if (action === 'cloud-upload-pending') {
     const ready = await cloud.uploads.readiness();
     if (!ready.count) { toast('كل الملفّات مرفوعة'); return true; }
-    const dismiss = toast(`بيرفع ${ready.count} ملف…`, { duration: BUSY });
-    const result = await cloud.uploads.uploadPending();
-    dismiss();
-    if (result.stoppedBy) toastError(FAIL_TEXT[result.stoppedBy] || result.stoppedBy);
-    else if (result.failed) toastError(`${result.failed} ملف فشل رفعه`);
-    else toastOk(`اترفع ${result.uploaded} ملف · ${formatBytes(result.bytes)}`);
-    await refresh();
-    return true;
+    /*
+     * ⚠️ **والعدُّ من `readiness()` لا من الرافع.** الرافعُ يقول «الملفُّ
+     *    الجاري» ولا يقول «كم بقي»، والمجموعُ معروفٌ سلفًا من الفحص
+     *    المحلّيّ قبل أيّ نداءِ شبكة. فالنسبةُ حقيقيّةٌ لا مقدَّرة.
+     */
+    return withProgress({
+      key: 'cloud-upload-pending',
+      title: 'رفع الملفّات على Drive',
+      onCancel: () => cloud.uploads.stop(),
+    }, async (bar) => {
+      let uploaded = 0;
+      const stop = cloud.uploads.subscribe((snap) => {
+        if (snap.last && snap.state === 'idle') uploaded = snap.last.uploaded;
+        bar.set({
+          label: snap.current
+            ? `بيرفع ملف ${uploaded + 1} من ${ready.count} · ${formatBytes(snap.current.bytes)}`
+            : 'بيجهّز…',
+          done: uploaded,
+          total: ready.count,
+        });
+      });
+
+      const result = await cloud.uploads.uploadPending();
+      stop();
+
+      if (result.stoppedBy) {
+        bar.fail(FAIL_TEXT[result.stoppedBy] || result.stoppedBy, {
+          retry: () => handleCloudAction('cloud-upload-pending', element, refresh),
+        });
+      } else if (result.failed) {
+        bar.fail(`${result.failed} ملف فشل رفعه · اترفع ${result.uploaded}`, {
+          retry: () => handleCloudAction('cloud-upload-pending', element, refresh),
+        });
+      } else {
+        bar.done(`اترفع ${result.uploaded} ملف · ${formatBytes(result.bytes)}`);
+      }
+      await refresh();
+      return true;
+    });
   }
 
   if (action === 'cloud-free-space') {
@@ -319,37 +417,77 @@ export async function handleCloudAction(action, element, refresh) {
       }
     }
 
-    const dismiss = toast('بيجهّز النسخة… ابقَ في الصفحة', { duration: BUSY });
-    try {
-      const result = await createCloudBackup(cloud.transport, {
-        kind,
-        onProgress: (p) => console.info(`[cloud-backup] ${p.phase}: ${p.label || ''}`),
-      });
-      dismiss();
-      toastOk(`اترفعت «${result.name}» · ${formatBytes(result.bytes)}`
-        + (result.omittedCount ? ` · ${result.omittedCount} ملف من Drive` : ''));
-    } catch (error) {
-      dismiss();
-      toastError(say(error));
-    }
-    await refresh();
-    return true;
+    return withProgress({
+      key: 'cloud-backup',
+      title: kind === BACKUP_KIND.FULL ? 'نسخة كاملة على Drive' : 'نسخة خفيفة على Drive',
+      stages: ['البيانات', 'الوسائط', 'الرفع على Drive', 'التحقّق'],
+    }, async (bar) => {
+      try {
+        const result = await createCloudBackup(cloud.transport, {
+          kind,
+          onProgress: (p) => {
+            if (p.phase === 'build') {
+              /* البناءُ يعيد بثَّ أطوارِ `serialize` كما هي بأرقامها. */
+              const at = p.phase2 === 'media' || p.label?.startsWith('الوسائط') ? 1 : 0;
+              bar.stage(at, p.label || 'بيبني…');
+              if (Number.isFinite(p.done) && Number.isFinite(p.total) && p.total > 0) {
+                bar.set({ done: p.done, total: p.total });
+              }
+            } else if (p.phase === 'upload') {
+              bar.stage(2).set({
+                label: 'بيرفع على Drive…',
+                totalBytes: p.bytes || undefined,
+                bytes: p.bytes ? 0 : undefined,
+              });
+            } else if (p.phase === 'verify') {
+              bar.stage(3).indeterminate('بيتحقّق من النسخة…');
+            }
+          },
+        });
+        bar.done(`اترفعت «${result.name}» · ${formatBytes(result.bytes)}`
+          + (result.omittedCount ? ` · ${result.omittedCount} ملف من Drive` : ''));
+      } catch (error) {
+        bar.fail(say(error), {
+          retry: () => handleCloudAction(action, element, refresh),
+        });
+      }
+      await refresh();
+      return true;
+    });
   }
 
   if (action === 'cloud-inspect-backup') {
     const fileId = element?.dataset?.file;
     if (!fileId) return true;
 
-    const dismiss = toast('بينزّل ويفحص — مش بيلمس بياناتك', { duration: BUSY });
+    const scan = startProgress({
+      key: `cloud-inspect:${fileId}`,
+      title: 'فحص نسخة من Drive',
+      stages: ['التنزيل', 'الفحص'],
+    });
+    if (!scan) return true;
     let inspection;
     try {
-      inspection = await inspectCloudBackup(cloud.transport, fileId);
+      inspection = await inspectCloudBackup(cloud.transport, fileId, {
+        onProgress: (p) => {
+          if (p.phase === 'download') {
+            /* بايتاتُ التنزيل معروفةٌ من الناقل — فالنسبةُ حقيقيّة. */
+            scan.stage(0, p.label || 'بينزّل النسخة…');
+            if (Number.isFinite(p.loaded) && Number.isFinite(p.total) && p.total > 0) {
+              scan.set({ bytes: p.loaded, totalBytes: p.total });
+            }
+          } else if (p.phase === 'inspect') {
+            scan.stage(1).indeterminate('بيفحص — مش بيلمس بياناتك');
+          }
+        },
+      });
     } catch (error) {
-      dismiss();
-      toastError(say(error));
+      scan.fail(say(error), {
+        retry: () => handleCloudAction('cloud-inspect-backup', element, refresh),
+      });
       return true;
     }
-    dismiss();
+    scan.close();
 
     if (!inspection.ok) {
       await showModal({
@@ -391,17 +529,34 @@ export async function handleCloudAction(action, element, refresh) {
     });
     if (!sure) return true;
 
-    const dismiss2 = toast('بيسترجع… ما تقفلش الصفحة', { duration: BUSY });
-    try {
-      await restoreCloudBackup(inspection, { confirmed: true });
-      dismiss2();
-      toastOk('اترجعت النسخة — المزامنة موقوفة لحد ما تقرّر');
-    } catch (error) {
-      dismiss2();
-      toastError(say(error));
-    }
-    await refresh();
-    return true;
+    /*
+     * ⚠️ **ولا إلغاءَ هنا كما في استرجاع `.llife`** — ونفسُ السبب،
+     *    لأنه **نفسُ المحرّك**: `restoreCloudBackup` تنادي `restoreBackup`
+     *    بعينها. فالمراحلُ واحدةٌ والضمانةُ واحدة.
+     */
+    return withProgress({
+      key: 'cloud-restore',
+      title: 'استرجاع نسخة من Drive',
+      stages: ['تجهيز الخانة', 'البيانات', 'الوسائط', 'التحقّق', 'التحويل'],
+    }, async (bar) => {
+      const STEP = { prepare: 0, data: 1, media: 2, verify: 3, switch: 4 };
+      try {
+        await restoreCloudBackup(inspection, {
+          confirmed: true,
+          onProgress: (p) => {
+            bar.stage(STEP[p.phase] ?? 0, p.label);
+            if (Number.isFinite(p.done) && Number.isFinite(p.total) && p.total > 0) {
+              bar.set({ done: p.done, total: p.total });
+            }
+          },
+        });
+        bar.done('اترجعت النسخة — المزامنة موقوفة لحد ما تقرّر');
+      } catch (error) {
+        bar.fail(say(error));
+      }
+      await refresh();
+      return true;
+    });
   }
 
   if (action === 'cloud-retention') {
@@ -444,14 +599,33 @@ export async function handleCloudAction(action, element, refresh) {
  */
 export async function handleSceneMediaFetch(mediaId, sceneId) {
   const { ensureBytes } = await import('../services/media-service.js');
-  const dismiss = toast('بينزّل الملف…', { duration: BUSY });
+
+  /* ⚠️ ومفتاحٌ لكلّ وسيط — فملفّان مختلفان ينزّلان معًا بلوحتين. */
+  const bar = startProgress({ key: `media-fetch:${mediaId}`, title: 'تنزيل الملف' });
+  if (!bar) return;
+
+  const stop = isCloudActive()
+    ? cloud.transfers.subscribe((snap) => {
+      const mine = snap.items.find((row) => row.mediaId === mediaId);
+      if (!mine) return;
+      bar.set({
+        label: 'بينزّل ويتحقّق من بصمته…',
+        bytes: mine.bytes ? mine.loaded : undefined,
+        totalBytes: mine.bytes || undefined,
+      });
+    })
+    : () => {};
+
   const outcome = await ensureBytes(mediaId);
-  dismiss();
+  stop();
 
   if (!outcome.ok) {
-    toastError(outcome.reason || 'مقدرناش ننزّل الملف');
+    bar.fail(outcome.reason || 'مقدرناش ننزّل الملف', {
+      retry: () => handleSceneMediaFetch(mediaId, sceneId),
+    });
     return;
   }
+  bar.done('اتنزّل');
 
   const [{ openLightbox }, { reloadScene }] = await Promise.all([
     import('../components/lightbox.js'),
@@ -482,13 +656,36 @@ export async function handleSceneOffline(action, sceneId) {
   if (!ok) return;
 
   const ids = await mediaIdsOfScene(sceneId, { kind });
-  await cloud.transfers.enqueue(ids);
-  toast('التنزيل بدأ…');
-  await cloud.transfers.idle();
 
-  const after = await sceneOfflineReport(sceneId, { kind });
-  if (after.complete) toastOk('الذكرى دي متاحة أوفلاين دلوقتي');
-  else toastError(`لسه ${after.missing.count} ملف — تقدر تجرّب تاني`);
+  /* ⚠️ ومفتاحُ العمليّة يحمل رقمَ الذكرى — فذكرَيان تُنزَّلان معًا بلوحتين. */
+  await withProgress({
+    key: `scene-offline:${sceneId}:${kind || 'all'}`,
+    title: 'تنزيل ملفّات الذكرى',
+    onCancel: () => cloud.transfers.cancelPending(),
+  }, async (bar) => {
+    bar.set({ done: 0, total: ids.length, label: 'في الطابور…' });
+    const stop = cloud.transfers.subscribe((snap) => {
+      bar.set({
+        label: snap.current.length ? `بينزّل ${snap.current.length} ملف…` : 'في الطابور…',
+        done: snap.completed,
+        total: snap.total,
+        bytes: snap.bytesTotal ? snap.bytesDone : undefined,
+        totalBytes: snap.bytesTotal || undefined,
+      });
+    });
+
+    await cloud.transfers.enqueue(ids);
+    await cloud.transfers.idle();
+    stop();
+
+    const after = await sceneOfflineReport(sceneId, { kind });
+    if (after.complete) bar.done('الذكرى دي متاحة أوفلاين دلوقتي');
+    else {
+      bar.fail(`لسه ${after.missing.count} ملف`, {
+        retry: () => handleSceneOffline(action, sceneId),
+      });
+    }
+  });
 
   const { reloadScene } = await import('../ui-state.js');
   await reloadScene(sceneId);
