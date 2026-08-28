@@ -63,7 +63,8 @@ import {
 import { STATE } from '../../db/schema.js';
 import { normalize } from '../../utils/normalization.js';
 import { EVIDENCE } from './provenance.js';
-import { listSources } from './source-registry.js';
+import { listSources, readLiveSources, ANALYSIS_STATE } from './source-registry.js';
+import { listSavedTags } from '../saved-service.js';
 import { ITEM_TYPE, ITEM_TYPE_LABEL } from './import-v2.js';
 import { VERIFY } from './counting.js';
 
@@ -139,6 +140,12 @@ export const FACETS = Object.freeze([
   { id: 'learning', label: 'حالة التعلّم' },
   { id: 'signal', label: 'إشارات' },
   { id: 'verify', label: 'مطابقة العدّ' },
+  /*
+   * ⚠️ **ووسمُك أنت وجهٌ كسائر الأوجه.** كان مخزَّنًا في `savedItems`
+   *    ولا يُرى في «لغتي» أصلًا — فتضع «صعبة» على أربعين كلمةً ولا
+   *    تستطيع أن تسأل «وريني الصعب».
+   */
+  { id: 'tag', label: 'علامتي' },
 ]);
 
 /* ------------------------------------------------------------------ *
@@ -169,6 +176,11 @@ const blank = (key, itemType, text) => ({
   familyId: null,
   forms: [],
   observedForms: [],
+  /*
+   * ⚠️ **وكلُّ صيغةٍ بعددها** (بند ٢٥): «شفتها فعلًا: документы» بلا
+   *    رقمٍ لا يقول إن رأيتَها اثنتي عشرة مرّةً أو مرّةً واحدة.
+   */
+  formCounts: {},
   gender: null,
   aspect: null,
   register: null,
@@ -268,7 +280,11 @@ export async function buildLanguageIndex({ onProgress } = {}) {
   for (const link of links) {
     const one = byKey.get(link.itemKey);
     if (!one) continue;
-    if (link.form) { one.observedForms.push(link.form); forms.add(normalize(link.form)); }
+    if (link.form) {
+      one.observedForms.push(link.form);
+      one.formCounts[link.form] = (one.formCounts[link.form] || 0) + 1;
+      forms.add(normalize(link.form));
+    }
 
     const cls = sourceOf.get(link.sourceKey)?.evidenceClass || EVIDENCE.UNKNOWN;
     if (cls === EVIDENCE.PRIMARY) {
@@ -363,12 +379,22 @@ export async function buildLanguageIndex({ onProgress } = {}) {
     one.learnerOnly = !one.hasAnalysis;
   }
 
+  /* ── ٦ · وسومُ المتعلّم بأسمائها لا بمعرّفاتها ── */
+  let tagLabels = {};
+  try {
+    const tags = await listSavedTags();
+    tagLabels = Object.fromEntries(tags.map((one) => [one.id, one.label]));
+  } catch { tagLabels = {}; }
+
   const index = {
     items: list,
     byKey,
     formIndex,
+    tagLabels,
     totals: totalsOf(list, forms),
     facets: facetsOf(list),
+    sourceTruth: sourceTruthOf(list, registry),
+    coverage: coverageOf(registry),
     builtAt: Date.now(),
     ms: Date.now() - started,
   };
@@ -458,7 +484,154 @@ export function facetsOf(list) {
     learning: tally((one) => one.learning),
     signal: tally((one) => one.signals),
     verify: tally((one) => one.verifyStatus),
+    tag: tally((one) => one.savedTags),
   };
+}
+
+/**
+ * حقيقةُ المصادر: كم مصدرًا من كلّ صنف، وماذا أنتج كلٌّ منها (بند ٨).
+ *
+ * ⚠️ **ورقمان لكلّ صنفٍ لا رقم**: عددُ المصادر، وما خرج منها. مصدرٌ
+ *    واحدٌ فيه الكلمةُ عشرين مرّةً ليس عشرين موقفًا — وهذا الخلطُ
+ *    بعينه هو ما بُني عليه هذا العمل كلُّه.
+ */
+export function sourceTruthOf(list, registry = []) {
+  const alive = registry.filter((row) => row.missing !== 1);
+  const of = (cls) => alive.filter((row) => row.evidenceClass === cls).length;
+
+  const situations = new Set();
+  const derivedSources = new Set();
+  let raw = 0;
+  let derived = 0;
+  let unknown = 0;
+  for (const one of list) {
+    raw += one.rawOccurrences;
+    derived += one.derivedAppearances;
+    unknown += one.unknownOccurrences;
+    for (const key of one.situationKeys) situations.add(key);
+    for (const key of one.derivedKeys) derivedSources.add(key);
+  }
+
+  return {
+    primary: {
+      sources: of(EVIDENCE.PRIMARY),
+      realSituations: situations.size,
+      rawOccurrences: raw,
+    },
+    derived: {
+      sources: of(EVIDENCE.DERIVED),
+      derivedSources: derivedSources.size,
+      derivedAppearances: derived,
+    },
+    unknown: {
+      sources: of(EVIDENCE.UNKNOWN),
+      unknownOccurrences: unknown,
+    },
+    excluded: alive.filter((row) => row.excluded === 1).length,
+    missing: registry.length - alive.length,
+  };
+}
+
+/**
+ * تغطيةُ التحليل — **بصيغةٍ مكتوبةٍ لا بنسبةٍ غامضة** (بند ٢١).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ *   البسط  = مصادرُ **حالتُها الآن** «سبق تحليلها وما اتغيّرتش»
+ *   المقام = المصادرُ **المؤهَّلة**: الموجودةُ غيرُ المستبعَدة
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * ⚠️ **والمستبعَدُ خارجُ المقام لا داخلَه صفرًا.** لو عددناه لَنقصت
+ *    التغطيةُ بفعلِ استبعادٍ اخترتَه أنت — أي عوقبتَ على قرارك.
+ *
+ * ⚠️ **والمحذوفُ خارجٌ كذلك**: نصٌّ لم يعد عندك لا يُقاس عليه شيء.
+ *
+ * ⚠️ **و«اتعدّل بعد التحليل» يُعَدُّ غيرَ مُغطًّى** — لأن التحليلَ
+ *    القائمَ عليه لم يرَ النصَّ الحاليّ.
+ */
+export function coverageOf(registry = []) {
+  const eligible = registry.filter((row) => row.missing !== 1 && row.excluded !== 1);
+  const covered = eligible.filter((row) => row.analysisState === ANALYSIS_STATE.CURRENT);
+  return {
+    eligible: eligible.length,
+    covered: covered.length,
+    never: eligible.filter((row) => row.analysisState === ANALYSIS_STATE.NEVER).length,
+    changed: eligible.filter((row) => row.analysisState === ANALYSIS_STATE.CHANGED).length,
+    /* `null` حين لا مصادرَ أصلًا — ولا يُعرَض «٠٪» فيبدو فشلًا. */
+    percent: eligible.length ? Math.round((covered.length / eligible.length) * 100) : null,
+    formula: 'مصادر تحليلها حالي ÷ المصادر الموجودة غير المستبعَدة',
+  };
+}
+
+/**
+ * الأكثرُ حضورًا — **وبمقياسين لا بواحد** (بند ١٥).
+ *
+ * ⚠️ كلمةٌ وردت عشرين مرّةً في نصٍّ واحد ليست ككلمةٍ وردت في عشرة
+ *    مواقفَ مختلفة. فالترتيبان يُعرَضان ويُبدَّل بينهما صراحةً.
+ */
+export function topPresent(index, { by = 'situations', type = null, limit = 5 } = {}) {
+  const pool = index.items.filter((one) => (type ? one.itemType === type : true));
+  const score = by === 'occurrences'
+    ? (one) => one.rawOccurrences + one.derivedAppearances + one.unknownOccurrences
+    : (one) => one.realSituations;
+  return pool
+    .filter((one) => score(one) > 0)
+    .sort((a, b) => score(b) - score(a) || a.key.localeCompare(b.key))
+    .slice(0, limit)
+    .map((one) => ({ ...one, score: score(one) }));
+}
+
+/**
+ * ما علّمتَ عليه أنت — موحَّدًا لا جزرًا منفصلة (بند ١٦).
+ *
+ * ⚠️ **وهذه ذاكرةُ متعلّمٍ لا نتيجةَ تحليل.** فلا يدخلها عنصرٌ لأن
+ *    التحليلَ ذكره؛ يدخلها ما وضعتَ عليه أثرًا: حفظٌ أو تدريبٌ أو
+ *    غلطةٌ أو تعليمٌ من الشادوينج.
+ */
+export function learnerCurated(index) {
+  const mine = index.items.filter((one) => one.hasLearner);
+  const of = (type) => mine.filter((one) => one.itemType === type).length;
+  return {
+    items: mine,
+    words: of(ITEM_TYPE.WORD),
+    expressions: of(ITEM_TYPE.EXPRESSION),
+    sentences: of(ITEM_TYPE.SENTENCE),
+    patterns: of(ITEM_TYPE.PATTERN),
+    total: mine.length,
+    saved: mine.filter((one) => one.saved > 0).length,
+    practised: mine.filter((one) => one.practised > 0).length,
+    shadowed: mine.filter((one) => one.shadowed > 0).length,
+    withErrors: mine.filter((one) => one.errors > 0).length,
+  };
+}
+
+/**
+ * ما ظهر حديثًا في تحليلك — **من طوابعَ حقيقيّةٍ وحدَها** (بند ١٩).
+ *
+ * ⚠️ **ولا يُختلَق تاريخُ اكتشاف.** عنصرٌ بلا `analyzedAt` لا يدخل
+ *    هذه القائمة أصلًا — ولا يُعطى تاريخَ اليوم ليبدو «اكتشافًا».
+ *    وقائمةٌ فارغةٌ صادقةٌ خيرٌ من تاريخٍ مخترَع.
+ */
+export function recentDiscoveries(index, { days = 30, limit = 8 } = {}) {
+  const since = Date.now() - days * 86400000;
+  return index.items
+    .filter((one) => Number.isFinite(one.analyzedAt) && one.analyzedAt >= since)
+    .sort((a, b) => b.analyzedAt - a.analyzedAt)
+    .slice(0, limit);
+}
+
+/**
+ * توزيعُ الأقسام — للرسم البيانيّ، من بياناتٍ حقيقيّةٍ وحدَها (بند ٢٠).
+ *
+ * ⚠️ ويُعيد `[]` حين لا يملأ التحليلُ الحقلَ — والشاشةُ تعرض حالةَ
+ *    فراغٍ مفيدةً بدل شريحةٍ مخترَعة.
+ */
+export function posDistribution(index) {
+  const total = index.items.filter((one) => one.pos).length;
+  if (!total) return [];
+  return index.facets.pos.map((one) => ({
+    ...one,
+    percent: Math.round((one.count / total) * 100),
+  }));
 }
 
 /* ------------------------------------------------------------------ *
@@ -469,16 +642,26 @@ export const SORT = Object.freeze({
   SITUATIONS: 'situations',
   RAW: 'raw',
   RECENT: 'recent',
+  OLDEST: 'oldest',
   ALPHA: 'alpha',
   PRACTISED: 'practised',
+  ERRORS: 'errors',
+  SAVED: 'saved',
+  CONFIDENT: 'confident',
+  UNSURE: 'unsure',
 });
 
 export const SORT_LABEL = Object.freeze({
   [SORT.SITUATIONS]: 'أكتر مواقف حقيقية',
-  [SORT.RAW]: 'أكتر ظهور في نصّ أصلي',
+  [SORT.RAW]: 'أكتر ظهور في النصوص',
   [SORT.RECENT]: 'الأحدث',
+  [SORT.OLDEST]: 'الأقدم',
   [SORT.ALPHA]: 'أبجدي',
   [SORT.PRACTISED]: 'أكتر تدريب',
+  [SORT.ERRORS]: 'أكتر غلطات',
+  [SORT.SAVED]: 'أكتر حاجة علّمت عليها',
+  [SORT.CONFIDENT]: 'التحليل واثق فيها',
+  [SORT.UNSURE]: 'التحليل مش واثق',
 });
 
 /**
@@ -492,7 +675,7 @@ export const SORT_LABEL = Object.freeze({
 export function queryLanguage(index, query = {}) {
   const {
     type = [], pos = [], register = [], domain = [],
-    provenance = [], learning = [], signal = [], verify = [],
+    provenance = [], learning = [], signal = [], verify = [], tag = [],
     family = null, search = '', sort = SORT.SITUATIONS,
   } = query;
 
@@ -509,10 +692,19 @@ export function queryLanguage(index, query = {}) {
     if (!wants(learning, one.learning)) return false;
     if (!wants(verify, one.verifyStatus)) return false;
     if (!wantsAny(signal, one.signals)) return false;
+    if (!wantsAny(tag, one.savedTags)) return false;
     if (family && one.familyId !== family) return false;
     if (needle) {
-      const hay = [one.lemma, one.surface, one.meaningAr, ...one.forms, ...one.observedForms]
-        .filter(Boolean).map((t) => normalize(t)).join(' ');
+      /*
+       * ⚠️ **والبحثُ يشمل ما يبحث به المستخدمُ فعلًا** (بند ٥): لا
+       *    المفردةَ وحدَها. مَن يذكر أن الكلمةَ «مهنية» أو أن شرحَها
+       *    ذكر «التنسيق» يجب أن يصل إليها بذلك.
+       */
+      const hay = [
+        one.lemma, one.surface, one.meaningAr, one.usageNote, one.notes,
+        one.government, one.domain, one.register, one.pos, one.familyId,
+        ...one.forms, ...one.observedForms, ...one.savedTags,
+      ].filter(Boolean).map((t) => normalize(t)).join(' ');
       if (!hay.includes(needle)) return false;
     }
     return true;
@@ -524,7 +716,18 @@ export function queryLanguage(index, query = {}) {
     [SORT.RAW]: (a, b) => b.rawOccurrences - a.rawOccurrences,
     [SORT.RECENT]: (a, b) => (b.savedAt || b.lastPractisedAt || b.analyzedAt || 0)
       - (a.savedAt || a.lastPractisedAt || a.analyzedAt || 0),
+    [SORT.OLDEST]: (a, b) => (a.analyzedAt || a.savedAt || Infinity)
+      - (b.analyzedAt || b.savedAt || Infinity),
     [SORT.PRACTISED]: (a, b) => b.practised - a.practised,
+    [SORT.ERRORS]: (a, b) => b.errors - a.errors,
+    [SORT.SAVED]: (a, b) => b.saved - a.saved,
+    /*
+     * ⚠️ **وعنصرٌ بلا ثقةٍ مذكورةٍ ليس «صفرًا».** لو عاملناه صفرًا
+     *    لَتصدّر «الأقلّ ثقة» كلُّ ما لم يذكر التحليلُ ثقتَه فيه —
+     *    وذلك خلطٌ بين «قال إنه غيرُ واثق» و«لم يقل».
+     */
+    [SORT.CONFIDENT]: (a, b) => (b.confidence ?? -1) - (a.confidence ?? -1),
+    [SORT.UNSURE]: (a, b) => (a.confidence ?? 2) - (b.confidence ?? 2),
     [SORT.ALPHA]: (a, b) => String(a.lemma).localeCompare(String(b.lemma), 'ru'),
   };
   /* ⚠️ ومرتّبٌ ثانويٌّ ثابت: ترتيبٌ يتبدّل بين فتحتين يبدو عطبًا. */
@@ -577,14 +780,25 @@ export function relationsOf(index, key) {
  *    بصريٌّ **وإحصائيٌّ** كما يطلب البند ١٨.
  */
 export async function evidenceOf(key) {
-  const [links, registry] = await Promise.all([
+  const [links, registry, live] = await Promise.all([
     analysisEvidence.byIndex('itemKey', key),
     listSources(),
+    /*
+     * ⚠️ **والمتحدّثُ يُقرأ من المصدر الحيّ لا من صفّ الدليل** (بند ٢٨).
+     *    نسخُه داخل الوصلة يجمّده: تصحّح اسمَ المتحدّث في المحادثة
+     *    فيبقى الدليلُ ينسب الكلامَ لغيره.
+     */
+    readLiveSources(),
   ]);
   const sourceOf = new Map(registry.map((row) => [row.id, row]));
+  const segOf = new Map();
+  for (const source of live) {
+    for (const seg of source.segments) segOf.set(`${source.key}|${seg.id}`, seg);
+  }
 
   const shape = (link) => {
     const source = sourceOf.get(link.sourceKey);
+    const seg = segOf.get(`${link.sourceKey}|${link.segmentId}`);
     return {
       sourceKey: link.sourceKey,
       segmentId: link.segmentId,
@@ -595,6 +809,8 @@ export async function evidenceOf(key) {
       quote: link.quote || '',
       form: link.form || null,
       aiNote: link.aiNote || null,
+      /* مَن قال ذلك — إن كان المصدرُ محادثةً تحمل متحدّثين. */
+      speaker: seg?.speaker ?? null,
       missing: source?.missing === 1,
     };
   };

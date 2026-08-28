@@ -687,3 +687,300 @@ describe('WS-J · حرّاسُ لغتي', () => {
     expect(files).toHaveLength(3);
   });
 });
+
+/* ================================================================== *
+ * هـ — تجربةُ المنتَج: حقيقةُ المصادر · التغطية · السياق (WS-K)
+ * ================================================================== */
+
+describe('WS-K · لوحةُ لغتي', () => {
+  it('هـ١ · حقيقةُ المصادر كتلتان ونصفٌ — والمجهولُ لا يندسّ في الأصليّ', async () => {
+    await resetDevices();
+    const made = await on(TABLET, async () => {
+      const keys = await seed({ RAW, GEN: DERIVED, MYSTERY: RAW2 });
+      await mark(keys.RAW.key, EVIDENCE.PRIMARY, ORIGIN.RAW_TRANSCRIPT);
+      await mark(keys.GEN.key, EVIDENCE.DERIVED, ORIGIN.AI_SHADOWING, [keys.RAW.key]);
+      /* MYSTERY يبقى غيرَ مصنَّف. */
+      return keys;
+    });
+
+    await on(TABLET, () => importFile(file([wordItem({
+      evidence: [
+        { sourceKey: made.RAW.key, segmentId: made.RAW.seg, quote: 'Документы' },
+        { sourceKey: made.MYSTERY.key, segmentId: made.MYSTERY.seg, quote: 'документы' },
+      ],
+    })]), { acceptAll: true }));
+
+    const index = await on(TABLET, buildIndex);
+    const truth = index.sourceTruth;
+
+    expect(truth.primary.sources).toBe(1);
+    expect(truth.primary.realSituations).toBe(1);
+    expect(truth.derived.sources).toBe(1);
+    expect(truth.unknown.sources).toBe(1);
+    /* ═══ والمجهولُ في خانته لا في خانة الأصليّ ═══ */
+    expect(truth.unknown.unknownOccurrences).toBe(1);
+    expect(truth.primary.rawOccurrences).toBe(1);
+  });
+
+  it('هـ٢ · وتغطيةُ التحليل بصيغةٍ مكتوبة: المستبعَدُ خارجَ المقام', async () => {
+    await resetDevices();
+    const made = await on(TABLET, async () => {
+      const keys = await seed({ A: RAW, B: RAW2, C: DERIVED });
+      await mark(keys.A.key, EVIDENCE.PRIMARY, ORIGIN.RAW_TRANSCRIPT);
+      return keys;
+    });
+
+    /* حُلِّل واحدٌ من ثلاثة. */
+    await on(TABLET, async () => {
+      const built = await buildPackages({ selected: [made.A.key] });
+      await markSent(analyzedHashesOf(built.packages));
+      await importFile(file([wordItem({
+        evidence: [{ sourceKey: made.A.key, segmentId: made.A.seg, quote: 'Документы' }],
+      })], { analyzedSources: [made.A.key] }));
+    });
+
+    const before = await on(TABLET, buildIndex);
+    expect(before.coverage.eligible).toBe(3);
+    expect(before.coverage.covered).toBe(1);
+    expect(before.coverage.percent).toBe(33);
+    expect(before.coverage.formula.length > 10).toBe(true);
+
+    /*
+     * ⚠️ **واستبعادُك نصًّا لا يُعاقَب عليه**: يخرج من المقام فترتفع
+     *    التغطيةُ إلى النصف، لا تنخفض.
+     */
+    const { setExcluded } = await import('../js/services/memory/source-registry.js');
+    await on(TABLET, () => setExcluded(made.C.key, true));
+    const after = await on(TABLET, buildIndex);
+    expect(after.coverage.eligible).toBe(2);
+    expect(after.coverage.percent).toBe(50);
+  });
+
+  it('هـ٣ · ونصٌّ اتعدّل بعد تحليله يُعَدّ غيرَ مغطًّى', async () => {
+    await resetDevices();
+    const made = await on(TABLET, async () => {
+      const keys = await seed({ A: RAW });
+      await mark(keys.A.key, EVIDENCE.PRIMARY, ORIGIN.RAW_TRANSCRIPT);
+      return keys;
+    });
+    await on(TABLET, async () => {
+      const built = await buildPackages({ selected: [made.A.key] });
+      await markSent(analyzedHashesOf(built.packages));
+      await importFile(file([wordItem({
+        evidence: [{ sourceKey: made.A.key, segmentId: made.A.seg, quote: 'Документы' }],
+      })], { analyzedSources: [made.A.key] }));
+    });
+    expect((await on(TABLET, buildIndex)).coverage.percent).toBe(100);
+
+    await on(TABLET, async () => {
+      await updateScript(made.A.id, { text: `${RAW} Ещё строка.` });
+      await scanSources();
+    });
+    const after = await on(TABLET, buildIndex);
+    expect(after.coverage.percent).toBe(0);
+    expect(after.coverage.changed).toBe(1);
+  });
+
+  it('هـ٤ · والأكثرُ حضورًا مقياسان يعطيان ترتيبين مختلفين', async () => {
+    await resetDevices();
+    const made = await on(TABLET, async () => {
+      const keys = await seed({ A: RAW, B: RAW2, GEN: DERIVED });
+      await mark(keys.A.key, EVIDENCE.PRIMARY, ORIGIN.RAW_TRANSCRIPT);
+      await mark(keys.B.key, EVIDENCE.PRIMARY, ORIGIN.RAW_TRANSCRIPT);
+      await mark(keys.GEN.key, EVIDENCE.DERIVED, ORIGIN.AI_SHADOWING, [keys.A.key]);
+      return keys;
+    });
+
+    await on(TABLET, () => importFile(file([
+      /* «документ»: موقفان حقيقيّان + ظهوران مولَّدان = ٤ ظهورات. */
+      wordItem({
+        evidence: [
+          { sourceKey: made.A.key, segmentId: made.A.seg, quote: 'Документы' },
+          { sourceKey: made.B.key, segmentId: made.B.seg, quote: 'документы' },
+        ],
+      }),
+      /* «согласование»: موقفٌ واحدٌ فقط. */
+      wordItem({
+        key: 'word:согласование:default', lemma: 'согласование',
+        forms: ['согласование'],
+        evidence: [{ sourceKey: made.B.key, segmentId: made.B.seg, quote: 'согласование' }],
+      }),
+    ])));
+
+    const index = await on(TABLET, buildIndex);
+    const { topPresent } = await import('../js/services/memory/my-language.js');
+
+    const bySituations = topPresent(index, { by: 'situations' });
+    const byOccurrences = topPresent(index, { by: 'occurrences' });
+
+    expect(bySituations[0].lemma).toBe('документ');
+    expect(bySituations[0].score).toBe(2);
+    /* ═══ والظهوراتُ تشمل المولَّد، فالرقمُ أكبرُ والمعنى مختلف ═══ */
+    expect(byOccurrences[0].score).toBe(4);
+    expect(byOccurrences[0].score === bySituations[0].score).toBe(false);
+  });
+
+  it('هـ٥ · و«أنا علّمت عليهم» لا يدخلها ما لم تلمسه', async () => {
+    await resetDevices();
+    const made = await on(TABLET, async () => {
+      const keys = await seed({ RAW });
+      await mark(keys.RAW.key, EVIDENCE.PRIMARY, ORIGIN.RAW_TRANSCRIPT);
+      return keys;
+    });
+    await on(TABLET, () => importFile(file([wordItem({
+      evidence: [{ sourceKey: made.RAW.key, segmentId: made.RAW.seg, quote: 'Документы' }],
+    })])));
+
+    const { learnerCurated } = await import('../js/services/memory/my-language.js');
+    expect(learnerCurated(await on(TABLET, buildIndex)).total).toBe(0);
+
+    await on(TABLET, () => saveItem({ text: 'документы', kind: SAVED_KIND.WORD }));
+    const mine = learnerCurated(await on(TABLET, buildIndex));
+    expect(mine.total).toBe(1);
+    expect(mine.words).toBe(1);
+    expect(mine.saved).toBe(1);
+  });
+
+  it('هـ٦ · والاكتشافاتُ الحديثةُ من طوابعَ حقيقيّةٍ — ولا تُختلَق', async () => {
+    await resetDevices();
+    const made = await on(TABLET, async () => {
+      const keys = await seed({ RAW });
+      await mark(keys.RAW.key, EVIDENCE.PRIMARY, ORIGIN.RAW_TRANSCRIPT);
+      return keys;
+    });
+    await on(TABLET, () => importFile(file([wordItem({
+      evidence: [{ sourceKey: made.RAW.key, segmentId: made.RAW.seg, quote: 'Документы' }],
+    })])));
+    /* وعنصرُ متعلّمٍ بلا `analyzedAt` أصلًا. */
+    await on(TABLET, () => saveItem({ text: 'привет', kind: SAVED_KIND.WORD }));
+
+    const index = await on(TABLET, buildIndex);
+    const { recentDiscoveries } = await import('../js/services/memory/my-language.js');
+    const found = recentDiscoveries(index, { days: 30 });
+
+    expect(found).toHaveLength(1);
+    expect(found[0].lemma).toBe('документ');
+    /* ═══ والذي بلا طابعٍ لم يُعطَ تاريخًا ليدخل ═══ */
+    expect(index.byKey.get('word:привет:learner')?.analyzedAt).toBeFalsy();
+  });
+
+  it('هـ٧ · وكلُّ صيغةٍ بعددها، والوسمُ وجهٌ يُصفّى به', async () => {
+    await resetDevices();
+    const made = await on(TABLET, async () => {
+      const keys = await seed({ A: RAW, B: RAW2 });
+      await mark(keys.A.key, EVIDENCE.PRIMARY, ORIGIN.RAW_TRANSCRIPT);
+      await mark(keys.B.key, EVIDENCE.PRIMARY, ORIGIN.RAW_TRANSCRIPT);
+      return keys;
+    });
+    await on(TABLET, () => importFile(file([wordItem({
+      evidence: [
+        { sourceKey: made.A.key, segmentId: made.A.seg, quote: 'Документы' },
+        { sourceKey: made.B.key, segmentId: made.B.seg, quote: 'документы' },
+      ],
+    })])));
+    await on(TABLET, () => saveItem({
+      text: 'документы', kind: SAVED_KIND.WORD, tagIds: ['hard'],
+    }));
+
+    const index = await on(TABLET, buildIndex);
+    const one = index.byKey.get('word:документ:default');
+    expect(one.formCounts.документы).toBe(2);
+    expect(one.savedTags).toContain('hard');
+
+    /* والوجهُ يصفّي فعلًا. */
+    expect(queryLanguage(index, { tag: ['hard'] })).toHaveLength(1);
+    expect(index.facets.tag.some((t) => t.value === 'hard')).toBe(true);
+  });
+
+  it('هـ٨ · وفتحُ المصدر كاملًا يعطي مقاطعَه ويعلّم الموضع', async () => {
+    await resetDevices();
+    const made = await on(TABLET, async () => {
+      const keys = await seed({ RAW });
+      await mark(keys.RAW.key, EVIDENCE.PRIMARY, ORIGIN.RAW_TRANSCRIPT);
+      return keys;
+    });
+
+    const { sourceContext, spans, splitHighlights } =
+      await import('../js/services/memory/source-context.js');
+    const ctx = await on(TABLET, () => sourceContext(made.RAW.key, made.RAW.seg, 'Документы'));
+
+    expect(ctx.missing).toBe(false);
+    expect(ctx.title).toBe('RAW');
+    expect(ctx.segments.length > 0).toBe(true);
+    expect(ctx.segments[0].isTarget).toBe(true);
+    expect(ctx.segments[0].hits.length).toBe(1);
+
+    /* والتقسيمُ يعطي أجزاءً لا HTML. */
+    const parts = splitHighlights(ctx.segments[0].text, ctx.segments[0].hits);
+    expect(parts.some((p) => p.hit)).toBe(true);
+    expect(parts.map((p) => p.text).join('')).toBe(ctx.segments[0].text);
+
+    /*
+     * ⚠️ **وحدودُ الكلمات هنا كحدودها في العدّ.** لو أبرزنا «дом»
+     *    داخل «домашний» لَاختلف ما تراه عمّا يُعَدّ.
+     */
+    expect(spans('домашний дом', 'дом')).toHaveLength(1);
+  });
+
+  it('هـ٩ · ومصدرٌ اتشال يقول إنه اتشال ولا يفتح شاشةً فاضية', async () => {
+    await resetDevices();
+    await on(TABLET, () => seed({ RAW }));
+    const { sourceContext } = await import('../js/services/memory/source-context.js');
+    const ctx = await on(TABLET, () => sourceContext('script:SCR_مش_موجود', null, 'x'));
+    expect(ctx.missing).toBe(true);
+    expect(ctx.segments).toHaveLength(0);
+  });
+});
+
+describe('WS-K · حرّاسُ اللوحة', () => {
+  it('و١ · ولا رقمَ مكتوبٌ بيدٍ في شاشة لغتي', async () => {
+    /*
+     * ⚠️ **حارسٌ ضدّ «لوحةٍ للعرض».** أسهلُ طريقةٍ لجعل الشاشة تبدو
+     *    كصورة المرجع أن تُكتَب أرقامُها. فالمقاييسُ كلُّها تمرّ من
+     *    `totals`/`sourceTruth`/`coverage`، ولا رقمَ ثلاثيَّ الخانات
+     *    في نصّ الشاشة.
+     */
+    const text = await fetch('../js/views/my-language-view.js').then((r) => r.text());
+    const body = text.replace(/\/\*[\s\S]*?\*\/|<!--[\s\S]*?-->/g, '');
+    const suspicious = [...body.matchAll(/>\s*([0-9]{3,})\s*</g)].map((m) => m[1]);
+    if (suspicious.length) throw new Error(`رقمٌ مكتوبٌ بيد: ${suspicious.join(', ')}`);
+    expect(text).toContain('built.totals');
+    expect(text).toContain('built.sourceTruth');
+  });
+
+  it('و٢ · وخدمةُ السياق لا تبني HTML', async () => {
+    /*
+     * ⚠️ **بناءُ `<mark>` في خدمةٍ يعني نصًّا غيرَ مهرَّبٍ يمرّ للشاشة.**
+     *    وهو بابُ ثغرةٍ افتُتح مرّةً في هذا المشروع، فالخدمةُ تعطي
+     *    أجزاءً والشاشةُ تهرّبها.
+     */
+    const text = await fetch('../js/services/memory/source-context.js').then((r) => r.text());
+    const body = text.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(body.includes('<mark')).toBe(false);
+    expect(body.includes('innerHTML')).toBe(false);
+  });
+
+  it('و٣ · وقصّةُ الحياة لوحةٌ لا تنقُّل — فالتصفيةُ لا تضيع', async () => {
+    const text = await fetch('../js/views/my-language-view.js').then((r) => r.text());
+    const at = text.indexOf("if (action === 'ml-open')");
+    const end = text.indexOf("if (action === 'ml-close')");
+    const block = text.slice(at, end);
+    /* فتحُ القصّة لا ينادي `navigate` — وإلّا أُعيد رسمُ الشاشة من الصفر. */
+    expect(block.includes('navigate(')).toBe(false);
+    expect(block).toContain('paintStory');
+  });
+
+  it('و٤ · والتبويباتُ العليا أنواعٌ لا أوجه', async () => {
+    /*
+     * ⚠️ جعلُ «فعل» أو «عامّي» تبويبًا أعلى يمنع «فعل عامّي» أصلًا،
+     *    لأن التبويبَ واحدٌ لا يُجمَع.
+     */
+    const text = await fetch('../js/views/my-language-view.js').then((r) => r.text());
+    const at = text.indexOf('const TABS = [');
+    const block = text.slice(at, text.indexOf('];', at));
+    for (const facetish of ['noun', 'verb', 'formal', 'colloquial', 'عامي', 'مهني']) {
+      if (block.includes(facetish)) throw new Error(`وجهٌ تسلّل للتبويبات: ${facetish}`);
+    }
+    expect(block).toContain('ITEM_TYPE.WORD');
+  });
+});
