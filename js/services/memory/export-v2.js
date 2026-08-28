@@ -269,6 +269,13 @@ export async function buildPackages({
     firstRun,
     knownItems: state?.items?.length || 0,
     stateChars: firstRun ? 0 : JSON.stringify(state).length,
+    /*
+     * ⚠️ **والبايتاتُ غيرُ المحارف** (بند ٤٢): الحرفُ السيريليُّ بايتان
+     *    في UTF-8. فعرضُ عدد المحارف على أنه حجمٌ يقول نصفَ الحقيقة
+     *    أمام سقفِ لصقٍ في محادثة — والرقمُ الذي تقرؤه يجب أن يكون
+     *    الرقمَ الذي يعنيه اسمُه.
+     */
+    stateBytes: firstRun ? 0 : new Blob([JSON.stringify(state)]).size,
     available: registry.length,
     primary: registry.filter((r) => r.evidenceClass === EVIDENCE.PRIMARY).length,
     derived: registry.filter((r) => r.evidenceClass === EVIDENCE.DERIVED).length,

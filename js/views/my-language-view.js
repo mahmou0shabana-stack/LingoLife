@@ -80,6 +80,8 @@ const state = {
   presentBy: 'situations',
   /** ما يُعرَض في اللوحة الجانبيّة بعد «افتح المصدر». */
   context: null,
+  /** مفتاحُ الصفّ الذي فُتحت منه اللوحة — يعود إليه التركيز (بند ٤٧). */
+  returnTo: null,
 };
 
 /** ارتفاعُ الصفّ بالبكسل — نفسُ ما في CSS، ويُذكَر هنا صراحةً. */
@@ -781,6 +783,28 @@ function wireList(main, rows) {
  * التابلت، وملءُ الشاشة على الموبايل — كلُّه في CSS، وهذه الدالّةُ
  * واحدة.
  */
+/**
+ * ينقل التركيزَ إلى داخل اللوحة بعد فتحها (بند ٤٧).
+ *
+ * ⚠️ **زرُّ الإغلاق أوّلًا لا العنوان.** العنوانُ ليس بؤرةً طبيعيّةً،
+ *    والخروجُ يجب أن يكون على بُعد ضغطةٍ واحدةٍ ممّن دخل بلوحة المفاتيح.
+ */
+function focusStory(main) {
+  const host = main?.querySelector('[data-ml-story]');
+  if (!host || host.hidden) return;
+  const first = host.querySelector('[data-action="ml-close"]')
+    || host.querySelector('button, [href], input, select, [tabindex]:not([tabindex="-1"])');
+  first?.focus();
+}
+
+/** يعيد التركيزَ إلى الصفّ الذي فُتحت منه اللوحة. */
+function returnFocus(main) {
+  if (!state.returnTo) return;
+  const row = main?.querySelector(`.ml-row[data-key="${CSS.escape(state.returnTo)}"]`);
+  state.returnTo = null;
+  row?.focus();
+}
+
 async function paintStory(main, built, key) {
   const host = main.querySelector('[data-ml-story]');
   if (!host) return;
@@ -1167,10 +1191,18 @@ export async function handleMyLanguageAction(action, target) {
      */
     state.story = target.dataset.key;
     state.context = null;
+    /*
+     * ⚠️ **ومَن فتحها بلوحة المفاتيح يجب أن يجد نفسَه فيها** (بند ٤٧).
+     *    لوحةٌ تُفتَح والتركيزُ باقٍ على الصفّ خلفَها تعني أن التالي
+     *    Tab يمشي في الجدول لا في القصّة — فتُقرأ القصّةُ بالعين ولا
+     *    تُبلَغ باليد. ونحفظ الصفَّ لِنُرجع التركيزَ إليه عند الإغلاق.
+     */
+    state.returnTo = target.dataset.key;
     const built = cachedLanguage();
     if (main && built) await paintStory(main, built, state.story);
     const list = main?.querySelector('[data-ml-list]');
     if (list) list.scrollTop = state.scroll;
+    focusStory(main);
     return true;
   }
 
@@ -1181,6 +1213,8 @@ export async function handleMyLanguageAction(action, target) {
     if (host) { host.hidden = true; host.innerHTML = ''; }
     const list = main?.querySelector('[data-ml-list]');
     if (list) list.scrollTop = state.scroll;
+    /* ⚠️ **والتركيزُ يعود من حيث جاء** — لا إلى أوّل الصفحة. */
+    returnFocus(main);
     return true;
   }
 

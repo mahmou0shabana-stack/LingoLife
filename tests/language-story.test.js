@@ -566,6 +566,95 @@ describe('WS-L · نسبُ المولَّد وتسجيلاتُك', () => {
 });
 
 /* ================================================================== *
+ * س — لوحةُ التدريب: بنود ٣٥ و٣٦ و٣٧
+ * ================================================================== */
+
+describe('WS-L · تاريخُ اللغة ضيفٌ على الجلسة', () => {
+  const modalSource = () =>
+    fetch('../js/modals/language-history.js').then((r) => r.text());
+
+  it('س١ · اللوحةُ تقرأ الفهرسَ المحفوظ ولا تبنيه في منتصف جلسة', async () => {
+    /*
+     * ⚠️ **بناءُ الفهرس ليس لحظيًّا على قاعدةٍ ناضجة.** وتعليقُ جلسةِ
+     *    تدريبٍ ثانيتين لسؤالٍ جانبيّ مقايضةٌ خاسرة — فيصير الجوابُ
+     *    أغلى من السؤال فلا يُسأل.
+     */
+    const body = (await modalSource()).replace(/\/\*[\s\S]*?\*\/|<!--[\s\S]*?-->/g, '');
+    expect(body.includes('buildLanguageIndex')).toBe(false);
+    expect(body).toContain('cachedLanguage');
+  });
+
+  it('س٢ · ولا تكتب شيئًا إلّا ما طلبتَه أنت', async () => {
+    /*
+     * ⚠️ **فتحُ تاريخِ كلمةٍ ليس واقعةً في حياتك اللغويّة.** تسجيلُه
+     *    «اطّلاعًا» يخلق تاريخًا لم يحدث — وهو ما يمنعه البندُ ١.
+     *    فالكتابةُ الوحيدةُ المسموحة هي `saveItem` بضغطةٍ منك.
+     */
+    const body = (await modalSource()).replace(/\/\*[\s\S]*?\*\/|<!--[\s\S]*?-->/g, '');
+    for (const writer of ['.create(', '.update(', '.put(', 'practiceEvidence', 'analysisEvidence']) {
+      if (body.includes(writer)) throw new Error(`كتابةٌ من لوحة التدريب: ${writer}`);
+    }
+    expect(body).toContain('saveItem');
+  });
+
+  it('س٣ · وكلُّ حالةٍ من الثلاث فيها زرُّ حفظٍ حقيقيّ', async () => {
+    /*
+     * ⚠️ **الشاشةُ كانت تقول «تقدر تحفظها من احفظها» بلا زرِّ حفظ.**
+     *    وعدٌ لا تفي به الشاشةُ أسوأُ من غياب الميزة، لأنه يجعلك تبحث
+     *    عمّا لا وجودَ له. والحفظُ فعلُك أنت فلا يشترط فهرسًا ولا
+     *    معرفةَ تحليل.
+     */
+    const text = await modalSource();
+    const modals = text.split('showModal({').slice(1);
+    expect(modals).toHaveLength(3);
+    for (const [at, block] of modals.entries()) {
+      const actions = block.slice(0, block.indexOf('body:'));
+      if (!actions.includes("value: 'save'")) throw new Error(`نافذةٌ بلا حفظ: ${at + 1}`);
+    }
+    /* والثلاثةُ تمرّ من مَحفَظٍ واحدٍ فلا تتفرّق قواعدُ الحفظ. */
+    expect(text.split('saveExactly(').length - 1 >= 4).toBe(true);
+  });
+
+  it('س٤ · والمحفوظُ نصُّك بالضبط لا مفردةَ التحليل', async () => {
+    /*
+     * ⚠️ **بند ٣٧.** «был связан с» تبقى كما هي؛ ولو حفظنا `one.lemma`
+     *    لَوجدتَ في محفوظاتك كلمةً لم تحدّدها قطّ. والربطُ بالعنصر يقع
+     *    في القراءة (`formIndex`) لا بتغيير ما حفظتَه.
+     */
+    const text = await modalSource();
+    const at = text.indexOf('async function saveExactly');
+    const block = text.slice(at, text.indexOf('\n}', at));
+    expect(block).toContain('text: clean');
+    expect(block.includes('one.lemma')).toBe(false);
+    expect(block.includes('index.')).toBe(false);
+  });
+
+  it('س٥ · وحفظُ صيغةٍ مصرَّفةٍ يلتقي بعنصرها بلا أن يُعاد كتابتُه', async () => {
+    await resetDevices();
+    await on(TABLET, async () => {
+      const one = await seedScript({ title: 'RAW', text: RAW });
+      await classifySource(one.key, {
+        evidenceClass: EVIDENCE.PRIMARY, originType: ORIGIN.RAW_TRANSCRIPT,
+      });
+      await importFile(file([DOC({
+        evidence: [{ sourceKey: one.key, segmentId: one.seg, quote: 'Документы' }],
+      })]));
+      const { saveItem, SAVED_KIND } = await import('../js/services/saved-service.js');
+      await saveItem({ text: 'Документы', kind: SAVED_KIND.WORD });
+    });
+
+    const { built, item } = await on(TABLET, () => storyOf('word:документ:default'));
+    /* الصفُّ المحفوظُ احتفظ بنصّه كما كتبتَه — بحرفه الكبير وكلِّ شيء. */
+    const rows = await on(TABLET, () => savedItems.getAll());
+    expect(rows).toHaveLength(1);
+    expect(rows[0].text).toBe('Документы');
+    /* ومع ذلك التقى بالمفردة: عنصرٌ واحدٌ لا اثنان. */
+    expect(built.items.filter((row) => row.lemma === 'документ')).toHaveLength(1);
+    expect(item.saved).toBe(1);
+  });
+});
+
+/* ================================================================== *
  * م — استمراريّةُ التصدير: البند ٤١
  * ================================================================== */
 
@@ -653,6 +742,251 @@ describe('WS-L · حالةُ التحليل تكفي لاستكمال الفهم
     expect(asText.includes('deviceId')).toBe(false);
     expect(asText.includes('"vector"')).toBe(false);
     expect(asText.includes('changeLog')).toBe(false);
+  });
+});
+
+/* ================================================================== *
+ * ف — الشكلُ والوصول: بنود ٤٣ و٤٦ و٤٧
+ * ================================================================== */
+
+describe('WS-L · تتكيّف وتُقرَأ وتُبلَغ باليد', () => {
+  const css = () => fetch('../css/components.css').then((r) => r.text());
+  const view = () => fetch('../js/views/my-language-view.js').then((r) => r.text());
+
+  it('ف١ · عمودُ الشاشة ينكمش — فلا تنزلق أفقيًّا على تابلت', async () => {
+    /*
+     * ⚠️ **عطبٌ حقيقيٌّ أمسكه مسبار**: `.ml` كان `display:grid` بعمودٍ
+     *    `min-width:auto`، فوسّعه أعرضُ صفٍّ في الجدول إلى ٨٠٤px داخل
+     *    حاويةٍ ٧٢٨ — فانزلقت الشاشةُ كلُّها ٤٦px خارج الإطار على ١٠٢٤.
+     *    والقياسُ هنا على القاعدة نفسِها لأن `scrollWidth` لا يُقاس في
+     *    اختبارِ وحدة.
+     */
+    const text = await css();
+    const at = text.indexOf('.ml {\n  display: grid;');
+    if (at === -1) throw new Error('قاعدةُ `.ml` الشبكيّة اختفت');
+    const block = text.slice(at, text.indexOf('}', at));
+    expect(block).toContain('minmax(0, 1fr)');
+  });
+
+  it('ف٢ · وهدفُ اللمس يتبع الإصبعَ لا عرضَ الشاشة', async () => {
+    /*
+     * ⚠️ **الجهازُ الأوّلُ لهذا التطبيق تابلت عرضُه المنطقيُّ ≈١٢٨٠** —
+     *    أي فوق حدّ «التابلت» في CSS. فربطُ الـ٤٤px بالعرض وحدَه ترك
+     *    الأزرارَ ٣٢px على الجهاز الذي بُنيت له. و`pointer: coarse`
+     *    يسأل عن الإصبع لا عن البكسل.
+     */
+    const text = await css();
+    const at = text.indexOf('@media (pointer: coarse)');
+    if (at === -1) throw new Error('لا قاعدةَ للمس الخشن');
+    const block = text.slice(at, text.indexOf('\n}', at));
+    for (const control of ['.ml-quick button', '.ml-seg button', '.ml-bars button', 'button.ml-tag']) {
+      if (!block.includes(control)) throw new Error(`زرٌّ خارج قاعدة اللمس: ${control}`);
+    }
+    expect(block).toContain('min-block-size: 44px');
+  });
+
+  it('ف٣ · والأرقامُ الحاكمةُ لا تُطوى في أيّ عرض', async () => {
+    /*
+     * ⚠️ «مواقف حقيقية» و«ظهور» و«إشاراتي» هي سببُ وجود الجدول. وطيُّها
+     *    لتوفير مساحةٍ يترك جدولًا جميلًا بلا الرقم الذي جئتَ تقرؤه.
+     */
+    const text = await css();
+    for (const match of text.matchAll(/\.ml-row \.c-[a-z]+[^{]*\{\s*display:\s*none/g)) {
+      for (const guarded of ['c-real', 'c-occ', 'c-mine']) {
+        if (match[0].includes(guarded)) throw new Error(`عمودٌ حاكمٌ يُطوى: ${guarded}`);
+      }
+    }
+    /* والطيُّ يمرّ بثلاث درجات: تسعةٌ ← سبعةٌ ← خمسةٌ ← أربعة. */
+    expect(text).toContain('(min-width: 901px) and (max-width: 1150px)');
+  });
+
+  it('ف٤ · وفتحُ القصّة ينقل التركيزَ إليها، وإغلاقُها يرجعه', async () => {
+    /*
+     * ⚠️ **لوحةٌ تُفتَح والتركيزُ خلفها** تعني أن Tab التالي يمشي في
+     *    الجدول لا في القصّة: تُقرأ بالعين ولا تُبلَغ باليد. وأمسكه
+     *    مسبارٌ يفتح بلوحة المفاتيح ويسأل أين ذهب التركيز.
+     */
+    const text = await view();
+    expect(text).toContain('function focusStory');
+    expect(text).toContain('function returnFocus');
+
+    const open = text.slice(
+      text.indexOf("if (action === 'ml-open')"),
+      text.indexOf("if (action === 'ml-close')"),
+    );
+    expect(open).toContain('focusStory(main)');
+    expect(open).toContain('state.returnTo');
+
+    const close = text.slice(
+      text.indexOf("if (action === 'ml-close')"),
+      text.indexOf("if (action === 'ml-context')"),
+    );
+    expect(close).toContain('returnFocus(main)');
+  });
+
+  it('ف٥ · وكلُّ نصٍّ روسيٍّ يحمل اتّجاهَه ولغتَه', async () => {
+    /*
+     * ⚠️ **بند ٤٦.** كلمةٌ سيريليّةٌ داخل فقرةٍ عربيّةٍ بلا `dir="ltr"`
+     *    تنقلب علاماتُها ونقاطُها إلى الطرف الخطأ. و`lang="ru"` ليس
+     *    زينةً: قارئُ الشاشة ينطقها روسيًّا لا يتهجّاها حرفًا حرفًا.
+     */
+    const text = await view();
+    /* ⚠️ حدودُ الكلمة ضروريّة: بلا `\b` يلتقط `form` داخلَ `formatDate`. */
+    const cyrillicHosts = [...text.matchAll(
+      /<(b|q|span|p)([^>]*)>\$\{[^}]*\b(lemma|quote|surface|one\.forms|rel\.forms)\b/g
+    )];
+    if (!cyrillicHosts.length) throw new Error('لم نجد مواضعَ النصّ الروسيّ');
+    for (const [whole, , attrs] of cyrillicHosts) {
+      if (!attrs.includes('dir="ltr"')) throw new Error(`نصٌّ روسيٌّ بلا اتّجاه: ${whole.slice(0, 60)}`);
+      if (!attrs.includes('lang="ru"')) throw new Error(`نصٌّ روسيٌّ بلا لغة: ${whole.slice(0, 60)}`);
+    }
+    expect(cyrillicHosts.length > 0).toBe(true);
+  });
+});
+
+/* ================================================================== *
+ * ع — مراجعةُ الجولة التزايُديّة: بنود ٤٢ و٣٩
+ * ================================================================== */
+
+describe('WS-L · قبل ما تبعت: تعرف بالضبط إيه اللي رايح', () => {
+  it('ع١ · الملخّصُ يفصل الجديدَ والمتغيّرَ والمُعاد والمشال', async () => {
+    await resetDevices();
+    const made = await on(TABLET, async () => {
+      const first = await seedScript({ title: 'أول', text: RAW });
+      await classifySource(first.key, {
+        evidenceClass: EVIDENCE.PRIMARY, originType: ORIGIN.RAW_TRANSCRIPT,
+      });
+      /* جولةٌ أولى كاملة: إرسالٌ ثم استيراد. */
+      const { buildPackages, analyzedHashesOf } =
+        await import('../js/services/memory/export-v2.js');
+      const one = await buildPackages({ selected: [first.key] });
+      expect(one.summary.firstRun).toBe(true);
+      expect(one.summary.stateBytes).toBe(0);
+      await markSent(analyzedHashesOf(one.packages));
+      await importFile(file([DOC({
+        evidence: [{ sourceKey: first.key, segmentId: first.seg, quote: 'Документы' }],
+      })], { analyzedSources: [first.key] }));
+
+      /* ثم نصٌّ جديدٌ تمامًا. */
+      const scene = await scenes.create({ titleAr: 'تاني', date: '2026-04-08' });
+      const later = await addScript(scene.id, {
+        title: 'تاني', text: 'Мы направили документы на согласование.',
+      });
+      await scanSources();
+      const laterKey = keyOf('script', later.id);
+      await classifySource(laterKey, {
+        evidenceClass: EVIDENCE.PRIMARY, originType: ORIGIN.RAW_TRANSCRIPT,
+      });
+      return { first, laterKey };
+    });
+
+    const { buildPackages } = await import('../js/services/memory/export-v2.js');
+    const built = await on(TABLET, () => buildPackages({ selected: [made.laterKey] }));
+    const sum = built.summary;
+
+    /* الجولةُ تراكميّة، والحالةُ سافرت بحجمٍ حقيقيّ. */
+    expect(sum.firstRun).toBe(false);
+    expect(sum.knownItems).toBe(1);
+    expect(sum.stateBytes > 0).toBe(true);
+
+    /*
+     * ⚠️ **والبايتاتُ غيرُ المحارف** (بند ٣٩): «حجم» مكتوبٌ تحته عددُ
+     *    محارفَ يقول نصفَ الحقيقة في نصٍّ سيريليّ. فالحقلان منفصلان،
+     *    والبايتاتُ أكبرُ فعلًا لأن الحرفَ الروسيَّ بايتان.
+     */
+    expect(sum.stateBytes > sum.stateChars).toBe(true);
+
+    /* واحدٌ جديدٌ يُرسَل، وواحدٌ سبق تحليلُه لا يُرسَل ثانيةً. */
+    expect(sum.selected).toBe(1);
+    expect(sum.selectedNew).toBe(1);
+    expect(sum.selectedChanged).toBe(0);
+    expect(sum.reused).toBe(1);
+    expect(sum.tombstones).toBe(0);
+    expect(sum.packages).toBe(built.packages.length);
+  });
+
+  it('ع٢ · ونصٌّ اتعدّل يُعَدّ «اتعدّل» لا «جديد»', async () => {
+    await resetDevices();
+    const made = await on(TABLET, async () => {
+      const one = await seedScript({ title: 'أول', text: RAW });
+      await classifySource(one.key, {
+        evidenceClass: EVIDENCE.PRIMARY, originType: ORIGIN.RAW_TRANSCRIPT,
+      });
+      const { buildPackages, analyzedHashesOf } =
+        await import('../js/services/memory/export-v2.js');
+      const pkg = await buildPackages({ selected: [one.key] });
+      await markSent(analyzedHashesOf(pkg.packages));
+      await importFile(file([DOC({
+        evidence: [{ sourceKey: one.key, segmentId: one.seg, quote: 'Документы' }],
+      })], { analyzedSources: [one.key] }));
+
+      /* ثم عدّلتَ النصَّ نفسَه. */
+      const { updateScript } = await import('../js/services/content-service.js');
+      await updateScript(one.id, { text: `${RAW} Всё готово.` });
+      await scanSources();
+      return one;
+    });
+
+    const { buildPackages } = await import('../js/services/memory/export-v2.js');
+    const built = await on(TABLET, () => buildPackages({ selected: [made.key] }));
+    expect(built.summary.selectedChanged).toBe(1);
+    expect(built.summary.selectedNew).toBe(0);
+    /* ولا يُحسَب «مش هيتبعت تاني» لأنه سيُرسَل. */
+    expect(built.summary.reused).toBe(0);
+  });
+
+  it('ع٣ · ونصٌّ اتشال تسافر شهادتُه ويُعَدّ', async () => {
+    await resetDevices();
+    const made = await on(TABLET, async () => {
+      const keep = await seedScript({ title: 'باقي', text: RAW });
+      const scene = await scenes.create({ titleAr: 'هيتشال', date: '2026-04-09' });
+      const gone = await addScript(scene.id, { title: 'هيتشال', text: 'Всё готово к пятнице.' });
+      await scanSources();
+      const goneKey = keyOf('script', gone.id);
+      for (const key of [keep.key, goneKey]) {
+        /* eslint-disable-next-line no-await-in-loop */
+        await classifySource(key, {
+          evidenceClass: EVIDENCE.PRIMARY, originType: ORIGIN.RAW_TRANSCRIPT,
+        });
+      }
+      const { buildPackages, analyzedHashesOf } =
+        await import('../js/services/memory/export-v2.js');
+      const pkg = await buildPackages({ selected: [keep.key, goneKey] });
+      await markSent(analyzedHashesOf(pkg.packages));
+      await importFile(file([DOC({
+        evidence: [{ sourceKey: keep.key, segmentId: keep.seg, quote: 'Документы' }],
+      })], { analyzedSources: [keep.key, goneKey] }));
+
+      /* ثم حذفتَ الثاني — والسجلُّ يعلّمه ولا يمحوه. */
+      const { scripts: scriptRepo } = await import('../js/db/repositories.js');
+      await scriptRepo.trash(gone.id);
+      await scanSources();
+      return { keep, goneKey };
+    });
+
+    const { buildPackages } = await import('../js/services/memory/export-v2.js');
+    const built = await on(TABLET, () => buildPackages({ selected: [] }));
+    expect(built.summary.tombstones).toBe(1);
+    /* والشهادةُ في الحزمة الأولى لا في كلّ حزمة. */
+    expect(built.packages[0].tombstones).toHaveLength(1);
+    expect(built.packages[0].tombstones[0].sourceKey).toBe(made.goneKey);
+  });
+
+  it('ع٤ · وشاشةُ المراجعة تقرأ الأرقامَ ولا تكتبها', async () => {
+    /*
+     * ⚠️ **حارسُ البند ٣٩.** أسهلُ طريقةٍ لجعل الشاشة تبدو دقيقةً أن
+     *    يُكتَب فيها رقم. فكلُّ رقمٍ هنا يمرّ من `summary` أو من قياسٍ
+     *    على النصّ نفسِه، ولا رقمَ ثلاثيَّ الخانات في نصّ الشاشة.
+     */
+    const text = await fetch('../js/modals/memory-review.js').then((r) => r.text());
+    const body = text.replace(/\/\*[\s\S]*?\*\/|<!--[\s\S]*?-->/g, '');
+    const written = [...body.matchAll(/>\s*([0-9]{3,})\s*</g)].map((m) => m[1]);
+    if (written.length) throw new Error(`رقمٌ مكتوبٌ بيد: ${written.join(', ')}`);
+
+    /* والحجمُ يُقاس على النصّ المنسوخ فعلًا لا على عدّ المحارف. */
+    expect(body).toContain('new Blob([t]).size');
+    expect(body).toContain('summary.stateBytes');
+    expect(body).toContain('summary.tombstones');
   });
 });
 

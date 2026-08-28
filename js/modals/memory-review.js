@@ -381,7 +381,14 @@ async function runExport(state) {
 
 function showPackages({ packages, summary }) {
   const texts = packages.map((pkg) => JSON.stringify(pkg, null, 2));
-  const bytes = texts.reduce((sum, t) => sum + new Blob([t]).size, 0);
+  /*
+   * ⚠️ **الحجمُ يُقاس على النصّ الذي سيُنسَخ فعلًا** (بند ٤٢): لا على
+   *    عدد المحارف. الحرفُ السيريليُّ بايتان في UTF-8، فحزمةٌ من ٥٠
+   *    ألف محرفٍ روسيٍّ ≈ ١٠٠ كيلوبايت — ولو عرضنا المحارفَ لَبدت
+   *    نصفَ حجمها الحقيقيّ أمام سقفِ لصقٍ في محادثة.
+   */
+  const sizes = texts.map((t) => new Blob([t]).size);
+  const bytes = sizes.reduce((sum, one) => sum + one, 0);
 
   return showModal({
     title: 'الحزمة جاهزة',
@@ -394,8 +401,23 @@ function showPackages({ packages, summary }) {
           <span><b>${summary.selectedNew}</b> جديد</span>
           <span><b>${summary.selectedChanged}</b> اتعدّل</span>
           <span><b>${summary.reused}</b> مش هيتبعت تاني</span>
+          ${raw(summary.tombstones ? html`
+            <span><b>${summary.tombstones}</b> اتشال</span>` : '')}
           <span>${formatBytes(bytes)}</span>
         </div>
+
+        <!--
+          ⚠️ **وهل سافرت الحالةُ السابقة أم لا؟** (بند ٤٢) هذا هو الفرقُ
+             بين جولةٍ أولى وجولةٍ تراكميّة، وهو أوّلُ ما يجب أن تعرفه
+             قبل اللصق: بلا حالةٍ سيُعيد التحليلُ اكتشافَ ما يعرفه.
+        -->
+        <p class="mr-hint">
+          ${raw(summary.firstRun
+    ? 'دي أول جولة — مفيش حالة سابقة تتبعت، والتحليل هيبدأ من الصفر.'
+    : html`جولة تراكمية: راحت معاها حالة بـ<b>${summary.knownItems}</b>
+           عنصر معروف (${formatBytes(summary.stateBytes)})، فالتحليل
+           مش هيعيد اكتشاف اللي عرفه.`)}
+        </p>
         ${raw(summary.selectedDerived ? html`
         <p class="mr-hint">
           فيه ${summary.selectedDerived} نص مولَّد جوّه الحزمة. هيتحلّل
@@ -410,7 +432,8 @@ function showPackages({ packages, summary }) {
         <div class="mr-parts">
           ${raw(packages.map((pkg, i) => html`
             <div class="mr-part">
-              <span>جزء ${i + 1} من ${packages.length} · ${pkg.sources.length} نص</span>
+              <span>جزء ${i + 1} من ${packages.length} · ${pkg.sources.length} نص
+                · ${formatBytes(sizes[i])}</span>
               <button type="button" class="btn btn-sm" data-mr-copy="${i}">انسخ</button>
             </div>`).join(''))}
         </div>

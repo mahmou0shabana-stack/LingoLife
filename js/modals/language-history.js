@@ -44,7 +44,7 @@ export async function openLanguageHistory(text, kind = 'word') {
   if (!clean) return null;
 
   const index = cachedLanguage();
-  if (!index) return notReady(clean);
+  if (!index) return notReady(clean, kind);
 
   /*
    * ⚠️ **والحلُّ بصيغةٍ أقرّها التحليلُ لا بتجذيرٍ نخترعه.** راجع
@@ -126,23 +126,7 @@ export async function openLanguageHistory(text, kind = 'word') {
       </div>`,
     onSubmit(_data, close) { close(); },
   }).then(async (value) => {
-    if (value === 'save') {
-      /*
-       * ⚠️ **ويُحفَظ النصُّ كما حدّدتَه بالضبط** (بند ٣٧): لا مفردةُ
-       *    التحليل ولا صيغتُه الأساسيّة. «был связан с» تبقى كما هي،
-       *    والربطُ بالعنصر يقع في القراءة لا بتغيير ما حفظتَه.
-       */
-      try {
-        const { saveItem, SAVED_KIND } = await import('../services/saved-service.js');
-        await saveItem({
-          text: clean,
-          kind: kind === 'phrase' ? SAVED_KIND.PHRASE
-            : (kind === 'sentence' ? SAVED_KIND.SENTENCE : SAVED_KIND.WORD),
-        });
-        toastOk('اتحفظت');
-      } catch (error) { toastError(error.message); }
-      return value;
-    }
+    if (value === 'save') return saveExactly(clean, kind);
     /*
      * ⚠️ **والانتقالُ بعد الإغلاق لا قبله.** التنقّلُ ونافذةٌ مفتوحةٌ
      *    يترك طبقةً معلَّقةً فوق الشاشة الجديدة — وهو عطبٌ أُصلح مرّةً
@@ -153,12 +137,37 @@ export async function openLanguageHistory(text, kind = 'word') {
   });
 }
 
+/**
+ * يحفظ النصَّ **كما حدّدتَه بالضبط** (بند ٣٧).
+ *
+ * ⚠️ **لا مفردةُ التحليل ولا صيغتُه الأساسيّة.** «был связан с» تبقى
+ *    كما هي، والربطُ بالعنصر يقع في القراءة لا بتغيير ما حفظتَه.
+ *
+ * ⚠️ **وهو لا يحتاج الفهرسَ ولا معرفةَ التحليل.** الحفظُ فعلُك أنت،
+ *    فيجب أن يعمل في الحالات الثلاث — والقولُ «تقدر تحفظها» في شاشةٍ
+ *    بلا زرِّ حفظٍ وعدٌ لا تفي به الشاشة.
+ */
+async function saveExactly(clean, kind) {
+  try {
+    const { saveItem, SAVED_KIND } = await import('../services/saved-service.js');
+    await saveItem({
+      text: clean,
+      kind: kind === 'phrase' ? SAVED_KIND.PHRASE
+        : (kind === 'sentence' ? SAVED_KIND.SENTENCE : SAVED_KIND.WORD),
+    });
+    toastOk('اتحفظت');
+  } catch (error) { toastError(error.message); }
+  return 'save';
+}
+
 /** الفهرسُ لم يُبنَ بعدُ — نقولها ولا نبنيه في منتصف جلسة. */
-function notReady(text) {
+function notReady(text, kind = 'word') {
   return showModal({
     title: 'تاريخها في لغتي',
     actions: [
       { label: 'افتح «لغتي»', value: 'open', variant: 'ghost' },
+      /* الحفظُ لا ينتظر فهرسًا — فهو فعلُك لا استنتاجُ التحليل. */
+      { label: 'احفظها', value: 'save', variant: 'ghost' },
       { label: 'ارجع للتدريب', value: null, variant: 'primary' },
     ],
     body: html`
@@ -170,6 +179,7 @@ function notReady(text) {
         <p class="field-hint" dir="ltr" lang="ru">${text}</p>
       </div>`,
   }).then((value) => {
+    if (value === 'save') return saveExactly(text, kind);
     if (value === 'open') navigate('/my-language');
     return value;
   });
@@ -179,7 +189,11 @@ function notReady(text) {
 function unknownYet(text, kind) {
   return showModal({
     title: 'تاريخها في لغتي',
-    actions: [{ label: 'تمام', value: null, variant: 'primary' }],
+    actions: [
+      /* ⚠️ الشاشةُ تقول «تقدر تحفظها» — فالزرُّ موجودٌ لا نصيحةٌ بلا باب. */
+      { label: 'احفظها', value: 'save', variant: 'ghost' },
+      { label: 'تمام', value: null, variant: 'primary' },
+    ],
     body: html`
       <div class="lh">
         <p class="field-hint" dir="ltr" lang="ru">${text}</p>
@@ -201,5 +215,8 @@ function unknownYet(text, kind) {
           لسه ما وصلهاش.
         </p>
       </div>`,
+  }).then((value) => {
+    if (value === 'save') return saveExactly(text, kind);
+    return value;
   });
 }

@@ -4148,7 +4148,21 @@ button.ml-tag { cursor: pointer; background: var(--surface); min-block-size: 32p
       تملأ العرض، والجدولُ يعطي تسعةَ أعمدةٍ في ارتفاع صفٍّ واحد.
    ══════════════════════════════════════════════════════════════════ */
 
-.ml { display: grid; gap: var(--sp-4); padding-block-end: var(--sp-5); }
+/*
+ * ⚠️ **`minmax(0, 1fr)` لا `1fr`** (بند ٤٣). عمودُ الشبكة الافتراضيُّ
+ *    `min-width: auto`، أي لا ينكمش تحت أضيقِ عرضٍ يحتاجه محتواه. وصفٌّ
+ *    واحدٌ عريضٌ في الجدول كان يوسّع العمودَ إلى ٨٠٤px داخل حاويةٍ
+ *    عرضُها ٧٢٨ — فتنزلق الشاشةُ كلُّها ٤٦px خارج الإطار على تابلت
+ *    ١٠٢٤. أمسكه مسبارٌ يقيس `scrollWidth` لا عينٌ تنظر.
+ *
+ * ⚠️ **والعلاجُ ليس `overflow: hidden` على الشاشة.** ذلك يقصّ المحتوى
+ *    العريضَ بدل أن يُمرَّر — فالعمودُ ينكمش هنا، والقطعُ العريضةُ
+ *    وحدَها (الجدول) تمرَّر داخل نفسها.
+ */
+.ml {
+  display: grid; grid-template-columns: minmax(0, 1fr);
+  gap: var(--sp-4); padding-block-end: var(--sp-5);
+}
 
 .ml-top {
   display: flex; flex-wrap: wrap; gap: var(--sp-3);
@@ -4352,6 +4366,21 @@ button.ml-tag { cursor: pointer; background: var(--surface); min-block-size: 32p
 .ml-row .c-mine.is-bad { color: #D6414B; }
 .ml-count { margin: 0; font-size: 12px; color: var(--text-soft); text-align: center; }
 
+/*
+ * ⚠️ **ودرجةٌ وسطى بين التسعة والخمسة** (بند ٤٣). تسعةُ أعمدةٍ تحتاج
+ *    ٧٨٠px، والعمودُ المتاح على تابلت ١٠٢٤ عرضُه ٧٠٤ — فتنسحق الأعمدةُ
+ *    أو تخرج. فبين ٩٠١ و١١٥٠ يُطوى «المجال» و«آخر ظهور»: وصفٌ يُقرأ في
+ *    القصّة، بينما الأرقامُ الحاكمةُ (المواقف · الظهور · إشاراتي) هي
+ *    سببُ وجود الجدول أصلًا فلا تُطوى أبدًا.
+ */
+@media (min-width: 901px) and (max-width: 1150px) {
+  .ml-head, .ml-row {
+    grid-template-columns: minmax(140px, 2fr) 62px 62px 62px 74px 84px 78px;
+  }
+  .ml-head .c-dom, .ml-head .c-when,
+  .ml-row .c-dom, .ml-row .c-when { display: none; }
+}
+
 @media (max-width: 900px) {
   /* ⚠️ الأعمدةُ الوصفيّةُ تُطوى أوّلًا — والأرقامُ الحاكمةُ تبقى. */
   .ml-head, .ml-row { grid-template-columns: minmax(120px, 2fr) 58px 58px 66px 74px; }
@@ -4518,13 +4547,35 @@ button.ml-tag { cursor: pointer; background: var(--surface); min-block-size: 32p
   .ml-tile:hover { transform: none; }
 }
 
+/*
+ * ══ هدفُ اللمس يتبع الإصبعَ لا عرضَ الشاشة (بند ٤٣) ══
+ *
+ * ⚠️ **وهذا الدرسُ كلّفنا مرّتين.** ربطنا الـ٤٤px بعرضٍ ≤١١٠٠، والجهازُ
+ *    الأوّلُ لهذا التطبيق تابلت ١٢.٤ بوصة عرضُه المنطقيُّ ≈١٢٨٠ — أي
+ *    فوق الحدّ. فكانت أزرارُ «لغتي» ٣٢px على الجهاز الذي بُنيت له.
+ *    والعرضُ لا يقول شيئًا عن الإصبع؛ `pointer: coarse` يقوله.
+ */
+@media (pointer: coarse) {
+  .ml-quick button, .ml-sort, .ml-facet-values button,
+  .ml-facet-tabs button, .ml-seg button, .ml-bars button,
+  button.ml-tag, .ml-tabs button { min-block-size: 44px; }
+}
+
 /* ══ التابلت: هدفُ لمسٍ أكبرُ وكثافةٌ أقلّ قليلًا ══ */
 @media (min-width: 701px) and (max-width: 1100px) {
   .ml-tiles { grid-template-columns: repeat(3, 1fr); }
   .ml-tiles-thin { grid-template-columns: repeat(3, 1fr); }
   .ml-grid { grid-template-columns: repeat(2, 1fr); }
   .ml-tabs button { min-block-size: 46px; padding: 0 var(--sp-4); }
-  .ml-quick button, .ml-sort, .ml-facet-values button { min-block-size: 44px; }
+  /*
+   * ⚠️ **وكلُّ ما يُضغَط بإصبعٍ ٤٤px — لا ما تذكّرناه منه** (بند ٤٣).
+   *    القائمةُ الأولى نسيت أزرارَ المُبدِّل (`.ml-seg`) وأشرطةَ أنواع
+   *    الكلام (`.ml-bars`) ورقاقاتِ الصيغ (`.ml-tag`)، فبقيت ٣٢–٣٦px.
+   *    وأمسكها مسبارٌ يقيس كلَّ زرٍّ على الشاشة لا عينٌ تتفقّد قائمة.
+   */
+  .ml-quick button, .ml-sort, .ml-facet-values button,
+  .ml-facet-tabs button, .ml-seg button, .ml-bars button,
+  button.ml-tag { min-block-size: 44px; }
   .ml-list { block-size: 48vh; }
 }
 
@@ -4562,6 +4613,10 @@ button.ml-tag { cursor: pointer; background: var(--surface); min-block-size: 32p
   .ml-row .c-dom, .ml-row .c-when { display: none; }
   .ml-row .c-mine { font-size: 10px; max-inline-size: 62px; }
   .ml-list { block-size: 62vh; }
+  /* ونفسُ قاعدةِ الـ٤٤px على الموبايل — الإصبعُ هو الإصبعُ نفسُه. */
+  .ml-quick button, .ml-sort, .ml-facet-values button,
+  .ml-facet-tabs button, .ml-seg button, .ml-bars button,
+  button.ml-tag { min-block-size: 44px; }
 }
 
 /* ── تاريخُ اللغة من داخل التدريب ── */
