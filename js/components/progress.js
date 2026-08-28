@@ -157,8 +157,19 @@ export function startProgress({ key, title, stages = [], onCancel = null }) {
     }
   }
 
+  /**
+   * يُفرِج عن المفتاح — **عند انتهاء العمل لا عند اختفاء البطاقة**.
+   *
+   * ⚠️ **وقع هذا فعلًا:** كان المفتاحُ يبقى محجوزًا حتى تضغط «تمام»،
+   *    فيقال لك «العمليّة دي شغّالة بالفعل» عن عمليّةٍ **انتهت** —
+   *    وأنت تراها منتهيةً أمامك. والبطاقةُ تبقى لتُقرأ (بند التقدُّم
+   *    يقول ذلك صراحةً)، لكنّ بقاءَها ليس بقاءَ العمل. فالحجزُ يُرفَع
+   *    عند `done`/`fail`/`cancelled`، والبطاقةُ تنصرف على مهلها.
+   */
+  const release = () => live.delete(key);
+
   function close() {
-    live.delete(key);
+    release();
     node.classList.add('pg-leaving');
     node.addEventListener('animationend', () => node.remove(), { once: true });
     /* ⚠️ وشبكةُ أمانٍ لو لم تُطلَق الحركةُ أصلًا (تفضيلُ تقليل الحركة). */
@@ -210,6 +221,7 @@ export function startProgress({ key, title, stages = [], onCancel = null }) {
     done(label) {
       state.status = 'ok';
       state.label = label;
+      release();
       paint();
       return handle;
     },
@@ -219,6 +231,7 @@ export function startProgress({ key, title, stages = [], onCancel = null }) {
       state.status = 'failed';
       state.label = label;
       onRetry = retry;
+      release();
       paint();
       return handle;
     },
@@ -227,6 +240,7 @@ export function startProgress({ key, title, stages = [], onCancel = null }) {
     cancelled(label = 'اتلغت') {
       state.status = 'cancelled';
       state.label = label;
+      release();
       paint();
       return handle;
     },

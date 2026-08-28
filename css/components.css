@@ -3858,6 +3858,164 @@ body:has(.shadow-app) .quick-fab { display: none; }
 .mx-dropped li { border-inline-start: 3px solid #D6414B; padding-inline-start: var(--sp-2); }
 .mx-empty { margin: 0; font-size: 13px; color: var(--text-soft); }
 
+/* ══════════════════════════════════════════════════════════════════
+   WS-J · ذاكرةُ اللغة v2 — مراجعةُ التصدير ومراجعةُ الاستيراد
+
+   ⚠️ **والنصُّ الروسيُّ أكبرُ ممّا حوله عمدًا.** هذه الشاشةُ تُقرَأ فيها
+      نصوصٌ كاملةٌ قبل أن تغادر الجهاز (بند ٢٥)، فحجمُ سطرِ الجدول لا
+      يصلح لها: من لا يستطيع قراءةَ النصّ لن يراجعه، ومراجعةٌ لا تقع
+      شاشةٌ بلا فائدة.
+   ══════════════════════════════════════════════════════════════════ */
+
+.mr, .mi { display: grid; gap: var(--sp-3); }
+
+.mr-sum {
+  display: flex; flex-wrap: wrap; gap: var(--sp-2) var(--sp-3);
+  font-size: 13px; color: var(--text-soft);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px solid var(--line); border-radius: 12px; background: var(--surface);
+}
+.mr-sum b { font-size: 16px; color: var(--text); }
+.mr-sum-pick { background: var(--accent-wash); border-color: transparent; }
+.mr-sum .mr-warn b, .mr-warn { color: #9c5b0e; }
+.mi-bad, .mi-bad b { color: #D6414B; }
+
+.mr-hint, .mi-warn {
+  margin: 0; font-size: 12px; line-height: 1.8; color: #9c5b0e;
+  border-inline-start: 3px solid #C9A227; padding-inline-start: var(--sp-2);
+}
+
+.mr-filters { display: flex; flex-wrap: wrap; gap: 6px; }
+.mr-filters button {
+  font: inherit; font-size: 12px; cursor: pointer;
+  padding: 8px var(--sp-3); min-block-size: 40px;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--surface); color: var(--text-soft);
+}
+.mr-filters button.on { border-color: var(--accent); background: var(--accent-wash); color: var(--text); }
+
+.mr-rows, .mi-rows { display: grid; gap: 6px; max-block-size: 46vh; overflow: auto; }
+
+.mr-row {
+  display: grid; grid-template-columns: 44px 1fr auto; align-items: center; gap: var(--sp-2);
+  padding: 6px var(--sp-2);
+  border: 1px solid var(--line); border-radius: 12px; background: var(--surface);
+}
+.mr-row.is-on { border-color: var(--accent); background: var(--accent-wash); }
+
+/* ⚠️ ٤٤px هدفُ لمسٍ لا تجميل — راجع WS44-2. */
+.mr-pick {
+  inline-size: 40px; block-size: 40px; border-radius: 10px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--bg); color: var(--accent);
+  font-size: 18px; line-height: 1;
+}
+.mr-row.is-on .mr-pick, .mi-card.is-on .mr-pick { border-color: var(--accent); }
+
+.mr-main { display: grid; gap: 4px; min-inline-size: 0; }
+.mr-title {
+  font: inherit; text-align: start; background: none; border: 0; cursor: pointer;
+  color: var(--text); padding: 0; min-block-size: 24px;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.mr-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.mr-tag {
+  font-size: 11px; padding: 2px 8px; border-radius: 999px;
+  border: 1px solid var(--line); color: var(--text-soft);
+}
+.mr-tag.is-primary { border-color: #1F9D62; color: #1F9D62; }
+.mr-tag.is-derived { border-color: #6B7280; color: #6B7280; }
+.mr-tag.is-unknown { border-color: #C9A227; color: #9c5b0e; }
+.mr-tag.is-clean { border-color: #1F9D62; color: #1F9D62; }
+.mr-tag.is-review { border-color: #C9A227; color: #9c5b0e; }
+.mr-tag.is-blocked { border-color: #D6414B; color: #D6414B; }
+.mr-dim { color: var(--text-soft); }
+
+.mr-ex {
+  font: inherit; font-size: 12px; cursor: pointer; min-block-size: 40px;
+  padding: 0 var(--sp-2); border: 1px solid var(--line); border-radius: 10px;
+  background: var(--bg); color: var(--text-soft);
+}
+
+.mr-acts { margin-block-start: var(--sp-2); }
+
+/* ── معاينةُ نصٍّ كامل ── */
+.mr-view { display: grid; gap: var(--sp-2); }
+.mr-meta { display: flex; flex-wrap: wrap; gap: 4px; }
+.mr-text {
+  max-block-size: 50vh; overflow: auto;
+  padding: var(--sp-3); border: 1px solid var(--line); border-radius: 12px;
+  background: var(--surface);
+}
+.mr-seg { margin: 0 0 var(--sp-2); font-size: 17px; line-height: 1.9; }
+.mr-spk { display: block; font-size: 12px; color: var(--text-soft); }
+.mr-json { font-size: 12px; }
+
+.mr-out { display: grid; gap: var(--sp-2); }
+.mr-parts { display: grid; gap: 6px; }
+.mr-part {
+  display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2);
+  padding: 6px var(--sp-3); font-size: 13px;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--surface);
+}
+
+/* ── الاستيراد ── */
+.mi-in { display: grid; gap: var(--sp-2); }
+.mi-in textarea { inline-size: 100%; font-family: ui-monospace, monospace; font-size: 12px; }
+.mi-schema { font-size: 12px; }
+
+.mi-card {
+  display: grid; gap: var(--sp-2);
+  padding: var(--sp-3);
+  border: 1px solid var(--line); border-radius: 14px; background: var(--surface);
+  border-inline-start-width: 3px;
+}
+.mi-card.is-clean { border-inline-start-color: #1F9D62; }
+.mi-card.is-review { border-inline-start-color: #C9A227; }
+.mi-card.is-blocked { border-inline-start-color: #D6414B; }
+.mi-card.is-on { background: var(--accent-wash); }
+
+.mi-head { display: grid; grid-template-columns: 40px 1fr; align-items: center; gap: var(--sp-2); }
+.mi-name {
+  font: inherit; text-align: start; background: none; border: 0; cursor: pointer;
+  color: var(--text); padding: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
+  min-block-size: 40px;
+}
+.mi-name b { font-size: 18px; }
+
+/*
+  ⚠️ **عمودان — ولا ينهاران في عمودٍ واحدٍ بلا عنوانَيهما.** لو التصق
+     «ما قاله التحليل» بـ«ما وجده التطبيق» بلا فاصلٍ لَقرأهما القارئُ
+     رقمًا واحدًا، وهو بالضبط ما تمنعه هذه الشاشة.
+*/
+.mi-two { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
+@media (max-width: 560px) { .mi-two { grid-template-columns: 1fr; } }
+.mi-side {
+  display: grid; gap: 4px; align-content: start;
+  padding: var(--sp-2); border-radius: 12px; background: var(--bg);
+}
+.mi-side h5 { margin: 0; font-size: 11px; color: var(--text-soft); font-weight: 600; }
+.mi-side p { margin: 0; font-size: 13px; line-height: 1.7; }
+.mi-claim b, .mi-fact b { font-size: 16px; }
+.mi-verify { font-size: 12px; }
+.mi-verify.is-verified { color: #1F9D62; }
+.mi-verify.is-review { color: #9c5b0e; }
+.mi-verify.is-not_claimed { color: var(--text-soft); }
+
+.mi-bad-box {
+  font-size: 12px; border-inline-start: 3px solid #D6414B;
+  padding-inline-start: var(--sp-2); color: #D6414B;
+}
+.mi-why { font-weight: 600; }
+.mi-list { margin: 4px 0 0; padding-inline-start: 0; list-style: none; display: grid; gap: 6px; }
+.mi-list li { display: grid; gap: 2px; font-size: 12px; }
+.mi-list code { font-size: 11px; color: var(--text-soft); }
+.mi-list q { font-size: 13px; }
+
+.mi-hits { display: grid; gap: 4px; max-block-size: 30vh; overflow: auto; }
+.mi-hits h5 { margin: 0; font-size: 11px; color: var(--text-soft); }
+.mi-dropped { font-size: 12px; }
+.mem-old { font-size: 12px; margin-block-start: var(--sp-2); }
+
 /* ==================================================================
    لوحةُ التقدُّم للعمليّات الطويلة (قاعدةٌ عامّة)
 

@@ -146,6 +146,38 @@ describe('لوحةُ التقدُّم · البقاءُ ومنعُ التكرا�
     sweep();
   });
 
+  it('٩ب · وعمليّةٌ انتهت لا تقول إنها ما زالت شغّالة', async () => {
+    /*
+     * ⚠️ **وقع هذا في WS-J:** المفتاحُ كان يبقى محجوزًا حتى تضغط
+     *    «تمام»، فتضغط «راجع وصدّر» ثانيةً فيقال لك «العمليّة دي
+     *    شغّالة بالفعل» — وبطاقةُ النجاح أمامك تقول إنها انتهت.
+     *    فالبطاقةُ تبقى لتُقرأ، والحجزُ يُرفَع عند النهاية.
+     */
+    sweep();
+    let runs = 0;
+    const once = () => withProgress({ key: 'ended', title: 'مسح' }, async (bar) => {
+      runs += 1;
+      bar.done('خلص');
+      return 'ok';
+    });
+
+    expect(await once()).toBe('ok');
+    expect(isRunning('ended')).toBe(false);
+    /* ═══ والثانيةُ تشتغل فعلًا ولا تُرَدّ ═══ */
+    expect(await once()).toBe('ok');
+    expect(runs).toBe(2);
+    sweep();
+  });
+
+  it('٩ج · والفشلُ كذلك يفكّ الحجز فتُعاد المحاولة', () => {
+    sweep();
+    const bar = startProgress({ key: 'broke', title: 'رفع' });
+    bar.fail('الشبكة فصلت');
+    expect(isRunning('broke')).toBe(false);
+    expect(Boolean(startProgress({ key: 'broke', title: 'رفع' }))).toBe(true);
+    sweep();
+  });
+
   it('١٠ · وبعد الإغلاق يُسمَح بتشغيلها من جديد', () => {
     sweep();
     const bar = startProgress({ key: 'again', title: 'رفع' });

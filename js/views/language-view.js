@@ -179,11 +179,29 @@ function memoryBoard(memory) {
         ⚠️ **بابان لا شاشتان** (بند ٥٨): التصدير والاستيراد فعلان على
            نفس الذاكرة، فمكانُهما معها لا في «إدارة» منفصلة.
       -->
+      <!--
+        ⚠️ **والبابُ الجديدُ أوّلًا، والقديمُ يبقى ولا يُزال** (WS-J).
+           v2 يرسل نصوصَك كاملةً ويعرضها عليك قبل أن تغادر، و v1 يرسل
+           إحصاءً بلا نصّ. وحذفُ v1 اليومَ يكسر ملفَّ إثراءٍ عائدًا من
+           جولةٍ لم تُغلَق بعد — فيبقى بابًا ثانويًّا حتى يفرغ.
+      -->
       <div class="mem-acts">
-        <button class="btn btn-ghost" data-action="mem-export">تصدير للتحليل</button>
-        <button class="btn btn-ghost" data-action="mem-import">استيراد تحليل</button>
+        <button class="btn" data-action="mem-review">راجع وصدّر ذاكرة اللغة</button>
+        <button class="btn btn-ghost" data-action="mem-analysis-import">استورد نتيجة تحليل</button>
         <button class="btn btn-ghost" data-action="mem-rebuild">أعِد بناء الفهرس</button>
       </div>
+
+      <details class="mem-old">
+        <summary>الطريقة القديمة (إحصاء بلا نصّ)</summary>
+        <p class="field-hint">
+          دي بتبعت أعداد بس من غير نصوصك، فالتحليل بيجاوب من معرفته
+          العامة مش من لغتك إنت. سيبها للملفّات اللي لسه شغّالة عليها.
+        </p>
+        <div class="mem-acts">
+          <button class="btn btn-ghost" data-action="mem-export">تصدير للتحليل</button>
+          <button class="btn btn-ghost" data-action="mem-import">استيراد تحليل</button>
+        </div>
+      </details>
     </section>`;
 }
 
@@ -470,6 +488,37 @@ export async function handleLanguageAction(action, target) {
       const { sources } = await rebuildIndex();
       const stats = await indexStats();
       toastOk(`اتفهرس ${sources} مصدر · ${stats.forms} صيغة في ${stats.positions} موضع`);
+      const main = $('#app-main');
+      if (main) await renderLanguage(main);
+    } catch (error) {
+      toastError(error.message);
+    }
+    return true;
+  }
+
+  /*
+   * ذاكرةُ اللغة v2 — **ولا شبكةَ هنا أيضًا** (بندا ٦٠ و٦١): الحزمةُ
+   * تُبنى وتُنسَخ بيدك، والنتيجةُ تعود بيدك.
+   *
+   * ⚠️ **والشاشةُ تُعاد رسمُها بعد الاستيراد** لأن الأعدادَ المعروضة
+   *    فوقها اشتُقّت قبله؛ وتركُها يجعل استيرادًا نجح يبدو أنه لم يقع.
+   */
+  if (action === 'mem-review') {
+    try {
+      const { openMemoryReview } = await import('../modals/memory-review.js');
+      await openMemoryReview();
+      const main = $('#app-main');
+      if (main) await renderLanguage(main);
+    } catch (error) {
+      toastError(error.message);
+    }
+    return true;
+  }
+
+  if (action === 'mem-analysis-import') {
+    try {
+      const { openAnalysisImport } = await import('../modals/memory-import.js');
+      await openAnalysisImport();
       const main = $('#app-main');
       if (main) await renderLanguage(main);
     } catch (error) {

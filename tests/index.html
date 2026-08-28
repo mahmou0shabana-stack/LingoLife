@@ -147,6 +147,7 @@
       await import('./progress.test.js');
       await import('./pairing.test.js');
       await import('./living-memory.test.js');
+      await import('./living-import.test.js');
 
       const result = await run((event) => {
         if (event.type === 'suite') {
