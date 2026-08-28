@@ -4131,6 +4131,8 @@ button.ml-tag { cursor: pointer; background: var(--surface); min-block-size: 32p
 }
 /* ⚠️ حدٌّ مختلفُ اللون والشكل: الفصلُ يُرى قبل أن يُقرأ. */
 .ml-cites-derived .ml-cite { border-inline-start: 3px dashed #6B7280; opacity: .85; }
+/* ⚠️ ونصٌّ اتشال: حدٌّ منقّطٌ باهت — يُرى أنه ناقصٌ قبل أن يُقرَأ (بند ٤٨). */
+.ml-cite.is-gone { border-inline-start-style: dotted; border-inline-start-color: var(--text-soft); }
 .ml-cite-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; font-size: 12px; }
 .ml-cite q { font-size: 16px; line-height: 1.8; }
 .ml-note { font-size: 11px; color: var(--text-soft); }

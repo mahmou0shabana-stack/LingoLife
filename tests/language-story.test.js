@@ -991,6 +991,107 @@ describe('WS-L · قبل ما تبعت: تعرف بالضبط إيه اللي ر
 });
 
 /* ================================================================== *
+ * ص — حدودُ المِلكيّة والحالاتُ الناقصة: بنود ٤٠ و٤٨
+ * ================================================================== */
+
+describe('WS-L · مَن يملك أيَّ رقم', () => {
+  it('ص١ · التحليلُ لا يكتب في مخازن حياتك أبدًا', async () => {
+    /*
+     * ⚠️ **ثلاثُ طبقاتٍ لا تُخلَط** (بند ٤٠): (أ) ما وقع — تملكه أنت،
+     *    (ب) ما استنتجه التحليل، (ج) ما فعلتَه بيدك. ومحرّكُ الاستيراد
+     *    يكتب في الطبقة (ب) وحدَها: لو مسّ `savedItems` أو
+     *    `mistakeComparisons` لَصار رأيُ طرفٍ خارجيٍّ تاريخًا لك.
+     */
+    const text = await fetch('../js/services/memory/import-v2.js').then((r) => r.text());
+    const body = text.replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const mine of ['savedItems', 'practiceEvidence', 'mistakeComparisons', 'scenes.create']) {
+      if (body.includes(mine)) throw new Error(`الاستيرادُ يمسّ مِلكَك: ${mine}`);
+    }
+    /* ويكتب في مخازنه هو. */
+    expect(body).toContain('analysisItems');
+    expect(body).toContain('analysisEvidence');
+  });
+
+  it('ص٢ · والفهرسُ يُحسَب عند القراءة ولا يُخزَّن نسخةً ثانية', async () => {
+    /*
+     * ⚠️ **ولا مخزنَ رابع.** العنصرُ الموحَّدُ لو خُزِّن لَصار نسختين
+     *    تختلفان بعد أوّل تعديل — وأيُّهما الصادقة؟ فالتوحيدُ يقع في
+     *    `buildLanguageIndex` عند كلّ قراءة، والذاكرةُ مؤقّتةٌ تُبطَل.
+     */
+    const text = await fetch('../js/services/memory/my-language.js').then((r) => r.text());
+    const body = text.replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const writer of ['.create(', '.update(', '.putManyRaw(', '.remove(']) {
+      if (body.includes(writer)) throw new Error(`الفهرسُ يكتب: ${writer}`);
+    }
+    const { STORES } = await import('../js/db/schema.js');
+    expect(Object.keys(STORES).includes('languageItems')).toBe(false);
+  });
+
+  it('ص٣ · ودليلٌ من نصٍّ اتشال يقول إنه اتشال', async () => {
+    /*
+     * ⚠️ **الوصلةُ تبقى عمدًا** — محوُها يعني أن حذفَ نصٍّ يمحو ما
+     *    تعلّمتَه منه. لكنّ عرضَها كموقفٍ حيٍّ عاديٍّ كذبٌ صامت: تضغط
+     *    «افتح المصدر» فلا تجد شيئًا وتظنّ العطبَ في التطبيق.
+     */
+    await resetDevices();
+    const made = await on(TABLET, async () => {
+      const one = await seedScript({ title: 'هيتشال', text: RAW });
+      await classifySource(one.key, {
+        evidenceClass: EVIDENCE.PRIMARY, originType: ORIGIN.RAW_TRANSCRIPT,
+      });
+      await importFile(file([DOC({
+        evidence: [{ sourceKey: one.key, segmentId: one.seg, quote: 'Документы' }],
+      })]));
+      const { scripts: repo } = await import('../js/db/repositories.js');
+      await repo.trash(one.id);
+      await scanSources();
+      return one;
+    });
+
+    const ev = await on(TABLET, () => evidenceOf('word:документ:default'));
+    expect(ev.primary).toHaveLength(1);
+    expect(ev.primary[0].missing).toBe(true);
+
+    /* والشاشةُ تقرأ العلمَ وتكتبه — ولا تعرض زرَّ فتحٍ لا يفتح شيئًا. */
+    const view = await fetch('../js/views/my-language-view.js').then((r) => r.text());
+    const at = view.indexOf('function citeHtml');
+    const block = view.slice(at, view.indexOf('\n}', at));
+    expect(block).toContain('row.missing');
+    expect(block).toContain('اتشال');
+
+    /* وفتحُ المصدر يقول «محذوف» ولا يعطي شاشةً فارغة. */
+    const ctx = await on(TABLET, () => sourceContext(made.key, made.seg, 'Документы'));
+    expect(ctx.missing).toBe(true);
+    expect(ctx.title).toBe('هيتشال');
+  });
+
+  it('ص٤ · وعنصرٌ كلُّ دليله مولَّدٌ يقول ذلك صراحةً', async () => {
+    await resetDevices();
+    await on(TABLET, async () => {
+      const scene = await scenes.create({ titleAr: 'تدريب', date: '2026-04-06' });
+      const gen = await addScript(scene.id, { title: 'مولَّد', text: GEN });
+      await scanSources();
+      const genKey = keyOf('script', gen.id);
+      await classifySource(genKey, {
+        evidenceClass: EVIDENCE.DERIVED, originType: ORIGIN.AI_SHADOWING,
+      });
+      await importFile(file([DOC({
+        evidence: [{ sourceKey: genKey, segmentId: `${gen.id}#0`, quote: 'Документы' }],
+      })]));
+    });
+
+    const { item } = await on(TABLET, () => storyOf('word:документ:default'));
+    /* ═══ ولا موقفَ حقيقيًّا واحدًا مهما تكرّرت في المولَّد ═══ */
+    expect(item.realSituations).toBe(0);
+    expect(item.rawOccurrences).toBe(0);
+    expect(item.derivedAppearances > 0).toBe(true);
+
+    const view = await fetch('../js/views/my-language-view.js').then((r) => r.text());
+    expect(view).toContain('كل ظهورها لحد دلوقتي في مادة مولَّدة');
+  });
+});
+
+/* ================================================================== *
  * ن — النسخُ والمزامنة: البند ٥١
  * ================================================================== */
 

@@ -40,7 +40,12 @@ await page.goto(url);
 // ⚠️ التوقيع `waitForFunction(fn, arg, options)`. تمرير الخيارات في
 //    موضع `arg` يجعلها وسيطًا للدالّة لا خيارًا — فتظلّ مهلة 30 ثانية
 //    الافتراضية سارية. لم يظهر ذلك إلا حين تجاوزت الاختبارات نصف دقيقة.
-await page.waitForFunction(() => window.__testResult, null, { timeout: 300_000 });
+//
+// ⚠️ **والمهلةُ رُفعت إلى ١٥ دقيقة (WS-L).** كانت خمسًا، والمجموعةُ
+//    بلغت ~٢٨٠ ثانية بعد اختبارات المقياس (١٠ آلاف عنصر) — فصار الفشلُ
+//    المُبلَّغ «انتهت المهلة» لا «فشل اختبار»، وهو أسوأُ إبلاغٍ ممكن:
+//    يخفي نجاحًا كاملًا خلف عطبٍ في العدّاد.
+await page.waitForFunction(() => window.__testResult, null, { timeout: 900_000 });
 
 const result = await page.evaluate(() => window.__testResult);
 

@@ -1074,9 +1074,16 @@ async function paintStory(main, built, key) {
  */
 function citeHtml(row, one) {
   return html`
-    <li class="ml-cite">
+    <li class="ml-cite ${row.missing ? 'is-gone' : ''}">
       <span class="ml-cite-head">
         <b>${row.title}</b>
+        <!--
+          ⚠️ **ونصٌّ اتشال يقول إنه اتشال** (بند ٤٨). الوصلةُ تبقى عمدًا
+             (محوُها يعني أن حذفَ نصٍّ يمحو ما تعلّمتَه منه)، لكنّ عرضَها
+             كموقفٍ حيٍّ عاديٍّ كذبٌ صامت: تضغط «افتح المصدر» فلا تجد
+             شيئًا وتظنّ العطبَ في التطبيق.
+        -->
+        ${raw(row.missing ? '<span class="ml-tag mr-warn">النصّ ده اتشال</span>' : '')}
         ${raw(row.speaker ? html`<span class="ml-spk">${row.speaker}</span>` : '')}
         ${raw(row.at ? html`<span class="mr-dim">${formatDate(row.at)}</span>`
     : '<span class="mr-dim">من غير تاريخ</span>')}
@@ -1084,11 +1091,16 @@ function citeHtml(row, one) {
       </span>
       <q dir="ltr" lang="ru">${row.quote}</q>
       ${raw(row.aiNote ? html`<span class="ml-note">ملاحظة التحليل: ${row.aiNote}</span>` : '')}
+      ${raw(row.missing ? html`
+        <span class="ml-note">
+          الاقتباس ده باقي عندك كدليل على إنك شفت الكلمة فعلًا، بس
+          النصّ الأصلي نفسه اتشال — فمفيش سياق كامل تفتحه.
+        </span>` : html`
       <button type="button" class="ml-open-src" data-action="ml-context"
               data-source="${row.sourceKey}" data-segment="${row.segmentId}"
               data-needle="${row.form || one.lemma || ''}">
         افتح المصدر كامل ←
-      </button>
+      </button>`)}
     </li>`;
 }
 
