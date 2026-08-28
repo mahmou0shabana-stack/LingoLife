@@ -86,6 +86,14 @@ export const referenceRules = createRepository('referenceRules', PREFIX.REFERENC
  */
 export const memoryOccurrences = createRepository('memoryOccurrences', PREFIX.MEMORY_OCCURRENCE);
 
+/*
+ * ذاكرةُ اللغة الحيّة v2 — سجلُّ المصادر وطبقةُ التحليل (WS-J).
+ * الشرحُ الكاملُ فوق تعريفها في `schema.js`.
+ */
+export const memorySources = createRepository('memorySources', PREFIX.MEMORY_SOURCE);
+export const analysisItems = createRepository('analysisItems', PREFIX.ANALYSIS_ITEM);
+export const analysisEvidence = createRepository('analysisEvidence', PREFIX.ANALYSIS_EVIDENCE);
+
 /**
  * الإعدادات — مفتاح/قيمة، بلا الحقول المشتركة.
  * أبسط من repository كامل ولا يحتاج rev ولا حالات.
@@ -154,6 +162,9 @@ export const settings = {
 /** خريطة بالاسم — للتصدير والاستيراد والإحصاءات. */
 export const ALL_REPOS = {
   memoryOccurrences,
+  memorySources,
+  analysisItems,
+  analysisEvidence,
   scenes,
   media,
   sceneMediaLinks,

@@ -66,6 +66,10 @@ export const PREFIX = Object.freeze({
   REFERENCE_RULE: 'RRL',
   /** ذاكرةُ اللغة — موضعٌ في مصدر (WS-C). */
   MEMORY_OCCURRENCE: 'MOC',
+  /* ذاكرةُ اللغة الحيّة v2 (WS-J) */
+  MEMORY_SOURCE: 'MSR',
+  ANALYSIS_ITEM: 'ANI',
+  ANALYSIS_EVIDENCE: 'ANE',
 });
 
 function encodeTime(ms, len = 10) {

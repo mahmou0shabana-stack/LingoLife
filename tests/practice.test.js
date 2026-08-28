@@ -656,9 +656,26 @@ describe('WS-I · الحرّاسُ البنيويّون (بند ٣٢)', () => {
     for (const word of ['shadowVoice', 'voiceAttempt']) {
       if (codeOf(migrations).includes(word)) throw new Error(`ترقيةٌ تذكر «${word}»`);
     }
-    /* وآخرُ ترقيةٍ ما زالت ١٧ — لم تتحرّك لأجل التسجيل. */
+
+    /*
+     * ⚠️ **وكان هنا `expect(v:18 موجودة).toBe(false)` — وهو حارسٌ أوسعُ
+     *    من دعواه.**
+     *
+     *    المقصودُ إثباتُ أن **تسجيلَ الصوت** لم يحتج ترقيةً. لكنّ
+     *    الصياغةَ جمّدت المخطّطَ كلَّه عند v17، فأسقطها أوّلُ عملٍ لاحقٍ
+     *    احتاج مخزنًا لسببٍ لا علاقةَ له بالتسجيل (ذاكرةُ اللغة v2).
+     *
+     *    والصوابُ أن يُقاس ما ادُّعي: **لا ترقيةَ تنشئ مخزنًا للتسجيلات**.
+     *    فأيُّ ترقيةٍ جديدةٍ تمرّ ما دامت لا تُنشئ مخزنًا من مفردات هذه
+     *    الميزة — وهو الحدُّ الذي وُضع الحارسُ ليحرسه.
+     */
+    const RECORDING_STORES = ['voiceAttempts', 'shadowRecordings', 'attempts', 'recordings'];
+    for (const name of RECORDING_STORES) {
+      const pattern = new RegExp(`createStore\\(db,\\s*['"]${name}['"]`);
+      if (pattern.test(migrations)) throw new Error(`ترقيةٌ تُنشئ مخزنَ تسجيلات: ${name}`);
+    }
+    /* وv17 ما زالت موجودةً كما نُشرت — لا تُعدَّل ترقيةٌ منشورة. */
     expect(/\bv:\s*17\b/.test(migrations)).toBe(true);
-    expect(/\bv:\s*18\b/.test(migrations)).toBe(false);
 
     /* والخدمةُ تكتب في المخازن القائمة وحدَها. */
     const service = await srcOf('services/shadow/voice-attempts.js');
