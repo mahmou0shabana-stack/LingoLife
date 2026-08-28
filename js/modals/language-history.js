@@ -29,8 +29,9 @@ import { navigate } from '../router.js';
 import { normalize } from '../utils/normalization.js';
 import { cachedLanguage } from '../services/memory/language-cache.js';
 import {
-  evidenceOf, PROVENANCE_LABEL, ITEM_TYPE_LABEL,
+  evidenceOf, relationsOf, PROVENANCE_LABEL, ITEM_TYPE_LABEL,
 } from '../services/memory/my-language.js';
+import { toastOk, toastError } from '../components/toast.js';
 
 /**
  * يفتح تاريخَ نصٍّ (كلمة · مقطع · جملة) فوق شاشة التدريب.
@@ -54,12 +55,19 @@ export async function openLanguageHistory(text, kind = 'word') {
   if (!one) return unknownYet(clean, kind);
 
   const evidence = await evidenceOf(one.key);
+  const rel = relationsOf(index, one.key);
 
   return showModal({
     title: 'تاريخها في لغتي',
     wide: true,
+    /*
+     * ⚠️ **و«ارجع للتدريب» هو الزرُّ الأساسيّ** (بند ٣٦): اللوحةُ
+     *    ضيفٌ على الجلسة، والخروجُ منها إلى الجلسة لا إلى شاشةٍ أخرى.
+     *    و«احفظها» فعلٌ سريعٌ بلا نموذجٍ يقطع التدريب (بند ١٧).
+     */
     actions: [
-      { label: 'افتح صفحتها', value: 'open', variant: 'ghost' },
+      { label: 'افتح القصة كاملة', value: 'open', variant: 'ghost' },
+      { label: 'احفظها', value: 'save', variant: 'ghost' },
       { label: 'ارجع للتدريب', value: null, variant: 'primary' },
     ],
     body: html`
@@ -97,9 +105,44 @@ export async function openLanguageHistory(text, kind = 'word') {
             وكمان ${evidence.derived.length} ظهور في محتوى مولَّد —
             مش محسوب في المواقف الحقيقية.
           </p>` : '')}
+
+        <!-- ══ صيغٌ وعائلةٌ — مختصرًا، والتفصيلُ في «لغتي» (بند ٣٥) ══ -->
+        ${raw(rel.forms.observed.length ? html`
+        <p class="lh-empty">
+          صيغ شفتها:
+          ${raw(rel.forms.observed.slice(0, 6).map((f) => html`
+            <span class="ml-tag" dir="ltr" lang="ru">${f}</span>`).join(' '))}
+        </p>` : '')}
+        ${raw(rel.family.length ? html`
+        <p class="lh-empty">
+          من نفس العائلة:
+          ${raw(rel.family.slice(0, 5).map((o) => html`
+            <span class="ml-tag" dir="ltr" lang="ru">${o.lemma}</span>`).join(' '))}
+        </p>` : '')}
+        ${raw(one.verifyStatus === 'review' ? html`
+        <p class="lh-empty mr-warn">
+          عدّ التحليل مختلف عن عدّ التطبيق — محتاج مراجعة في «لغتي».
+        </p>` : '')}
       </div>`,
     onSubmit(_data, close) { close(); },
-  }).then((value) => {
+  }).then(async (value) => {
+    if (value === 'save') {
+      /*
+       * ⚠️ **ويُحفَظ النصُّ كما حدّدتَه بالضبط** (بند ٣٧): لا مفردةُ
+       *    التحليل ولا صيغتُه الأساسيّة. «был связан с» تبقى كما هي،
+       *    والربطُ بالعنصر يقع في القراءة لا بتغيير ما حفظتَه.
+       */
+      try {
+        const { saveItem, SAVED_KIND } = await import('../services/saved-service.js');
+        await saveItem({
+          text: clean,
+          kind: kind === 'phrase' ? SAVED_KIND.PHRASE
+            : (kind === 'sentence' ? SAVED_KIND.SENTENCE : SAVED_KIND.WORD),
+        });
+        toastOk('اتحفظت');
+      } catch (error) { toastError(error.message); }
+      return value;
+    }
     /*
      * ⚠️ **والانتقالُ بعد الإغلاق لا قبله.** التنقّلُ ونافذةٌ مفتوحةٌ
      *    يترك طبقةً معلَّقةً فوق الشاشة الجديدة — وهو عطبٌ أُصلح مرّةً

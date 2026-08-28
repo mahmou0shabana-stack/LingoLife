@@ -46,6 +46,9 @@ import {
   cachedLanguage, cacheLanguage, invalidateLanguage,
 } from '../services/memory/language-cache.js';
 import { incrementalStatus } from '../services/memory/analysis-state.js';
+import {
+  itemStory, EVENT, EVENT_LABEL, MISTAKE_KIND_LABEL, MISTAKE_KIND,
+} from '../services/memory/item-story.js';
 
 /**
  * الفهرسُ محفوظٌ في ورقةٍ مشتركة — راجع ترويسة `language-cache.js`.
@@ -306,11 +309,15 @@ function donutHtml(truth) {
       <h4>مصادري</h4>
       <div class="ml-donut-body">
         <svg viewBox="0 0 120 120" width="120" height="120" role="img"
-             aria-label="توزيع المصادر حسب المنشأ">
+             aria-label="توزيع ${total} مصدر: ${parts.map((o) => `${o.label} ${o.value}`).join('، ')}">
           ${raw(rings)}
           <text x="60" y="57" text-anchor="middle" class="ml-donut-n">${total}</text>
           <text x="60" y="72" text-anchor="middle" class="ml-donut-t">مصدر</text>
         </svg>
+        <!--
+          ⚠️ **ورسمٌ بلا مكافئٍ نصّيٍّ لا يُقرأ** (بند ٤٧): الأسطورةُ
+             نفسُها هي المكافئ — نصٌّ وأرقامٌ ونِسَب، لا ألوانٌ فقط.
+        -->
         <ul class="ml-legend">
           ${raw(parts.map((one) => html`
             <li>
@@ -510,6 +517,7 @@ function facetsHtml(built) {
     const n = (state.query[f.id] || []).length;
     return html`
           <button type="button" data-action="ml-facet" data-facet="${f.id}"
+                  aria-expanded="${open === f.id}"
                   class="${open === f.id ? 'on' : ''}">
             ${f.label}${raw(n ? html` <i>${n}</i>` : '')}
           </button>`;
@@ -519,6 +527,7 @@ function facetsHtml(built) {
         ${raw(values.length ? values.map((one) => html`
           <button type="button" data-action="ml-pick" data-facet="${open}"
                   data-value="${one.value}"
+                  aria-pressed="${picked.includes(one.value)}"
                   class="${picked.includes(one.value) ? 'on' : ''}">
             ${label(one.value)}<span class="ml-n">${nf(one.count)}</span>
           </button>`).join('')
@@ -542,8 +551,9 @@ function rowHtml(one) {
   const mine = myState(one);
   const when = lastSeen(one);
   return html`
-    <button class="ml-row ${state.story === one.key ? 'is-open' : ''}"
-            data-action="ml-open" data-key="${one.key}" style="--y:${one.__y}px">
+    <button class="ml-row ${state.story === one.key ? 'is-open' : ''}" role="listitem"
+            data-action="ml-open" data-key="${one.key}" style="--y:${one.__y}px"
+            aria-label="${one.lemma || one.key} — ${one.realSituations} موقف حقيقي، ${one.rawOccurrences} مرة ظهور">
       <span class="c-item">
         <span class="ml-lemma" dir="ltr" lang="ru">${one.lemma || one.key}</span>
         ${raw(one.meaningAr ? html`<span class="ml-mean">${one.meaningAr}</span>` : '')}
@@ -584,7 +594,8 @@ function listHtml(rows) {
 
   return html`
     ${raw(HEAD)}
-    <div class="ml-list" data-ml-list>
+    <div class="ml-list" data-ml-list role="list"
+         aria-label="عناصر لغتي — ${nf(rows.length)} عنصر">
       <div class="ml-space" style="height:${rows.length * ROW_H}px">
         ${raw(shown.map(rowHtml).join(''))}
       </div>
@@ -607,6 +618,37 @@ export async function renderMyLanguage(main) {
     ...FACETS.flatMap((f) => (state.query[f.id] || []).map((v) => ({ facet: f.id, value: v }))),
     ...(state.query.recentDays ? [{ facet: 'recentDays', value: '٣٠ يوم' }] : []),
   ];
+
+  /*
+   * ⚠️ **وحالةُ الفراغ تقول ما الخطوةُ التالية** (بند ٤٨). شاشةٌ
+   *    بأصفارٍ وستّةِ رسومٍ فارغةٍ تبدو معطوبةً؛ والصادقُ أن نقول:
+   *    مفيش تحليل لسه، وده الباب.
+   */
+  if (!built.totals.all) {
+    main.innerHTML = html`
+      <section class="ml">
+        <header class="ml-top">
+          <div>
+            <h2>${raw(icon('book', 20))} لغتي</h2>
+            <p class="ml-sub">اللغة اللي اتكوّنت من مواقفك الحقيقية وتعلّمك.</p>
+          </div>
+        </header>
+        <div class="ml-panel ml-blank">
+          <h4>لسه فاضية</h4>
+          <p class="ml-tiny">
+            «لغتي» بتتكوّن من حاجتين: تحليل لنصوصك، وحاجات إنت
+            بتعلّم عليها وإنت بتتدرّب. لسه ما حصلش ولا واحدة منهم.
+          </p>
+          <button type="button" class="btn btn-primary ml-wide" data-action="mem-review">
+            ابدأ أول تحليل للغتك
+          </button>
+          <p class="ml-tiny">
+            أو افتح أي نصّ في الشادوينج واحفظ كلمة — هتلاقيها هنا على طول.
+          </p>
+        </div>
+      </section>`;
+    return;
+  }
 
   main.innerHTML = html`
     <section class="ml">
@@ -639,9 +681,10 @@ export async function renderMyLanguage(main) {
 
       <!-- ══ المستوى الثاني: الاستكشاف ══ -->
       <div class="ml-explore">
-        <div class="ml-tabs">
+        <div class="ml-tabs" role="tablist" aria-label="نوع المحتوى">
           ${raw(TABS.map((t) => html`
-            <button type="button" data-action="ml-tab" data-tab="${t.id}"
+            <button type="button" data-action="ml-tab" data-tab="${t.id}" role="tab"
+                    aria-selected="${state.tab === t.id}"
                     class="${state.tab === t.id ? 'on' : ''}">${t.label}</button>`).join(''))}
         </div>
 
@@ -675,7 +718,16 @@ export async function renderMyLanguage(main) {
         </div>` : '')}
 
         ${raw(rows.length ? listHtml(rows) : html`
-          <p class="field-hint ml-empty">مفيش عناصر بالتصفية دي.</p>`)}
+          <div class="ml-empty">
+            <p class="field-hint">مفيش عناصر بالتصفية دي.</p>
+            ${raw(active.length ? html`
+              <button type="button" class="btn btn-ghost btn-sm" data-action="ml-clear">
+                امسح التصفية
+              </button>` : html`
+              <p class="ml-tiny">
+                التبويب ده لسه فاضي — جرّب «الكل» أو حدّث تحليل لغتك.
+              </p>`)}
+          </div>`)}
       </div>
     </section>
 
@@ -736,12 +788,8 @@ async function paintStory(main, built, key) {
   const one = built.byKey.get(key);
   if (!one) { host.hidden = true; return; }
 
-  const [evidence, memory] = await Promise.all([
-    evidenceOf(key),
-    import('../services/memory/memory-service.js')
-      .then((m) => m.entityMemory(one.lemma || '', one.itemType === ITEM_TYPE.WORD ? 'word' : 'sentence'))
-      .catch(() => null),
-  ]);
+  const evidence = await evidenceOf(key);
+  const story = await itemStory(one, evidence);
   const rel = relationsOf(built, key);
 
   host.hidden = false;
@@ -799,14 +847,47 @@ async function paintStory(main, built, key) {
         <h4 class="ml-h is-real">من حياتي الحقيقية (${evidence.realSituations} موقف)</h4>
         ${raw(evidence.primary.length ? html`
           <ul class="ml-cites">${raw(evidence.primary.map((row) => citeHtml(row, one)).join(''))}</ul>`
-    : '<p class="ml-tiny">مفيش دليل من نصّ أصلي لحد دلوقتي.</p>')}
+    : html`<p class="ml-tiny">
+          مفيش دليل من نصّ أصلي لحد دلوقتي.
+          ${raw(one.unknownOccurrences ? 'صنّف مصادرك غير المحدَّدة وهي ممكن تتحول لمواقف حقيقية.'
+    : (one.derivedAppearances ? 'كل ظهورها لحد دلوقتي في مادة مولَّدة.'
+      : 'هتظهر هنا أول ما تحلّل نصًّا فيه الكلمة دي.'))}
+        </p>`)}
 
         <!-- ══ والمولَّدُ قسمٌ منفصلٌ تمامًا ══ -->
-        ${raw(evidence.derived.length ? html`
-        <h4 class="ml-h is-derived">ظهور في محتوى مولَّد (${evidence.derived.length})</h4>
-        <p class="ml-tiny">مادّة تعليمية اتولدت من نصوصك — مش مواقف حقيقية.</p>
+        <!-- ══ ومادّةٌ مولَّدةٌ بنسبها (بند ٣٠) ══ -->
+        ${raw(story.derived.length ? html`
+        <h4 class="ml-h is-derived">مواد تعليمية مولَّدة (${story.derived.length})</h4>
+        <p class="ml-tiny ml-rule">
+          المواد المولَّدة مش محسوبة كمواقف حقيقية. بتفيدك في الفهم
+          والتدريب، ومش بتزوّد رقم «المواقف الحقيقية» ولا عدد المصادر
+          الأصلية ولا معدّل استخدامك الحقيقي.
+        </p>
         <ul class="ml-cites ml-cites-derived">
-          ${raw(evidence.derived.map((row) => citeHtml(row, one)).join(''))}
+          ${raw(story.derived.map((row) => html`
+            <li class="ml-cite">
+              <span class="ml-cite-head">
+                <b>${row.title}</b>
+                ${raw(row.originLabel ? html`<span class="ml-tag">${row.originLabel}</span>` : '')}
+                ${raw(row.at ? html`<span class="mr-dim">${formatDate(row.at)}</span>`
+    : '<span class="mr-dim">من غير تاريخ</span>')}
+              </span>
+              <q dir="ltr" lang="ru">${row.quote}</q>
+              ${raw(row.parents.length ? html`
+                <span class="ml-note">
+                  مولَّد من:
+                  ${raw(row.parents.map((p) => html`
+                    <button type="button" class="ml-linkish" data-action="ml-context"
+                            data-source="${p.key}" data-segment="" data-needle="${one.lemma || ''}">
+                      ${p.title}
+                    </button>`).join('، '))}
+                </span>`
+    /*
+     * ⚠️ **وأصلٌ غيرُ مذكورٍ يُقال** (بند ٣٠): «مولَّد من: —» أصدقُ
+     *    من سطرٍ يختفي، لأن غيابَ النسب معلومةٌ تدعوك لتصنيف المصدر.
+     */
+    : '<span class="ml-note">أصله مش مسجَّل — صنّفه من «ذاكرة اللغة».</span>')}
+            </li>`).join(''))}
         </ul>` : '')}
 
         ${raw(evidence.unknown.length ? html`
@@ -816,13 +897,25 @@ async function paintStory(main, built, key) {
           صنّف المصادر دي
         </button>` : '')}
 
-        <!-- ══ تاريخُ المتعلّم ══ -->
+        <!-- ══ ٣٨ · ليه ده موجود عندي؟ ══ -->
+        <h4 class="ml-h">ليه ده موجود عندي؟</h4>
+        <div class="ml-chips">
+          ${raw(story.reasons.map((r) => html`
+            <span class="ml-tag is-reason">${r.label}</span>`).join(''))}
+        </div>
+
+        <!-- ══ ٣١ · تاريخي معاه — أفعالٌ منّي لا أدلّةَ حياة ══ -->
         <h4 class="ml-h">تاريخي معاه</h4>
+        <p class="ml-tiny ml-rule">
+          ده تعاملي أنا مع العنصر — <b>مش دليل إنه ظهر في حياتي</b>.
+          ولا حاجة هنا بتزوّد رقم «المواقف الحقيقية» ولا تعني إتقان.
+        </p>
         <div class="mr-sum">
           <span>حفظتها: <b>${one.saved}</b></span>
           <span>اتدرّبت: <b>${one.practised}</b></span>
           <span>من الشادوينج: <b>${one.shadowed}</b></span>
-          <span>غلطات: <b>${one.errors}</b></span>
+          <span>تسجيلات: <b>${story.counts.recordings}</b></span>
+          <span>غلطات سجّلتها: <b>${story.counts.learnerMistakes}</b></span>
         </div>
         ${raw(one.savedTags.length ? html`
         <div class="ml-chips">
@@ -830,22 +923,84 @@ async function paintStory(main, built, key) {
             <button type="button" class="ml-tag" data-action="ml-pick"
                     data-facet="tag" data-value="${id}">${tagLabel(built, id)}</button>`).join(''))}
         </div>` : '')}
-        <p class="ml-tiny">⚠️ دي أفعال منك — مش بتزوّد المواقف الحقيقية ولا تعني إتقان.</p>
-        ${raw(memory?.captures?.length ? html`
-          <ul class="ml-events">
-            ${raw(memory.captures.map((c) => html`
-              <li>حفظتها ${formatDate(c.at)}${raw(c.note ? html` · ${c.note}` : '')}</li>`).join(''))}
-          </ul>` : '')}
-        ${raw(memory?.practices?.length ? html`
-          <ul class="ml-events">
-            ${raw(memory.practices.slice(0, 10).map((p) => html`
-              <li>اتدرّبت ${formatDate(p.at)} · ${p.repetitions || 1} مرة</li>`).join(''))}
-          </ul>` : '')}
-        ${raw(memory?.errors?.length ? html`
-          <ul class="ml-events ml-events-bad">
-            ${raw(memory.errors.map((e) => html`
-              <li><span dir="ltr" lang="ru">${e.wrong}</span> ← <span dir="ltr" lang="ru">${e.natural}</span></li>`).join(''))}
-          </ul>` : '')}
+        ${raw(story.saves.length ? html`
+        <ul class="ml-events">
+          ${raw(story.saves.map((c) => html`
+            <li>حفظتها ${c.at ? formatDate(c.at) : 'من غير تاريخ'}${raw(c.note ? html` · ${c.note}` : '')}</li>`).join(''))}
+        </ul>` : '')}
+
+        <!-- ══ ٣٣ · تسجيلاتي — بالمسار القائم لا بنظامٍ ثانٍ ══ -->
+        ${raw(story.recordings.length ? html`
+        <h5 class="ml-sub-h">تسجيلاتي (${story.recordings.length})</h5>
+        <ul class="ml-recs">
+          ${raw(story.recordings.map((rec) => html`
+            <li>
+              <button type="button" class="ml-play" data-action="ml-play"
+                      data-media="${rec.mediaId || ''}"
+                      aria-label="شغّل تسجيلك">▶</button>
+              <span class="ml-rec-when">${rec.at ? formatDate(rec.at) : 'من غير تاريخ'}</span>
+              ${raw(rec.durationMs
+    ? html`<span class="mr-dim">${Math.round(rec.durationMs / 1000)} ث</span>` : '')}
+              <!--
+                ⚠️ **وما على Drive يقول ذلك ولا يُنزَّل الآن** (بند ٣٣):
+                   فتحُ القصّة لا يجرّ ميجابايتاتٍ لم تطلبها.
+              -->
+              ${raw(rec.cloudOnly ? '<span class="ml-tag">على Drive — اضغط لتنزيله</span>' : '')}
+            </li>`).join(''))}
+        </ul>` : '')}
+
+        <!-- ══ ٣٤ · غلطاتي وحدَها هنا ══ -->
+        ${raw(story.mistakes.learner.length ? html`
+        <h5 class="ml-sub-h">غلطات سجّلتها</h5>
+        <ul class="ml-events ml-events-bad">
+          ${raw(story.mistakes.learner.map((e) => html`
+            <li>
+              <span dir="ltr" lang="ru">${e.wrong}</span> ←
+              <span dir="ltr" lang="ru">${e.natural}</span>
+              ${raw(e.at ? html`<span class="mr-dim">${formatDate(e.at)}</span>`
+    : '<span class="mr-dim">من غير تاريخ</span>')}
+            </li>`).join(''))}
+        </ul>` : '')}
+
+        <!--
+          ⚠️ **واقتراحاتُ التصحيح تحليلٌ لا تاريخ** (بند ٣٤): تُعرَض
+             تحت عنوانها ولا تدخل «غلطاتي» ولا تُعَدّ في أيّ رقمٍ عنك.
+        -->
+        ${raw(story.mistakes.proposed.length ? html`
+        <h5 class="ml-sub-h">اقتراحات من التحليل (مش غلطات عليك)</h5>
+        <ul class="ml-events ml-events-soft">
+          ${raw(story.mistakes.proposed.map((e) => html`
+            <li>
+              <span class="ml-tag">${MISTAKE_KIND_LABEL[e.kind]}</span>
+              <span dir="ltr" lang="ru">${e.wrong}</span> →
+              <span dir="ltr" lang="ru">${e.natural}</span>
+            </li>`).join(''))}
+        </ul>` : '')}
+
+        <!-- ══ ٣٢ · الخطُّ الزمنيّ — وقائعُ مؤرَّخةٌ وحدَها ══ -->
+        <h4 class="ml-h">خط زمني للظهور</h4>
+        ${raw(story.timeline.length ? html`
+        <ol class="ml-time">
+          ${raw(story.timeline.map((e) => html`
+            <li class="is-${e.kind}">
+              <span class="ml-time-when">${formatDate(e.at)}</span>
+              <span class="ml-time-what">
+                ${EVENT_LABEL[e.kind] || ''}
+                ${raw(e.title ? html` · ${e.title}` : '')}
+                ${raw(e.speaker ? html` · <span class="ml-spk">${e.speaker}</span>` : '')}
+              </span>
+              ${raw(e.quote ? html`<q dir="ltr" lang="ru">${e.quote}</q>` : '')}
+            </li>`).join(''))}
+        </ol>` : html`
+        <p class="ml-tiny">
+          مفيش تواريخ حقيقية كفاية لخط زمني. تاريخ الظهور بييجي من
+          تاريخ الذكرى نفسها — لو المشهد من غير تاريخ، مبنخترعش واحد.
+        </p>`)}
+        ${raw(story.counts.undatedEvents ? html`
+        <p class="ml-tiny">
+          وفيه ${story.counts.undatedEvents} حاجة تانية من غير تاريخ،
+          فما دخلتش الخط الزمني.
+        </p>` : '')}
 
         <!-- ══ الصيغُ بأعدادها (بند ٢٥) ══ -->
         <h4 class="ml-h">الصيغ</h4>
@@ -995,6 +1150,10 @@ const focusExplorer = (main) => {
   main.querySelector('.ml-explore')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
 };
 
+/** عنوانٌ مساعدٌ للمشغّل — من الصفّ الذي ضُغط. */
+const one_title = (target) =>
+  target?.closest('li')?.querySelector('.ml-rec-when')?.textContent?.trim() || '';
+
 export async function handleMyLanguageAction(action, target) {
   const main = $('#app-main');
   const redraw = async () => { if (main) await renderMyLanguage(main); };
@@ -1054,6 +1213,42 @@ export async function handleMyLanguageAction(action, target) {
     const { speak } = await import('../services/shadow/tts-controller.js');
     const said = await speak(text);
     if (!said.ok) toast('الصوت مش متاح دلوقتي');
+    return true;
+  }
+
+  if (action === 'ml-play') {
+    const mediaId = target.dataset.media;
+    if (!mediaId) return true;
+    /*
+     * ⚠️ **ولا نظامَ تسجيلٍ ثانٍ ولا نسخةَ بايتاتٍ ثانية** (بند ٣٣):
+     *    `ensureBytes` هي نفسُها التي يستعملها كلُّ ما في التطبيق،
+     *    و`urlFor` نفسُها، والمشغّلُ نفسُه. والفرقُ الوحيد أن هذه
+     *    الشاشةَ تطلب **ملفًّا واحدًا** لا كلَّ ما على Drive.
+     */
+    const { ensureBytes, urlFor } = await import('../services/media-service.js');
+    const got = await withProgress({
+      key: `ml-media-${mediaId}`,
+      title: 'بيجيب تسجيلك',
+      stages: ['بيدوّر عليه', 'بينزّله من Drive'],
+    }, async (bar) => {
+      bar.stage(0).indeterminate('بيدوّر على الملف…');
+      const outcome = await ensureBytes(mediaId);
+      if (!outcome.ok) {
+        bar.fail(outcome.reason || 'مقدرناش نجيبه');
+        return outcome;
+      }
+      bar.done(outcome.alreadyLocal ? 'موجود على الجهاز' : 'اتنزّل');
+      return outcome;
+    });
+
+    if (got?.skipped) return true;
+    if (!got?.ok) return true;
+
+    const url = urlFor(got.record, { thumb: false });
+    if (!url) { toast('الملف مش متاح'); return true; }
+    const { api } = await import('../services/audio-service.js');
+    /* ⚠️ `load` لا `play`: هي البابُ الذي يحمّل مقطعًا ويشغّله. */
+    await api.load({ mediaId, url, title: 'تسجيلي', subtitle: one_title(target) });
     return true;
   }
 

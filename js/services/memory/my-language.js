@@ -65,6 +65,7 @@ import { normalize } from '../../utils/normalization.js';
 import { EVIDENCE } from './provenance.js';
 import { listSources, readLiveSources, ANALYSIS_STATE } from './source-registry.js';
 import { listSavedTags } from '../saved-service.js';
+import { classifyMistake, MISTAKE_KIND } from './item-story.js';
 import { ITEM_TYPE, ITEM_TYPE_LABEL } from './import-v2.js';
 import { VERIFY } from './counting.js';
 
@@ -93,6 +94,7 @@ export const SIGNAL = Object.freeze({
   PRACTISED: 'practised',
   SHADOWED: 'shadowed',
   ERROR: 'error',
+  RECORDED: 'recorded',
   /** جاء من التحليل. */
   ANALYZED: 'analyzed',
   /** أنت وحدك من علّمه — بلا تحليلٍ بعد. */
@@ -104,6 +106,7 @@ export const SIGNAL_LABEL = Object.freeze({
   [SIGNAL.PRACTISED]: 'اتدرّبت عليها',
   [SIGNAL.SHADOWED]: 'من الشادوينج',
   [SIGNAL.ERROR]: 'فيها غلطة',
+  [SIGNAL.RECORDED]: 'عندي تسجيل عليها',
   [SIGNAL.ANALYZED]: 'متحلّلة',
   [SIGNAL.LEARNER_ONLY]: 'من غير تحليل',
 });
@@ -210,7 +213,11 @@ const blank = (key, itemType, text) => ({
   practised: 0,
   lastPractisedAt: null,
   shadowed: 0,
+  /* ⚠️ **غلطاتُك وحدَها** — لا اقتراحاتُ التحليل. راجع `item-story.js`. */
   errors: 0,
+  /** اقتراحاتُ تصحيحٍ من التحليل — تُعرَض ولا تُعَدّ غلطاتٍ عليك. */
+  proposedFixes: 0,
+  recordings: 0,
   hasLearner: false,
 });
 
@@ -358,16 +365,52 @@ export async function buildLanguageIndex({ onProgress } = {}) {
     one.practised += (row.repetitions || 1);
     one.hasLearner = true;
     if (row.practiceType === 'shadowing' || row.targetType === 'shadowSegment') one.shadowed += 1;
+    if (row.practiceType === 'voiceAttempt' || row.targetType === 'shadowVoice') one.recordings += 1;
     if (Number.isFinite(row.practicedAt)) {
       one.lastPractisedAt = Math.max(one.lastPractisedAt || 0, row.practicedAt);
     }
   }
 
+  /*
+   * ⚠️ **وأربعةُ أشياءَ تُسمّى «غلطة» وواحدٌ منها غلطتُك** (بند ٣٤).
+   *    كان هذا السطرُ يعدّها كلَّها، فاقتراحُ تصحيحٍ من التحليل كان
+   *    يظهر «غلطة عندك» — رقمٌ عن حياتك يملؤه غيرُك.
+   */
+  const derivedSourceKeys = new Set(
+    registry.filter((row) => row.evidenceClass === EVIDENCE.DERIVED).map((row) => row.id)
+  );
+  /**
+   * العنصرُ القائمُ الذي يتكلّم عنه صفُّ المقارنة — **بلا إنشاء**.
+   *
+   * ⚠️ **و`canonical` أوّلًا لأنه الحقلُ الذي يسمّي المقصود.** صفٌّ
+   *    قانونيُّه «документ» وبديلُه الألطف «документация» يتكلّم عن
+   *    الأوّل؛ ولو حَلَلناه بالبديل وحدَه لَنُسب الاقتراحُ إلى كلمةٍ
+   *    أخرى — وهو نفسُ ما كان يجعل رقمَ اللوحة يخالف رقمَ القصّة.
+   */
+  const existing = (text) => {
+    const at = normalize(text || '');
+    const known = at ? formIndex.get(at) : null;
+    return known ? byKey.get(known) : null;
+  };
+
   for (const row of alive(errors)) {
-    const one = resolve(row.natural || row.wrong || '', 'sentence');
+    const kind = classifyMistake(row, { derivedSources: derivedSourceKeys });
+    if (kind === MISTAKE_KIND.LEARNER) {
+      /* غلطتُك جزءٌ من لغتك ولو لم يعرفها التحليل — فتُنشِئ عنصرًا. */
+      const one = resolve(row.canonical || row.natural || row.wrong || '', 'sentence');
+      if (!one) continue;
+      one.errors += 1;
+      one.hasLearner = true;
+      continue;
+    }
+    /*
+     * ⚠️ **والاقتراحُ لا يُنشئ عنصرًا في لغتك.** كان `resolve` يسكّ
+     *    عنصرَ متعلّمٍ جديدًا لكلّ صياغةٍ ألطف يقترحها التحليل، فتمتلئ
+     *    «لغتي» بكلماتٍ لم تسمعها ولم تحفظها — رأيٌ صار مدخلًا.
+     */
+    const one = existing(row.canonical || row.natural || row.wrong || '');
     if (!one) continue;
-    one.errors += 1;
-    one.hasLearner = true;
+    one.proposedFixes += 1;
   }
 
   /* ── ٥. الأوجهُ المشتقّة ── */
@@ -429,6 +472,7 @@ export function signalsOf(one) {
   if (one.practised > 0) out.push(SIGNAL.PRACTISED);
   if (one.shadowed > 0) out.push(SIGNAL.SHADOWED);
   if (one.errors > 0) out.push(SIGNAL.ERROR);
+  if (one.recordings > 0) out.push(SIGNAL.RECORDED);
   if (one.hasAnalysis) out.push(SIGNAL.ANALYZED);
   else out.push(SIGNAL.LEARNER_ONLY);
   return out;

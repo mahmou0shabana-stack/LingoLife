@@ -44,7 +44,10 @@
  * تعلّمتَه منه.
  */
 
-import { analysisItems, analysisEvidence } from '../../db/repositories.js';
+import { analysisItems, analysisEvidence, savedItems, mistakeComparisons } from '../../db/repositories.js';
+import { STATE } from '../../db/schema.js';
+import { normalize } from '../../utils/normalization.js';
+import { classifyMistake, MISTAKE_KIND } from './item-story.js';
 import { EVIDENCE } from './provenance.js';
 import { listSources, ANALYSIS_STATE } from './source-registry.js';
 
@@ -59,7 +62,9 @@ export const STATE_VERSION = 1;
  *    بلا فائدة: النصوصُ الجديدةُ في نفس الحزمة، والقديمةُ حُلِّلت.
  */
 export async function analysisSnapshot() {
-  const [items, registry] = await Promise.all([analysisItems.getAll(), listSources()]);
+  const [items, registry, saved, mistakes] = await Promise.all([
+    analysisItems.getAll(), listSources(), savedItems.getAll(), mistakeComparisons.getAll(),
+  ]);
 
   const families = new Map();
   for (const row of items) {
@@ -67,6 +72,49 @@ export async function analysisSnapshot() {
     if (!families.has(row.familyId)) families.set(row.familyId, []);
     families.get(row.familyId).push(row.lemma || row.key);
   }
+
+  /*
+   * ⚠️ **وإشاراتُ المتعلّم تُرسَل مفاتيحَ لا نصوصًا** (بند ٤١).
+   *
+   *    فائدتُها للتحليل حقيقيّة: أن يعرف أنك تعثّرت في «согласование»
+   *    يجعله يشرحها لا يمرّ عليها. لكنّها **إشارةٌ لا واقعةٌ لغويّة**:
+   *    لا تُرسَل ضمن الأدلّة ولا تُذكَر عددًا للظهور، وإلّا عاد التحليلُ
+   *    يحسب حفظَك ظهورًا — وهو نفسُ العطب الذي يمنعه البندُ ٢.
+   */
+  const savedForms = new Set(
+    saved.filter((row) => row.state !== STATE.TRASHED).map((row) => normalize(row.text || ''))
+  );
+  const derivedKeys = new Set(
+    registry.filter((row) => row.evidenceClass === 'derived').map((row) => row.id)
+  );
+
+  const byForm = new Map();
+  for (const row of items) {
+    for (const form of [row.lemma, row.surface, ...(row.forms || [])]) {
+      const at = normalize(form || '');
+      if (at && !byForm.has(at)) byForm.set(at, row.key);
+    }
+  }
+  const markedKeys = [...new Set(
+    [...savedForms].map((form) => byForm.get(form)).filter(Boolean)
+  )];
+
+  /*
+   * ⚠️ **والغلطاتُ المُرسَلةُ غلطاتُك وحدَها** (بند ٣٤): إرسالُ اقتراحات
+   *    التحليل السابقةِ إليه يجعله يؤكّد نفسَه — حلقةٌ مغلقةٌ تصير
+   *    فيها فرضيّتُه «تاريخًا» بعد جولتين.
+   */
+  const learnerMistakes = mistakes
+    .filter((row) => row.state !== STATE.TRASHED)
+    .filter((row) => classifyMistake(row, { derivedSources: derivedKeys }) === MISTAKE_KIND.LEARNER)
+    .slice(0, 200)
+    .map((row) => ({
+      wrong: row.wrong || '',
+      natural: row.natural || '',
+      mistakeType: row.mistakeType || null,
+      /* ⚠️ `occurredAt` إن وُجد — و`null` تعني لا نعرف، ولا يُخترَع. */
+      at: Number.isFinite(row.occurredAt) ? row.occurredAt : null,
+    }));
 
   return {
     version: STATE_VERSION,
@@ -78,13 +126,29 @@ export async function analysisSnapshot() {
       pos: row.pos || null,
       senseId: row.senseId || null,
       familyId: row.familyId || null,
+      /*
+       * ⚠️ **والصيغُ تُرسَل** (بند ٤١): بدونها لا يعرف التحليلُ أن
+       *    «документами» صيغةٌ عرفها من قبل، فيُنشئ لها عنصرًا ثانيًا
+       *    ويتضاعف عددُ مفرداتك بلا أن تتعلّم كلمةً واحدة.
+       */
+      forms: Array.isArray(row.forms) ? row.forms : [],
+      register: row.register || null,
+      domain: row.domain || null,
+      confidence: Number.isFinite(row.confidence) ? row.confidence : null,
       /* حالةُ المقارنة تُرسَل كي لا يعيد التحليلُ ادّعاءً رُفع للمراجعة. */
       verifyStatus: row.verifyStatus || null,
     })),
     sources: registry
       .filter((row) => row.analyzedHash)
-      .map((row) => ({ sourceKey: row.id, analyzedHash: row.analyzedHash })),
+      .map((row) => ({
+        sourceKey: row.id,
+        analyzedHash: row.analyzedHash,
+        /* المنشأُ يسافر: بلا معرفتِه يعامل التحليلُ نصَّ تدريبٍ كموقفٍ حقيقيّ. */
+        evidenceClass: row.evidenceClass || null,
+        derivedFrom: row.derivedFrom || [],
+      })),
     families: [...families].map(([id, members]) => ({ familyId: id, members })),
+    learnerSignals: { markedKeys, mistakes: learnerMistakes },
   };
 }
 
