@@ -46,6 +46,9 @@ import { renderLife } from './views/life-view.js';
 import {
   renderLanguage, renderExpression, renderWord, handleLanguageAction,
 } from './views/language-view.js';
+import {
+  renderMyLanguage, renderLanguageItem, handleMyLanguageAction, wireMyLanguage,
+} from './views/my-language-view.js';
 import { renderScene } from './views/scene-view.js';
 /* ⚠️ وضعٌ ثانٍ على نفس الذكرى — تجريبيّ، ولا يمسّ `renderScene` (WS56). */
 import { renderOrganize, disposeOrganize } from './views/organize-view.js';
@@ -675,6 +678,7 @@ function wireActions() {
         if (await handleImportAction(action, target)) return;
         if (await handleRiverAction(action, target)) return;
         if (await handleConstellationAction(action, target)) return;
+        if (await handleMyLanguageAction(action, target)) return;
         if (await handleLanguageAction(action, target)) return;
       }
     }
@@ -774,6 +778,12 @@ async function boot() {
   route('/', view(renderNow));
   route('/life', view(renderLife));
   route('/language', view(renderLanguage));
+  /*
+   * ⚠️ **مساران لا واحد**: القائمةُ والعنصر. ولو كان العنصرُ نافذةً
+   *    لَما أمكن مشاركةُ رابطِه ولا رجوعُ زرِّ النظام إليه.
+   */
+  route('/my-language', view(renderMyLanguage));
+  route('/my-language/:key', view(renderLanguageItem, { param: 'key' }));
   route('/scene/:id', view(renderScene, { passUi: true }));
   route('/organize/:id', view(renderOrganize));
   route('/workspace/:id', view(renderWorkspace));
@@ -806,6 +816,8 @@ async function boot() {
    * من `main` نفسه ويُركَّبون مرّةً هنا — لا مع كل رسم.
    */
   wireStudio(main, () => renderStudio(main));
+  /* البحثُ والترتيبُ في «لغتي» حقولٌ حيّة — مستمعٌ واحدٌ مندوبٌ مرّةً. */
+  wireMyLanguage(main);
   /*
    * المختبر ثلاث شاشات تتشارك مستمعًا واحدًا — وإعادةُ الرسم تختار
    * الشاشة من المسار، فزرٌّ في التفصيل يُحدِّث التفصيل لا اللوحة.

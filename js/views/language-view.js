@@ -186,6 +186,7 @@ function memoryBoard(memory) {
            جولةٍ لم تُغلَق بعد — فيبقى بابًا ثانويًّا حتى يفرغ.
       -->
       <div class="mem-acts">
+        <button class="btn btn-primary" data-action="go-my-language">افتح «لغتي»</button>
         <button class="btn" data-action="mem-review">راجع وصدّر ذاكرة اللغة</button>
         <button class="btn btn-ghost" data-action="mem-analysis-import">استورد نتيجة تحليل</button>
         <button class="btn btn-ghost" data-action="mem-rebuild">أعِد بناء الفهرس</button>

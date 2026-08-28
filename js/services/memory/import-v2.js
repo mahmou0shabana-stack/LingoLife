@@ -50,6 +50,10 @@ import { analysisItems, analysisEvidence } from '../../db/repositories.js';
 import { EVIDENCE } from './provenance.js';
 import { listSources, readLiveSources, markAnalyzed } from './source-registry.js';
 import { countLemma, measure, verify, VERIFY } from './counting.js';
+import {
+  planRemovals, applyRemovals, pruneMissingSources, REMOVAL, REMOVAL_LABEL,
+} from './analysis-state.js';
+import { invalidateLanguage } from './language-cache.js';
 
 export const RESULT_FORMAT = 'living-language-analysis';
 export const RESULT_VERSION = 2;
@@ -329,8 +333,15 @@ export async function planImport({ parsed, onProgress } = {}) {
   const touched = new Set();
   for (const row of rows) for (const cite of row.evidence.kept) touched.add(cite.sourceKey);
 
+  /*
+   * ⚠️ **والحذفُ يُخطَّط هنا ولا يُنفَّذ.** راجع ترويسة `analysis-state.js`:
+   *    لا يُقبَل حذفٌ إلّا إن كان مصدرُ دليله تغيّر أو حُذف عندنا فعلًا.
+   */
+  const removals = await planRemovals(parsed.removed);
+
   return {
     rows,
+    removals,
     removed: parsed.removed,
     analyzedSources: parsed.analyzedSources,
     dropped: parsed.dropped,
@@ -346,6 +357,8 @@ export async function planImport({ parsed, onProgress } = {}) {
       evidenceRejected: rows.reduce((sum, r) => sum + r.evidence.rejected.length, 0),
       droppedFields: parsed.dropped.length,
       sourcesTouched: touched.size,
+      removalsAllowed: removals.filter((one) => one.verdict === REMOVAL.ALLOWED).length,
+      removalsRefused: removals.filter((one) => one.verdict !== REMOVAL.ALLOWED).length,
     },
   };
 }
@@ -374,6 +387,9 @@ export const evidenceId = (itemKey, sourceKey, segmentId, at) =>
 export async function applyImport(plan, { onProgress } = {}) {
   const accepted = plan.rows.filter((row) => row.accept);
   const now = Date.now();
+
+  /* ⚠️ أكبرُ كتابةٍ تمسّ لغتك — فالفهرسُ يبطُل قبلها لا بعدها فقط. */
+  invalidateLanguage();
 
   onProgress?.({ stage: 'items', done: 0, total: accepted.length, label: 'بيسجّل العناصر' });
 
@@ -414,6 +430,8 @@ export async function applyImport(plan, { onProgress } = {}) {
       derivedAppearances: row.measured.derivedAppearances,
       derivedSources: row.measured.derivedSources,
       unknownOccurrences: row.measured.unknownOccurrences,
+      /* عددُ الوصلات — يُقارَن به عند إعادة الحساب بعد حذف مصدر. */
+      evidenceLinks: row.hits.length,
       /* ادّعاءُ التحليل يُحفَظ بجانب عدّنا لا مكانَه. */
       aiClaimedCount: row.count.claimed,
       verifyStatus: row.count.status,
@@ -462,6 +480,21 @@ export async function applyImport(plan, { onProgress } = {}) {
   }
 
   /*
+   * ⚠️ **والحذفُ بعد الإضافة لا قبلها.** لو حذفنا أوّلًا ثم فشلت
+   *    الإضافةُ لَبقيت القاعدةُ أنقصَ ممّا كانت قبل الاستيراد — أي
+   *    أن استيرادًا فاشلًا يُفقد معرفةً كانت قائمة.
+   */
+  onProgress?.({ stage: 'removals', done: 0, total: 1, label: 'بيراجع الحذف' });
+  const removals = await applyRemovals(plan.removals || []);
+
+  /*
+   * ⚠️ **وأدلّةُ النصوص المشالة تُسحَب هنا** (بند ٩): استيرادُ جولةٍ
+   *    جديدةٍ هو أنسبُ لحظةٍ لتنظيفها، فالأعدادُ تُعاد مرّةً واحدةً بدل
+   *    مرّتين.
+   */
+  const pruned = await pruneMissingSources();
+
+  /*
    * ⚠️ **والبصمةُ المسجَّلةُ هي المُرسَلة لا الحاليّة** — راجع `markAnalyzed`.
    *    و`sentHash` كُتب لحظةَ نسخِ الحزمة، فلو عدّلتَ النصَّ أثناء دورة
    *    التحليل بقي «اتعدّل بعد آخر تحليل» كما يجب.
@@ -485,6 +518,10 @@ export async function applyImport(plan, { onProgress } = {}) {
     marked,
     skipped: plan.rows.length - accepted.length,
     unmarked: plan.analyzedSources.length - marks.length,
+    removed: removals.removed,
+    removalsRefused: removals.refused,
+    prunedLinks: pruned.droppedLinks,
+    orphaned: pruned.orphaned,
   };
 }
 
@@ -508,4 +545,4 @@ export function importTotals(rows = []) {
   };
 }
 
-export { VERIFY, EVIDENCE };
+export { VERIFY, EVIDENCE, REMOVAL, REMOVAL_LABEL };

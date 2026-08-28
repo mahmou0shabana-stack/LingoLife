@@ -18,6 +18,8 @@ import { STATE } from '../../db/schema.js';
 import { contentHash, splitSentences } from './segmenter.js';
 import { DEFAULT_RATE } from './tts-controller.js';
 import { PRACTICE_MODE, REPEAT_MODE } from './playback-controller.js';
+/* ⚠️ ورقةٌ لا تستورد شيئًا — راجع ترويسة `language-cache.js`. */
+import { invalidateLanguage } from '../memory/language-cache.js';
 
 /** أنواع المصادر التي يمكن أن تصبح مادّة ظلّ. */
 export const SOURCE_TYPE = Object.freeze({
@@ -215,6 +217,9 @@ export async function recordSegmentPractice(session, segment, repetitions, optio
    *    شهادةُ الممارسة أدناه — فالتدريبُ حقيقيٌّ ولو كان مصدره عابرًا.
    */
   const updated = segment.temporary ? { ...segment, ...patch } : await shadowSegments.update(segment.id, patch);
+
+  /* ⚠️ التدريبُ إشارةُ متعلّمٍ تدخل «لغتي» — فالفهرسُ يبطُل معه. */
+  invalidateLanguage();
 
   await practiceEvidence.create({
     sessionId: session.id,

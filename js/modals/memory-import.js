@@ -35,7 +35,7 @@ import { VERIFY, VERIFY_LABEL } from '../services/memory/counting.js';
 import { CONTRACT } from '../services/memory/export-v2.js';
 import {
   parseAnalysis, planImport, applyImport, importTotals,
-  VERDICT, VERDICT_LABEL, ITEM_TYPE_LABEL,
+  VERDICT, VERDICT_LABEL, ITEM_TYPE_LABEL, REMOVAL, REMOVAL_LABEL,
 } from '../services/memory/import-v2.js';
 
 /**
@@ -211,6 +211,33 @@ async function reviewAnalysis(text) {
               ${summary.evidenceRejected} استشهاد مش موجود في نصوصك —
               اتشالوا خالص ومش هيتسجّلوا ولا لو وافقت على العنصر.
             </p>` : '')}
+
+            <!--
+              ⚠️ **والحذفُ يُعرَض بحكمه لا بعدده** (بند ٨): «التحليل
+                 طلب يشيل ٣ عناصر» لا يقول أيَّها سيُشال ولا لماذا
+                 رُفض الباقي. والرفضُ هنا هو القاعدةُ لا الاستثناء.
+            -->
+            ${raw(state.plan.removals.length ? html`
+            <details class="mi-dropped" open>
+              <summary>
+                التحليل طلب يشيل ${state.plan.removals.length} عنصر —
+                هيتشال منهم ${summary.removalsAllowed}
+              </summary>
+              <p class="field-hint">
+                مبنشيلش حاجة إلا لو النصّ اللي كان دليلها اتغيّر أو
+                اتشال فعلًا عندك. غير كده بيتساب زي ما هو.
+              </p>
+              <ul class="mi-list">
+                ${raw(state.plan.removals.map((one) => html`
+                  <li>
+                    <b dir="ltr">${one.key}</b>
+                    <span class="${one.verdict === REMOVAL.ALLOWED ? 'mi-why' : 'mr-dim'}">
+                      ${REMOVAL_LABEL[one.verdict]}
+                      ${raw(one.evidence ? html` · ${one.evidence} دليل` : '')}
+                    </span>
+                  </li>`).join(''))}
+              </ul>
+            </details>` : '')}
 
             ${raw(state.plan.dropped.length ? html`
             <details class="mi-dropped">
@@ -406,8 +433,13 @@ async function reviewAnalysis(text) {
       if (done.unmarked) {
         toast(`${done.unmarked} نص اتحلّل بس مش هيتعلّم — الحزمة بتاعته ما خرجتش من الجهاز ده.`);
       }
+      const extra = [
+        done.removed ? `${done.removed} اتشال` : '',
+        done.prunedLinks ? `${done.prunedLinks} دليل لنصّ مشال اتسحب` : '',
+      ].filter(Boolean);
       return toastOk(
-        `اتسجّل: ${done.added} جديد · ${done.updated} تحديث · ${done.evidenceRows} موضع دليل`
+        `اتسجّل: ${done.added} جديد · ${done.updated} تحديث · `
+        + `${done.evidenceRows} موضع دليل${extra.length ? ` · ${extra.join(' · ')}` : ''}`
       );
     },
   });

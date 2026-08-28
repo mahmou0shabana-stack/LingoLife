@@ -4015,6 +4015,136 @@ body:has(.shadow-app) .quick-fab { display: none; }
 .mi-hits h5 { margin: 0; font-size: 11px; color: var(--text-soft); }
 .mi-dropped { font-size: 12px; }
 .mem-old { font-size: 12px; margin-block-start: var(--sp-2); }
+.mr-round {
+  margin: 0; font-size: 12px; line-height: 1.8; color: var(--text-soft);
+  padding: var(--sp-2) var(--sp-3);
+  border: 1px dashed var(--line); border-radius: 12px;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   WS-J · «لغتي» — المستكشف وقصّةُ العنصر
+
+   ⚠️ **ولماذا `--y` وموضعٌ مطلقٌ للصفوف.** القائمةُ نافذةٌ منزلقةٌ فوق
+      عشرة آلاف صفّ: المرسومُ منها عشرون، وكلٌّ يعرف مكانَه من رقمه.
+      وبلا `position:absolute` كانت الصفوفُ العشرون تتكدّس في الأعلى
+      ويصير شريطُ التمرير كاذبًا.
+   ══════════════════════════════════════════════════════════════════ */
+
+.ml { display: grid; gap: var(--sp-3); }
+.ml h2 { display: flex; align-items: center; gap: var(--sp-2); margin: 0; }
+
+.ml-tiles {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--sp-2);
+}
+.ml-tiles-thin { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+
+.ml-tile {
+  font: inherit; cursor: pointer; text-align: center;
+  display: grid; gap: 2px; justify-items: center;
+  padding: var(--sp-3) var(--sp-2); min-block-size: 44px;
+  border: 1px solid var(--line); border-radius: 14px;
+  background: var(--surface); color: var(--text);
+}
+.ml-tile b { font-size: 24px; line-height: 1.2; }
+.ml-tile span { font-size: 12px; color: var(--text-soft); }
+.ml-tile i { font-size: 10px; color: var(--text-soft); font-style: normal; opacity: .75; }
+.ml-tiles-thin .ml-tile { padding: var(--sp-2); }
+.ml-tiles-thin .ml-tile b { font-size: 18px; }
+
+.ml-search { display: flex; gap: var(--sp-2); }
+.ml-search input { flex: 1; min-block-size: 44px; }
+.ml-search select { min-block-size: 44px; }
+
+.ml-facets { display: grid; gap: var(--sp-2); }
+.ml-facet-tabs, .ml-facet-values, .ml-active, .ml-rel {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.ml-facet-tabs button, .ml-facet-values button {
+  font: inherit; font-size: 12px; cursor: pointer;
+  padding: 8px var(--sp-3); min-block-size: 40px;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--surface); color: var(--text-soft);
+}
+.ml-facet-tabs button.on, .ml-facet-values button.on {
+  border-color: var(--accent); background: var(--accent-wash); color: var(--text);
+}
+.ml-facet-tabs i { font-style: normal; color: var(--accent); }
+.ml-n { opacity: .65; margin-inline-start: 4px; }
+
+.ml-chip {
+  font: inherit; font-size: 12px; cursor: pointer; min-block-size: 40px;
+  padding: 6px var(--sp-3); border-radius: 999px;
+  border: 1px solid var(--accent); background: var(--accent-wash); color: var(--text);
+}
+.ml-chip.is-clear { border-color: var(--line); background: var(--surface); color: var(--text-soft); }
+
+.ml-list {
+  position: relative; overflow: auto;
+  block-size: 50vh; min-block-size: 260px;
+  border: 1px solid var(--line); border-radius: 14px; background: var(--surface);
+  /* ⚠️ يمنع «سحبَ الصفحة» خلف القائمة عند بلوغ طرفها على التابلت. */
+  overscroll-behavior: contain;
+}
+.ml-space { position: relative; }
+
+.ml-row {
+  position: absolute; inset-inline: 0; transform: translateY(var(--y));
+  block-size: 64px;
+  display: grid; grid-template-columns: minmax(90px, auto) 1fr auto;
+  align-items: center; gap: var(--sp-2);
+  padding: 0 var(--sp-3); font: inherit; text-align: start; cursor: pointer;
+  border: 0; border-block-end: 1px solid var(--line);
+  background: none; color: var(--text);
+}
+.ml-lemma { font-size: 17px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ml-mid { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; min-inline-size: 0; }
+.ml-mean { font-size: 12px; color: var(--text-soft); }
+.ml-tag {
+  font-size: 11px; padding: 2px 8px; border-radius: 999px;
+  border: 1px solid var(--line); color: var(--text-soft); white-space: nowrap;
+}
+button.ml-tag { cursor: pointer; background: var(--surface); min-block-size: 32px; }
+
+.ml-nums { display: flex; align-items: baseline; gap: 3px; font-size: 11px; }
+.ml-nums b { font-size: 15px; }
+.ml-nums i { font-style: normal; color: var(--text-soft); margin-inline-end: 6px; }
+.ml-nums .is-real { color: #1F9D62; }
+.ml-nums .is-zero { color: var(--text-soft); }
+.ml-nums .is-derived { color: #6B7280; }
+.ml-nums .is-unknown { color: #9c5b0e; }
+
+.ml-count { margin: 0; font-size: 12px; color: var(--text-soft); text-align: center; }
+
+/* ── صفحةُ العنصر ── */
+.ml-item h3 { margin: var(--sp-3) 0 var(--sp-2); font-size: 15px; }
+.ml-item h5 { margin: var(--sp-2) 0 4px; font-size: 12px; color: var(--text-soft); }
+.ml-badges { display: flex; flex-wrap: wrap; gap: 4px; }
+.ml-mean-big { margin: 0; font-size: 17px; }
+.ml-derived-h { color: #6B7280; }
+
+.ml-cites { margin: 0; padding-inline-start: 0; list-style: none; display: grid; gap: var(--sp-2); }
+.ml-cite {
+  display: grid; gap: 4px; padding: var(--sp-2) var(--sp-3);
+  border-inline-start: 3px solid #1F9D62; border-radius: 0 12px 12px 0;
+  background: var(--surface);
+}
+/* ⚠️ حدٌّ مختلفُ اللون والشكل: الفصلُ يُرى قبل أن يُقرأ. */
+.ml-cites-derived .ml-cite { border-inline-start: 3px dashed #6B7280; opacity: .85; }
+.ml-cite-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; font-size: 12px; }
+.ml-cite q { font-size: 16px; line-height: 1.8; }
+.ml-note { font-size: 11px; color: var(--text-soft); }
+
+.ml-events { margin: 0; padding-inline-start: var(--sp-4); font-size: 13px; display: grid; gap: 2px; }
+.ml-events-bad { color: #D6414B; }
+.ml-forms { display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3); }
+@media (max-width: 560px) { .ml-forms { grid-template-columns: 1fr; } }
+
+/* ── تاريخُ اللغة من داخل التدريب ── */
+.lh { display: grid; gap: var(--sp-2); }
+.lh-head { display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
+.lh-head b { font-size: 20px; }
+.lh-empty { margin: 0; font-size: 13px; color: var(--text-soft); }
 
 /* ==================================================================
    لوحةُ التقدُّم للعمليّات الطويلة (قاعدةٌ عامّة)

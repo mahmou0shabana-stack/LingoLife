@@ -20,6 +20,12 @@
 import { savedItems, settings } from '../db/repositories.js';
 import { normalize } from '../utils/normalization.js';
 import { STATE } from '../db/schema.js';
+/*
+ * ⚠️ **ورقةٌ لا تستورد شيئًا** — راجع ترويسة `language-cache.js`.
+ *    وبلا هذا السطر: تحفظ كلمةً من التدريب، ثم تفتح «لغتي» فلا
+ *    تجدها — لأن الفهرسَ بُني قبل حفظك ولا شيءَ يقول له إنه بائت.
+ */
+import { invalidateLanguage } from './memory/language-cache.js';
 
 const TAGS_KEY = 'saved.tags';
 
@@ -152,6 +158,8 @@ export async function saveItem({
   const twin = (await savedItems.byIndex('normalizedText', normalizedText)).find(
     (s) => s.state === STATE.ACTIVE && s.kind === kind
   );
+
+  invalidateLanguage();
 
   if (twin) {
     const merged = [...new Set([...(twin.tagIds || []), ...tagIds])];

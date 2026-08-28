@@ -38,6 +38,7 @@ import { EVIDENCE, ORIGIN, rootsOf } from './provenance.js';
 import {
   ANALYSIS_STATE, listSources, readLiveSources, stateOf,
 } from './source-registry.js';
+import { analysisSnapshot } from './analysis-state.js';
 
 export const FORMAT = 'living-language-memory';
 export const VERSION = 2;
@@ -173,6 +174,18 @@ export async function buildPackages({
 } = {}) {
   onProgress?.({ stage: 'read', label: 'بيقرا المصادر', done: 0, total: 1 });
 
+  /*
+   * ⚠️ **والحالةُ تُقرأ من القاعدة لا تُمرَّر من الشاشة** (بند ٨).
+   *
+   *    كانت مُعامَلًا يملؤه المستدعي، وهو عقدٌ يُنسى: شاشةٌ تُكتَب غدًا
+   *    تنادي `buildPackages` بلا حالةٍ فتعود كلُّ جولةٍ جولةً أولى بصمت
+   *    — وتُرسَل ثلاثون نصًّا مرّةً أخرى بلا أن يشتكي شيء. فالافتراضُ
+   *    الآن **الحالةُ المحفوظة**، والتمريرُ الصريحُ للاختبار وحدَه.
+   */
+  const state = analysisState ?? await analysisSnapshot();
+  /* أوّلُ جولةٍ = لا عنصرَ محلَّلًا بعد. وحالةٌ فارغةٌ تُرسَل `null` لا `{}`. */
+  const firstRun = !state?.items?.length && !state?.sources?.length;
+
   const [live, registry] = await Promise.all([readLiveSources(), listSources()]);
   const liveByKey = new Map(live.map((one) => [one.key, one]));
   const regByKey = new Map(registry.map((one) => [one.id, one]));
@@ -231,12 +244,18 @@ export async function buildPackages({
     generatedAt: Date.now(),
     part: i + 1,
     parts: batches.length,
+    /*
+     * ⚠️ **والجولةُ تقول اسمَها.** بلا هذا الحقل يتصرّف التحليلُ في
+     *    الجولة الخامسة كما في الأولى: يعيد تحليلَ ما في `analysisState`
+     *    لأنه لا يعرف أنها حالةٌ سابقةٌ لا مادّةٌ جديدة.
+     */
+    round: firstRun ? 'first' : 'incremental',
     contract: CONTRACT,
     /*
      * ⚠️ **الحالةُ السابقةُ مضغوطة** (بند ٨): مفاتيحُ ما حُلِّل وبصماتُه،
      *    لا نصوصُه. فالتحليلُ يعرف ما رآه من قبلُ بلا أن نعيد إرساله.
      */
-    analysisState: i === 0 ? (analysisState || null) : null,
+    analysisState: i === 0 && !firstRun ? state : null,
     alreadyAnalyzed: i === 0
       ? registry
         .filter((row) => row.analyzedHash && !want.has(row.id))
@@ -247,6 +266,9 @@ export async function buildPackages({
   }));
 
   const summary = {
+    firstRun,
+    knownItems: state?.items?.length || 0,
+    stateChars: firstRun ? 0 : JSON.stringify(state).length,
     available: registry.length,
     primary: registry.filter((r) => r.evidenceClass === EVIDENCE.PRIMARY).length,
     derived: registry.filter((r) => r.evidenceClass === EVIDENCE.DERIVED).length,

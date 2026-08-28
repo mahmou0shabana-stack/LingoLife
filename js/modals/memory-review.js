@@ -37,6 +37,7 @@ import {
   buildPackages, suggestSelection, analyzedHashesOf, MAX_CHARS,
 } from '../services/memory/export-v2.js';
 import { markSent } from '../services/memory/source-registry.js';
+import { incrementalStatus } from '../services/memory/analysis-state.js';
 
 /** المصافي — تُجمَع ولا تتنافى. */
 const FILTERS = [
@@ -134,7 +135,7 @@ export async function openMemoryReview() {
       const host = root.querySelector('[data-mr-root]');
 
       const paint = async () => {
-        const summary = await registrySummary();
+        const [summary, inc] = await Promise.all([registrySummary(), incrementalStatus()]);
         const shown = state.rows.filter((row) => matches(row, state.filter));
         const chosen = state.rows.filter((row) => state.selected.has(row.id));
         const chars = chosen.reduce((sum, row) => sum + (row.chars || 0), 0);
@@ -156,6 +157,24 @@ export async function openMemoryReview() {
               <span>${Math.max(1, Math.ceil(chars / MAX_CHARS))} حزمة</span>
               <span>مش هيتبعت تاني: <b>${summary.current}</b></span>
             </div>
+
+            <!--
+              ⚠️ **والجولةُ تقول أيَّ جولةٍ هي** (بند ٨). بلا هذا السطر
+                 لا يعرف المستخدمُ لماذا صارت الحزمةُ الرابعةُ أصغرَ من
+                 الأولى بعشرين ضعفًا، فيظنّ أن شيئًا سقط.
+            -->
+            <p class="mr-round">
+              ${raw(inc.firstRun ? html`
+                <b>أول جولة تحليل.</b> النصوص اللي هتختارها هتتبعت كاملة.`
+    : html`
+                <b>جولة تكميلية.</b> التحليل عارف
+                ${inc.knownItems} عنصر من قبل، وحالتهم بتتبعت مضغوطة
+                (${inc.stateChars.toLocaleString('en')} حرف) من غير أي
+                نصّ. النصوص اللي سبق تحليلها مش هتتبعت تاني.`)}
+              ${raw(inc.deleted ? html`
+                <br>وفيه ${inc.deleted} نص اتشال بعد ما اتحلّل —
+                هتتبعت شهادة حذفه عشان التحليل يسحب اللي بناه عليه.` : '')}
+            </p>
 
             ${raw(summary.unknown ? html`
             <p class="mr-hint">

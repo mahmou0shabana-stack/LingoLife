@@ -2976,6 +2976,13 @@ const TOOLS = [
    *    باسمه، لا يظهر إلّا وفي يدك كلمة، ولا يزاحم نسخَ الجملة.
    */
   { id: 'copy', glyph: '⧉', label: 'انسخها', when: hasPickedWord },
+  /*
+   * ⚠️ **بابُ تاريخِ اللغة — من غير مغادرة الجلسة** (WS-J، بند ٢٣).
+   *    السؤالُ «شفتها فين قبل كده؟» يقع أثناء التدريب لا بعده، ومغادرةُ
+   *    الشاشة تُضيّع السرعةَ والتكرارَ والمقطعَ المحدَّد — فيصير الجوابُ
+   *    أغلى من السؤال فلا يُسأل.
+   */
+  { id: 'lang-history', glyph: '◷', label: 'تاريخها في لغتي', when: hasPickedWord },
   { id: 'hard', glyph: '△', label: 'صعبة', when: hasPickedWord },
   { id: 'meaning', glyph: '⌥', label: 'معناها', when: hasPickedWord },
   /*
@@ -3035,6 +3042,7 @@ const TOOLS = [
   { id: 'phrase-play', glyph: '▶', label: 'اسمع المقطع', when: hasPhrase },
   { id: 'phrase-copy', glyph: '⧉', label: 'انسخ المقطع', when: hasPhrase },
   { id: 'phrase-save', glyph: '✦', label: 'احفظ المقطع', when: hasPhrase },
+  { id: 'phrase-history', glyph: '◷', label: 'تاريخ المقطع', when: hasPhrase },
   { id: 'phrase-edge', glyph: '↔', label: 'وسّع أو قلّل', when: hasPhrase },
   { id: 'phrase-exit', glyph: '↩', label: 'ارجع للجملة', when: () => phrase.on },
 
@@ -4208,8 +4216,14 @@ function renderRail() {
   if (rail.tool === 'draft') renderDraft().catch(() => {});
 }
 
-/** يفتح السكّة على أداةٍ بعينها، أو يغلقها إن كانت مفتوحةً عليها. */
-function pickTool(id) {
+/**
+ * يفتح السكّة على أداةٍ بعينها، أو يغلقها إن كانت مفتوحةً عليها.
+ *
+ * ⚠️ **و`async` لأن أداتين تستوردان نافذتَهما عند الطلب** (تاريخُ
+ *    اللغة). والمستدعي لا ينتظرها — وهذا مقصود: فتحُ نافذةٍ ليس شرطًا
+ *    لإغلاق السكّة.
+ */
+async function pickTool(id) {
   /*
    * ⚠️ **«ليه بتتنطق كده؟» فعلٌ لا لوحة (WS54).** يفتح ورقةَ التحليل
    *    على اليسار ويُغلق السكّة — فالتحليلُ صار مكانًا تذهب إليه، لا
@@ -4255,6 +4269,12 @@ function pickTool(id) {
   }
   if (id === 'phrase-copy') { rail.open = false; renderRail(); return copyPhrase(); }
   if (id === 'phrase-save') { rail.open = false; renderRail(); return openPhraseSave(); }
+  if (id === 'phrase-history') {
+    rail.open = false;
+    renderRail();
+    const { openLanguageHistory } = await import('../modals/language-history.js');
+    return openLanguageHistory(phraseText(), 'phrase');
+  }
   if (id === 'phrase-exit') { exitPhrase(); renderModes(); rail.open = false; return renderRail(); }
   /* أفعالٌ فوريّة لا لوحةَ لها: تُنفَّذ وتُغلق. */
   if (id === 'hear') { if (rail.word >= 0) player.selectWord(rail.word); rail.open = false; return renderRail(); }
@@ -4264,6 +4284,15 @@ function pickTool(id) {
    *    العامّ كان يقرأ `.selected` من جديد، وهي لا تُكتَب من الضغطة
    *    المطوّلة — فيضيع تحديدُ الكلمة بين الفتح والحفظ.
    */
+  if (id === 'lang-history') {
+    const chip = rail.word >= 0 ? document.querySelectorAll('[data-word]')[rail.word] : null;
+    rail.open = false;
+    renderRail();
+    /* ⚠️ نصُّ الرقاقة بلا علامة النبر — النبرُ زينةُ عرضٍ لا جزءٌ من الكلمة. */
+    const text = (chip?.textContent || '').replace(/\u0301/g, '').trim();
+    const { openLanguageHistory } = await import('../modals/language-history.js');
+    return openLanguageHistory(text, 'word');
+  }
   if (id === 'save') {
     const chip = rail.word >= 0 ? document.querySelectorAll('[data-word]')[rail.word] : null;
     rail.open = false;
