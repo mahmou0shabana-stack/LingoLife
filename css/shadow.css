@@ -869,9 +869,22 @@
  *    بلا مكان: `.sh-current-tools` كانت أنماطًا بلا عنصرٍ يستعملها —
  *    كودٌ يُقرأ كميزةٍ وليس بها زرٌّ واحد يصل إليها.
  */
+/*
+ * ⚠️ **وتنتهي قبل السكّة لا تحتها** (WS-M · العطب ٤).
+ *
+ *    `justify-content: space-between` يدفع «🔖 ⧉ ♡» إلى آخر الحاوية،
+ *    وآخرُ الحاوية هو **تحت** سكّة الأدوات اليمنى (٤٨px ثابتة على
+ *    الحافّة). **قِيس** على تابلتٍ طوليّ ٨٠٠: زرُّ ♡ عند x=746 وزرُّ
+ *    «التكرار» في السكّة عند x=740 — تراكبٌ ٢٦×٢٢px، أي أن ضغطةَ
+ *    الإصبع على القلب تصل إلى السكّة لا إليه.
+ *
+ *    والعلاجُ حجزُ عرض السكّة لا تصغيرُ الأزرار: البلاغُ نفسُه يقول
+ *    «لا تحلّ التراكبَ بتصغير كلّ شيء».
+ */
 .sh-hero-top {
   display: flex; align-items: center; justify-content: space-between;
   gap: 8px; margin-bottom: 4px; min-height: 26px;
+  padding-inline-end: 52px;
 }
 
 .sh-current-lbl {
@@ -4642,65 +4655,19 @@ body.shadow-open { overflow: hidden; }
  */
 .sh-book[data-layout="single"] .sh-stage-top { padding-right: 46px; }
 
-/* مؤشّرُ الصفحتين — نقطتان تُضغطان أيضًا وتحملان اسمَ الصفحة (بند ٧-٨). */
-.sh-pager {
-  display: none;
-  position: absolute;
-  /*
-   * ⚠️ **WS44 — فوق كتلة التحكّم لا داخلها.** كان `- 26px`، أي يدسّ
-   *    المؤشّرَ **بين** المفتاح والترانسبورت — وقد قِيس التداخلُ
-   *    فعليًّا: 32px من صفّ الأوضاع تحت نقطتَي المؤشّر. وكان مستورًا
-   *    خلف الشريط المعتم؛ فلمّا صارت الخلفيّةُ شفّافةً بطلبك ظهر
-   *    التراكبُ عاريًا في اللقطة. فصار `+ 6px`: سطرٌ مستقلٌّ فوق
-   *    الكتلة، بينه وبين المفتاح فُرجةٌ تُرى.
-   */
-  inset-block-end: calc(var(--sh-controls, 232px) + 6px);
-  inset-inline: 0;
-  justify-content: center;
-  align-items: center;
-  gap: 10px;
-  /*
-   * ⚠️ **WS43 — فوق `.sh-modes` لا مساويًا له.** كان بنفس رقم
-   *    `.sh-modes`/`.sh-transport` (12)، وترتيبُهما في DOM يجعل
-   *    `.sh-modes` يُرسَم فوقه — فتقع أزرارُ التقليب الصريح («‹ SOURCE»)
-   *    هندسيًّا تحت شريط الأوضاع: `elementFromPoint` على مركز الزرّ
-   *    يعيد `.sh-modes` لا الزرّ، فلا تصل اللمسةُ إليه أبدًا. **قِيس**.
-   */
-  z-index: 13;
-  pointer-events: none;
-}
-.sh-pager button {
-  pointer-events: auto;
-  min-inline-size: 34px; block-size: 34px;
-  display: flex; align-items: center; gap: 6px; justify-content: center;
-  background: none; border: 0; cursor: pointer; padding: 0 4px;
-  font: inherit; font-size: 10px; letter-spacing: .04em; white-space: nowrap;
-  color: rgba(239, 231, 216, .55);
-  transition: color .25s ease;
-}
-.sh-pager button::before {
-  content: '';
-  inline-size: 7px; block-size: 7px; border-radius: 50%;
-  background: rgba(239, 231, 216, .3);
-  transition: background .25s ease, transform .25s ease;
-}
-.sh-pager button.on { color: var(--sh-accent-2); }
-.sh-pager button.on::before { background: var(--sh-accent-2); transform: scale(1.35); }
-
-.sh-book[data-layout="single"] .sh-pager { display: flex; }
-
 /*
- * ⚠️ **WS44 — والمؤشّرُ يحتاج سطرًا خاصًّا به، لا أن يطفوَ فوق سطرِ غيره.**
+ * ⚠️ **مؤشّرُ الصفحتين نُزع بالكامل** (WS-M · العطب ١).
  *
- *    هو `position: absolute` فلا يحجز مكانًا في التدفّق؛ فأينما وُضع
- *    وقع فوق شيء. رفعتُه فوق كتلة التحكّم فوقع على سطر التلميح
- *    (`TAP A WORD TO HEAR…`) بتسعة بكسلات. والعلاجُ أن **يُحجَز** له
- *    الفراغُ لا أن يُنقَل من تراكبٍ إلى تراكب: هامشٌ أسفل التلميح
- *    بقدر شريط المؤشّر وفُرجتِه، فيرتفع ما فوقه ويبقى الشريطُ خاليًا.
+ *    كان سطرًا وسط سطح القراءة يقول «‹ SOURCE» و«SHADOWING ›»، ومعه
+ *    `\.sh-hint { margin-block-end: 46px }` تحجز له فراغًا في وضع
+ *    الصفحة الواحدة. فذهب الاثنان معًا: العنصرُ وحجزُه. ولو نُزع
+ *    العنصرُ وحدَه لَبقيت فجوةٌ فارغةٌ بارتفاع ٤٦px تحت التلميح —
+ *    وهو بالضبط ما نهى عنه البلاغ: «لا تترك خانتَه الرأسيّة فارغة».
  *
- *    وفي وضع الصفحتين لا مؤشّرَ أصلًا، فلا هامش.
+ *    والتنقّلُ بين الصفحتين لم يُفقَد: `.sh-pages` حاويةُ تمريرٍ أفقيٍّ
+ *    بـ`scroll-snap`، فالسحبُ بالإصبع يقلبها — وهو ما يفعله قارئُ
+ *    كتابٍ على شاشةِ لمسٍ بلا أن يُقال له.
  */
-.sh-book[data-layout="single"] .sh-hint { margin-block-end: 46px; }
 
 /* ---------- شارةُ تشخيص اللمس (WS43 · بند 4-5) — خلف علَمٍ للمطوّر ---------- */
 .sh-debug-hud {
@@ -5651,15 +5618,93 @@ body.shadow-open { overflow: hidden; }
 .vo-compare > .btn,
 .vo-preview > .btn { flex: 1 1 auto; min-height: 44px; }
 
+/* ══════════════════════════════════════════════════════════════════
+   WS-M · مسرحُ التسجيل — أربعُ حالاتٍ يُقرَأ فيها الفعلُ الأوّلُ فورًا
+
+   ⚠️ **والفعلُ يملأ العرض.** بلاغُ الجهاز الحقيقيّ: «مش عارف بدأ ولا
+      لأ، ولا فين أوقّف». فزرُّ التسجيل وزرُّ الإيقاف كتلتان كاملتا
+      العرض بارتفاع ٦٤px — لا أيقونتان في صفٍّ مزدحم.
+   ══════════════════════════════════════════════════════════════════ */
+
+.vo-stage {
+  display: grid;
+  gap: var(--sp-2);
+  margin-block-end: var(--sp-4);
+}
+
 .vo-rec,
-.vo-stop { min-height: 52px; font-size: 16px; }
-.vo-stop { background: var(--red); color: #fff; }
+.vo-stop,
+.vo-play-mine { min-block-size: 64px; font-size: 17px; inline-size: 100%; }
+
+/*
+ * ⚠️ **الإيقافُ لا يُخطَأ**: أحمرُ ممتلئٌ بعرض اللوحة كلِّها. وهو أكبرُ
+ *    عنصرٍ في الحالة، لأن أهمَّ ما يريده مَن يسجّل أن **يقف**.
+ */
+.vo-stop { background: var(--red); color: #fff; font-weight: 600; }
+.vo-rec { background: var(--accent); color: #fff; font-weight: 600; }
+
+/* الإلغاءُ أثناء التسجيل: موجودٌ وهادئ — لا يزاحم «وقّف». */
+.vo-cancel { min-block-size: 44px; }
+
+/* ── حالةُ المراجعة: احفظ وسجّل من جديد معًا، والحذفُ بعيدٌ تحتهما ── */
+.vo-done {
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-md);
+  background: var(--surface-2, var(--surface));
+  font-size: 14px;
+}
+.vo-keep { display: flex; gap: var(--sp-2); }
+.vo-keep > .btn { flex: 1 1 0; min-block-size: 52px; }
+.vo-save { background: var(--accent); color: #fff; font-weight: 600; }
+/*
+ * ⚠️ **والحذفُ مفصولٌ بمسافةٍ حقيقيّة** (بند ٣-ح): زرٌّ هدّامٌ ملاصقٌ
+ *    لزرِّ الحفظ خسارةٌ مؤكّدةٌ بإبهامٍ على تابلت.
+ */
+.vo-discard { margin-block-start: var(--sp-3); min-block-size: 44px; color: var(--red); }
+
+/* ── حالةُ الحفظ: خبرٌ يبقى، لا إشعارٌ يمرّ (بند ٣-هـ) ── */
+.vo-saved {
+  margin: 0;
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-md);
+  background: var(--ok-bg, rgba(31, 157, 98, .12));
+  color: var(--ok, #1F9D62);
+  font-weight: 600;
+}
+
+/* ── العطب: يبقى مكتوبًا ومعه بابُ إعادة (بند ٣-و) ── */
+.vo-fail {
+  display: flex; flex-wrap: wrap; align-items: center; gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-md);
+  background: var(--red-bg);
+  color: var(--red);
+  font-size: 14px;
+}
+.vo-fail .btn { min-block-size: 40px; }
+
+/*
+ * ── مقياسُ المستوى ──
+ * ⚠️ **لا حركةَ بلا صوت.** لا `animation` هنا بحال: العرضُ يُكتَب من
+ *    JS بقراءةِ `AnalyserNode` الحقيقيّة. فإن كان الميكروفونُ صامتًا
+ *    بقي الشريطُ ساكنًا — وهذا هو المطلوب بالضبط (بند ٣-ز).
+ */
+.vo-meter {
+  block-size: 8px; border-radius: 4px; overflow: hidden;
+  background: rgba(127, 127, 127, .2);
+}
+.vo-meter > i {
+  display: block; block-size: 100%; inline-size: 0%;
+  background: var(--red);
+  transition: inline-size .08s linear;
+}
 
 /* شريطُ «بيسجّل» — نقطةٌ نابضةٌ ووقتٌ يجري، فالحالةُ لا تُخمَّن. */
 .vo-live {
   display: flex;
   align-items: center;
   gap: var(--sp-2);
+  font-size: 16px;
   padding: var(--sp-3);
   border-radius: var(--radius-md);
   background: var(--red-bg);

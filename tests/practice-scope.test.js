@@ -347,9 +347,26 @@ describe('المقطع الجزئيّ · التشغيل', () => {
     expect(fn.includes('ctx.session?.speed')).toBe(true);
   });
 
-  it('والتكرارُ يقرأ عدّادَ الجلسة نفسَه', async () => {
-    const src = await (await fetch('../js/views/shadow-view.js')).text();
-    expect(src.includes("times: ctx.session?.repeatCount || 1")).toBe(true);
+  it('والتكرارُ يقرأ عدّادَ الجلسة نفسَه — من المحرّك بعد WS-M', async () => {
+    /*
+     * ⚠️ **كان النداءُ الوحيدُ بـ`times: ctx.session?.repeatCount` في
+     *    `phrase-play`** — زرُّ «اسمع المقطع» في السكّة. ونُزع لأنه
+     *    كرّر زرَّ التشغيل الرئيسيّ بمسارِ نطقٍ ثانٍ خارج المحرّك.
+     *
+     *    والادّعاءُ المطلوبُ إثباتُه لم يتغيّر: **عدّادُ التكرار واحدٌ
+     *    مصدرُه الجلسة**. وقد صار المحرّكُ هو مَن يقرؤه، وهو أقوى: لا
+     *    مسارَ ثانيَ يمكن أن يفترق عنه أصلًا.
+     */
+    const raw = await (await fetch('../js/views/shadow-view.js')).text();
+    /* ⚠️ يُقاس الكودُ لا الشرح: تعليقُ النزع نفسُه يسمّي ما نُزع. */
+    const src = raw.replace(/\/\*[\s\S]*?\*\/|<!--[\s\S]*?-->/g, '');
+    /* لا مسارَ نطقٍ ثانٍ يمرّر تكرارًا من عنده. */
+    expect(src.includes('phrase-play')).toBe(false);
+    /* والمحرّكُ يُبنى بإعدادات الجلسة، ومنها `repeatCount`. */
+    expect(src).toContain('settings: { ...session');
+
+    const engine = await (await fetch('../js/services/shadow/playback-controller.js')).text();
+    expect(engine).toContain('repeatCount');
   });
 });
 

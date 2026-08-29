@@ -1031,12 +1031,12 @@ export async function renderShadow(main, sessionId) {
   paintVoiceBar();
   wireChips(main);
   /*
-   * ⚠️ **قبل المُقلِّب — قرارُه أوّلًا.** `wirePager` تقرأ
-   *    `book.dataset.layout` عند أوّل رسمٍ لها، فلا بدّ أن تكون
+   * ⚠️ **قبل تتبّع الصفحة — قرارُ التخطيط أوّلًا.** `trackActivePage`
+   *    تقرأ `book.dataset.layout` عند أوّل قراءةٍ لها، فلا بدّ أن تكون
    *    `wireBookLayout` قد كتبته قبل ذلك (بند 1، WS39).
    */
   wireBookLayout(main);
-  wirePager(main);
+  trackActivePage(main);
 }
 
 /**
@@ -1247,14 +1247,20 @@ function shell() {
         <!-- ══════════ الكتاب ══════════ -->
         <div class="sh-book">
           <!--
-            ⚠️ المؤشّرُ **شقيقُ** الصفحات لا ابنُها: ابنٌ داخل حاويةٍ
-               تنزلق أفقيًّا ينزلق معها فلا يبقى في مكانه.
-          -->
-          <div class="sh-pager" data-pager hidden>
-            <button data-sh="page-go" data-v="0" aria-label="اذهب لصفحة الأصل">‹ SOURCE</button>
-            <button data-sh="page-go" data-v="1" aria-label="اذهب لصفحة التدريب">SHADOWING ›</button>
-          </div>
+            ⚠️ **ولا مؤشّرَ صفحتين هنا** (WS-M · العطب ١).
+                كان سطرًا يقول «‹ SOURCE» و«SHADOWING ›» وسط سطح
+                القراءة. وهو يخبر المتعلّمَ بشيءٍ تقوله الشاشةُ عنه
+                أصلًا، ويأكل سطرًا كاملًا من ارتفاعٍ ثمين على تابلت
+                طوليّ. والتنقّلُ بين الصفحتين باقٍ كما هو: حاويةُ
+                الصفحات تمريرٌ أفقيٌّ بـscroll-snap، فالإصبعُ يقلبها
+                سحبًا — وهي الحركةُ التي يتوقّعها قارئُ كتابٍ على لمس.
 
+            ⚠️ **ولا تُعَد كتابةُ علامةٍ خلفيّةٍ هنا أبدًا.** كتبتُ
+                اسمَ الصنف بين علامتين خلفيّتين داخل هذا التعليق،
+                والتعليقُ داخل قالبٍ نصّيّ — فأغلقت الأولى القالبَ
+                وصار ما بعدها كودًا: «pages is not defined» في وجه
+                المستخدم وشاشةٌ بيضاء. أمسكه مسبارٌ فورًا.
+          -->
           <div class="sh-pages" data-pages>
 
             <!-- ─────── الورقة ─────── -->
@@ -3039,7 +3045,18 @@ const TOOLS = [
     /* ⚠️ لا يظهر داخل نطاق المقطع — بابُ الدخول لا يُعرَض لمن دخل. */
     when: () => hasPickedWord() && !phrase.on,
   },
-  { id: 'phrase-play', glyph: '▶', label: 'اسمع المقطع', when: hasPhrase },
+  /*
+   * ⚠️ **ولا زرَّ «اسمع المقطع» هنا** (WS-M · العطب ٢).
+   *
+   *    كان `phrase-play` ينطق المدى بـ`speakScope` — أي بمسارِ نطقٍ
+   *    ثانٍ خارج المحرّك، بينما زرُّ التشغيل الرئيسيّ ينطق **نفسَ
+   *    المدى** أصلًا: `syncPhraseRange` تُعلم المحرّكَ بالحدّين، فيقرأ
+   *    ▶ المقطعَ لا الجملة (راجع ترويستها). فكانا فعلًا واحدًا بزرّين
+   *    وبطريقين — والطريقان يفترقان يومًا في السرعة أو التكرار أو
+   *    الصوت المختار.
+   *
+   *    فبقي زرٌّ واحدٌ رئيسيّ، وخلَت السكّةُ لأدواتٍ ثانويّةٍ حقًّا.
+   */
   { id: 'phrase-copy', glyph: '⧉', label: 'انسخ المقطع', when: hasPhrase },
   { id: 'phrase-save', glyph: '✦', label: 'احفظ المقطع', when: hasPhrase },
   { id: 'phrase-history', glyph: '◷', label: 'تاريخ المقطع', when: hasPhrase },
@@ -4261,12 +4278,7 @@ async function pickTool(id) {
     renderModes();
     return renderRail();
   }
-  if (id === 'phrase-play') {
-    rail.open = false;
-    renderRail();
-    releaseAudio();
-    return speakScope(phraseSpoken(), { times: ctx.session?.repeatCount || 1 });
-  }
+  /* `phrase-play` نُزع — راجع الشرحَ في `TOOLS` (WS-M · العطب ٢). */
   if (id === 'phrase-copy') { rail.open = false; renderRail(); return copyPhrase(); }
   if (id === 'phrase-save') { rail.open = false; renderRail(); return openPhraseSave(); }
   if (id === 'phrase-history') {
@@ -6324,56 +6336,44 @@ function setTuner(key, raw, { silent = false } = {}) {
 
 
 /* ------------------------------------------------------------------ *
- * مُقلِّبُ الصفحتين على الموبايل (WS38)
+ * تتبّعُ الصفحة الجارية على الشاشة الضيّقة (WS38 · نُزع مؤشّرُه في WS-M)
  * ------------------------------------------------------------------ */
 
 /**
- * يربط المؤشّر بالانزلاق — والانزلاقَ بالمؤشّر.
+ * يقرأ أيَّ صفحةٍ أنت فيها — **ولا يرسم شيئًا**.
  *
  * ⚠️ **ولا يُصنَع السحبُ بيدي.** `scroll-snap` تعطي الزخمَ والتوقّفَ
  *    على الحافّة مجّانًا، وتعمل بالإصبع وبالعجلة وبقارئ الشاشة.
  *    ودَوري هنا أن **أقرأ** أين وصلتَ لا أن أحرّكك.
  *
- * ⚠️ **ولا يظهر المؤشّرُ على اللوح**: هناك الصفحتان معًا أمامك،
- *    فنقطتان تقولان «واحدةٌ من اثنتين» كذبٌ صغير.
+ * ⚠️ **وكان معه مؤشّرٌ مرئيٌّ («‹ SOURCE» / «SHADOWING ›») فنُزع**
+ *    (WS-M · العطب ١): سطرٌ وسط سطح القراءة يسمّي للمتعلّم وضعًا
+ *    تقوله الشاشةُ عنه أصلًا، ويأكل ارتفاعًا ثمينًا على تابلت طوليّ.
+ *    والقراءةُ هنا تبقى لأن `activePage` تُستعمَل في `wireBookLayout`:
+ *    عند التحوّل إلى صفحةٍ واحدة تُعيدك إلى حيث كنتَ لا إلى البداية.
+ *    فالمحذوفُ عرضٌ، والباقي ذاكرةُ موضع.
  */
-function wirePager(main) {
+function trackActivePage(main) {
   const pages = main.querySelector('[data-pages]');
-  const pager = main.querySelector('[data-pager]');
   const book = main.querySelector('.sh-book');
-  if (!pages || !pager || !book) return;
+  if (!pages || !book) return;
 
-  const paint = () => {
+  const read = () => {
     /*
      * ⚠️ **الوضعُ يُقرأ من `data-layout` لا يُحزَر من عرض التمرير.**
      *    `wireBookLayout` هي وحدَها من تقرّر «واحدةٌ أم اثنتان» —
-     *    فيقرأ المُقلِّبُ قرارَها بدل أن يعيد استنتاجه بطريقةٍ أخرى
-     *    قد تختلف عند حافّة القياس (بند 1، WS39).
+     *    فنقرأ قرارَها بدل أن نعيد استنتاجه بطريقةٍ أخرى قد تختلف عند
+     *    حافّة القياس (بند 1، WS39).
      */
-    const on = book.dataset.layout === 'single';
-    pager.hidden = !on;
-    if (!on) return;
+    if (book.dataset.layout !== 'single') return;
     /* ⚠️ بالنسبة لا بالبكسل: العرضُ يختلف بين جهازٍ وجهاز. */
-    const at = Math.round(Math.abs(pages.scrollLeft) / Math.max(1, pages.clientWidth));
-    activePage = at;
-    for (const b of pager.querySelectorAll('[data-sh="page-go"]')) {
-      b.classList.toggle('on', Number(b.dataset.v) === at);
-    }
+    activePage = Math.round(Math.abs(pages.scrollLeft) / Math.max(1, pages.clientWidth));
   };
 
-  pages.addEventListener('scroll', paint, wired({ passive: true }));
-  /*
-   * ⚠️ **`sh-layout` لا `resize` وحده.** حدثُ تغيير حجم النافذة وقراءةُ
-   *    `ResizeObserver` لعرض `.sh-book` غيرُ مضمونَي الترتيب — فقد يُعاد
-   *    رسمُ هذا المؤشّر بـ`resize` وهو لا يزال يقرأ `data-layout` القديم
-   *    قبل أن تكتب `wireBookLayout` القيمة الجديدة. **قِيس**: تصغيرٌ حيٌّ
-   *    من عريضٍ إلى ضيّق كان يُبقي المؤشّرَ مختفيًا لدورةٍ واحدة. فتُطلِق
-   *    `wireBookLayout` هذا الحدثَ **بعد** كتابة `data-layout` مباشرةً،
-   *    فلا سباق.
-   */
-  book.addEventListener('sh-layout', paint, wired());
-  window.addEventListener('resize', paint, wired());
-  paint();
+  pages.addEventListener('scroll', read, wired({ passive: true }));
+  book.addEventListener('sh-layout', read, wired());
+  window.addEventListener('resize', read, wired());
+  read();
 }
 
 /**
@@ -6480,7 +6480,7 @@ function wireBookLayout(main) {
       pages.scrollLeft = 0;
     }
 
-    /* ⚠️ يُطلَق **بعد** كتابة `data-layout` — انظر التعليق في `wirePager`. */
+    /* ⚠️ يُطلَق **بعد** كتابة `data-layout` — تقرؤه `trackActivePage`. */
     book.dispatchEvent(new Event('sh-layout'));
   };
 
@@ -7683,10 +7683,12 @@ function phraseText() {
  *    «заполнен» — أي بإيقاعٍ ليس إيقاعَ ما تتعلّمه. والفاصلةُ داخل مدًى
  *    **بنيةٌ** لا ضجيج؛ وتجريدُها كان يليق بكلمةٍ مفردة وحدَها.
  */
-function phraseSpoken() {
-  const target = currentTarget();
-  return target.scope === SCOPE.PHRASE && target.ok ? target.text : phraseText();
-}
+/*
+ * ⚠️ **`phraseSpoken()` نُزعت** (WS-M · العطب ٢): كانت تخدم `phrase-play`
+ *    وحدَه، وقد نُزع لأنه كرّر زرَّ التشغيل الرئيسيّ. ودرسُها لم يضِع:
+ *    «الترقيمُ داخل المدى بنيةٌ لا ضجيج» يعمل الآن حيث يجب — في
+ *    `currentTarget()` التي يقرأ المحرّكُ نصَّها كما هو.
+ */
 
 /**
  * يعكس المدى على الرقائق.
@@ -9222,8 +9224,11 @@ function wireInteractions(main) {
       case 'font-pick':
         return pickFont(btn.dataset.page, btn.dataset.font);
 
-      case 'page-go':
-        return void goToPage(Number(btn.dataset.v));
+      /*
+       * ⚠️ `page-go` نُزع مع مؤشّر الصفحتين (WS-M · العطب ١) —
+       *    و`goToPage` باقيةٌ لأن `wireBookLayout` تناديها عند التحوّل
+       *    إلى صفحةٍ واحدة، والقلبُ اليدويُّ صار سحبًا بالإصبع.
+       */
 
       /* مفتاحُ الخطّ الصغير المعروض دائمًا على كلّ صفحة. */
       case 'fontpop':

@@ -23,6 +23,32 @@
  * ⚠️ **ولا كتابةَ قبل «احفظ»** (بند ٢٨): البايتاتُ في الذاكرة و
  *    `ObjectURL` وحدَهما حتى تضغط. و«إلغاء» يُبطل الرابطَ ويُسقط
  *    المرجع — صفرُ صفوفٍ وصفرُ بلوبات.
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **WS-M — أربعُ حالاتٍ صريحة، والفعلُ الأوّلُ فوق لا تحته**
+ * ═══════════════════════════════════════════════════════════════
+ *
+ *   IDLE → RECORDING → REVIEW → SAVED
+ *
+ * بلاغُ الجهاز الحقيقيّ كان: «مش عارف بدأ ولا لأ، ولا فين أوقّف».
+ * وثلاثةُ أسبابٍ اجتمعت:
+ *
+ *   ١ · **الفعلُ كان تحت المحتوى.** الترتيبُ كان: الهدفُ ثم أزرارُ
+ *       المقارنة ثم التسجيل ثم السجلّ. وعلى تابلتٍ طوليٍّ بسجلٍّ فيه
+ *       تسجيلاتٌ سابقة يهبط زرُّ «سجّل» تحت حافّة الشاشة — فتفتح
+ *       اللوحةَ ولا ترى الفعلَ الذي فتحتَها من أجله. فصار **أوّلَ
+ *       شيءٍ تحت الهدف**، والسجلُّ والمقارنةُ تحته.
+ *
+ *   ٢ · **لا مؤشّرَ لمستوى الصوت.** نقطةٌ وساعةٌ تقولان «الوقتُ يمشي»
+ *       ولا تقولان «الميكروفون يسمعك». والفرقُ بينهما هو بالضبط ما
+ *       يجعلك تكتشف بعد دقيقةٍ أنك سجّلتَ صمتًا.
+ *
+ *   ٣ · **المرجعُ كان ينطق فوق صوتك.** لا شيءَ كان يُسكِت التشغيل عند
+ *       بدء التسجيل، فيدخل صوتُ القراءة الآليّة في تسجيلك.
+ *
+ * ⚠️ **والمؤشّرُ يقرأ الميكروفونَ حقًّا** (بند ٣-ز): `AnalyserNode` على
+ *    مجرى التسجيل نفسِه. ولو تعذّر بناؤه لا نرسم رسمًا متحرّكًا
+ *    يتظاهر — نكتفي بالنقطة والساعة، وهما صادقتان.
  */
 
 import { html, raw, formatDuration } from '../utils/dom.js';
@@ -30,6 +56,8 @@ import { showModal } from '../components/modal.js';
 import { toast, toastOk, toastError } from '../components/toast.js';
 import { canRecord, startRecording, urlFor } from '../services/media-service.js';
 import { api as audio } from '../services/audio-service.js';
+/* ⚠️ لإسكات المرجع قبل فتح الميكروفون — راجع `beginRecording` (بند ٣-ج). */
+import { releaseAudio } from '../services/shadow/audio-bus.js';
 import { media } from '../db/repositories.js';
 import { deleteWithUndo } from '../services/delete-service.js';
 import { saveAttempt, listAttempts } from '../services/shadow/voice-attempts.js';
@@ -63,6 +91,12 @@ export async function openVoiceAttempts(target, speakReference) {
   let frozen = null;
   /** المحاولةُ غيرُ المحفوظة: بايتاتٌ ورابطُ معاينة. */
   let pending = null;
+  /** آخرُ عطبٍ يُعرَض للمستخدم — ولا يختفي وحدَه (بند ٣-و). */
+  let failure = null;
+  /** يظهر بعد حفظٍ ناجحٍ حتى أوّل فعلٍ بعده (بند ٣-هـ). */
+  let savedNote = false;
+  /** مقياسُ المستوى الحقيقيّ — أو `null` إن تعذّر. */
+  let meter = null;
   let attempts = await listAttempts(target.key);
   let root = null;
 
@@ -75,6 +109,55 @@ export async function openVoiceAttempts(target, speakReference) {
     if (ticker) clearInterval(ticker);
     ticker = null;
   };
+
+  /** «٠٠:٠٧» — دقائقُ وثوانٍ بخانتين، كما يطلب البند ٣-ب. */
+  const clockOf = (ms) => {
+    const s = Math.max(0, Math.floor(ms / 1000));
+    return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+  };
+
+  /* ---------------------------------------------------------------- *
+   * مقياسُ المستوى — يقرأ الميكروفونَ حقًّا أو لا يوجد (بند ٣-ز)
+   * ---------------------------------------------------------------- */
+
+  function startMeter(stream) {
+    stopMeter();
+    /*
+     * ⚠️ **ولا رسمَ متحرّكٌ يتظاهر.** لو غاب `AudioContext` أو رمى،
+     *    نترك `meter = null` ولا نرسم شريطًا يتذبذب من تلقاء نفسه:
+     *    مؤشّرٌ يكذب أسوأُ من غياب مؤشّر، لأنه يطمئنك على صمت.
+     */
+    try {
+      const Ctx = window.AudioContext || window.webkitAudioContext;
+      if (!Ctx || !stream) return;
+      const audioCtx = new Ctx();
+      const analyser = audioCtx.createAnalyser();
+      analyser.fftSize = 512;
+      audioCtx.createMediaStreamSource(stream).connect(analyser);
+      const buffer = new Uint8Array(analyser.frequencyBinCount);
+      let raf = 0;
+
+      const tick = () => {
+        analyser.getByteTimeDomainData(buffer);
+        /* جذرُ متوسّط المربّعات حول ١٢٨ — طاقةُ الإشارة لا لونُها. */
+        let sum = 0;
+        for (const v of buffer) sum += (v - 128) * (v - 128);
+        const rms = Math.sqrt(sum / buffer.length) / 128;
+        const bar = root?.querySelector('[data-vo-level]');
+        if (bar) bar.style.inlineSize = `${Math.min(100, Math.round(rms * 320))}%`;
+        raf = requestAnimationFrame(tick);
+      };
+      raf = requestAnimationFrame(tick);
+      meter = { close: () => { cancelAnimationFrame(raf); audioCtx.close().catch(() => {}); } };
+    } catch {
+      meter = null;
+    }
+  }
+
+  function stopMeter() {
+    try { meter?.close(); } catch { /* مغلقٌ سلفًا */ }
+    meter = null;
+  }
 
   const paint = () => {
     if (!root) return;
@@ -90,30 +173,64 @@ export async function openVoiceAttempts(target, speakReference) {
         <p class="vo-text" dir="ltr" lang="ru">${target.text}</p>
       </div>
 
-      <div class="vo-compare">
-        <button class="btn btn-ghost" data-vo="ref">▶ القراءة الآلية</button>
-        ${raw(attempts.length ? html`
-          <button class="btn btn-ghost" data-vo="mine">▶ آخر تسجيل ليّا</button>
-          <button class="btn btn-ghost" data-vo="both">▶ الاتنين ورا بعض</button>` : '')}
+      <!--
+        ══ الفعلُ أوّلًا (بند ٣-ب و٣-ح) ══
+        ⚠️ **فوق كلِّ شيءٍ آخر.** كان تحت أزرار المقارنة والسجلّ، فيهبط
+           خارج الشاشة على تابلتٍ طوليٍّ بسجلٍّ طويل — فتفتح اللوحةَ
+           ولا ترى الزرَّ الذي فتحتَها من أجله.
+      -->
+      <div class="vo-stage" data-vo-stage="${recorder ? 'recording' : pending ? 'review' : 'idle'}">
+        ${raw(recorder ? html`
+          <div class="vo-live" role="status" aria-live="assertive">
+            <span class="vo-dot" aria-hidden="true"></span>
+            <span class="vo-live-txt">جاري التسجيل</span>
+            <b class="vo-clock" data-vo-clock>${clockOf(0)}</b>
+          </div>
+          <!--
+            ⚠️ مقياسٌ حقيقيٌّ من الميكروفون — أو لا شيء. راجع startMeter.
+               وهو aria-hidden لأنه معلومةٌ بصريّةٌ صرفة؛ الحالةُ منطوقةٌ
+               في السطر فوقه.
+          -->
+          <div class="vo-meter" aria-hidden="true"><i data-vo-level></i></div>
+          <button type="button" class="btn vo-stop" data-vo="stop" aria-label="وقّف التسجيل">
+            ⏹ وقّف التسجيل
+          </button>
+          <button type="button" class="btn btn-ghost vo-cancel" data-vo="abort">إلغاء</button>`
+
+        : pending ? html`
+          <div class="vo-done" role="status">
+            سجّلت <b>${formatDuration(pending.durationMs)}</b> — اسمعها قبل ما تحفظ.
+          </div>
+          <button type="button" class="btn vo-play-mine" data-vo="preview">▶ اسمع تسجيلي</button>
+          <div class="vo-keep">
+            <button type="button" class="btn vo-save" data-vo="save">حفظ</button>
+            <button type="button" class="btn btn-ghost" data-vo="again">↻ سجّل من جديد</button>
+          </div>
+          <!--
+            ⚠️ **والحذفُ بعيدٌ عن الحفظ** (بند ٣-ح): زرٌّ هدّامٌ ملاصقٌ
+               لزرٍّ يُضغَط كثيرًا خسارةٌ مؤكّدةٌ بالإبهام.
+          -->
+          <button type="button" class="btn btn-ghost vo-discard" data-vo="discard">حذف</button>`
+
+        : html`
+          ${raw(savedNote ? html`
+            <p class="vo-saved" role="status">✓ تم حفظ التسجيل</p>` : '')}
+          <button type="button" class="btn vo-rec" data-vo="rec">🎙 سجّل صوتي</button>`)}
+
+        ${raw(failure ? html`
+          <div class="vo-fail" role="alert">
+            <span>${failure.why}</span>
+            ${raw(failure.retry ? html`
+              <button type="button" class="btn btn-sm" data-vo="rec">جرّب تاني</button>` : '')}
+          </div>` : '')}
       </div>
 
-      ${raw(recorder ? html`
-        <div class="vo-live" role="status">
-          <span class="vo-dot" aria-hidden="true"></span>
-          <span>بيسجّل… <b data-vo-clock>0:00</b></span>
-        </div>
-        <button class="btn btn-block vo-stop" data-vo="stop">⏹ وقّف</button>`
-        : pending ? html`
-        <div class="vo-preview">
-          <button class="btn btn-ghost" data-vo="preview">▶ اسمع اللي سجّلته</button>
-        </div>
-        <div class="btn-row">
-          <button class="btn" data-vo="save">احفظ</button>
-          <button class="btn btn-ghost" data-vo="again">سجّل تاني</button>
-          <button class="btn btn-ghost" data-vo="discard">إلغاء</button>
-        </div>`
-        : html`
-        <button class="btn btn-block vo-rec" data-vo="rec">🎙 سجّل صوتي</button>`)}
+      <div class="vo-compare">
+        <button type="button" class="btn btn-ghost" data-vo="ref">▶ القراءة الآلية</button>
+        ${raw(attempts.length ? html`
+          <button type="button" class="btn btn-ghost" data-vo="mine">▶ آخر تسجيل ليّا</button>
+          <button type="button" class="btn btn-ghost" data-vo="both">▶ الاتنين ورا بعض</button>` : '')}
+      </div>
 
       <div class="vo-history">
         <h4>تسجيلاتي — ${attempts.length}</h4>
@@ -121,11 +238,11 @@ export async function openVoiceAttempts(target, speakReference) {
           <div class="vo-list">
             ${raw(attempts.map((row) => html`
               <div class="vo-row" data-vo-row="${row.id}">
-                <button class="btn btn-ghost btn-sm" data-vo="play" data-id="${row.mediaId}">▶</button>
+                <button type="button" class="btn btn-ghost btn-sm" data-vo="play" data-id="${row.mediaId}">▶</button>
                 <span class="vo-when">${whenLabel(row.createdAt)}</span>
                 ${raw(row.durationMs
                   ? html`<span class="vo-dur">${formatDuration(row.durationMs)}</span>` : '')}
-                <button class="btn btn-ghost btn-sm vo-del" data-vo="del"
+                <button type="button" class="btn btn-ghost btn-sm vo-del" data-vo="del"
                         data-id="${row.mediaId}" aria-label="احذف التسجيل ده">✕</button>
               </div>`).join(''))}
           </div>`
@@ -140,9 +257,27 @@ export async function openVoiceAttempts(target, speakReference) {
   async function beginRecording() {
     /* ⚠️ ضغطتان متتاليتان لا تفتحان مسجّلين (بند ٢٠). */
     if (recorder) return;
-    if (!canRecord()) return toastError('المتصفّح ده مش بيدعم التسجيل');
+    failure = null;
+    savedNote = false;
+    if (!canRecord()) {
+      failure = { why: 'المتصفّح ده مش بيدعم التسجيل الصوتي.', retry: false };
+      paint();
+      return;
+    }
 
     dropPending();
+
+    /*
+     * ═══════════════════════════════════════════════════════════
+     * ⚠️ **يُسكَت المرجعُ قبل أن يفتح الميكروفون** (بند ٣-ج)
+     * ═══════════════════════════════════════════════════════════
+     * لا شيءَ كان يوقف القراءةَ الآليّة عند بدء التسجيل، فكان صوتُ
+     * المرجع يدخل في تسجيلك من مكبّر الجهاز نفسِه — تسمع نفسَك
+     * لاحقًا ومعك صوتٌ ثانٍ لا تعرف من أين جاء.
+     */
+    try { releaseAudio(); } catch { /* لا مالكَ الآن */ }
+    try { await audio.pause?.(); } catch { /* لا شيءَ يعمل */ }
+
     try {
       /*
        * ⚠️ **والإذنُ يُطلَب هنا — بعد ضغطةٍ صريحةٍ منك** (بند ٨). ولا
@@ -153,9 +288,17 @@ export async function openVoiceAttempts(target, speakReference) {
       recorder = null;
       const denied = /NotAllowed|Permission/i.test(error?.name || error?.message || '');
       const missing = /NotFound|Device/i.test(error?.name || '');
-      toastError(denied ? 'مديتش إذن الميكروفون — من إعدادات المتصفّح تقدر تسمح'
-        : missing ? 'مفيش ميكروفون متاح على الجهاز ده'
-          : 'مقدرناش نبدأ التسجيل');
+      /*
+       * ⚠️ **والعطبُ يبقى على الشاشة** (بند ٣-و): الـtoast يمرّ في
+       *    ثوانٍ، ومَن رفع إصبعَه ونظر بعدها لا يجد شيئًا — فيظنّ أن
+       *    الضغطةَ لم تصل. فيُكتَب في اللوحة ومعه بابُ إعادةٍ حين تنفع.
+       */
+      failure = denied
+        ? { why: 'مديتش إذن الميكروفون. من إعدادات المتصفّح اسمح للموقع بالميكروفون وجرّب تاني.', retry: true }
+        : missing
+          ? { why: 'مفيش ميكروفون متاح على الجهاز ده.', retry: false }
+          : { why: 'مقدرناش نبدأ التسجيل.', retry: true };
+      paint();
       return;
     }
 
@@ -169,13 +312,28 @@ export async function openVoiceAttempts(target, speakReference) {
     startedAt = Date.now();
     paint();
 
+    /* المقياسُ بعد الرسم — فالعنصرُ الذي يكتب فيه صار موجودًا. */
+    startMeter(recorder.stream);
+
     stopTicker();
     ticker = setInterval(() => {
       const clock = root?.querySelector('[data-vo-clock]');
-      if (!clock) return;
-      const s = Math.floor((Date.now() - startedAt) / 1000);
-      clock.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+      if (clock) clock.textContent = clockOf(Date.now() - startedAt);
     }, 250);
+  }
+
+  /** إلغاءٌ صريحٌ أثناء التسجيل — لا بايتاتٍ ولا صفوف (بند ٣-ب). */
+  function abortRecording() {
+    if (!recorder) return;
+    const active = recorder;
+    recorder = null;
+    stopTicker();
+    stopMeter();
+    try { active.cancel(); } catch { /* متوقّفٌ سلفًا */ }
+    frozen = null;
+    dropPending();
+    paint();
+    toast('التسجيل اتلغى');
   }
 
   async function endRecording() {
@@ -184,18 +342,24 @@ export async function openVoiceAttempts(target, speakReference) {
     /* ⚠️ يُصفَّر أوّلًا فلا تُوقفه ضغطةٌ ثانيةٌ مرّتين. */
     recorder = null;
     stopTicker();
+    stopMeter();
 
     let file = null;
     try {
       file = await active.stop();
     } catch {
-      toastError('التسجيل اتقطع');
+      failure = { why: 'التسجيل اتقطع قبل ما يخلص.', retry: true };
       paint();
       return;
     }
 
     if (!file || !file.size) {
-      toastError('التسجيل طلع فاضي — جرّب تاني');
+      /*
+       * ⚠️ **صفرُ بايتات ليس نجاحًا صامتًا** (بند ٣-و): يقع حين يُرفض
+       *    الميكروفونُ بعد فتحه أو يُقاطعه نداء. فيُقال صراحةً ويُعرَض
+       *    بابُ الإعادة — ولا يُحفَظ ملفٌّ فارغٌ باسم محاولة.
+       */
+      failure = { why: 'التسجيل طلع فاضي — الميكروفون مسمعش حاجة.', retry: true };
       paint();
       return;
     }
@@ -206,18 +370,37 @@ export async function openVoiceAttempts(target, speakReference) {
 
   async function commit() {
     if (!pending || !frozen) return;
-    const result = await saveAttempt({
-      file: pending.file,
-      target: frozen,
-      durationMs: pending.durationMs,
-    });
+    failure = null;
 
-    if (!result.ok) return toastError(result.why || 'مقدرناش نحفظ التسجيل');
+    let result = null;
+    try {
+      result = await saveAttempt({
+        file: pending.file,
+        target: frozen,
+        durationMs: pending.durationMs,
+      });
+    } catch (error) {
+      result = { ok: false, why: error?.message };
+    }
+
+    if (!result?.ok) {
+      /*
+       * ⚠️ **وفشلُ الحفظ لا يُسقط تسجيلك** (بند ٣-و): `pending` يبقى
+       *    كما هو، فتُعاد المحاولةُ بضغطةٍ بلا أن تنطق من جديد. ولو
+       *    محوناه هنا لَضاع صوتٌ سجّلتَه فعلًا بسبب عطبٍ في الكتابة.
+       */
+      failure = { why: result?.why || 'مقدرناش نحفظ التسجيل — تسجيلك لسه موجود، جرّب تاني.', retry: false };
+      paint();
+      return;
+    }
 
     dropPending();
     /* ⚠️ ويُقرأ السجلُّ من مفتاح **اللقطة** لا من الهدف الحاليّ. */
     attempts = await listAttempts(frozen.key);
     frozen = null;
+    /* ⚠️ حالةٌ مرئيّةٌ لا إشعارٌ عابر (بند ٣-هـ): «اتحفظ ولا لأ؟» سؤالٌ
+     *    لا يجب أن يُطرَح أصلًا. */
+    savedNote = true;
     paint();
     toastOk('اتحفظ');
   }
@@ -258,8 +441,16 @@ export async function openVoiceAttempts(target, speakReference) {
 
         if (action === 'rec') return beginRecording();
         if (action === 'stop') return endRecording();
+        if (action === 'abort') return abortRecording();
         if (action === 'again') { dropPending(); paint(); return beginRecording(); }
-        if (action === 'discard') { dropPending(); frozen = null; paint(); return; }
+        if (action === 'discard') {
+          dropPending();
+          frozen = null;
+          failure = null;
+          savedNote = false;
+          paint();
+          return;
+        }
         if (action === 'save') return commit();
 
         if (action === 'ref') return speakReference?.();
@@ -295,6 +486,7 @@ export async function openVoiceAttempts(target, speakReference) {
 
   /* ── الإغلاق: لا شيءَ معلَّقٌ يبقى ── */
   stopTicker();
+  stopMeter();
   if (recorder) {
     /*
      * ⚠️ **وإغلاقُ اللوحة أثناء التسجيل يُلغي — ولا يحفظ صامتًا** (بند ٢٧).

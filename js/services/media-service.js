@@ -463,6 +463,14 @@ export async function startRecording() {
   const cleanup = () => stream.getTracks().forEach((t) => t.stop());
 
   return {
+    /*
+     * ⚠️ **المجرى يُكشَف ليُقاس مستواه حقًّا** (WS-M · العطب ٣-ز).
+     *    مؤشّرُ صوتٍ لا يقرأ الميكروفون رسمٌ متحرّكٌ يكذب: يقول
+     *    «بسمعك» وهو لا يسمع، فتظنّ التسجيلَ شغّالًا وهو صامت.
+     *    ومَن أراد مؤشّرًا صادقًا يعلّق `AnalyserNode` على هذا المجرى.
+     *    ولا يملكه: الإغلاقُ من `stop`/`cancel` وحدَهما.
+     */
+    stream,
     stop() {
       return new Promise((resolve) => {
         recorder.addEventListener(

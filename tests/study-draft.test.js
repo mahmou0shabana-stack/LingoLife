@@ -1436,10 +1436,19 @@ describe('الكتاب · صفحتان تُقلَّبان على الموباي�
     expect(block.includes("querySelectorAll('.sh-page')[index]")).toBe(true);
   });
 
-  it('⚠️ والمؤشّرُ شقيقُ الصفحات لا ابنُها', () => {
-    const pager = code.indexOf('data-pager');
-    const pages = code.indexOf('data-pages');
-    expect(pager > 0 && pages > 0 && pager < pages).toBe(true);
+  it('⚠️ ولا مؤشّرَ صفحتين أصلًا — نُزع في WS-M', () => {
+    /*
+     * ⚠️ **كان هذا الاختبارُ يحرس أن المؤشّرَ شقيقُ الصفحات لا ابنُها**
+     *    (ابنٌ داخل حاويةٍ تنزلق أفقيًّا ينزلق معها). ثم نُزع المؤشّرُ
+     *    كلُّه بعد بلاغٍ من الجهاز الحقيقيّ: سطرٌ يقول «‹ SOURCE» و
+     *    «SHADOWING ›» وسط سطح القراءة يسمّي للمتعلّم وضعًا تقوله
+     *    الشاشةُ عنه أصلًا.
+     *
+     *    فالحارسُ ينقلب إلى ضدّه: يمنع عودتَه. والقلبُ اليدويُّ صار
+     *    سحبًا بالإصبع على حاوية `scroll-snap`.
+     */
+    expect(code.includes('data-pager')).toBe(false);
+    expect(code.includes('data-pages')).toBe(true);
   });
 });
 
@@ -1448,12 +1457,29 @@ describe('الكتاب · صفحتان تُقلَّبان على الموباي�
 /* ================================================================== */
 
 describe('الكتاب · تخطيطٌ متكيّفٌ بالعرض الفعليّ (WS39)', () => {
-  it('⚠️ والمؤشّرُ يحمل اسمَ الصفحة — لا نقطتين صامتتين', async () => {
-    const html = codeOnly(await (await fetch('/js/views/shadow-view.js')).text());
-    const at = html.indexOf('data-pager');
-    const block = html.slice(at, html.indexOf('</div>', at));
-    expect(block.includes('SOURCE')).toBe(true);
-    expect(block.includes('SHADOWING')).toBe(true);
+  it('⚠️ ولا اسمَ صفحةٍ يُكتَب على سطح القراءة (WS-M)', async () => {
+    /*
+     * ⚠️ **انقلب هذا الحارسُ أيضًا.** كان يطلب أن يحمل المؤشّرُ اسمَ
+     *    الصفحة بدل نقطتين صامتتين — وكان مُحقًّا وقتَها. ثم قال
+     *    الجهازُ الحقيقيُّ إن السطرَ كلَّه زائد. فبقي التخطيطُ المتكيّف
+     *    (صفحةٌ واحدةٌ عند الضيق) وذهبت لافتتُه.
+     */
+    /*
+     * ⚠️ **و`codeOnly` تُزيل تعليقاتِ JS لا تعليقاتِ HTML** — وشرحُ
+     *    النزع مكتوبٌ داخل `<!-- -->` في القالب، فيه اسمُ ما نُزع.
+     *    فتُزال الاثنتان قبل القياس.
+     */
+    const html = codeOnly(await (await fetch('/js/views/shadow-view.js')).text())
+      .replace(/<!--[\s\S]*?-->/g, '');
+    expect(html.includes('page-go')).toBe(false);
+    expect(html.includes('SHADOWING ›')).toBe(false);
+    /*
+     * والتخطيطُ المتكيّفُ نفسُه باقٍ — هو المقصودُ من WS39. والسِّمةُ
+     * تُكتَب من JS بـ`dataset.layout`، فلا يُبحَث عن نصّ `data-layout`.
+     */
+    expect(html).toContain('function wireBookLayout');
+    expect(html).toContain('book.dataset.layout');
+    expect(html).toContain("'single'");
   });
 
   it('⚠️ ومغادرةُ الشاشة تفصل رقيبَ القياس — لا تُبقيه معلَّقًا', async () => {

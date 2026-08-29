@@ -598,9 +598,22 @@ const importsOf = (source) =>
 
 describe('WS-I · الحرّاسُ البنيويّون (بند ٣٢)', () => {
   it('٣٣ · ⚠️ ولا مشغّلَ صوتٍ ثانٍ — التشغيلُ من `audio-service` وحدَه', async () => {
+    /*
+     * ⚠️ **والقياسُ على «يُسمِع» لا على «يلمس واجهةَ الصوت»** (WS-M).
+     *
+     *    كان `AudioContext` في القائمة، وهو صحيحٌ ما دام يُستعمَل
+     *    لتشغيل شيء. لكنّ مقياسَ مستوى الميكروفون أثناء التسجيل
+     *    (`AnalyserNode` على مجرى `getUserMedia`) **لا يُخرِج صوتًا**:
+     *    لا `destination` ولا `start()` ولا مصدرَ وسائط — يقرأ فقط.
+     *    ومنعُه كان سيدفعنا إلى شريطٍ متحرّكٍ يتظاهر بأنه يسمع، وهو
+     *    الكذبُ الذي ينهى عنه البندُ ٣-ز صراحة.
+     *
+     *    فالحارسُ يمنع الآن **الإخراج**: عنصرَ صوتٍ جديدًا، أو وصلًا
+     *    إلى مخرج البطاقة. والقراءةُ المحضةُ مسموحة.
+     */
     const forbidden = [
       'new Audio(', "createElement('audio'", 'createElement("audio"',
-      'AudioContext', 'webkitAudioContext',
+      '.destination', 'createBufferSource', 'createOscillator',
     ];
     const offenders = [];
     for (const [path, source] of await srcsOf(WS_I_FILES)) {
@@ -611,6 +624,19 @@ describe('WS-I · الحرّاسُ البنيويّون (بند ٣٢)', () => {
     }
     if (offenders.length) throw new Error(`مشغّلُ صوتٍ ثانٍ:\n${offenders.join('\n')}`);
     expect(offenders.length).toBe(0);
+
+    /*
+     * وإن استُعمل `AudioContext` فللقياس وحدَه — يُثبَت بأنه موصولٌ
+     * بمُحلِّلٍ ومجرى ميكروفون، لا بمخرجٍ ولا بمصدرِ تشغيل.
+     */
+    const withCtx = (await srcsOf(WS_I_FILES))
+      .filter(([, s]) => codeOf(s).includes('AudioContext'));
+    for (const [path, source] of withCtx) {
+      const code = codeOf(source);
+      if (!code.includes('createAnalyser') || !code.includes('createMediaStreamSource')) {
+        throw new Error(`AudioContext بلا غرضِ قياسٍ واضح: ${path}`);
+      }
+    }
 
     /*
      * والنفيُ وحدَه لا يكفي: لا بدّ أن تُثبِت النافذةُ أنها **تستعمل**
