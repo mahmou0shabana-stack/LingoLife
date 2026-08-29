@@ -12,13 +12,28 @@
 import {
   registerRule, RULE_CATEGORY, STAGE, STATUS, EVIDENCE,
 } from '../rule-registry.js';
-import { ALWAYS_HARD, ALWAYS_SOFT, SOFTENING_VOWELS } from '../alphabet.js';
+import {
+  ALWAYS_HARD, ALWAYS_SOFT, SOFTENING_VOWELS, CONSONANT_HARD, CONSONANT_SOFT,
+} from '../alphabet.js';
 
 /**
  * مُعرَّباتٌ يبقى ساكنُها صلبًا قبل `е` — بدليلٍ صريحٍ لكلٍّ منها.
  * ⚠️ ولا يُضاف إليها بالحدس: ما لا مصدرَ له يبقى خارجَها.
  */
 const LOAN_HARD_E = new Set(['антре', 'безе', 'гофре', 'кюре', 'пастель']);
+
+/**
+ * الصوتان جنبًا إلى جنب — «[m] ← [mʲ]» بدل كلمة «مرقّق» وحدَها (§21).
+ *
+ * ⚠️ **و«ليّن» بلا صوتٍ لا تُعلِّم شيئًا.** المتعلّمُ العربيُّ يقرأ
+ *    «مرقّق» فيسمعها مصطلحَ تجويد، ولا يعرف ماذا يفعل بلسانه. أمّا
+ *    «`м` قدّام `е` بتتنطق [mʲ] مش [m]» فتقول له الفرقَ نفسَه.
+ */
+const pair = (letter) => `[${CONSONANT_SOFT[letter] || CONSONANT_HARD[letter]}] `
+  + `مش [${CONSONANT_HARD[letter]}]`;
+
+/** الحرفُ التالي إن وُجد — وإلّا فلا نذكر جارًا غيرَ موجود. */
+const before = (ctx) => (ctx.next ? ` قدّام «${ctx.next}»` : '');
 
 registerRule({
   id: 'RU_CONS_ALWAYS_HARD',
@@ -31,6 +46,8 @@ registerRule({
   status: STATUS.VERIFIED,
   evidence: EVIDENCE.SNIPPET,
   applies: (ctx) => ALWAYS_HARD.includes(ctx.letter),
+  describe: (ctx) => `«${ctx.letter}» صلبة دايمًا${before(ctx)} — بتتنطق `
+    + `[${CONSONANT_HARD[ctx.letter]}] في كلّ مكان، مفيش نسخة ليّنة منها في الروسي.`,
   transform: () => ({ soft: false }),
 });
 
@@ -44,12 +61,24 @@ registerRule({
   source: 'Грамота.ру · «Твёрдые и мягкие согласные звуки»',
   status: STATUS.VERIFIED,
   evidence: EVIDENCE.SNIPPET,
+  /*
+   * ⚠️ **و«й» ليست ساكنًا تليّن — وقولُ «اتليّنت» عنها خطأٌ نوعيّ** (§21).
+   *    الليونةُ في الروسيّة **تقابلٌ** بين صلبٍ وليّنٍ لنفس الساكن
+   *    (`л`/`л'`). و`й` [j] صوتٌ انزلاقيٌّ لا نسخةَ صلبةَ له أصلًا،
+   *    فوصفُها بأنها «مرقَّقة» يُدخِلها في تقابلٍ لا وجودَ له، ويجعل
+   *    المتعلّمَ يبحث عن «й صلبة» لن يجدها أبدًا.
+   */
   applies: (ctx) => ALWAYS_SOFT.includes(ctx.letter),
+  describe: (ctx) => (ctx.letter === 'й'
+    ? `«й» صوتها [j] بطبيعتها — صوت انزلاقي، مش ساكن اتليّن. مفيش «й صلبة» تقابلها.`
+    : `«${ctx.letter}» ليّنة دايمًا${before(ctx)} — بتتنطق `
+      + `[${CONSONANT_SOFT[ctx.letter]}] في كلّ مكان، حتى قدّام «а» و«о».`),
   transform: () => ({ soft: true }),
 });
 
 registerRule({
   id: 'RU_PALATALIZATION_BY_VOWEL',
+  trigger: 'next',
   category: RULE_CATEGORY.PALATALIZATION,
   stage: STAGE.HARDNESS,
   priority: 420,
@@ -59,11 +88,14 @@ registerRule({
   status: STATUS.VERIFIED,
   evidence: EVIDENCE.SNIPPET,
   applies: (ctx) => Boolean(ctx.next) && SOFTENING_VOWELS.includes(ctx.next),
+  describe: (ctx) => `«${ctx.letter}» بتلين قدّام «${ctx.next}» — بتتنطق ${pair(ctx.letter)}. `
+    + `اللسان بيقرب من سقف الحلق وإنت بتنطقها.`,
   transform: () => ({ soft: true }),
 });
 
 registerRule({
   id: 'RU_PALATALIZATION_BY_SOFT_SIGN',
+  trigger: 'next',
   category: RULE_CATEGORY.PALATALIZATION,
   stage: STAGE.HARDNESS,
   priority: 430,
@@ -80,11 +112,14 @@ registerRule({
    *    في اختبارات `мышь` و`ночь`.
    */
   applies: (ctx) => ctx.next === 'ь',
+  describe: (ctx) => `«ь» مالهاش صوت — شغلتها إنها تليّن «${ctx.letter}» اللي قبلها، `
+    + `فبتتنطق ${pair(ctx.letter)}.`,
   transform: () => ({ soft: true }),
 });
 
 registerRule({
   id: 'RU_SOFTNESS_ASSIMILATION',
+  trigger: 'next',
   category: RULE_CATEGORY.PALATALIZATION,
   stage: STAGE.HARDNESS,
   priority: 440,
@@ -108,12 +143,15 @@ registerRule({
   applies: (ctx) => 'сз'.includes(ctx.letter)
     && 'тднсзл'.includes(ctx.next || '')
     && SOFTENING_VOWELS.includes(ctx.afterNext || ''),
+  describe: (ctx) => `«${ctx.letter}» قبل «${ctx.next}» الليّنة: زمان كانوا بينطقوها ليّنة، `
+    + `ودلوقتي الأغلب بينطقها صلبة — والاتنين مقبولين.`,
   /* ⚠️ `soft` تبقى كما قرّرتها القواعدُ قبلها؛ نُضيف وسمًا لا تحويلًا. */
   transform: (ctx) => ({ soft: ctx.soft, variant: 'قد تُنطق ليّنة عند بعض المتحدّثين' }),
 });
 
 registerRule({
   id: 'RU_LOANWORD_HARD_BEFORE_E',
+  trigger: 'next',
   category: RULE_CATEGORY.HARDNESS,
   stage: STAGE.HARDNESS,
   /*
@@ -136,5 +174,7 @@ registerRule({
   status: STATUS.LEXICAL,
   evidence: EVIDENCE.SNIPPET,
   applies: (ctx) => ctx.next === 'е' && LOAN_HARD_E.has(ctx.word),
+  describe: (ctx) => `«${ctx.word}» كلمة مستوردة، فـ«${ctx.letter}» بتفضل صلبة قدّام «е» — `
+    + `[${CONSONANT_HARD[ctx.letter]}] مش [${CONSONANT_SOFT[ctx.letter]}]، بعكس القاعدة العامّة.`,
   transform: () => ({ soft: false, loan: true }),
 });

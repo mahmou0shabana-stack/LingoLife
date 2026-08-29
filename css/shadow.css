@@ -4777,10 +4777,76 @@ body.shadow-open { overflow: hidden; }
   color: rgba(90, 72, 44, .42); text-align: center;
 }
 .sh-an-map, .sh-an-why, .sh-an-ask, .sh-an-adv, .sh-an-trace,
-.sh-an-heard, .sh-an-drill, .sh-an-changed, .sh-an-terms, .sh-an-ctx {
+.sh-an-heard, .sh-an-drill, .sh-an-changed, .sh-an-terms, .sh-an-ctx,
+.sh-an-inphrase, .sh-an-invalid {
   margin-block-start: clamp(26px, 5vh, 46px);
   padding-block-start: clamp(20px, 3vh, 30px);
   border-block-start: 1px solid rgba(122, 95, 44, .14);
+}
+
+/* ================================================================== *
+ * التقريبُ العربيّ · النطقُ المتوقَّع جوّه الجملة · التعارضُ (WS-N)
+ * ================================================================== */
+
+/*
+ * ⚠️ **والمقاطعُ مفصولةٌ بنقطةٍ لا ملتصقة.** «إِمييِت» تُقرأ خطأً،
+ *    و«إِ · مي · يِت» تُقرأ كما تُنطَق. والمنبورُ أثقلُ حبرًا — لأن
+ *    النبرَ يُرى قبل أن يُقرأ (§14).
+ */
+.sh-an-ear .v { display: inline-flex; align-items: baseline; gap: 8px; }
+.sh-an-ear .v b { font-weight: 400; color: rgba(74, 65, 51, .82); }
+.sh-an-ear .v b.on {
+  font-weight: 600; color: #6d5220;
+  border-block-end: 2px solid rgba(217, 182, 114, .75);
+}
+.sh-an-ear .v i { font-style: normal; color: rgba(122, 95, 44, .28); }
+
+/*
+ * ⚠️ **وقسمُ السياق له إطارُه البصريُّ الخاصّ** — فالفصلُ الذي في
+ *    البيانات لا يُفيد شيئًا إن كانت العينُ تقرؤه امتدادًا لما فوقه.
+ */
+.sh-an-cmp {
+  margin: 0 auto 18px; max-inline-size: 62ch;
+  border: 1px dashed rgba(122, 95, 44, .22); border-radius: 4px;
+}
+.sh-an-cmprow {
+  display: flex; align-items: baseline; gap: 14px; padding: 11px 16px;
+  border-block-end: 1px solid rgba(122, 95, 44, .1);
+}
+.sh-an-cmprow:last-child { border-block-end: 0; }
+.sh-an-cmprow .k {
+  flex: 0 0 auto; min-inline-size: 92px; font-size: 11px; letter-spacing: .14em;
+  color: rgba(90, 72, 44, .45);
+}
+.sh-an-cmprow .v { font-size: clamp(16px, 2vw, 20px); color: var(--sh-paper-ink); }
+/* الـIPA بجانب التقريب لا فوقه — مرجعٌ لا عنوان. */
+.sh-an-alt {
+  margin-inline-start: auto; font-size: 13px; color: rgba(90, 72, 44, .62);
+  padding: 2px 8px; border-radius: 3px; background: rgba(122, 95, 44, .06);
+}
+
+.sh-an-pred { margin: 0 auto; max-inline-size: 62ch; padding: 0; list-style: none; }
+.sh-an-pred li {
+  padding: 12px 0; border-block-end: 1px solid rgba(122, 95, 44, .1);
+}
+.sh-an-pred li:last-child { border-block-end: 0; }
+.sh-an-pred .w { font-size: 21px; color: var(--sh-paper-ink); margin-inline-end: 10px; }
+.sh-an-pred code {
+  font-size: 14px; color: #8a5a2a; padding: 2px 7px; border-radius: 3px;
+  background: rgba(122, 95, 44, .07);
+}
+.sh-an-pred i { font-style: normal; color: rgba(122, 95, 44, .35); margin: 0 8px; }
+.sh-an-pred p { margin: 8px 0 0; font-size: 14px; line-height: 1.9; color: rgba(74, 65, 51, .88); }
+
+.sh-an-invalid { color: #7a5a22; }
+.sh-an-invalid p {
+  margin: 0 auto; max-inline-size: 62ch; font-size: 14px; line-height: 1.9;
+  padding: 12px 16px; border-radius: 3px; background: rgba(217, 182, 114, .12);
+  border-inline-start: 2px solid rgba(184, 134, 43, .6);
+}
+.sh-an-diag {
+  margin: 12px auto 0; max-inline-size: 62ch; font-size: 11px;
+  color: rgba(90, 72, 44, .6); padding-inline-start: 18px;
 }
 
 /* خريطةُ الأصوات — ولا قوسَ قزح: اللونُ يعني «هنا حصل حاجة» */

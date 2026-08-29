@@ -1235,14 +1235,17 @@ export const TEACHING_RULES = Object.freeze([
         fromSource: true, unchanged: 'ф' },
     ],
     counter: [],
-    engineRuleIds: ['RU_VOICING_SONORANT_NEUTRAL'],
+    engineRuleIds: ['RU_SONORANT_KEEPS_VOICE', 'RU_SONORANT_NO_TRIGGER'],
     status: COVERAGE.COVERED,
     divergence: null,
     notes:
-      '⚠️ **والصمتُ لا يُعلِّم.** `RU_VOICING_SONORANT_NEUTRAL` قاعدةٌ '
-      + '**مانعةٌ تُسجَّل في الأثر** بدل أن تسكت، وخريطةُ الصوت تعلّم كلَّ '
-      + 'صوتٍ `changed: false` صراحةً — فيرى المتعلّم أن «لا شيء» جوابٌ '
-      + 'لا سهوٌ.',
+      '⚠️ **والصمتُ لا يُعلِّم — لكنّ الكلامَ في غير موضعه لا يُعلِّم أيضًا.** '
+      + 'كانت هذه ترتبط بقاعدةٍ واحدة (`RU_VOICING_SONORANT_NEUTRAL`) تنطلق '
+      + 'كلَّما وُجدت رنّانةٌ أو تلتها رنّانة — فظهرت في `име́ет` بشرحٍ يذكر '
+      + '`л` وليس في الكلمة `л`. فانقسمت في WS-N إلى قاعدتين بشرطَين دقيقَين: '
+      + '`RU_SONORANT_KEEPS_VOICE` (رنّانةٌ كان الهمسُ متوقَّعًا عندها فامتنع) '
+      + 'و`RU_SONORANT_NO_TRIGGER` (مهموسٌ مزدوجٌ توقّع التجهيرَ من رنّانةٍ بعده '
+      + 'فلم يقع). ولكلٍّ شرحٌ يسمّي حرفَها هي.',
   },
 
   {

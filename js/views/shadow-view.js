@@ -47,7 +47,7 @@ import { claimAudio, releaseAudio, ownsAudio } from '../services/shadow/audio-bu
  */
 import {
   analyzeWord, clearPronunciationCache, pronunciationMetadata,
-  DISPLAY_MODE, FLAG as PRON_FLAG, ruleById,
+  DISPLAY_MODE, FLAG as PRON_FLAG,
 } from '../services/pronunciation/engine.js';
 import {
   warmStressResolver, onStressLexiconReady, lexiconMeta,
@@ -59,6 +59,17 @@ import {
  *    واختبارٌ يفحص نصَّه فيسقط لو عاد جدولُ صلابةٍ إليه.
  */
 import { soundMap, contextChain } from '../services/pronunciation/sound-map.js';
+/*
+ * ⚠️ **والطبقتان تأتيان جاهزتين — والواجهةُ لا تفصل بينهما بنفسها**
+ *    (WS-N · §4 و§11).
+ *
+ *    كانت الصفحةُ تنادي `analyzeWord` ومعها الجارُ، فتحصل على نتيجةٍ
+ *    **واحدة** فيها أثرُ الجار مدموجًا في نطق الكلمة — فعرضت
+ *    `име́ет` منتهيةً بـ`д`. ولو أصلحناها هنا بشرطٍ في العرض لبقي
+ *    الخلطُ في البيانات وعاد من أوّل شاشةٍ جديدة. فالفصلُ في
+ *    `analysis.js`، وهذه تعرض ما وصلها.
+ */
+import { analyzePronunciation } from '../services/pronunciation/analysis.js';
 import { rememberStressContext } from '../services/pronunciation/stress/providers.js';
 import {
   holdBackgroundAudio, releaseBackgroundAudio, disposeBackgroundAudio,
@@ -3810,11 +3821,18 @@ function renderAnalysis() {
   analysis.prevWord = neighbours[analysis.wordIndex - 1]?.spoken || null;
   analysis.nextWord = neighbours[analysis.wordIndex + 1]?.spoken || null;
 
-  const result = analyzeWord(analysis.word, {
-    /* ⚠️ الجارُ يُمرَّر — فالمماثلةُ عبر الحدّ تظهر في مكانها الطبيعيّ. */
+  /*
+   * ⚠️ **الجارُ يُمرَّر — والنتيجةُ طبقتان لا واحدة.**
+   *    `bundle.lexical` هي الكلمةُ وحدَها مهما كان جارُها، و`bundle.context`
+   *    هي ما **قد** يتغيّر لو وُصلت به. والصفحةُ تعرضهما في موضعَين
+   *    مفصولَين ولا تخلطهما في سطرٍ واحد (§25).
+   */
+  const bundle = analyzePronunciation(analysis.word, {
     nextWord: analysis.nextWord,
     previousWord: analysis.prevWord,
   });
+  /* خريطةُ الصوت تصف **الكلمة**، فتُغذَّى بالطبقة المعجميّة وحدَها. */
+  const result = bundle.raw.lexical;
 
   /*
    * ⚠️ **والصفحةُ تقرأ من الخريطة لا من التحليل الخام** (بند ٤٩).
@@ -3878,7 +3896,29 @@ function renderAnalysis() {
       <div class="sh-an-pick">${pronStressPicker(result.normalizedText)}</div>
     </section>`;
 
-  const stressBlock = unknown
+  /*
+   * ---- كلمةٌ بلا حرف علّة: `к` · `в` · `с` (WS-N · §47 و§48) ----
+   *
+   * ⚠️ **وكانت الصفحةُ تقول لها «المقطع ٠ من ٠» و«بتتنطق []».**
+   *
+   * جملتان بلا معنى، ولم يكشفهما اختبار — كشفهما فحصٌ حيٌّ فتح `к`
+   * من جملةٍ حقيقيّة ونظر. وحروفُ الجرّ هذه ليست حالةً نادرة: هي من
+   * أكثر كلمات الروسيّة ورودًا، وليس فيها عطبٌ لغويّ — **ليس لها نطقٌ
+   * منفردٌ أصلًا**، تُنطَق ملتصقةً بما بعدها. فالصوابُ أن تقول الصفحةُ
+   * ذلك، لا أن تعرض صفرًا وقوسين فارغين.
+   *
+   * ⚠️ **ولا تُعرَض لها «تدريب النطق»** (§27): إرسالُ `к` وحدَها إلى
+   *    مُركِّب الكلام يُخرج اسمَ الحرف أو صمتًا — ادّعاءُ صوتٍ لا يقوله
+   *    أحد. والتشغيلُ الصادقُ الوحيدُ لها هو داخل السياق.
+   */
+  const clitic = !bundle.syllabic && bundle.supported ? `
+    <section class="sh-an-line sh-an-say">
+      <span class="k">نطقها</span>
+      <span class="v">مالهاش حرف علّة، فمالهاش نبر ولا نطق منفرد —
+        بتتنطق ملزوقة بالكلمة اللي بعدها.</span>
+    </section>` : '';
+
+  const stressBlock = !bundle.syllabic ? clitic : unknown
     ? (ambiguous ? askAmbiguous : askUnknown)
     : `<section class="sh-an-line">
          <span class="k">النبر</span>
@@ -3908,7 +3948,7 @@ function renderAnalysis() {
     </section>`;
 
   /* ---- تدريب النطق: ثلاثةُ مستوياتٍ مختلفةٍ فعلًا (بند ٢٣) ---- */
-  const drill = !map.playback ? '' : `
+  const drill = !map.playback || !bundle.syllabic ? '' : `
     <section class="sh-an-drill">
       <h4>تدريب النطق</h4>
       <div class="sh-an-levels">${['pieces', 'slow', 'natural'].map((id) => {
@@ -3963,38 +4003,122 @@ function renderAnalysis() {
       <span class="y">${esc(u.reduction.why)}</span>
       ${analysis.advanced ? `<code dir="ltr">[${esc(u.realizedIpa)}]</code>` : ''}</li>`));
 
-  /* ---- «ليه؟» — هامشٌ مرقَّم ---- */
-  const reasons = result.appliedRules
-    .filter((s) => s.why)
-    .filter((s, i, all) => all.findIndex((o) => o.ruleId === s.ruleId) === i);
+  /*
+   * ---- «ليه؟» — **القواعدُ المُطبَّقة وحدَها** (WS-N · §18 و§40) ----
+   *
+   * ⚠️ **وكانت الصفحةُ تعرض ما انطلق، لا ما أثّر.**
+   *
+   * القائمةُ القديمة كانت تأخذ كلَّ سطرٍ في الأثر له `why`، وتُسقِط
+   * المكرَّرَ بالمعرّف. فمرّت قاعدةٌ انطلقت ولم تفعل شيئًا، وشرحُها
+   * العامُّ يذكر `л` — في كلمةٍ ليس فيها `л`. والسطرُ يبدو معرفةً
+   * وهو حشوٌ، والقارئُ لا يملك ما يكشفه به.
+   *
+   * والآن التصفيةُ في `analysis.js` بأربعة شروط (مُطلِقٌ موجود ·
+   * أثرٌ حقيقيّ · نطاقٌ مطابق · موضعٌ يُشار إليه)، والصفحةُ تعرض
+   * ما وصلها ولا تُقرّر. وكلُّ موضعٍ يحمل **جملتَه هو** لا جملةَ
+   * عائلته.
+   */
+  const ruleFlag = (status) => (status === 'DISPUTED' ? 'فيها خلاف'
+    : status === 'PROVISIONAL' ? 'مبدئيّة' : '');
 
-  const why = reasons.length ? `
+  const why = bundle.validation.ok && bundle.lexical.appliedRules.length ? `
     <section class="sh-an-why">
       <h4>ليه بتتنطق كده؟</h4>
-      <ol>${reasons.map((step) => {
-    const rule = ruleById(step.ruleId);
-    const st = rule?.status || (step.lexical ? 'LEXICAL' : '');
-    return `<li>
-          <p>${esc(step.why)}</p>
+      <ol>${bundle.lexical.appliedRules.map((rule) => `
+        <li>
+          ${rule.instances.map((one) => `<p>${esc(one.why)}</p>`).join('')}
           ${analysis.advanced ? `
             <div class="sh-an-meta" dir="ltr">
-              <code>${esc(step.ruleId)}</code>
-              <span class="s-${esc(st)}">${esc(st)}</span>
-              <em>${esc(step.source)}</em>
-            </div>` : (st === 'DISPUTED' || st === 'PROVISIONAL'
-      ? `<span class="sh-an-flag s-${esc(st)}">${
-        st === 'DISPUTED' ? 'فيها خلاف' : 'مبدئيّة'}</span>` : '')}
-        </li>`;
-  }).join('')}</ol>
+              <code>${esc(rule.ruleId)}</code>
+              <span class="s-${esc(rule.status || '')}">${esc(rule.status || '')}</span>
+              <em>${esc(rule.source || '')}</em>
+            </div>` : (ruleFlag(rule.status)
+    ? `<span class="sh-an-flag s-${esc(rule.status)}">${esc(ruleFlag(rule.status))}</span>` : '')}
+        </li>`).join('')}</ol>
     </section>` : '';
+
+  /* ---- تقريبٌ للأذن العربيّة — **مبنيٌّ من الصوت** (§23) ---- */
+  const ear = !bundle.arabicEar?.available ? '' : `
+    <section class="sh-an-line sh-an-ear">
+      <span class="k">تقريب للأذن العربية</span>
+      <span class="v">${bundle.arabicEar.syllables.map((part, i) => `<b class="${
+  i === bundle.arabicEar.stressedIndex ? 'on' : ''}">${esc(part)}</b>`).join('<i>·</i>')}</span>
+    </section>
+    <p class="sh-an-fine">ده تقريب يساعدك تبدأ — مش نسخ صوتي دقيق. الأصل هو اللي بتسمعه.
+      ${esc(analysis.advanced ? bundle.arabicEar.notes.join(' ') : '')}</p>`;
+
+  /*
+   * ---- إيه اللي ممكن يتغيّر جوّه الجملة؟ (§8 و§25) ----
+   *
+   * ⚠️ **وقسمٌ منفصلٌ بعنوانٍ منفصل — لا سطرٌ داخل نطق الكلمة.**
+   *    هذا هو الفصلُ المرئيُّ الذي يقابل الفصلَ في البيانات؛ ولو
+   *    عُرِض التغيّرُ فوق «بتتنطق» لعاد العطبُ بصريًّا وإن كانت
+   *    البيانات سليمة.
+   */
+  const predicted = !bundle.context || !bundle.validation.ok ? '' : `
+    <section class="sh-an-inphrase">
+      <h4>إيه اللي ممكن يتغيّر جوّه الجملة؟</h4>
+      <div class="sh-an-cmp">
+        <div class="sh-an-cmprow">
+          <span class="k">منفردة</span>
+          ${bundle.lexical.simple ? `
+            <span class="v" lang="ru" dir="ltr">[${esc(bundle.lexical.simple)}]</span>
+            ${/*
+                ⚠️ **ورمزان في الصفّ الواحد لأن التغيّرَ تحته بالـIPA.**
+                   كان الصفُّ يعرض التقريبَ السيريليَّ وحدَه (`[но́ш]`)
+                   بينما السطرُ الذي تحته يقول `[ʂ] → [ʐ]` — نظامان
+                   للكتابة في مقارنةٍ واحدة، فلا يعرف القارئُ أيَّ حرفٍ
+                   في الأعلى يقابل أيَّ رمزٍ في الأسفل.
+              */''}
+            ${bundle.lexical.ipa
+    ? `<code class="sh-an-alt" dir="ltr">${esc(bundle.lexical.ipa)}</code>` : ''}`
+    : '<span class="v">مالهاش نطق منفرد — بتتنطق ملزوقة باللي بعدها</span>'}
+        </div>
+        <div class="sh-an-cmprow">
+          <span class="k">داخل الجملة</span>
+          <span class="v" lang="ru" dir="ltr">${esc(analysis.word)} ${esc(bundle.context.nextWord)}</span>
+          ${bundle.context.ipa && bundle.context.ipa !== bundle.lexical.ipa
+    ? `<code class="sh-an-alt" dir="ltr">${esc(bundle.context.ipa)}</code>` : ''}
+        </div>
+      </div>
+      ${bundle.context.changes.length ? `
+        <ul class="sh-an-pred">${bundle.context.changes.map((ch) => `
+          <li>
+            <span class="w" lang="ru" dir="ltr">${esc(ch.written)}</span>
+            <code dir="ltr">[${esc(ch.fromIpa)}]</code><i>→</i><code dir="ltr">[${esc(ch.toIpa)}]</code>
+            <p>${esc(ch.why)}</p>
+            ${ch.confidence ? `<span class="sh-an-flag">${esc(ch.confidence)}</span>` : ''}
+          </li>`).join('')}</ul>
+        <p class="sh-an-fine">ده <b>نطق متوقّع</b> جوّه الكلام المتصل — مش تسجيل لصوت حد قاله فعلًا.</p>`
+    : `<p class="sh-an-note">${esc(bundle.context.reason || '')}</p>`}
+    </section>`;
+
+  /* ---- تعارضٌ داخليّ؟ لا نعرض شرحًا قد يكون غلطًا (§47) ---- */
+  const invalid = bundle.validation.ok ? '' : `
+    <section class="sh-an-invalid">
+      <h4>التحليل الصوتي محتاج مراجعة</h4>
+      <p>فيه تعارض جوّه التحليل نفسه، فمش هعرض عليك شرحًا ممكن يكون غلط.
+        النطق نفسه فوق، والشرح موقوف لحد ما نراجع.</p>
+      ${analysis.advanced ? `<ul dir="ltr" class="sh-an-diag">${bundle.validation.issues
+    .map((one) => `<li><code>${esc(one.code)}</code> ${esc(one.detail)}</li>`).join('')}</ul>` : ''}
+    </section>`;
 
   /* ---- تحذيراتٌ صادقة ---- */
   const warns = result.warnings
     .filter((w) => !(unknown && w.includes('النبر')))
     .map((w) => `<p class="sh-an-warn">${esc(w)}</p>`).join('');
 
-  /* ---- المتقدّم: IPA وإصدارُ القواعد ---- */
+  /*
+   * ---- المتقدّم: IPA وإصدارُ القواعد ----
+   *
+   * ⚠️ **والمصطلحاتُ الثلاثةُ نزلت إلى هنا — ولم تُحذَف** (§12 و§33 و§74).
+   *    «مفخم/مرقق» و«مجهور/مهموس» و«مختزل — درجة أولى» تصنيفٌ أكاديميٌّ
+   *    صحيح، وكان **أوّلَ** ما تراه العينُ فوق الصوت نفسِه. والبندُ ١٢
+   *    صريح: يحتاج المتعلّمُ «إيه اللي بسمعه؟» قبل «اسم الظاهرة».
+   *    فبقيت كاملةً في الطبقة المتقدّمة، ولم يضع منها سطر.
+   */
   const advanced = !analysis.advanced ? '' : `
+    ${hardness}${voicing}${reduced}
     <section class="sh-an-adv">
       <h4>تفاصيل تقنية</h4>
       ${result.pronunciation.ipa
@@ -4019,7 +4143,7 @@ function renderAnalysis() {
   });
   const context = chain.length < 2 ? '' : `
     <section class="sh-an-ctx">
-      <h4>وبتتنطق إزاي جوّه السياق؟</h4>
+      <h4>اسمع الفرق</h4>
       ${chain.map((step, i) => `
         <div class="sh-an-ctxrow${i === 0 ? ' is-word' : ''}">
           <span class="k">${esc(step.label)}</span>
@@ -4034,21 +4158,25 @@ function renderAnalysis() {
     .map((l) => `<p class="sh-an-warn">${esc(l)}</p>`).join('');
 
   /*
-   * ⚠️ **والترتيبُ هو الدرس** (بندا ١٣ و١٥). اسمع ← لاحظ ← قلّد ←
-   *    افهم ← اسمع تاني. ولذلك «تدريب النطق» **قبل** «ليه بتتنطق كده؟»
-   *    لا بعدها: القاعدةُ تشرح صوتًا سمعتَه، ولا تسبقه.
+   * ⚠️ **والترتيبُ هو الدرس** (بندا ١٣ و١٥ · وWS-N §34). الكلمة ←
+   *    اسمعها ← مقاطعُها ← النبر ← إيه اللي بسمعه ← قلّدها ← ليه ←
+   *    وإيه اللي يتغيّر جوّه الجملة. ولذلك «تدريب النطق» **قبل** «ليه
+   *    بتتنطق كده؟»: القاعدةُ تشرح صوتًا سمعتَه، ولا تسبقه.
+   *
+   * ⚠️ **و«ممكن يتغيّر جوّه الجملة» بعد «ليه» لا قبلها** — لأن أثرَ
+   *    الجار لا يُفهَم قبل أن تُفهَم الكلمةُ نفسُها.
    */
   host.innerHTML = head + `
     <div class="sh-an-body">
       ${crown}
-      ${stressBlock}
-      ${heard}
       ${drill}
-      ${changes}
-      ${hardness}
-      ${voicing}
-      ${reduced}
+      ${stressBlock}
+      ${ear}
+      ${heard}
+      ${invalid}
+      ${bundle.validation.ok ? changes : ''}
       ${why}
+      ${predicted}
       ${context}
       ${warns}
       ${limits}

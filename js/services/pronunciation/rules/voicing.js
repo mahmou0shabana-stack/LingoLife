@@ -27,13 +27,16 @@
  */
 
 import {
-  registerRule, RULE_CATEGORY, STAGE, STATUS, EVIDENCE,
+  registerRule, RULE_CATEGORY, STAGE, STATUS, EVIDENCE, SCOPE,
 } from '../rule-registry.js';
 import {
   VOICED_TO_VOICELESS, VOICELESS_TO_VOICED, isSonorant, isPairedVoiced, isPairedVoiceless,
 } from '../alphabet.js';
 
 const MSU_ASSIM = 'МГУ · fonetica/kons/n-21.htm «Ассимиляция согласных по глухости/звонкости»';
+
+/** يقتبس حرفًا داخل جملةٍ عربيّة — والعلامتان لتفصله عن العربيّ حوله. */
+const q = (ch) => `«${ch}»`;
 
 registerRule({
   id: 'RU_FINAL_DEVOICING',
@@ -51,33 +54,88 @@ registerRule({
    *    إفراطٍ في هذه القاعدة، ويقع لأن المتعلّم يسمع «مجهور» فيظنّها
    *    تشمل `л` و`м` و`н` و`р`.
    */
+  scope: SCOPE.WORD_FINAL,
   applies: (ctx) => ctx.isFinal && isPairedVoiced(ctx.letter),
+  describe: (ctx) => `${q(ctx.letter)} في آخر الكلمة بتفقد جهرها، `
+    + `فبتتسمع ${q(VOICED_TO_VOICELESS[ctx.letter])}.`,
   transform: (ctx) => ({ letter: VOICED_TO_VOICELESS[ctx.letter], voiced: false }),
 });
 
+/*
+ * ══════════════════════════════════════════════════════════════════
+ * ⚠️ **قاعدةُ الرنّانات كانت واحدةً — وكان ذلك هو العطب** (WS-N · §18)
+ * ══════════════════════════════════════════════════════════════════
+ *
+ * كانت `RU_VOICING_SONORANT_NEUTRAL` تنطلق حين يكون **الحرفُ نفسُه**
+ * رنّانةً **أو** حين يكون **ما بعده** رنّانة، وتقول في الحالتين جملةً
+ * واحدة: «л م н р й مبيأثّروش على اللي قبلهم، ومبيفقدوش جهرهم».
+ *
+ * فحين حلّلنا `име́ет` انطلقت على الـ`м` — وهي رنّانةٌ بين حركتين لا
+ * شيءَ عندها معرَّضٌ للهمس أصلًا — **وظهر في شرح الكلمة حرفُ `л` الذي
+ * لا وجودَ له فيها**. والقارئُ يقرأ قاعدةً عن حرفٍ ليس أمامه، فيظنّ
+ * المحرّكَ يهذي، وهو محقّ.
+ *
+ * والعطبُ ثلاثيٌّ في سطرٍ واحد:
+ *   ① **شرطان مختلفان في قاعدةٍ واحدة** — «أنا رنّانة» و«ما بعدي
+ *      رنّانة» ظاهرتان لهما متأثّران مختلفان.
+ *   ② **تنطلق حيث لا شيءَ على المحكّ** — فتصير خبرًا بلا حدث.
+ *   ③ **شرحٌ عامٌّ يسمّي الفئةَ كلَّها** بدل الحرف الذي أطلقها.
+ *
+ * والعلاجُ ليس الحذفَ (§1: المعرفةُ صحيحة، والتطبيقُ كان واسعًا)، بل:
+ * قاعدتان بشرطَين دقيقَين، ولكلٍّ **شرحٌ يسمّي حرفَها**، ولا تنطلق
+ * واحدةٌ منهما إلّا حيث كان الهمسُ/التجهيرُ **متوقَّعًا فامتنع**.
+ */
 registerRule({
-  id: 'RU_VOICING_SONORANT_NEUTRAL',
+  id: 'RU_SONORANT_KEEPS_VOICE',
   category: RULE_CATEGORY.VOICING,
   stage: STAGE.VOICING,
   priority: 610,
-  summary: 'الرنّاناتُ لا تُطلِق مماثلةً ولا تُهمَس',
-  explain: '«л م н р й» مبيأثّروش على اللي قبلهم، ومبيفقدوش جهرهم.',
+  summary: 'الرنّانةُ لا تُهمَس — لا في آخر الكلمة ولا قبل مهموس',
+  explain: 'الرنّانات («л م н р й») مجهورة من غير زوج مهموس، فمبتفقدش جهرها.',
   source: `${MSU_ASSIM} + Грамота.ру`,
   status: STATUS.VERIFIED,
   evidence: EVIDENCE.SNIPPET,
   /*
-   * ⚠️ **قاعدةٌ مانعةٌ تُسجَّل في الأثر.** كان يكفي أن تصمت القواعدُ
-   *    الأخرى فلا يحدث شيء — لكنّ **الصمتَ لا يُعلِّم**. المتعلّم يحتاج
-   *    أن يقرأ: «`л` هنا حمَت الـ`с` من التجهير»، لا أن يرى غيابًا
-   *    يظنّه سهوًا. ولذلك تُطلَق صراحةً وتُوقف البقيّة.
+   * ⚠️ **والشرطُ يسأل: هل كان الهمسُ متوقَّعًا هنا؟** رنّانةٌ بين حركتين
+   *    (`име́ет`) لا أحدَ يتوقّع همسَها، فالكلامُ عنها حشوٌ لا درس.
+   *    أمّا في آخر الكلمة (`стол`, `дом`) أو قبل مهموس (`полка`) فهو
+   *    بالضبط الموضعُ الذي يُعمِّم فيه المتعلّم قاعدةَ الهمس فيُخطئ.
    */
   applies: (ctx) => isSonorant(ctx.letter)
-    || (Boolean(ctx.nextLetter) && isSonorant(ctx.nextLetter)),
+    && (ctx.isFinal || (ctx.nextIsConsonant && ctx.nextVoiced === false)),
+  describe: (ctx) => (ctx.isFinal
+    ? `${q(ctx.letter)} رنّانة، فمبتفقدش جهرها في آخر الكلمة زيّ ما بيحصل مع «б د г».`
+    : `${q(ctx.letter)} رنّانة، فمبتتهمسش رغم إن ${q(ctx.nextLetter)} اللي بعدها مهموسة.`),
+  transform: () => ({ blocked: true }),
+});
+
+registerRule({
+  id: 'RU_SONORANT_NO_TRIGGER',
+  trigger: 'next',
+  category: RULE_CATEGORY.VOICING,
+  stage: STAGE.VOICING,
+  priority: 612,
+  summary: 'الرنّانةُ لا تُجهِّر المهموسَ الذي قبلها',
+  explain: 'الرنّانات مبتجهّرش اللي قبلها — بعكس «б д г ж з».',
+  source: `${MSU_ASSIM} + Грамота.ру`,
+  status: STATUS.VERIFIED,
+  evidence: EVIDENCE.SNIPPET,
+  /*
+   * ⚠️ **والمتأثِّرُ هنا مهموسٌ مزدوجٌ وحدَه.** لو كان ما قبل الرنّانة
+   *    مجهورًا (`обмен`) فلا شيءَ كان سيقع أصلًا — التجهيرُ لا يقع على
+   *    مجهور. فذكرُها هناك حشو، وذكرُها في `слово` درسٌ حقيقيّ: المتعلّم
+   *    يسمع «الرنّانةُ مجهورة» فيتوقّع أن تُجهِّر الـ`с`، ولا تفعل.
+   */
+  applies: (ctx) => isPairedVoiceless(ctx.letter)
+    && ctx.nextIsConsonant && isSonorant(ctx.nextLetter),
+  describe: (ctx) => `${q(ctx.nextLetter)} رنّانة، فمش بتجهّر ${q(ctx.letter)} اللي قبلها — `
+    + `بتفضل زيّ ما هي.`,
   transform: () => ({ blocked: true }),
 });
 
 registerRule({
   id: 'RU_VOICING_V_NEUTRAL',
+  trigger: 'next',
   category: RULE_CATEGORY.VOICING,
   stage: STAGE.VOICING,
   priority: 620,
@@ -97,11 +155,14 @@ registerRule({
    */
   applies: (ctx) => ctx.nextLetter === 'в' && ctx.nextVoiced === true
     && isPairedVoiceless(ctx.letter),
+  describe: (ctx) => `${q(ctx.letter)} مبتتجهّرش هنا: ${q('в')} اللي بعدها مجهورة، `
+    + `بس هي الاستثناء الوحيد اللي مبيجهّرش اللي قبله.`,
   transform: () => ({ blocked: true }),
 });
 
 registerRule({
   id: 'RU_REGRESSIVE_DEVOICING',
+  trigger: 'next',
   category: RULE_CATEGORY.ASSIMILATION,
   stage: STAGE.VOICING,
   priority: 630,
@@ -112,11 +173,14 @@ registerRule({
   evidence: EVIDENCE.SNIPPET,
   applies: (ctx) => isPairedVoiced(ctx.letter)
     && ctx.nextIsConsonant && ctx.nextVoiced === false,
+  describe: (ctx) => `${q(ctx.nextLetter)} اللي بعدها مهموسة، فـ${q(ctx.letter)} بتتهمس معاها `
+    + `وبتتسمع ${q(VOICED_TO_VOICELESS[ctx.letter])}.`,
   transform: (ctx) => ({ letter: VOICED_TO_VOICELESS[ctx.letter], voiced: false }),
 });
 
 registerRule({
   id: 'RU_REGRESSIVE_VOICING',
+  trigger: 'next',
   category: RULE_CATEGORY.ASSIMILATION,
   stage: STAGE.VOICING,
   priority: 640,
@@ -132,6 +196,8 @@ registerRule({
    */
   applies: (ctx) => isPairedVoiceless(ctx.letter)
     && ctx.nextIsConsonant && isPairedVoiced(ctx.nextLetter) && ctx.nextVoiced === true,
+  describe: (ctx) => `${q(ctx.nextLetter)} اللي بعدها مجهورة، فـ${q(ctx.letter)} بتتجهّر معاها `
+    + `وبتتسمع ${q(VOICELESS_TO_VOICED[ctx.letter])}.`,
   transform: (ctx) => ({ letter: VOICELESS_TO_VOICED[ctx.letter], voiced: true }),
 });
 
@@ -175,6 +241,7 @@ const MSU_CROSS = 'studme.org · «Ассимиляция в области со
  */
 registerRule({
   id: 'RU_CROSS_WORD_VOICED_KEPT',
+  trigger: 'nextWord',
   category: RULE_CATEGORY.ASSIMILATION,
   stage: STAGE.VOICING,
   /* ⚠️ **قبل ٦٠٠ وإلّا لم تُطلَق مرّةً واحدة** — «أوّلُ مطابِقٍ يفوز». */
@@ -191,16 +258,20 @@ registerRule({
    *    فلو نسيناها لجعلنا `в` تحمي الجهرَ وهي لا تُجهِّر أصلًا — نفسُ
    *    الخطأ الذي وقع في ٦٥٠ أوّلَ مرّة، من الباب نفسِه.
    */
+  scope: SCOPE.CONNECTED_SPEECH,
   applies: (ctx) => ctx.isFinal && Boolean(ctx.nextWordFirst)
     && isPairedVoiced(ctx.letter)
     && isPairedVoiced(ctx.nextWordFirst)
     && ctx.nextWordFirst !== 'в'
     && !isSonorant(ctx.nextWordFirst),
+  describe: (ctx) => `الكلمة اللي بعدها بتبدأ بـ${q(ctx.nextWordFirst)} المجهورة، `
+    + `فـ${q(ctx.letter)} مبتفقدش جهرها هنا رغم إنها في آخر الكلمة.`,
   transform: () => ({ blocked: true, crossWord: true }),
 });
 
 registerRule({
   id: 'RU_CROSS_WORD_VOICING',
+  trigger: 'nextWord',
   category: RULE_CATEGORY.ASSIMILATION,
   stage: STAGE.VOICING,
   priority: 650,
@@ -227,16 +298,21 @@ registerRule({
    * والدرسُ أن قاعدةً جديدةً تعمل في سياقٍ جديدٍ لا ترث الموانعَ
    * تلقائيًّا: كلُّ مانعٍ يُعاد ذكرُه أو يُعاد اكتشافُه بخطأٍ مرئيّ.
    */
+  scope: SCOPE.CONNECTED_SPEECH,
   applies: (ctx) => ctx.isFinal && Boolean(ctx.nextWordFirst)
     && isPairedVoiceless(ctx.letter)
     && isPairedVoiced(ctx.nextWordFirst)
     && ctx.nextWordFirst !== 'в'
     && !isSonorant(ctx.nextWordFirst),
+  describe: (ctx) => `${q(ctx.letter)} في آخر الكلمة بتتنطق ${q(ctx.letter)} لوحدها — `
+    + `بس لو وصلتها بالكلمة اللي بعدها من غير وقفة، `
+    + `${q(ctx.nextWordFirst)} المجهورة بتقرّبها من ${q(VOICELESS_TO_VOICED[ctx.letter])}.`,
   transform: (ctx) => ({ letter: VOICELESS_TO_VOICED[ctx.letter], voiced: true, crossWord: true }),
 });
 
 registerRule({
   id: 'RU_CROSS_WORD_DEVOICING',
+  trigger: 'nextWord',
   category: RULE_CATEGORY.ASSIMILATION,
   stage: STAGE.VOICING,
   /*
@@ -263,8 +339,12 @@ registerRule({
   source: MSU_CROSS,
   status: STATUS.PROVISIONAL,
   evidence: EVIDENCE.SNIPPET,
+  scope: SCOPE.CONNECTED_SPEECH,
   applies: (ctx) => ctx.isFinal && Boolean(ctx.nextWordFirst)
     && isPairedVoiced(ctx.letter)
     && (isPairedVoiceless(ctx.nextWordFirst) || 'хцчщ'.includes(ctx.nextWordFirst)),
+  describe: (ctx) => `${q(ctx.letter)} بتتهمس في آخر الكلمة أصلًا، `
+    + `و${q(ctx.nextWordFirst)} اللي بتبدأ بيها الكلمة اللي بعدها مهموسة كمان — `
+    + `فالهمس مأكّد من ناحيتين.`,
   transform: (ctx) => ({ letter: VOICED_TO_VOICELESS[ctx.letter], voiced: false, crossWord: true }),
 });

@@ -30,7 +30,22 @@
  *    تُعرَف كلُّ الكلمات المتأثّرة وتُعاد تحليلًا بلا أن تُحرّر واحدةً
  *    بيدك. راجع `reanalysis.js`.
  */
-export const RULESET_VERSION = '2.1.0';
+export const RULESET_VERSION = '2.2.0';
+
+/**
+ * إصدارُ **بنية** التحليل — وهو غيرُ إصدار القواعد (WS-N · §49).
+ *
+ * ⚠️ **ورقمان لأنهما يتغيّران لسببين مختلفين.**
+ *
+ * `RULESET_VERSION` يرتفع حين تتحسّن قاعدةٌ فيتغيّر **الجواب**.
+ * وهذا يرتفع حين يتغيّر **شكلُ السؤال**: أن يصير للتحليل طبقتان
+ * (منفردة/داخل الجملة) بدل واحدة، وأن تُصفّى القواعدُ المعروضةُ بمُطلِق.
+ *
+ * وتحليلٌ قديمٌ محفوظٌ بإصدارٍ أدنى **ليس خطأً — إنه بلا الحقول
+ * الجديدة**. فلا يُحذَف ولا يُقرَأ كأنّه جديد: يُوسَم متقادمًا ويُعاد
+ * حسابُه عند فتحه (§50 و§76).
+ */
+export const PRONUNCIATION_ANALYSIS_VERSION = '3.0.0';
 
 /**
  * حالةُ نضج القاعدة — **وليست نسبةَ ثقةٍ مزيّفة**.
@@ -102,6 +117,54 @@ export const EVIDENCE = Object.freeze({
   PENDING: 'SOURCE_PENDING',
 });
 
+/**
+ * نطاقُ القاعدة — **أين يجوز لها أن تعمل** (WS-N · §19).
+ *
+ * ⚠️ **وهو ليس تصنيفًا للعرض، بل شرطُ صحّةٍ يُفحَص.**
+ *
+ * أخطرُ عطبٍ في النسخة السابقة أن قاعدةً عابرةً للحدّ (`т`←`д` قبل
+ * `большо́е`) كانت تظهر في **نطق الكلمة منفردة**، فيتعلّم القارئ أن
+ * `име́ет` تنتهي بـ`д`. والسببُ أن التحليلَ كان واحدًا: مرّرتَ الجارَ
+ * فتغيّر النطقُ نفسُه، ولا حقلَ يقول «هذا أثرُ الجار لا أثرُ الكلمة».
+ *
+ * فالنطاقُ هنا هو ذلك الحقل، **وطبقةُ التحقّق ترفض** ظهورَ
+ * `CONNECTED_SPEECH` في الطبقة المعجميّة — لا تكتفي بألّا تعرضها.
+ */
+export const SCOPE = Object.freeze({
+  /** تجاوزٌ معجميٌّ على مستوى الكلمة كاملةً. */
+  LEXICAL: 'LEXICAL',
+  /** إعادةُ كتابةٍ إملائيّةٌ قبل تحويل الحرف إلى صوت. */
+  ORTHOEPIC: 'ORTHOEPIC',
+  /** داخل الكلمة — لا علاقةَ لها بما قبلها ولا بما بعدها. */
+  WORD_INTERNAL: 'WORD_INTERNAL',
+  /** في آخر الكلمة الصوتيّة — تعمل منفردةً وقبل الوقف. */
+  WORD_FINAL: 'WORD_FINAL',
+  /** **لا تعمل إلّا حين توجد كلمةٌ تالية ملتصقة.** */
+  CONNECTED_SPEECH: 'CONNECTED_SPEECH',
+});
+
+/** النطاقُ الافتراضيُّ لكلّ مرحلة — يُشتقّ ولا يُكتَب في كلّ قاعدة. */
+const SCOPE_BY_STAGE = Object.freeze({
+  ORTHOEPIC_REWRITE: SCOPE.ORTHOEPIC,
+  HARDNESS: SCOPE.WORD_INTERNAL,
+  VOWEL_REDUCTION: SCOPE.WORD_INTERNAL,
+  VOICING: SCOPE.WORD_INTERNAL,
+});
+
+/**
+ * ثقةُ القاعدة بالعربيّة — **مشتقّةٌ من الحالة لا رقمٌ جديد** (§46).
+ *
+ * ⚠️ ولا نُدخِل «٨٧٪» من الباب الخلفيّ: الحالةُ هي ما نعرفه عن معرفتنا،
+ *    وهذه ترجمتُها للعرض فحسب.
+ */
+export const CONFIDENCE_LABEL = Object.freeze({
+  VERIFIED: 'مؤكّدة',
+  PROVISIONAL: 'مبدئيّة',
+  DISPUTED: 'فيها خلاف',
+  LEXICAL: 'معجميّة',
+  DEFERRED: 'مؤجَّلة',
+});
+
 const REQUIRED = ['id', 'category', 'stage', 'priority', 'summary', 'source', 'status', 'evidence'];
 
 /** السجلُّ الحقيقيّ — `Map` لأن ترتيبَ الإدراج لا يعنينا، الفرزُ يعني. */
@@ -137,8 +200,23 @@ export function registerRule(rule) {
       throw new Error(`أولويّةٌ مكرَّرة في ${rule.stage}: ${rule.id} و${other.id} كلاهما ${rule.priority}`);
     }
   }
-  rules.set(rule.id, Object.freeze({ version: RULESET_VERSION, ...rule }));
+
+  /*
+   * ⚠️ **والنطاقُ يُشتقّ ولا يُترَك فارغًا.** قاعدةٌ بلا نطاقٍ لا تستطيع
+   *    طبقةُ التحقّق أن تسأل عنها «هل يجوز ظهورُك هنا؟» — فتمرّ. ولذلك
+   *    لكلّ مرحلةٍ افتراضٌ صريح، والقاعدةُ تُصرّح حين تخالفه (كالقواعد
+   *    العابرةِ للحدّ).
+   */
+  const scope = rule.scope || SCOPE_BY_STAGE[rule.stage];
+  if (!scope) throw new Error(`قاعدةٌ بلا نطاق: ${rule.id}`);
+
+  rules.set(rule.id, Object.freeze({ version: RULESET_VERSION, ...rule, scope }));
   return rule.id;
+}
+
+/** هل هذه القاعدةُ لا تعمل إلّا بوجود كلمةٍ تالية؟ */
+export function isConnectedSpeechRule(id) {
+  return rules.get(id)?.scope === SCOPE.CONNECTED_SPEECH;
 }
 
 /** كلُّ القواعد مفروزةً بالأولويّة — مصدرُ الترتيب الوحيد. */

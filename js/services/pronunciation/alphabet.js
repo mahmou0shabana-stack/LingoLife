@@ -98,6 +98,77 @@ export const isPairedVoiced = (ch) => Object.hasOwn(VOICED_TO_VOICELESS, ch);
 export const isPairedVoiceless = (ch) => Object.hasOwn(VOICELESS_TO_VOICED, ch);
 export const isPaired = (ch) => isPairedVoiced(ch) || isPairedVoiceless(ch);
 
+/* ------------------------------------------------------------------ *
+ * فئاتُ الفونيمات — **الطبقةُ التي تسأل عنها القواعدُ بدل القوائم** (WS-N)
+ * ------------------------------------------------------------------ */
+
+/**
+ * ⚠️ **ولماذا فئةٌ مسمّاةٌ بدل `if (next in ['б','д','г'])`؟**
+ *
+ * لأن القائمةَ الحرفيّةَ تُنسَخ. كُتبت مرّةً في `RU_REGRESSIVE_VOICING`
+ * ومرّةً في `RU_CROSS_WORD_VOICING`، وفي الثانية سقط استثناءُ `в`
+ * فخرجت «докуме́нт все» بجيمٍ مجهورة. عطبٌ لم تُخطئ فيه قاعدةٌ واحدة —
+ * أخطأ فيه **تكرارُ التصنيف**.
+ *
+ * فالتصنيفُ هنا مرّةً واحدة، والقواعدُ تسأل: «ما فئةُ ما بعدي؟».
+ * و`в` فئةٌ **قائمةٌ بذاتها** لأنها كذلك في الروسيّة فعلًا: مجهورةٌ
+ * تُهمَس كغيرها، ولا تُجهِّر ما قبلها كغيرها (§10 من الطلب).
+ */
+export const PHONEME_CLASS = Object.freeze({
+  VOWEL: 'VOWEL',
+  SONORANT: 'SONORANT',
+  /** عائقٌ مجهورٌ له زوجٌ مهموس — وحدَه يُطلِق التجهيرَ الرجعيّ. */
+  VOICED_OBSTRUENT: 'VOICED_OBSTRUENT',
+  /** عائقٌ مهموسٌ له زوجٌ مجهور — يُطلِق الهمسَ ويقبل التجهير. */
+  VOICELESS_OBSTRUENT: 'VOICELESS_OBSTRUENT',
+  /** `х ц ч щ`: مهموسةٌ بلا زوج — تُطلِق الهمسَ ولا تُجهَّر أبدًا. */
+  UNPAIRED_VOICELESS: 'UNPAIRED_VOICELESS',
+  /** `в`/`в'`: مجهورةٌ لا تُجهِّر ما قبلها — استثناءٌ منصوصٌ لا صدفة. */
+  V_SPECIAL: 'V_SPECIAL',
+  /** علامتان بلا صوت. */
+  SIGN: 'SIGN',
+  /** ما ليس روسيًّا أصلًا. */
+  OTHER: 'OTHER',
+});
+
+/** فئةُ الحرف الروسيّ — مصدرُ التصنيف الوحيد. */
+export function phonemeClass(ch) {
+  if (!ch) return PHONEME_CLASS.OTHER;
+  if (ch === 'ь' || ch === 'ъ') return PHONEME_CLASS.SIGN;
+  if (isVowel(ch)) return PHONEME_CLASS.VOWEL;
+  if (ch === 'в') return PHONEME_CLASS.V_SPECIAL;
+  if (isSonorant(ch)) return PHONEME_CLASS.SONORANT;
+  if (isPairedVoiced(ch)) return PHONEME_CLASS.VOICED_OBSTRUENT;
+  if (UNPAIRED_VOICELESS.includes(ch)) return PHONEME_CLASS.UNPAIRED_VOICELESS;
+  if (isPairedVoiceless(ch)) return PHONEME_CLASS.VOICELESS_OBSTRUENT;
+  return PHONEME_CLASS.OTHER;
+}
+
+/**
+ * هل هذه الفئةُ تُطلِق تجهيرًا رجعيًّا على ما قبلها؟
+ *
+ * ⚠️ **`в` خارجها والرنّاناتُ خارجها — وهذا هو نصفُ الظاهرة.** المتعلّم
+ *    يسمع «مجهور» فيعمّم؛ والمصدرُ يستثني الاثنين صراحةً. فالسؤالُ
+ *    يُطرَح على الفئة، فلا يُنسى الاستثناءُ في موضعٍ ويُذكَر في آخر.
+ */
+export const classTriggersVoicing = (cls) => cls === PHONEME_CLASS.VOICED_OBSTRUENT;
+
+/** وهل تُطلِق همسًا رجعيًّا؟ — المهموساتُ كلُّها، مزدوجةً وغيرَ مزدوجة. */
+export const classTriggersDevoicing = (cls) => cls === PHONEME_CLASS.VOICELESS_OBSTRUENT
+  || cls === PHONEME_CLASS.UNPAIRED_VOICELESS;
+
+/** وصفٌ عربيٌّ للفئة — للشرح لا للمنطق. */
+export const PHONEME_CLASS_LABEL = Object.freeze({
+  VOWEL: 'حرف علّة',
+  SONORANT: 'رنّانة',
+  VOICED_OBSTRUENT: 'عائق مجهور',
+  VOICELESS_OBSTRUENT: 'عائق مهموس',
+  UNPAIRED_VOICELESS: 'مهموس بلا زوج مجهور',
+  V_SPECIAL: '«в» — مجهورة بس مبتجهّرش اللي قبلها',
+  SIGN: 'علامة بلا صوت',
+  OTHER: 'مش روسي',
+});
+
 /**
  * سلّمُ الرنين لقانون الرنين الصاعد (`RU_SYLLABIFICATION`).
  * ٤ حركة · ٣ رنّانة · ٢ عائقةٌ مجهورة · ١ عائقةٌ مهموسة.

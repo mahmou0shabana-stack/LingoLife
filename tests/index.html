@@ -151,6 +151,7 @@
       await import('./my-language.test.js');
       await import('./language-story.test.js');
       await import('./shadow-recording.test.js');
+      await import('./pronunciation-layers.test.js');
 
       const result = await run((event) => {
         if (event.type === 'suite') {

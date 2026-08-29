@@ -166,7 +166,7 @@
 | 1 | مجهور + مهموس = مهموس + مهموس | `TEACH_VOICED_TO_VOICELESS` | مجهور + مهموس = مهموس + مهموس | مجهور + مهموس = مهموس + مهموس — всегда́ ( حرف в ينطق ф ) | всегда́ (دائما) · вход (مدخل) | вода́ | — | `RU_REGRESSIVE_DEVOICING` | PDF_VERIFIED | COVERED | — |
 | 1 | مهموس + مجهور = مجهور + مجهور | `TEACH_VOICELESS_TO_VOICED` | مهموس + مجهور = مجهور + مجهور | مهموس + مجهور = مجهور + مجهور — экза́мен ( حرف к ينطق г ) | экза́мен (امتحان) | свет (ضوء) | — | `RU_REGRESSIVE_VOICING` | PDF_VERIFIED | PARTIAL | — |
 | 2 | ليس شرطا أن يتوالى الصوتان في نفس الكلمة | `TEACH_CROSS_WORD_EFFECT` | التأثير بيعدّي حدود الكلمة | ليس شرطا لتطبيق القاعدة أن يتوالى الصوتان ( المجهور و المهموس ) في نفس الكلمة — в па́рке ( в ينطق ф ) | в па́рке (في الحديقة) | — | нож мой | `RU_CROSS_WORD_VOICED_KEPT`<br>`RU_CROSS_WORD_VOICING`<br>`RU_CROSS_WORD_DEVOICING` | PDF_VERIFIED | COVERED | — |
-| 2 | إذا توالى صوتان من نفس النوع | `TEACH_SAME_TYPE_NO_CHANGE` | لو الصوتين من نفس النوع — مفيش تغيير | إذا توالى صوتان من نفس النوع لا يحدث أي تغيير — всегда́ ( حرف г يظل كما هو г ) | всегда́ (دائما) · шкаф (دوالب) | — | — | `RU_VOICING_SONORANT_NEUTRAL` | PDF_VERIFIED | COVERED | — |
+| 2 | إذا توالى صوتان من نفس النوع | `TEACH_SAME_TYPE_NO_CHANGE` | لو الصوتين من نفس النوع — مفيش تغيير | إذا توالى صوتان من نفس النوع لا يحدث أي تغيير — всегда́ ( حرف г يظل كما هو г ) | всегда́ (دائما) · шкаф (دوالب) | — | — | `RU_SONORANT_KEEPS_VOICE`, `RU_SONORANT_NO_TRIGGER` | PDF_VERIFIED | COVERED | — |
 | 2 | آخر صوت في الكلمة | `TEACH_FINAL_DEVOICING` | الهمس في آخر الكلمة | إذا كان آخر صوت في الكلمة صوتا مجهورا يجب نطقه مهموسا و اذا كان آخر صوت مهموسا يظل كما هو | нож (سكين) · друг (صديق) · раз (مرة) | шкаф (دوالب) · он | — | `RU_FINAL_DEVOICING` | PDF_VERIFIED | COVERED | — |
 | 2 | ملحوظة مهمة | `TEACH_V_SPECIAL` | حرف в لا يؤثر ولكن يتم التأثير عليه | حرف ( в ) لا يؤثر ولكن يتم التأثير عليه — всегда́ ( حرف в ينطق ф ) — свет ( حرف с يظل كما هو ) | всегда́ (دائما) · свет (ضوء) | — | сда́ть | `RU_VOICING_V_NEUTRAL`<br>`RU_REGRESSIVE_DEVOICING` | PDF_VERIFIED | COVERED | — |
 
@@ -215,7 +215,7 @@
 
 | الحالة | العدد | القواعد |
 |---|---|---|
-| `VERIFIED` | 20 | `RU_ORTHO_GO_ENDING`, `RU_CLUSTER_UNPRONOUNCED`, `RU_CLUSTER_SH_LONG`, `RU_CLUSTER_ZH_LONG`, `RU_CLUSTER_TS_DS`, `RU_CLUSTER_SCH_ZCH`, `RU_CLUSTER_TSYA`, `RU_CONS_ALWAYS_HARD`, `RU_CONS_ALWAYS_SOFT`, `RU_PALATALIZATION_BY_VOWEL`, `RU_PALATALIZATION_BY_SOFT_SIGN`, `RU_VOWEL_STRESSED`, `RU_RED_A_O_PRETONIC1`, `RU_RED_A_O_WEAK`, `RU_RED_SOFT_IKANYE`, `RU_FINAL_DEVOICING`, `RU_VOICING_SONORANT_NEUTRAL`, `RU_VOICING_V_NEUTRAL`, `RU_REGRESSIVE_DEVOICING`, `RU_REGRESSIVE_VOICING` |
+| `VERIFIED` | 21 | `RU_ORTHO_GO_ENDING`, `RU_CLUSTER_UNPRONOUNCED`, `RU_CLUSTER_SH_LONG`, `RU_CLUSTER_ZH_LONG`, `RU_CLUSTER_TS_DS`, `RU_CLUSTER_SCH_ZCH`, `RU_CLUSTER_TSYA`, `RU_CONS_ALWAYS_HARD`, `RU_CONS_ALWAYS_SOFT`, `RU_PALATALIZATION_BY_VOWEL`, `RU_PALATALIZATION_BY_SOFT_SIGN`, `RU_VOWEL_STRESSED`, `RU_RED_A_O_PRETONIC1`, `RU_RED_A_O_WEAK`, `RU_RED_SOFT_IKANYE`, `RU_FINAL_DEVOICING`, `RU_SONORANT_KEEPS_VOICE`, `RU_SONORANT_NO_TRIGGER`, `RU_VOICING_V_NEUTRAL`, `RU_REGRESSIVE_DEVOICING`, `RU_REGRESSIVE_VOICING` |
 | `PROVISIONAL` | 10 | `RU_ORTHO_GK_HK`, `RU_GEMINATION`, `RU_CLUSTER_ZHCH_SHCH`, `RU_CLUSTER_TCH_DCH`, `RU_RED_AFTER_HUSHING_E`, `RU_RED_AFTER_HUSHING_WEAK`, `RU_VOWEL_QUANTITATIVE_ONLY`, `RU_CROSS_WORD_VOICED_KEPT`, `RU_CROSS_WORD_DEVOICING`, `RU_CROSS_WORD_VOICING` |
 | `DISPUTED` | 1 | `RU_SOFTNESS_ASSIMILATION` |
 | `LEXICAL` | 2 | `RU_ORTHO_CHN_SHN`, `RU_LOANWORD_HARD_BEFORE_E` |

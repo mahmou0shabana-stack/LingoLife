@@ -24,7 +24,9 @@ import {
 } from './alphabet.js';
 import { resolveStress, STRESS_STATUS, STRESS_SOURCE, stripStress } from './stress-resolver.js';
 import { syllabify } from './syllabifier.js';
-import { rulesForStage, STAGE, RULESET_VERSION, ruleById } from './rule-registry.js';
+import {
+  rulesForStage, STAGE, RULESET_VERSION, ruleById, SCOPE, PRONUNCIATION_ANALYSIS_VERSION,
+} from './rule-registry.js';
 import { lexiconEntry, LEXICAL_RULE, LEXICAL_CATEGORY } from './pronunciation-lexicon.js';
 
 /* ⚠️ الاستيرادُ لأثرِه الجانبيّ: تسجيلُ القواعد. والترتيبُ بينها
@@ -34,7 +36,7 @@ import './rules/hardness.js';
 import './rules/reduction.js';
 import './rules/voicing.js';
 
-export { RULESET_VERSION, STRESS_STATUS, STRESS_SOURCE };
+export { RULESET_VERSION, PRONUNCIATION_ANALYSIS_VERSION, STRESS_STATUS, STRESS_SOURCE };
 
 /** أعلامُ الحالة — لا نسبةَ ثقةٍ عالميّةٌ واحدة (§31 من الطلب). */
 export const FLAG = Object.freeze({
@@ -83,11 +85,16 @@ function rewriteLetters(word) {
     trace.push({
       ruleId: LEXICAL_RULE.id,
       category: LEXICAL_RULE.category,
+      scope: SCOPE.LEXICAL,
+      at: 0,
       from: out,
       to: entry.rewrite,
       why: entry.explain,
       source: entry.source,
       lexical: true,
+      changed: out !== entry.rewrite,
+      /* المُطلِقُ هو الكلمةُ نفسُها — ومداها كلُّ حروفها. */
+      trigger: { side: 'self', grapheme: out, at: 0, span: [0, out.length] },
     });
     out = entry.rewrite;
   }
@@ -100,11 +107,19 @@ function rewriteLetters(word) {
       trace.push({
         ruleId: rule.id,
         category: rule.category,
+        scope: rule.scope,
         at: hit.at,
         from: hit.from,
         to: hit.to,
         why: rule.explain,
         source: rule.source,
+        changed: hit.from !== hit.to,
+        trigger: {
+          side: 'self',
+          grapheme: hit.from,
+          at: hit.at,
+          span: [hit.at, hit.at + String(hit.from || '').length],
+        },
       });
     }
     out = result.word;
@@ -206,6 +221,31 @@ function buildSegments(word) {
  * ⑧ الصلابةُ والليونة
  * ================================================================== */
 
+/**
+ * مُطلِقُ القاعدة — **الحرفُ الذي جعلها تنطلق، بموضعه** (WS-N · §19).
+ *
+ * ⚠️ **ولا يُترَك للواجهة أن تخمّنه.**
+ *
+ * كان الأثرُ يحمل «أين وقع الأثر» (`at`) ولا يحمل «مَن سبّبه». فحين
+ * انطلقت قاعدةُ الرنّانات على `м` في `име́ет` لم يكن في السطر ما يقول
+ * أيُّ حرفٍ أطلقها — فعُرِضت بشرحها العامّ الذي يذكر `л`، ولا سبيلَ
+ * لأحدٍ أن يكتشف الكذبةَ برمجيًّا.
+ *
+ * فالآن كلُّ قاعدةٍ تُصرّح: مُطلِقي **أنا** (`self`)، أم **الحرفُ الذي
+ * بعدي** (`next`)، أم **أوّلُ الكلمة التالية** (`nextWord`). وطبقةُ
+ * التحقّق ترفض أيَّ قاعدةٍ لا يوجد مُطلِقُها في النصّ فعلًا.
+ */
+function triggerOf(rule, { self, next, nextWordFirst }) {
+  const side = rule.trigger || 'self';
+  if (side === 'next' && next) {
+    return { side, grapheme: next.written ?? next.letter ?? next, at: next.at ?? next.sourceIndex ?? null };
+  }
+  if (side === 'nextWord' && nextWordFirst) {
+    return { side, grapheme: nextWordFirst, at: null };
+  }
+  return { side: 'self', grapheme: self.written ?? self.letter, at: self.sourceIndex };
+}
+
 function applyHardness(segments, chars, trace, word) {
   const rules = rulesForStage(STAGE.HARDNESS);
   for (const seg of segments) {
@@ -229,14 +269,21 @@ function applyHardness(segments, chars, trace, word) {
       const { soft } = out;
       /* وسمٌ لا تحويل — القواعدُ المُختلَفُ فيها تقول ولا تفرض. */
       if (out.variant) seg.variant = out.variant;
+      const before = seg.ipa;
       seg.soft = soft;
       seg.ipa = soft
         ? (CONSONANT_SOFT[seg.letter] || CONSONANT_HARD[seg.letter])
         : CONSONANT_HARD[seg.letter];
       seg.rules.push(rule.id);
       trace.push({
-        ruleId: rule.id, category: rule.category, at: seg.sourceIndex,
-        from: seg.letter, to: seg.ipa, why: rule.explain, source: rule.source,
+        ruleId: rule.id, category: rule.category, scope: rule.scope, at: seg.sourceIndex,
+        from: seg.letter, to: seg.ipa,
+        why: rule.describe?.(ctx, out) || rule.explain, source: rule.source,
+        changed: before !== seg.ipa,
+        trigger: triggerOf(rule, {
+          self: seg,
+          next: ctx.next ? { letter: ctx.next, at: seg.sourceIndex + 1 } : null,
+        }),
       });
       break;   /* ⚠️ أوّلُ مطابِقٍ يفوز — دلالةُ هذه المرحلة. */
     }
@@ -270,6 +317,9 @@ function applyReduction(segments, stress, trace) {
       stressKnown,
       prevSoft: Boolean(prev?.soft),
       prevLetter: prev?.letter || '',
+      /* ⚠️ **صوتٌ ولّده المحرّكُ لا حرفٌ في الكتابة** — والفرقُ يُقال
+         للمتعلّم بلغته لا يُطوى (§15 من طلب WS-N). */
+      prevSynthetic: Boolean(prev?.synthetic),
       /* ⚠️ «بدايةُ الكلمة المطلقة» = لا صوتَ قبلها إطلاقًا. */
       wordInitial: i === 0,
     };
@@ -278,14 +328,20 @@ function applyReduction(segments, stress, trace) {
     for (const rule of rules) {
       if (!rule.applies(ctx)) continue;
       const out = rule.transform(ctx);
+      const before = seg.ipa;
       seg.ipa = out.ipa;
       seg.stressed = Boolean(out.stressed);
       seg.reduction = out.reduction || null;
       seg.rules.push(rule.id);
       trace.push({
-        ruleId: rule.id, category: rule.category, at: seg.sourceIndex,
-        from: seg.letter, to: seg.ipa, why: rule.explain, source: rule.source,
+        ruleId: rule.id, category: rule.category, scope: rule.scope, at: seg.sourceIndex,
+        from: seg.letter, to: seg.ipa,
+        why: rule.describe?.(ctx, out) || rule.explain, source: rule.source,
         degree: out.reduction?.degree ?? null,
+        /* ⚠️ **والمشدَّدةُ «تغيّرت» وإن تساوى الرمز**: القاعدةُ هي التي
+           جعلتها كاملةً بدل مختزَلة — وهو خبرٌ، لا صمت. */
+        changed: before !== seg.ipa || Boolean(out.stressed),
+        trigger: triggerOf(rule, { self: seg }),
       });
       fired = true;
       break;
@@ -327,6 +383,7 @@ function applyVoicing(segments, trace, nextWordFirst) {
       if (!rule.applies(ctx)) continue;
       const out = rule.transform(ctx);
       seg.rules.push(rule.id);
+      const trigger = triggerOf(rule, { self: seg, next, nextWordFirst });
 
       if (out.blocked) {
         /* ⚠️ **والمانعُ قد يكون عابرًا للحدّ أيضًا** (WS58): `нож был`
@@ -335,9 +392,15 @@ function applyVoicing(segments, trace, nextWordFirst) {
            شيئًا، فتصمت عن أوضح ما يعلّمه البند ٧هـ. */
         if (out.crossWord) seg.crossWord = true;
         trace.push({
-          ruleId: rule.id, category: rule.category, at: seg.sourceIndex,
-          from: seg.letter, to: seg.ipa, why: rule.explain, source: rule.source,
+          ruleId: rule.id, category: rule.category, scope: rule.scope, at: seg.sourceIndex,
+          from: seg.letter, to: seg.ipa,
+          why: rule.describe?.(ctx, out) || rule.explain, source: rule.source,
           blocked: true,
+          /* ⚠️ **والمانعُ لم يُغيّر شيئًا — والحقلُ يقولها صراحةً.**
+             طبقةُ التحقّق تسأل: «هل غيّرتَ أو منعتَ تغييرًا كان واقعًا؟»،
+             فلا يمرّ مانعٌ ينطلق حيث لا شيءَ على المحكّ. */
+          changed: false,
+          trigger,
         });
         break;
       }
@@ -350,8 +413,11 @@ function applyVoicing(segments, trace, nextWordFirst) {
         ? (CONSONANT_SOFT[out.letter] || CONSONANT_HARD[out.letter])
         : CONSONANT_HARD[out.letter];
       trace.push({
-        ruleId: rule.id, category: rule.category, at: seg.sourceIndex,
-        from: before, to: seg.ipa, why: rule.explain, source: rule.source,
+        ruleId: rule.id, category: rule.category, scope: rule.scope, at: seg.sourceIndex,
+        from: before, to: seg.ipa,
+        why: rule.describe?.(ctx, out) || rule.explain, source: rule.source,
+        changed: before !== seg.ipa,
+        trigger,
       });
       break;
     }
@@ -446,6 +512,10 @@ function buildSounds(segments, ofLetter) {
       }
       if (seg.reduction?.quality === 'quantitative') labels.push('أقصر بس متغيّرش');
       if (seg.long) labels.push('طويل (حرفين صوت واحد)');
+      /* ⚠️ **انتقالٌ صوتيٌّ لا حرفٌ مخفيّ** (§15): `име́ет` فيها [j] بين
+         الحركتين ولا `й` في كتابتها. والوسمُ هنا كي لا تعرضه الواجهةُ
+         بطاقةَ حرفٍ فيبحث عنه القارئُ في الإملاء. */
+      if (seg.synthetic) labels.push('انتقال صوتي — مش حرف مكتوب');
       if (seg.crossWord) labels.push('اتأثّر بالكلمة اللي بعدها');
       if (seg.variant) labels.push(seg.variant);
       if (seg.unresolved) labels.push(seg.unresolved === 'stress' ? 'محتاج النبر' : 'مش مغطّى');
@@ -453,6 +523,8 @@ function buildSounds(segments, ofLetter) {
         letter: seg.letter,
         /** الحرفُ كما كُتب — قبل أيّ تحويلِ جهر. */
         written: seg.written ?? seg.letter,
+        /** صوتٌ ولّدته القواعدُ ولا حرفَ له في الإملاء (`й` الانزلاقيّة). */
+        synthetic: Boolean(seg.synthetic),
         crossWord: Boolean(seg.crossWord),
         ipa: seg.ipa || null,
         cyrillic: seg.ipa ? toCyrillic(seg.ipa) : null,
@@ -489,6 +561,8 @@ function cacheKey(word, stress, contextKey) {
   return `${RULESET_VERSION}|${word}|${stress.ordinal}|${stress.source}|${contextKey}`;
 }
 
+export { SCOPE };
+
 /** ⚠️ للاختبارات وللقياس. */
 export function clearPronunciationCache() {
   cache.clear();
@@ -518,7 +592,7 @@ export function pronunciationCacheSize() {
  *      `RU_CROSS_WORD_PROSODY` المؤجَّلة. راجع §20.8 في المواصفة.
  */
 export function analyzeWord(raw, {
-  overrideStressOrdinal = null, previousWord = null, nextWord = null,
+  overrideStressOrdinal = null, previousWord = null, nextWord = null, connected = true,
 } = {}) {
   const original = String(raw || '');
   const normalized = normalizeWord(original);
@@ -549,7 +623,16 @@ export function analyzeWord(raw, {
   const stress = resolveStress(normalized, {
     overrideOrdinal: overrideStressOrdinal, previousWord, nextWord,
   });
-  const contextKey = `${previousWord || ''}>${nextWord || ''}`;
+  /*
+   * ⚠️ **و`connected` جزءٌ من المفتاح لا خيارُ عرض** (WS-N · §45).
+   *
+   * الطبقةُ المعجميّةُ والطبقةُ المتّصلةُ تُحسَبان **لنفس الكلمة ونفس
+   * الجارَين**، ولا يفرقهما إلّا هذا العلم. فلو سقط من المفتاح لعادت
+   * الثانيةُ بنتيجة الأولى — أي لعاد العطبُ نفسُه من باب الذاكرة بدل
+   * باب القواعد: `име́ет` تنتهي بـ`д` منفردةً لأن أحدًا حلّلها قبل
+   * قليلٍ داخل جملة.
+   */
+  const contextKey = `${previousWord || ''}>${nextWord || ''}|${connected ? 'cx' : 'lex'}`;
   const key = cacheKey(bare, stress, contextKey);
   if (cache.has(key)) return cache.get(key);
 
@@ -567,7 +650,9 @@ export function analyzeWord(raw, {
    *    ولا نحتاج تحليلَها كاملةً. وما لا نعرفه (أين تقف أنت) معلَنٌ
    *    في `RU_CROSS_WORD_PROSODY` المؤجَّلة.
    */
-  const nextFirst = normalizeWord(nextWord || '').replace(/[^а-яё]/g, '')[0] || '';
+  const nextFirst = connected
+    ? (normalizeWord(nextWord || '').replace(/[^а-яё]/g, '')[0] || '')
+    : '';
 
   applyHardness(segments, chars, trace, rewritten);
   applyReduction(segments, stress, trace);
@@ -632,6 +717,8 @@ export function analyzeWord(raw, {
     context: {
       previousWord,
       nextWord,
+      /** هل سُمح للجار أصلًا بأن يؤثّر؟ (طبقةُ التحليل تقرّر — لا المحرّك) */
+      connected,
       /* المماثلةُ الجهريّةُ عبر الحدّ مدعومة؛ وما عداها (الوقف، ы بعد
          حرف الجرّ، الليونة عبر الحدّ) لا — والتمييزُ مقصود. */
       crossWordSupported: Boolean(nextFirst),
@@ -671,6 +758,13 @@ export function pronunciationMetadata(analysis) {
     stressSource: analysis.stress.source,
     ruleIds: analysis.ruleIds,
     rulesetVersion: analysis.rulesetVersion,
+    /*
+     * ⚠️ **حقلٌ يُضاف ولا يَحذف** (WS-N · §0 و§50). الصفوفُ المحفوظةُ
+     *    قبل اليوم تبقى كما هي بلا هذا الحقل، ويُقرَأ غيابُه «تحليلٌ
+     *    بالبنية القديمة» — لا «صفٌّ تالف». ولا يُمَسّ نصُّك ولا وسمُك
+     *    ولا تسجيلُك ولا تاريخُك في «لغتي» عند إعادة الحساب.
+     */
+    analysisVersion: PRONUNCIATION_ANALYSIS_VERSION,
   };
 }
 

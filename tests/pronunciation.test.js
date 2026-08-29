@@ -71,7 +71,11 @@ describe('النطق · سجلُّ القواعد وترتيبُها', () => {
       'RU_CROSS_WORD_VOICED_KEPT',
       'RU_CROSS_WORD_DEVOICING',
       'RU_FINAL_DEVOICING',
-      'RU_VOICING_SONORANT_NEUTRAL',
+      /* ⚠️ **قاعدةُ الرنّانات انقسمت في WS-N** — «أنا رنّانة فلا أُهمَس»
+         و«ما بعدي رنّانةٌ فلا تُجهِّرني» ظاهرتان لهما متأثّران مختلفان،
+         وكانتا في قاعدةٍ واحدةٍ بشرحٍ عامٍّ يذكر `л` في كلمةٍ بلا `л`. */
+      'RU_SONORANT_KEEPS_VOICE',
+      'RU_SONORANT_NO_TRIGGER',
       'RU_VOICING_V_NEUTRAL',
       'RU_REGRESSIVE_DEVOICING',
       'RU_REGRESSIVE_VOICING',
@@ -87,7 +91,8 @@ describe('النطق · سجلُّ القواعد وترتيبُها', () => {
   it('⚠️ والمانعان قبل المُطلِقَين — وإلّا جُهِّرت «плотва»', () => {
     const ids = rulesForStage(STAGE.VOICING).map((r) => r.id);
     expect(ids.indexOf('RU_VOICING_V_NEUTRAL') < ids.indexOf('RU_REGRESSIVE_VOICING')).toBe(true);
-    expect(ids.indexOf('RU_VOICING_SONORANT_NEUTRAL') < ids.indexOf('RU_REGRESSIVE_VOICING')).toBe(true);
+    expect(ids.indexOf('RU_SONORANT_KEEPS_VOICE') < ids.indexOf('RU_REGRESSIVE_VOICING')).toBe(true);
+    expect(ids.indexOf('RU_SONORANT_NO_TRIGGER') < ids.indexOf('RU_REGRESSIVE_VOICING')).toBe(true);
   });
 
   it('⚠️ والصلابةُ قبل الاختزال — لأن الاختزال يسأل عنها', () => {
@@ -384,8 +389,12 @@ describe('النطق · الأداءُ والفصلُ المعماريّ', () =>
     expect(Array.isArray(meta.ruleIds)).toBe(true);
     /* ⚠️ ولا شرحٌ عربيٌّ مكرَّرٌ في كلّ صفّ — الكلمةُ تُعاد تحليلُها. */
     expect(Object.hasOwn(meta, 'explain')).toBe(false);
+    /* ⚠️ `analysisVersion` أُضيف في WS-N: إصدارُ **بنية** التحليل غيرُ
+       إصدار القواعد، ويرتفع حين تصير للتحليل طبقتان بدل واحدة. وصفٌّ
+       قديمٌ بلا هذا الحقل يُقرَأ «متقادمٌ» لا «تالف». */
     expect(Object.keys(meta).sort()).toEqual(
-      ['normalizedWord', 'ruleIds', 'rulesetVersion', 'stressOrdinal', 'stressSource']
+      ['analysisVersion', 'normalizedWord', 'ruleIds', 'rulesetVersion',
+        'stressOrdinal', 'stressSource']
     );
   });
 });

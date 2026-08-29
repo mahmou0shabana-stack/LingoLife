@@ -28,7 +28,7 @@
 import {
   registerRule, RULE_CATEGORY, STAGE, STATUS, EVIDENCE,
 } from '../rule-registry.js';
-import { VOWEL_SOUND, ALWAYS_HARD } from '../alphabet.js';
+import { VOWEL_SOUND, ALWAYS_HARD, toCyrillic } from '../alphabet.js';
 
 /**
  * درجةُ الاختزال بحسب الموضع.
@@ -39,6 +39,41 @@ function degreeOf(ctx) {
   if (ctx.ordinal === ctx.stressOrdinal - 1) return 1;
   if (ctx.wordInitial) return 1;
   return 2;
+}
+
+/* ================================================================== *
+ * الشرحُ الفرديّ — **موضعٌ حقيقيٌّ وصوتٌ ناتج، لا تصنيفٌ أكاديميّ**
+ * ================================================================== */
+
+/**
+ * ⚠️ **و«بعيدة عن النبر» كانت كذبةً صغيرةً تُقال كثيرًا** (WS-N · §16).
+ *
+ * في `ме́|ет` تأتي الـ`е` الثانيةُ **مباشرةً بعد** المقطع المنبور — فأيُّ
+ * بُعد؟ الجملةُ صحيحةٌ في اصطلاح الدرجات (الدرجةُ الثانية = ما ليس قبل
+ * النبر مباشرةً)، وكاذبةٌ في أذن القارئ. فنقول الموضعَ كما هو: «بعد
+ * المقطع المنبور» أو «قبله بمقطع» أو «في أوّل الكلمة».
+ */
+function placeOf(ctx) {
+  if (ctx.ordinal === ctx.stressOrdinal - 1) return 'جاية قبل المقطع المنبور على طول';
+  if (ctx.wordInitial) return 'في أوّل الكلمة';
+  if (ctx.ordinal > ctx.stressOrdinal) {
+    return ctx.ordinal === ctx.stressOrdinal + 1
+      ? 'جاية بعد المقطع المنبور على طول'
+      : 'جاية بعد المقطع المنبور';
+  }
+  return 'قبل النبر بأكتر من مقطع';
+}
+
+/**
+ * جملةُ «إيه اللي هسمعه؟» — **الصوتُ أوّلًا والدرجةُ في مكانٍ تاني** (§12).
+ *
+ * ⚠️ ولا تُصاغ في ملفّ العرض: القاعدةُ هي التي تعرف ما أنتجت، والواجهةُ
+ *    التي تصوغ نيابةً عنها تفترق عنها أوّلَ مرّةٍ تتغيّر القاعدة.
+ */
+function heard(ctx, out) {
+  const cyr = toCyrillic(out.ipa);
+  const same = cyr === ctx.letter;
+  return `${same ? 'بتفضل قريبة من ' : 'بتتسمع أقرب لـ'}«${cyr}» [${out.ipa}]`;
 }
 
 /** هل يجوز لقاعدةِ اختزالٍ أن تعمل أصلًا؟ */
@@ -56,6 +91,7 @@ registerRule({
   status: STATUS.VERIFIED,
   evidence: EVIDENCE.SNIPPET,
   applies: (ctx) => usable(ctx) && stressed(ctx),
+  describe: (ctx, out) => `«${ctx.letter}» عليها النبر، فبتتنطق كاملة وواضحة [${out.ipa}].`,
   transform: (ctx) => ({ ipa: ctx.baseIpa, stressed: true }),
 });
 
@@ -71,6 +107,8 @@ registerRule({
   evidence: EVIDENCE.SNIPPET,
   applies: (ctx) => usable(ctx) && !stressed(ctx)
     && 'ао'.includes(ctx.letter) && !ctx.prevSoft && degreeOf(ctx) === 1,
+  describe: (ctx, out) => `«${ctx.letter}» مش عليها النبر و${placeOf(ctx)}، `
+    + `ف${heard(ctx, out)}.`,
   transform: () => ({ ipa: 'ɐ', reduction: { degree: 1, quality: 'qualitative' } }),
 });
 
@@ -86,6 +124,8 @@ registerRule({
   evidence: EVIDENCE.SNIPPET,
   applies: (ctx) => usable(ctx) && !stressed(ctx)
     && 'ао'.includes(ctx.letter) && !ctx.prevSoft,
+  describe: (ctx) => `«${ctx.letter}» مش عليها النبر و${placeOf(ctx)}، `
+    + `فبتخفت وبتتسمع صوت غامض قصير [ə] — لا «${ctx.letter}» كاملة ولا «а» كاملة.`,
   transform: () => ({ ipa: 'ə', reduction: { degree: 2, quality: 'qualitative' } }),
 });
 
@@ -119,6 +159,25 @@ registerRule({
   applies: (ctx) => usable(ctx) && !stressed(ctx)
     && (('еяа'.includes(ctx.letter) && ctx.prevSoft)
       || (ctx.letter === 'и' && ctx.baseIpa !== 'ɨ')),
+  /*
+   * ⚠️ **والشرحُ يذكر الحرفَ الليّنَ الذي أطلقها حين يوجد** — فالقاعدةُ
+   *    نفسُها تنطلق على `и` بلا ساكنٍ قبلها أصلًا (`име́ет`)، وقولُ «بعد
+   *    حرف ليّن» هناك يشير إلى حرفٍ غير موجود: نفسُ عائلةِ العطب التي
+   *    أظهرت `л` في كلمةٍ بلا `л`.
+   *
+   * ⚠️ **ولا يُقال «بعد «й»» حين لا تكون `й` مكتوبةً أصلًا** (§15).
+   *    في `име́ет` يُولِّد المحرّكُ انزلاقًا `[j]` بين الحركتين — وهو
+   *    **صوتٌ** لا **حرف**. فقولُ «بعد «й» اللينة» يُدخِل في ذهن القارئ
+   *    حرفًا مخفيًّا يبحث عنه في الكتابة ولن يجده، ويجعله يكتب `имейет`.
+   *    فنسمّيه بما هو: انتقالٌ صوتيّ.
+   */
+  describe: (ctx, out) => {
+    let after = '';
+    if (ctx.prevSynthetic) after = '، وقبلها انتقال صوتي قريب من [j] بين الحركتين';
+    else if (ctx.prevSoft && ctx.prevLetter) after = `، وقبلها «${ctx.prevLetter}» اللينة`;
+    return `«${ctx.letter}» مش عليها النبر${after}، و${placeOf(ctx)} — `
+      + `فصوتها مايبقاش «${ctx.letter}» كاملة: ${heard(ctx, out)}.`;
+  },
   transform: (ctx) => ({
     ipa: 'ɪ',
     /*
@@ -157,6 +216,8 @@ registerRule({
      * وقراءتُه على أنه يصف كلَّ المواضع **زيادةٌ منّي لا منه**.
      */
     && degreeOf(ctx) === 1,
+  describe: (ctx, out) => `«${ctx.letter}» بعد «${ctx.prevLetter}» الصلبة ومش عليها النبر، `
+    + `ف${heard(ctx, out)}.`,
   transform: (ctx) => ({ ipa: 'ɨ', reduction: { degree: degreeOf(ctx), quality: 'qualitative' } }),
 });
 
@@ -172,6 +233,8 @@ registerRule({
   evidence: EVIDENCE.SNIPPET,
   applies: (ctx) => usable(ctx) && !stressed(ctx)
     && ctx.letter === 'е' && ALWAYS_HARD.includes(ctx.prevLetter),
+  describe: (ctx) => `«${ctx.letter}» بعد «${ctx.prevLetter}» الصلبة، مش عليها النبر و${placeOf(ctx)}، `
+    + `فبتخفت وبتتسمع صوت غامض قصير [ə].`,
   transform: (ctx) => ({ ipa: 'ə', reduction: { degree: degreeOf(ctx), quality: 'qualitative' } }),
 });
 
@@ -209,6 +272,8 @@ registerRule({
    */
   applies: (ctx) => usable(ctx) && !stressed(ctx)
     && ('ыую'.includes(ctx.letter) || (ctx.letter === 'и' && ctx.baseIpa === 'ɨ')),
+  describe: (ctx, out) => `«${ctx.letter}» مش عليها النبر و${placeOf(ctx)}، `
+    + `فبتبقى أقصر — بس صوتها زيّ ما هو [${out.ipa}]، مش زيّ «а/о/е» اللي بيتغيّر صوتهم.`,
   transform: (ctx) => ({
     ipa: ctx.baseIpa || VOWEL_SOUND[ctx.letter],
     reduction: { degree: degreeOf(ctx), quality: 'quantitative' },

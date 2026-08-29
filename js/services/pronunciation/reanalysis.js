@@ -26,12 +26,22 @@
 import { savedItems } from '../../db/repositories.js';
 import { STATE } from '../../db/schema.js';
 import { SAVED_KIND } from '../saved-service.js';
-import { analyzeWord, pronunciationMetadata, RULESET_VERSION } from './engine.js';
+import {
+  analyzeWord, pronunciationMetadata, RULESET_VERSION, PRONUNCIATION_ANALYSIS_VERSION,
+} from './engine.js';
 
-/** هل تحليلُ هذا الصفّ متقادم؟ */
+/**
+ * هل تحليلُ هذا الصفّ متقادم؟
+ *
+ * ⚠️ **وسؤالان لا سؤال** (WS-N · §49). القواعدُ قد تتحسّن فيتغيّر
+ *    **الجواب**، وبنيةُ التحليل قد تتغيّر فيتغيّر **شكلُ الجواب**.
+ *    وصفٌّ محفوظٌ ببنيةٍ قديمة يحمل قواعدَ صحيحةً ولا يحمل الطبقتين،
+ *    فقراءتُه كأنّه جديدٌ تُظهِر «منفردة» فارغة. متقادمٌ إذن — لا تالف.
+ */
 export function isStale(meta) {
   if (!meta) return true;                       /* بلا تحليلٍ أصلًا */
-  return meta.rulesetVersion !== RULESET_VERSION;
+  if (meta.rulesetVersion !== RULESET_VERSION) return true;
+  return meta.analysisVersion !== PRONUNCIATION_ANALYSIS_VERSION;
 }
 
 /**
@@ -97,11 +107,17 @@ export async function analysisCoverage() {
     if (!v) { none += 1; continue; }
     byVersion.set(v, (byVersion.get(v) || 0) + 1);
   }
+  /* بنيةُ التحليل تُعَدّ على حدة — فقد تتقادم وحدَها بلا تغيّرِ قاعدة. */
+  const legacyStructure = words.filter((r) => r.pronunciation
+    && r.pronunciation.analysisVersion !== PRONUNCIATION_ANALYSIS_VERSION).length;
+
   return {
     total: words.length,
     current: byVersion.get(RULESET_VERSION) || 0,
     stale: words.length - (byVersion.get(RULESET_VERSION) || 0),
     withoutAnalysis: none,
+    legacyStructure,
+    analysisVersion: PRONUNCIATION_ANALYSIS_VERSION,
     versions: Object.fromEntries(byVersion),
   };
 }

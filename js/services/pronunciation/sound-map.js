@@ -260,7 +260,17 @@ export function soundMap(analysis) {
   if (analysis.stress.ambiguous) {
     limitations.push('الكلمة ليها أكتر من نبر صحيح — لازم تختار من السياق.');
   }
-  if (analysis.context.nextWord && !analysis.context.crossWordApplied) {
+  /*
+   * ⚠️ **ولا تُقال هذه الجملةُ في الطبقة المعجميّة** (WS-N · §4 و§11).
+   *
+   * خريطةُ الصوت تصف **الكلمةَ منفردةً** — وتُغذَّى بنتيجةٍ حُسبت
+   * `connected: false` عمدًا. فلو قالت «مفيش تأثير بين الكلمة واللي
+   * بعدها» لأصدرت حكمًا على السياق من طبقةٍ لا ترى السياق أصلًا،
+   * وستقوله **دائمًا** لأن الجارَ مُستبعَدٌ بالتصميم. وخبرُ السياق
+   * ملكُ طبقة السياق وحدَها (`analysis.js`).
+   */
+  if (analysis.context.connected !== false
+    && analysis.context.nextWord && !analysis.context.crossWordApplied) {
     limitations.push('مفيش تأثير بين الكلمة دي واللي بعدها — الحروف مش من النوع اللي بيأثّر.');
   }
 
