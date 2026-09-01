@@ -249,7 +249,20 @@ export const api = {
    * @param {{ mediaId: string, url: string, title?: string, subtitle?: string, artwork?: string }} track
    */
   async load(track) {
-    if (current?.mediaId === track.mediaId && queue.tracks.length <= 1) {
+    /*
+     * ⚠️ **الهُويّةُ زوجٌ: المعرِّفُ **والرابط** — لا المعرِّفُ وحدَه.**
+     *
+     * كان الشرطُ `current.mediaId === track.mediaId` فحسب. ومَن ينادي
+     * بمعرِّفٍ **ثابت** لشيءٍ متغيّر — كمعاينة تسجيلٍ لم يُحفَظ بعد —
+     * يقع في فخٍّ صامت: يسجّل، يسمع، يعيد التسجيل، ثم يضغط «اسمع
+     * تسجيلي» فتقول الخدمةُ «نفسُ المقطع» وتُبدّل التشغيل على **الرابط
+     * القديم** — وقد أُبطِل. زرٌّ حيٌّ بلا صوت، بلا خطأ، بلا أثر.
+     *
+     * والعلاجُ في العقد لا في المنادي: تسجيلٌ آخرُ **مقطعٌ آخر** ولو
+     * حمل اسمًا واحدًا. فلو تغيّر الرابطُ أُعيد التحميل.
+     */
+    const same = current?.mediaId === track.mediaId && current?.url === track.url;
+    if (same && queue.tracks.length <= 1) {
       // نفس المقطع: نبدّل التشغيل بدل إعادة التحميل من الصفر.
       const audio = element();
       return audio.paused ? api.play() : api.pause();
@@ -303,13 +316,31 @@ export const api = {
     return playAt(queue.index - 1);
   },
 
+  /**
+   * يشغّل — **ويقول إن لم يستطع**.
+   *
+   * ⚠️ **ورفضُ `play()` كان يُبتلَع هنا** — سطرٌ واحدٌ صامت.
+   *
+   * `HTMLMediaElement.play()` يعيد وعدًا يُرفَض لأسبابٍ حقيقيّة: سياسةُ
+   * التشغيل التلقائيّ، أو ترميزٌ لا يفكّه الجهاز (وهو وارد: جهازٌ
+   * **يسجّل** `webm/opus` ولا **يفكّه** موجود). وكان الرفضُ يُبلَّغ
+   * للمشتركين بعلمٍ `blocked` لا تقرؤه أغلبُ الشاشات، ولا يعود
+   * للمنادي شيء — فيبقى الزرُّ ▶ ويظنّ المستعمِلُ أن ضغطتَه لم تصل.
+   *
+   * فالآن **يعود سبب**. والمنادي حرٌّ في أن يكتبه أو يتجاهله، لكنّه لم
+   * يعد محرومًا من معرفته.
+   *
+   * @returns {Promise<{ok: boolean, reason?: string}>}
+   */
   async play() {
-    if (!el || !current) return;
+    if (!el || !current) return { ok: false, reason: 'no-track' };
     try {
       await el.play();
-    } catch {
-      // المتصفّح يمنع التشغيل التلقائي قبل تفاعل المستخدم.
+      return { ok: true };
+    } catch (error) {
+      // المتصفّح يمنع التشغيل التلقائي قبل تفاعل المستخدم — أو الترميز.
       emit({ blocked: true });
+      return { ok: false, reason: error?.name || 'play-rejected' };
     }
   },
 

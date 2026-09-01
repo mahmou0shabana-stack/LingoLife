@@ -53,11 +53,18 @@
 
 import { html, raw, formatDuration } from '../utils/dom.js';
 import { showModal } from '../components/modal.js';
-import { toast, toastOk, toastError } from '../components/toast.js';
-import { canRecord, startRecording, urlFor } from '../services/media-service.js';
-import { api as audio } from '../services/audio-service.js';
-/* ⚠️ لإسكات المرجع قبل فتح الميكروفون — راجع `beginRecording` (بند ٣-ج). */
-import { releaseAudio } from '../services/shadow/audio-bus.js';
+import { toast, toastOk } from '../components/toast.js';
+import {
+  canRecord, startRecording, urlFor, ensureBytes, isCloudOnly,
+} from '../services/media-service.js';
+import { api as audio, subscribe as watchAudioState } from '../services/audio-service.js';
+/*
+ * ⚠️ لإسكات المرجع قبل فتح الميكروفون — راجع `beginRecording` (بند ٣-ج).
+ * ⚠️ و`claimAudio` لأن تشغيلَ تسجيلك **مالكٌ للصوت** كغيره: يُسكِت
+ *    الجلسةَ والقراءةَ الآليّة، ويُسكَت حين تتكلّم هي. صوتٌ واحدٌ في
+ *    الوقت الواحد، بلا مقابلاتٍ تُكتَب يدويًّا.
+ */
+import { releaseAudio, claimAudio } from '../services/shadow/audio-bus.js';
 import { media } from '../db/repositories.js';
 import { deleteWithUndo } from '../services/delete-service.js';
 import { saveAttempt, listAttempts } from '../services/shadow/voice-attempts.js';
@@ -100,8 +107,33 @@ export async function openVoiceAttempts(target, speakReference) {
   let attempts = await listAttempts(target.key);
   let root = null;
 
-  const dropPending = () => {
-    if (pending?.url) URL.revokeObjectURL(pending.url);
+  /**
+   * روابطُ معاينةٍ استُبدِلت وهي تُسمَع — تُبطَل عند إغلاق اللوحة.
+   *
+   * ⚠️ **ورابطٌ يُبطَل والمشغّلُ يقرأ منه = صوتٌ ينقطع بلا سبب**، وربّما
+   *    زرٌّ يبقى ❚❚ على مصدرٍ ميّت. فالإبطالُ يُؤجَّل إلى لحظةٍ آمنة.
+   */
+  const liveUrls = new Set();
+
+  /**
+   * يُسقط المعاينةَ المعلَّقة.
+   *
+   * @param {{ stopIfPlaying?: boolean }} how
+   *   `stopIfPlaying` للحالات التي **تستبدل** التسجيل (إعادة/حذف):
+   *   يُوقَف الصوتُ ويُبطَل الرابطُ فورًا — فلا معنى لسماع لقطةٍ رميتَها.
+   *   وبدونها (كالحفظ) يُترَك ما يُسمَع يكمل، ويُبطَل الرابطُ عند الإغلاق.
+   */
+  const dropPending = ({ stopIfPlaying = false } = {}) => {
+    if (!pending) return;
+    const wasLive = play.id === 'pending';
+    if (wasLive && stopIfPlaying) {
+      audio.stop();
+      setPlay({ state: PLAY.READY, id: null, time: 0, duration: 0, why: null });
+    }
+    if (pending.url) {
+      if (wasLive && !stopIfPlaying) liveUrls.add(pending.url);
+      else URL.revokeObjectURL(pending.url);
+    }
     pending = null;
   };
 
@@ -165,6 +197,45 @@ export async function openVoiceAttempts(target, speakReference) {
     if (box) box.innerHTML = bodyHtml();
   };
 
+  /**
+   * زرُّ التشغيل الرئيسيّ للمعاينة — **هو نفسُه** زرُّ الإيقاف المؤقّت.
+   *
+   * ⚠️ **ولا أيقونةَ صغيرةٌ في مكانٍ آخر** (بند ١٥): الإصبعُ الذي وجد
+   *    ▶ يتوقّع ❚❚ في نفس البقعة. زرٌّ يتحوّل خيرٌ من زرَّين يتبادلان
+   *    الظهور، ومن أيقونةٍ ثانيةٍ تُطارَد بالعين.
+   */
+  function mainPlayHtml() {
+    const on = isOn('pending');
+    const busy = isBusy('pending');
+    const failed = play.id === 'pending' && play.state === PLAY.ERROR;
+    const label = busy ? '⏳ بيحضّر…' : on ? '❚❚ إيقاف مؤقت' : '▶ اسمع تسجيلي';
+    return html`
+      <button type="button" class="btn vo-play-mine${on ? ' is-on' : ''}"
+              data-vo="preview" aria-pressed="${on ? 'true' : 'false'}"
+              ${raw(busy ? 'disabled' : '')}>${label}</button>
+      ${raw(play.id === 'pending' && play.duration > 0 ? html`
+        <p class="vo-time" data-vo-time dir="ltr">
+          ${clockOf(play.time * 1000)} / ${clockOf(play.duration * 1000)}
+        </p>` : '')}
+      ${raw(failed ? html`
+        <div class="vo-fail" role="alert">
+          <span>${play.why}</span>
+          <button type="button" class="btn btn-sm" data-vo="preview">جرّب تاني</button>
+        </div>` : '')}`;
+  }
+
+  /** زرُّ صفٍّ محفوظ — نفسُ المنطق، بحجمٍ أصغر. */
+  function rowPlayHtml(mediaId) {
+    const on = isOn(mediaId);
+    const busy = isBusy(mediaId);
+    const glyph = busy ? '⏳' : on ? '❚❚' : '▶';
+    return html`
+      <button type="button" class="btn btn-ghost btn-sm vo-rowplay${on ? ' is-on' : ''}"
+              data-vo="play" data-id="${mediaId}"
+              aria-pressed="${on ? 'true' : 'false'}"
+              aria-label="${on ? 'وقّف مؤقّتًا' : 'شغّل التسجيل'}">${glyph}</button>`;
+  }
+
   function bodyHtml() {
     const scope = SCOPE_LABEL[target.scope] || 'جملة';
     return html`
@@ -201,7 +272,7 @@ export async function openVoiceAttempts(target, speakReference) {
           <div class="vo-done" role="status">
             سجّلت <b>${formatDuration(pending.durationMs)}</b> — اسمعها قبل ما تحفظ.
           </div>
-          <button type="button" class="btn vo-play-mine" data-vo="preview">▶ اسمع تسجيلي</button>
+          ${raw(mainPlayHtml())}
           <div class="vo-keep">
             <button type="button" class="btn vo-save" data-vo="save">حفظ</button>
             <button type="button" class="btn btn-ghost" data-vo="again">↻ سجّل من جديد</button>
@@ -237,11 +308,18 @@ export async function openVoiceAttempts(target, speakReference) {
         ${raw(attempts.length ? html`
           <div class="vo-list">
             ${raw(attempts.map((row) => html`
-              <div class="vo-row" data-vo-row="${row.id}">
-                <button type="button" class="btn btn-ghost btn-sm" data-vo="play" data-id="${row.mediaId}">▶</button>
+              <div class="vo-row${isOn(row.mediaId) ? ' is-on' : ''}" data-vo-row="${row.id}">
+                ${raw(rowPlayHtml(row.mediaId))}
                 <span class="vo-when">${whenLabel(row.createdAt)}</span>
-                ${raw(row.durationMs
-                  ? html`<span class="vo-dur">${formatDuration(row.durationMs)}</span>` : '')}
+                ${raw(play.id === row.mediaId && play.duration > 0
+                  ? html`<span class="vo-dur" data-vo-rowtime="${row.mediaId}" dir="ltr">${
+                    clockOf(play.time * 1000)}</span>`
+                  : row.durationMs
+                    ? html`<span class="vo-dur">${formatDuration(row.durationMs)}</span>` : '')}
+                ${raw(play.id === row.mediaId && play.state === PLAY.LOADING
+                  ? html`<span class="vo-load">بيحمّل من Drive…</span>` : '')}
+                ${raw(play.id === row.mediaId && play.state === PLAY.ERROR
+                  ? html`<span class="vo-rowfail" role="alert">${play.why}</span>` : '')}
                 <button type="button" class="btn btn-ghost btn-sm vo-del" data-vo="del"
                         data-id="${row.mediaId}" aria-label="احذف التسجيل ده">✕</button>
               </div>`).join(''))}
@@ -265,7 +343,7 @@ export async function openVoiceAttempts(target, speakReference) {
       return;
     }
 
-    dropPending();
+    dropPending({ stopIfPlaying: true });
 
     /*
      * ═══════════════════════════════════════════════════════════
@@ -331,7 +409,7 @@ export async function openVoiceAttempts(target, speakReference) {
     stopMeter();
     try { active.cancel(); } catch { /* متوقّفٌ سلفًا */ }
     frozen = null;
-    dropPending();
+    dropPending({ stopIfPlaying: true });
     paint();
     toast('التسجيل اتلغى');
   }
@@ -364,7 +442,11 @@ export async function openVoiceAttempts(target, speakReference) {
       return;
     }
 
+    /* ⚠️ **لقطةٌ جديدةٌ = هُويّةٌ جديدة.** راجع الشرحَ فوق `takeNo`:
+       المعرِّفُ الثابتُ هو الذي قتل زرَّ «اسمع تسجيلي» بعد أوّل إعادة. */
+    takeNo += 1;
     pending = { file, url: URL.createObjectURL(file), durationMs: Date.now() - startedAt };
+    setPlay({ state: PLAY.READY, id: null, time: 0, duration: 0, why: null });
     paint();
   }
 
@@ -405,21 +487,197 @@ export async function openVoiceAttempts(target, speakReference) {
     toastOk('اتحفظ');
   }
 
-  /* ---------------------------------------------------------------- *
-   * التشغيل — كلُّه عبر المشغّل الواحد
-   * ---------------------------------------------------------------- */
+  /* ================================================================ *
+   * التشغيل — آلةُ حالاتٍ ثانيةٌ مستقلّةٌ عن آلة التسجيل (البندان ٣ و٤)
+   * ================================================================ *
+   *
+   * ⚠️ **والفصلُ بينهما شرطٌ لا ترتيب.** «⏹ وقف التسجيل» تُنهي التقاطًا
+   *    ولا رجعةَ فيه؛ و«❚❚ إيقاف مؤقّت» تُجمّد استماعًا وتحفظ موضعَه.
+   *    خلطُهما في زرٍّ واحدٍ يجعل ضغطةً تعني «خلّصت» وأخرى تعني «استنّى»
+   *    — والفرقُ بينهما تسجيلٌ يضيع.
+   *
+   * ⚠️ **ولا عنصرَ صوتٍ ثانٍ هنا.** المشغّلُ هو `audio-service` نفسُه:
+   *    عنصرٌ واحدٌ خارجَ الشاشات، يكمل في الخلفيّة، وله تحكّمُ شاشة
+   *    القفل. وهذه اللوحةُ **تقرأ حالتَه** وترسمها، ولا تملك صوتًا.
+   *    ولذلك «تشغيلُ تسجيلَين معًا» مستحيلٌ بنيويًّا لا بشرطٍ مكتوب.
+   */
 
-  async function playMedia(mediaId) {
-    const row = await media.get(mediaId);
-    const url = row ? urlFor(row, { thumb: false }) : null;
-    if (!url) return toastError('الملف مش موجود على الجهاز ده');
-    await audio.load({ mediaId, url, title: 'صوتي', subtitle: target.text || '' });
+  const PLAY = Object.freeze({
+    READY: 'READY',
+    LOADING: 'LOADING',
+    PLAYING: 'PLAYING',
+    PAUSED: 'PAUSED',
+    ERROR: 'ERROR',
+  });
+
+  /** مالكُ الصوت باسم هذه اللوحة — يُسكِت غيرَه ويُسكَت من غيره. */
+  const BUS = 'voice-attempts';
+
+  /**
+   * ⚠️ **ورقمُ اللقطة هو ما أصلح العطبَ الأصليّ.**
+   *
+   * كانت المعاينةُ تُحمَّل بمعرِّفٍ **ثابت** `vo-preview`. فإذا سجّلت
+   * وسمعت ثم أعدت التسجيل — وهو بالضبط ما يفعله كلُّ من يجرّب — رأت
+   * خدمةُ الصوت «نفسَ المعرِّف» فبدّلت التشغيلَ على الرابط **القديم**
+   * وقد أُبطِل. زرٌّ حيٌّ، بلا صوت، وبلا رسالة.
+   *
+   * فلكلّ لقطةٍ رقمُها: تسجيلٌ آخرُ مقطعٌ آخر.
+   */
+  let takeNo = 0;
+
+  /** حالةُ التشغيل الظاهرة — لا تُقرأ من عنصر الصوت مباشرةً في الرسم. */
+  let play = { state: PLAY.READY, id: null, time: 0, duration: 0, why: null };
+  let unwatchAudio = null;
+
+  /** هُويّةُ المقطع في خدمة الصوت لهذا الهدف: معاينةٌ أم صفٌّ محفوظ. */
+  const trackIdOf = (id) => (id === 'pending' ? `vo-take:${takeNo}` : id);
+
+  /**
+   * يُعيد الرسمَ **فقط إن تغيّرت الحالة**؛ وإلّا يكتب الزمنَ في مكانه.
+   *
+   * ⚠️ **وإعادةُ الرسم كلَّ إطارٍ كانت ستقتل التشغيل** (بند ١٤): جسمُ
+   *    اللوحة يُبنى بـ`innerHTML`، فلو أُعيد بناؤه ستّين مرّةً في
+   *    الثانية لانهار اللمسُ ولتبدّل الزرُّ تحت إصبعك. والزمنُ يتغيّر
+   *    كثيرًا والحالةُ نادرًا — فلكلٍّ طريقُه.
+   */
+  function paintClock() {
+    if (!root) return;
+    const at = root.querySelector('[data-vo-time]');
+    if (at) at.textContent = `${clockOf(play.time * 1000)} / ${clockOf(play.duration * 1000)}`;
+    for (const node of root.querySelectorAll('[data-vo-rowtime]')) {
+      if (node.dataset.voRowtime !== play.id) continue;
+      node.textContent = clockOf(play.time * 1000);
+    }
+  }
+
+  function setPlay(next) {
+    const changed = next.state !== play.state || next.id !== play.id || next.why !== play.why;
+    play = { ...play, ...next };
+    if (changed) paint();
+    else paintClock();
+  }
+
+  /**
+   * يُتابع المشغّلَ الواحد ويترجم حالتَه إلى حالةِ اللوحة.
+   *
+   * ⚠️ **ومقطعٌ آخرُ خطف المشغّل يُعيدنا إلى `READY`** — لا نُبقي
+   *    «❚❚» على زرٍّ لم يعد يملك الصوت.
+   */
+  function watchPlayback() {
+    unwatchAudio?.();
+    unwatchAudio = watchAudioState((snapshot) => {
+      if (!play.id) return;
+      /*
+       * ⚠️ **وعطبُ فكِّ الترميز يقع بعد أن ينجح `play()`** — فلا يمسكه
+       *    الوعدُ المرفوض. جهازٌ **يسجّل** `webm/opus` ولا **يفكّه**
+       *    يعطيك هذا بالضبط: تحميلٌ ناجح، ثم `error` على العنصر،
+       *    وصمتٌ تام. فيُقرأ من بلاغ الخدمة ويُكتب على الشاشة.
+       */
+      if (snapshot.error && snapshot.mediaId === trackIdOf(play.id)) {
+        setPlay({ state: PLAY.ERROR, why: 'تعذر تشغيل التسجيل — الجهاز مش قادر يفكّ ترميزه.' });
+        return;
+      }
+      if (play.state === PLAY.LOADING || play.state === PLAY.ERROR) return;
+      if (snapshot.mediaId !== trackIdOf(play.id)) {
+        if (play.state !== PLAY.READY) setPlay({ state: PLAY.READY, id: null, time: 0, duration: 0 });
+        return;
+      }
+      const done = !snapshot.playing && snapshot.duration > 0
+        && snapshot.currentTime >= snapshot.duration - 0.05;
+      setPlay({
+        /* ⚠️ والنهايةُ ترجع إلى `READY` لا إلى `PAUSED`: الضغطةُ التالية
+           تبدأ من الأوّل، وهو ما يتوقّعه أيُّ مشغّل (بند ٤). */
+        state: snapshot.playing ? PLAY.PLAYING : (done ? PLAY.READY : PLAY.PAUSED),
+        time: done ? 0 : snapshot.currentTime,
+        duration: snapshot.duration,
+      });
+    });
+  }
+
+  /**
+   * يحلّ مصدرَ التشغيل: معاينةٌ في الذاكرة، أو صفٌّ محفوظ، أو Drive.
+   * @returns {Promise<{ url: string }|{ error: string }|{ loading: true }>}
+   */
+  async function sourceOf(id) {
+    if (id === 'pending') {
+      if (!pending?.url) return { error: 'مفيش تسجيل معلَّق.' };
+      return { url: pending.url };
+    }
+    const row = await media.get(id);
+    if (row?.blob) {
+      const url = urlFor(row, { thumb: false });
+      return url ? { url } : { error: 'مقدرناش نقرأ بايتات التسجيل.' };
+    }
+    /*
+     * ⚠️ **وتسجيلٌ على Drive وحدَه يُجلَب هو وحدَه** (بند ١٣): لا
+     *    «نزّل كلَّ الوسائط» ولا انتظارٌ صامت. والتقدّمُ **غيرُ قابلٍ
+     *    للقياس** في هذا العقد — فنقول «بيحمّل» ولا نرسم نسبةً مخترَعة.
+     */
+    if (isCloudOnly(row)) {
+      setPlay({ state: PLAY.LOADING, id, why: null, time: 0, duration: 0 });
+      const out = await ensureBytes(id);
+      if (!out?.ok) return { error: out?.reason || 'مقدرناش ننزّل التسجيل من Drive.' };
+      const url = urlFor(out.record, { thumb: false });
+      return url ? { url } : { error: 'التنزيل خلص بس البايتات مش مقروءة.' };
+    }
+    return { error: 'التسجيل ده مش موجود على الجهاز ده ولا على Drive.' };
+  }
+
+  /**
+   * الزرُّ الواحد: تشغيلٌ ↔ إيقافٌ مؤقّت (البندان ٢ و١٥).
+   *
+   * @param {string} id `'pending'` أو `mediaId`
+   */
+  async function togglePlayback(id) {
+    /* نفسُ المقطع: تبديلٌ بلا إعادة تحميل — فالموضعُ محفوظ. */
+    if (play.id === id && play.state === PLAY.PLAYING) {
+      audio.pause();
+      return;
+    }
+    if (play.id === id && play.state === PLAY.PAUSED) {
+      const done = await audio.play();
+      if (done && done.ok === false) {
+        setPlay({ state: PLAY.ERROR, id, why: 'تعذر تشغيل التسجيل' });
+      }
+      return;
+    }
+
+    const found = await sourceOf(id);
+    if (found.error) {
+      setPlay({ state: PLAY.ERROR, id, why: found.error, time: 0, duration: 0 });
+      return;
+    }
+
+    claimAudio(BUS, () => audio.pause());
+    setPlay({ state: PLAY.LOADING, id, why: null, time: 0, duration: 0 });
+
+    const done = await audio.load({
+      mediaId: trackIdOf(id),
+      url: found.url,
+      title: 'صوتي',
+      subtitle: target.text || '',
+    });
+
+    /*
+     * ⚠️ **ورفضُ `play()` لا يُبتلَع** (بند ٨). كان يُبتلَع في خدمة
+     *    الصوت فيبقى الزرُّ ▶ ويظنّ المستعمِلُ أن ضغطتَه لم تصل. والآن
+     *    تُعيد الخدمةُ سببًا، واللوحةُ تكتبه ومعه بابُ إعادة.
+     */
+    if (done && done.ok === false) {
+      setPlay({ state: PLAY.ERROR, id, why: 'تعذر تشغيل التسجيل', time: 0, duration: 0 });
+      return;
+    }
+    setPlay({ state: PLAY.PLAYING, id, why: null });
   }
 
   async function playBoth() {
     await speakReference?.();
-    if (attempts[0]) await playMedia(attempts[0].mediaId);
+    if (attempts[0]) await togglePlayback(attempts[0].mediaId);
   }
+
+  /** رمزُ الزرّ وحالتُه لمقطعٍ بعينه. */
+  const isOn = (id) => play.id === id && play.state === PLAY.PLAYING;
+  const isBusy = (id) => play.id === id && play.state === PLAY.LOADING;
 
   /* ---------------------------------------------------------------- *
    * اللوحة
@@ -432,6 +690,12 @@ export async function openVoiceAttempts(target, speakReference) {
     onMount(node) {
       root = node;
       paint();
+      /*
+       * ⚠️ **الاشتراكُ بعد الرسم لا قبله**: أوّلُ بلاغٍ يأتي فورًا
+       *    (`subscribe` تنادي المستمعَ بالحالة الحاليّة)، ولو سبق
+       *    الرسمَ لكتب في عناصرَ لم تُخلَق بعد.
+       */
+      watchPlayback();
 
       node.addEventListener('click', async (event) => {
         const button = event.target.closest('[data-vo]');
@@ -442,9 +706,13 @@ export async function openVoiceAttempts(target, speakReference) {
         if (action === 'rec') return beginRecording();
         if (action === 'stop') return endRecording();
         if (action === 'abort') return abortRecording();
-        if (action === 'again') { dropPending(); paint(); return beginRecording(); }
+        if (action === 'again') {
+          dropPending({ stopIfPlaying: true });
+          paint();
+          return beginRecording();
+        }
         if (action === 'discard') {
-          dropPending();
+          dropPending({ stopIfPlaying: true });
           frozen = null;
           failure = null;
           savedNote = false;
@@ -454,12 +722,9 @@ export async function openVoiceAttempts(target, speakReference) {
         if (action === 'save') return commit();
 
         if (action === 'ref') return speakReference?.();
-        if (action === 'preview') {
-          if (!pending) return;
-          return audio.load({ mediaId: 'vo-preview', url: pending.url, title: 'معاينة' });
-        }
-        if (action === 'mine') return attempts[0] && playMedia(attempts[0].mediaId);
-        if (action === 'play') return playMedia(id);
+        if (action === 'preview') return pending ? togglePlayback('pending') : undefined;
+        if (action === 'mine') return attempts[0] && togglePlayback(attempts[0].mediaId);
+        if (action === 'play') return togglePlayback(id);
         if (action === 'both') return playBoth();
 
         if (action === 'del') {
@@ -487,6 +752,15 @@ export async function openVoiceAttempts(target, speakReference) {
   /* ── الإغلاق: لا شيءَ معلَّقٌ يبقى ── */
   stopTicker();
   stopMeter();
+  unwatchAudio?.();
+  unwatchAudio = null;
+  /*
+   * ⚠️ **ومعاينةٌ تُسمَع تُوقَف عند الإغلاق — لا تكمل في الخلفيّة.**
+   *    بايتاتُها في الذاكرة وحدَها ولم تُحفَظ، ورابطُها سيُبطَل بعد
+   *    سطرين. أمّا **المحفوظُ** فيكمل عمدًا: له صفٌّ وسلّةٌ وشاشةُ قفل.
+   */
+  if (play.id === 'pending') audio.stop();
+  releaseAudio(BUS);
   if (recorder) {
     /*
      * ⚠️ **وإغلاقُ اللوحة أثناء التسجيل يُلغي — ولا يحفظ صامتًا** (بند ٢٧).
@@ -497,6 +771,9 @@ export async function openVoiceAttempts(target, speakReference) {
     recorder = null;
     toast('التسجيل اتلغى');
   }
-  dropPending();
+  dropPending({ stopIfPlaying: true });
+  /* ⚠️ وما أُجِّل إبطالُه لأنه كان يُسمَع — هذه لحظتُه الآمنة. */
+  for (const url of liveUrls) URL.revokeObjectURL(url);
+  liveUrls.clear();
   frozen = null;
 }

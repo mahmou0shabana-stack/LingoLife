@@ -199,8 +199,15 @@ describe('WS-M · التسجيل: أربعُ حالاتٍ صريحة', () => {
     const text = await modal();
     expect(text).toContain('data-vo="again"');
     expect(text).toContain('سجّل من جديد');
+    /*
+     * ⚠️ **والمدى يُقاس بالفرع لا بعدد الحروف.** كان `slice(at, at + 90)`،
+     *    فلمّا تمدّد الفرعُ إلى أربعة أسطر (إسقاطُ المعاينة صار يوقف
+     *    تشغيلَها أوّلًا) سقط الاختبارُ على **تنسيق** لا على سلوك.
+     *    والحارسُ الذي يسقط على إعادة تنسيقٍ يُدرَّب المرءُ على تجاهله.
+     */
     const at = text.indexOf("if (action === 'again')");
-    expect(text.slice(at, at + 90)).toContain('beginRecording()');
+    const branch = text.slice(at, text.indexOf("if (action === 'discard')", at));
+    expect(branch).toContain('beginRecording()');
   });
 
   it('ك · والعطبُ يبقى مكتوبًا ولا يختفي وحدَه', async () => {

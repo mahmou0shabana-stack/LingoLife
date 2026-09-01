@@ -5709,6 +5709,33 @@ body.shadow-open { overflow: hidden; }
 .vo-stop { background: var(--red); color: #fff; font-weight: 600; }
 .vo-rec { background: var(--accent); color: #fff; font-weight: 600; }
 
+/*
+ * ══════════════════════════════════════════════════════════════════
+ * ⚠️ **زرُّ الاستماع ليس زرَّ الإيقاف — ولونُه يقول ذلك** (البند ٣)
+ * ══════════════════════════════════════════════════════════════════
+ *
+ * «⏹ وقّف التسجيل» أحمرُ ممتلئ: فعلٌ لا رجعةَ فيه، ينهي التقاطًا.
+ * و«❚❚ إيقاف مؤقّت» **نفسُ الزرّ** الذي كان ▶ ويعود إليه: يُجمّد
+ * استماعًا ويحفظ موضعَه. فلو تشابها لونًا لتعلّم الإبهامُ أن الأحمرَ
+ * في هذه اللوحة «يوقف»، ثم ضغطه يومًا وهو يسجّل ظانًّا أنه يستأنف.
+ */
+.vo-play-mine.is-on {
+  background: rgba(122, 95, 44, .1);
+  border-color: rgba(122, 95, 44, .38);
+  font-weight: 600;
+}
+
+/* الزمنُ الحقيقيُّ من العنصر — لا تقديرٌ ولا موجةٌ مرسومة (بند ١٠). */
+.vo-time {
+  margin: 0; text-align: center; font-size: 13px;
+  color: var(--ink-faint); font-variant-numeric: tabular-nums;
+}
+
+.vo-rowplay.is-on { color: var(--accent); font-weight: 700; }
+.vo-row.is-on { border-color: rgba(122, 95, 44, .4); }
+.vo-load { font-size: 12px; color: var(--ink-faint); }
+.vo-rowfail { font-size: 12px; color: var(--red); flex: 1 1 100%; }
+
 /* الإلغاءُ أثناء التسجيل: موجودٌ وهادئ — لا يزاحم «وقّف». */
 .vo-cancel { min-block-size: 44px; }
 
