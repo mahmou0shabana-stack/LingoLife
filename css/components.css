@@ -4775,3 +4775,52 @@ body.overlay-open .improve-fab {
   inline-size: 48px;
   block-size: 48px;
 }
+
+/* ------------------------------------------------------------------ *
+ * مراجعةُ المسودّة: البنيةُ هادئةٌ والشكُّ ظاهر (WS-DR · بنود ١٢ و٣٧ و٣٨)
+ * ------------------------------------------------------------------ */
+
+/*
+ * ⚠️ **سطرٌ هادئٌ لا بطاقة.** عنوانُ القسم والشرحُ والقالبُ والفاصلُ
+ *    مفهومةٌ تمامًا. إعطاؤها بطاقةً بحجم بطاقةِ الزوج يجعل المراجعةَ
+ *    ثلاثين بطاقةً متساوية، فيختفي الشكُّ الحقيقيُّ وسط ما لا يحتاجك.
+ */
+.pr-quiet {
+  display: flex; align-items: baseline; gap: 8px;
+  margin: 0; padding: 5px 10px;
+  border-inline-start: 2px solid var(--line);
+  color: var(--text-soft); font-size: 13px;
+}
+.pr-quiet-kind {
+  flex: 0 0 auto;
+  font-size: 11px; font-weight: 700;
+  color: var(--text-faint, var(--text-soft));
+}
+
+.pr-sum-fine { font-size: 12px; color: var(--text-soft); }
+.pr-ok { color: var(--green, #1F9D62); }
+.pr-warn { color: var(--red, #D6414B); }
+
+.pr-section {
+  margin-inline-start: 6px;
+  padding: 1px 7px; border-radius: 999px;
+  background: var(--surface-tint); color: var(--text-soft);
+  font-size: 11px;
+}
+
+/*
+ * بدائلُ الترجمة — «إثبات / تأكيد» معنيان لعنصرٍ روسيٍّ واحد.
+ * ⚠️ والمختارُ يُعلَن بالنصّ (`aria-pressed`) لا باللون وحدَه.
+ */
+.pr-alts { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 6px; }
+.pr-alts-lab { font-size: 11px; color: var(--text-soft); }
+.pr-alt {
+  font: inherit; font-size: 12px; cursor: pointer;
+  min-block-size: 32px; padding: 0 10px;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--surface); color: var(--text-soft);
+}
+.pr-alt.is-on {
+  border-color: var(--accent); background: var(--accent-wash);
+  color: var(--accent); font-weight: 700;
+}

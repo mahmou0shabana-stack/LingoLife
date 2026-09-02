@@ -1738,3 +1738,63 @@ body.ws-fabs-on.workspace-open .quick-fab { display: grid; }
 /* والمُفتِّشُ تبويباتُه ثانويّةٌ — لا تنافس الوضعَ الأوّل. */
 .ws-insp-tab { font-weight: 500; }
 .ws-insp-tab.is-on { font-weight: 700; }
+
+/* ------------------------------------------------------------------ *
+ * مسودّاتُ المذاكرة في صفحة النصوص (WS-DR · بنود ١٤ إلى ٢٣)
+ * ------------------------------------------------------------------ */
+
+.ws-drafts {
+  max-inline-size: 76ch;
+  min-inline-size: 0;
+  margin-block-start: 22px;
+  padding-block-start: 14px;
+  border-block-start: 1px solid var(--line-soft, var(--line));
+}
+
+.ws-nav-draft { color: var(--accent); font-style: normal; font-size: .68rem; }
+
+/*
+ * ⚠️ **سطحُ قراءةٍ لا جدولُ تصحيح** (بند ١٨): المراجعةُ عملُ استيراد،
+ *    وهذه قراءة. فلا مربّعاتِ اختيارٍ ولا حالاتٍ تقنيّةٍ ولا أزرارَ
+ *    ربط — أقسامٌ ومقاطعُ وشرحٌ يُقرأ.
+ */
+.ws-draft-doc { display: grid; gap: 4px; }
+
+.ws-draft-head {
+  margin: 18px 0 4px;
+  font-size: .82rem; font-weight: 700;
+  color: var(--accent);
+}
+.ws-draft-doc > .ws-draft-head:first-child { margin-block-start: 0; }
+
+.ws-draft-bar { margin: 14px 0; border: 0; border-block-start: 1px solid var(--line); }
+
+.ws-draft-unit {
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.ws-draft-unit.is-recall { background: var(--surface-tint); }
+
+.ws-draft-ru { margin: 0; font-size: .96rem; font-weight: 600; line-height: 1.7; }
+.ws-draft-ar { margin: 2px 0 0; color: var(--ink-soft); font-size: .88rem; }
+/* البدائلُ أخفُّ — معنًى إضافيٌّ لا ترجمةٌ ثانية. */
+.ws-draft-alts { margin: 3px 0 0; color: var(--ink-faint); font-size: .78rem; }
+.ws-draft-ask { margin: 0 0 4px; color: var(--ink-soft); font-size: .88rem; }
+
+.ws-draft-note {
+  margin: 2px 0;
+  padding-inline-start: 10px;
+  border-inline-start: 2px solid var(--accent-line);
+  color: var(--ink-soft); font-size: .87rem; line-height: 1.9;
+}
+
+.ws-draft-tpl {
+  margin: 2px 0;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface-soft);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: .84rem;
+}

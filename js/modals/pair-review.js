@@ -29,11 +29,24 @@
 
 import { html, raw, esc } from '../utils/dom.js';
 import { showModal } from '../components/modal.js';
-import { PAIR_STATUS, STATUS_LABEL, attachTranslation, detachTranslation, restatus }
-  from '../services/shadow/bilingual.js';
+import {
+  PAIR_STATUS, STATUS_LABEL, STRUCTURAL, SETTLED,
+  attachTranslation, detachTranslation, restatus,
+} from '../services/shadow/bilingual.js';
+import { translationView, SECTION_LABEL } from '../services/shadow/draft-structure.js';
 
 /** هل هذه الوحدةُ صالحةٌ لتصير مقطعَ تدريب؟ */
 const practicable = (one) => Boolean(one.ru);
+
+/**
+ * ⚠️ **البنيةُ تُعرَض ولا تُنادي عليك** (WS-DR · بندا ١٢ و٣٧).
+ *
+ *    عنوانُ القسم والشرحُ والقالبُ والفاصلُ **مفهومةٌ تمامًا**، فلا
+ *    تُعطى بطاقةً بحجم بطاقةِ الزوج ولا زرًّا يطلب إصلاحًا. تظهر سطرًا
+ *    هادئًا يقول «فهمتُ هذا» — لأنّ إخفاءها كذبٌ بالحذف، وتضخيمها
+ *    إغراقٌ يُخفي الشكَّ الحقيقيَّ وسط الضجيج.
+ */
+const isQuiet = (one) => STRUCTURAL.has(one.status);
 
 /** الوحداتُ العربيّةُ الحرّة — مرشّحاتُ الربط اليدويّ. */
 function freeArabic(units) {
@@ -49,8 +62,19 @@ function freeArabic(units) {
  *    في الشمس، ولا يعرفه مَن لا يميّز الألوان.
  */
 function cardHtml(one, i, units) {
+  /* البنيةُ سطرٌ هادئٌ لا بطاقة — راجع `isQuiet`. */
+  if (isQuiet(one)) {
+    const body = one.ar || one.raw || '';
+    return html`
+      <p class="pr-quiet" data-pr-quiet="${i}">
+        <span class="pr-quiet-kind">${STATUS_LABEL[one.status] || ''}</span>
+        <span dir="auto">${body}</span>
+      </p>`;
+  }
+
   const canPick = practicable(one);
   const others = freeArabic(units).filter(({ i: at }) => at !== i);
+  const view = translationView(one.ar || '', one.primary || 0);
 
   return html`
     <article class="pr-card${canPick ? '' : ' is-orphan'}" data-pr-card="${i}">
@@ -61,6 +85,8 @@ function cardHtml(one, i, units) {
           <span class="pr-num">${i + 1}</span>
         </label>
         <span class="pr-status pr-${one.status}">${STATUS_LABEL[one.status] || one.status}</span>
+        ${raw(one.section && SECTION_LABEL[one.section]
+          ? html`<span class="pr-section">${SECTION_LABEL[one.section]}</span>` : '')}
       </div>
 
       ${raw(one.ru
@@ -68,8 +94,24 @@ function cardHtml(one, i, units) {
         : html`<p class="pr-missing">مفيش أصل روسي — ده نصّ عربي لوحده</p>`)}
 
       ${raw(one.ar
-        ? html`<p class="pr-ar" dir="rtl" lang="ar">${one.ar}</p>`
+        ? html`<p class="pr-ar" dir="rtl" lang="ar">${view.primary}</p>`
         : html`<p class="pr-missing">بدون ترجمة</p>`)}
+
+      <!--
+        ⚠️ **البدائلُ معروضةٌ لا مطويّة، والاختيارُ لك** (بندا ٨ و٣٨).
+           «إثبات / تأكيد» معنيان لعنصرٍ روسيٍّ **واحد** — لا عنصران.
+           فتظهر البدائلُ أزرارًا تختار منها ما تريده ترجمةً أساسيّةً
+           في التدريب، **والباقي لا يُحذَف**: يبقى في الحقل كما لصقتَه.
+      -->
+      ${raw(view.hasAlts ? html`
+        <div class="pr-alts">
+          <span class="pr-alts-lab">معاني تانية:</span>
+          ${raw(view.all.map((one2, at) => html`
+            <button type="button" class="pr-alt ${at === (one.primary || 0) ? 'is-on' : ''}"
+                    data-pr-primary="${i}" data-pr-choice="${at}"
+                    aria-pressed="${at === (one.primary || 0) ? 'true' : 'false'}"
+                    dir="rtl" lang="ar">${one2}</button>`).join(''))}
+        </div>` : '')}
 
       <div class="pr-acts">
         ${raw(one.ar
@@ -94,18 +136,34 @@ function cardHtml(one, i, units) {
 
 /** رأسُ النافذة — إحصاءٌ محسوبٌ من الوحدات نفسِها. */
 function headHtml(units) {
-  const paired = units.filter((one) => one.ru && one.ar).length;
-  const bare = units.filter((one) => one.ru && !one.ar).length;
-  const orphan = units.filter((one) => !one.ru && one.ar).length;
+  /*
+   * ═══════════════════════════════════════════════════════════
+   * ⚠️ **الرقمُ الأوّلُ يقول ما فُهم لا ما بقي** (بند ١٢)
+   * ═══════════════════════════════════════════════════════════
+   *
+   * كان الرأسُ يقول على مسودّةٍ حقيقيّة: «٤ مقترنة · ١ روسي بلا
+   * ترجمة · ١٧ عربي لوحده». رقمٌ صادقٌ حسابيًّا، ورسالةٌ كاذبةٌ
+   * تمامًا: يوحي بأن الاستيرادَ فشل، بينما ٢٥ من الثلاثين كانت
+   * عناوينَ وشروحًا مفهومةً لا ينقصها شيء.
+   *
+   * والآن: **«٢٤ اتعرفت · ٠ محتاجة مراجعتك»** — ثمّ التفصيلُ لمن
+   * أراده. فتعرف من السطر الأوّل هل تقرأ أم تُصلح.
+   */
+  const settled = units.filter((one) => SETTLED.has(one.status)).length;
+  const needs = units.length - settled;
+  const paired = units.filter((one) => one.ru && one.ar && !isQuiet(one)).length;
+  const quiet = units.filter(isQuiet).length;
 
   return html`
     <p class="pr-sum">
-      <b>${paired}</b> مقترنة ·
-      <b>${bare}</b> روسي بلا ترجمة ·
-      <b>${orphan}</b> عربي لوحده
+      <b class="pr-ok">${settled}</b> وحدة اتعرفت
+      ${raw(needs ? html` · <b class="pr-warn">${needs}</b> محتاجة مراجعتك` : ' · مفيش حاجة محتاجة مراجعة')}
+    </p>
+    <p class="pr-sum pr-sum-fine">
+      ${paired} زوج للتدريب ${raw(quiet ? html`· ${quiet} عنوان وشرح وقالب` : '')}
     </p>
     <p class="pr-note">
-      اللي عليه علامة هيدخل التدريب. العربي لوحده مش هيدخل — هو ترجمة مش جملة تتنطق.
+      اللي عليه علامة هيدخل التدريب. الشرح والعناوين مش أزواج ناقصة — دي بنية المسودّة.
     </p>`;
 }
 
@@ -162,6 +220,19 @@ export async function openPairReview({ units, title = '' }) {
         if (ask) {
           const panel = host.querySelector(`[data-pr-choose="${ask.dataset.prAttach}"]`);
           if (panel) panel.hidden = !panel.hidden;
+          return;
+        }
+
+        /*
+         * ⚠️ **اختيارُ الترجمة الأساسيّة لا يحذف البدائل** (بند ٣٨):
+         *    يُكتَب رقمُ اختيارك في `primary` و`ar` يبقى كما لصقتَه.
+         */
+        const pick = event.target.closest('[data-pr-primary]');
+        if (pick) {
+          const at = Number(pick.dataset.prPrimary);
+          const choice = Number(pick.dataset.prChoice);
+          working = working.map((one, i) => (i === at ? { ...one, primary: choice } : one));
+          paint();
           return;
         }
 

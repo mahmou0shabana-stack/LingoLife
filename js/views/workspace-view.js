@@ -78,6 +78,9 @@ import {
 import {
   effectivePanes, writePanePrefs, readChromePrefs, writeChromePrefs,
 } from '../services/workspace/pane-prefs.js';
+import { PAIR_STATUS as DRAFT_STATUS } from '../services/shadow/bilingual.js';
+import { translationView } from '../services/shadow/draft-structure.js';
+import { draftPairs } from '../services/study-draft.js';
 
 /* ================================================================== *
  * الحالة
@@ -152,6 +155,14 @@ const state = {
 let board = null;
 /** أسلافُ الصفّ المحدَّد — تُملأ في `navHtml` وتُقرأ في `navRowHtml`. */
 let navPath = new Set();
+/**
+ * وحداتُ المسودّة المفتوحة — **تُشتقّ مرّةً عند الفتح لا في كلّ رسمة**.
+ *
+ * ⚠️ `draftPairs` تقرأ المحفوظَ أو تحلّل النصَّ كلَّه. ونداؤها داخل
+ *    `draftDocHtml` يعني إعادةَ تحليلٍ كامل مع كلّ إعادةِ رسمٍ للسطح —
+ *    وهي تقع عند كلّ تبديلِ وضعٍ وكلّ حفظٍ وكلّ إعادةِ قراءة.
+ */
+let draftUnits = [];
 let wires = null;
 let stopAudioWatch = null;
 let savedTimer = null;
@@ -247,10 +258,18 @@ const mediaById = (id) => {
   return row && (row.kind === 'audio' || row.kind === 'image') ? row : null;
 };
 
+/** مسودّةُ مذاكرةٍ بمعرّفها — من خريطةِ اللوحة لا بسؤالٍ للقاعدة. */
+const draftById = (id) => (id ? board?.draftById?.get(id) || null : null);
+
+/** مسودّاتُ عقدةٍ — مصفوفةٌ دائمًا، فارغةٌ إن لم تكن. */
+const draftsOf = (nodeId) => (nodeId ? board?.draftsOf?.get(nodeId) || [] : []);
+
 /** العنصرُ المفتوحُ أيًّا كان نوعُه — أو `null` إن اختفى من القاعدة. */
 function openRecord() {
   if (!state.open) return null;
-  return state.open.kind === 'text' ? nodeById(state.open.id) : mediaById(state.open.id);
+  if (state.open.kind === 'text') return nodeById(state.open.id);
+  if (state.open.kind === 'draft') return draftById(state.open.id);
+  return mediaById(state.open.id);
 }
 
 /* ================================================================== *
@@ -353,6 +372,7 @@ function navRowHtml(row) {
   const t = row.target;
   const media = t ? t.own.audio + t.own.images : 0;
   const under = t ? t.sub.audio + t.sub.images : 0;
+  const drafts = draftsOf(row.id).length;
 
   return html`
     <li class="ws-nav-row ${on ? 'is-on' : ''} ${path ? 'is-path' : ''}
@@ -384,6 +404,12 @@ function navRowHtml(row) {
           -->
           ${raw(media ? html`<b title="مربوط بالعقدة دي">${media}</b>` : '')}
           ${raw(under ? html`<em title="مربوط بما تحتها">+${under}</em>` : '')}
+          <!--
+            ⚠️ **وأثرُ مذاكرتك يُرى من الشجرة** (بند ١٦): كتبتَ مسودّةً
+               عن جملةٍ في هذه العقدة، فتقول العقدةُ ذلك. وقبله كانت
+               المسودّةُ حقيقةً في القاعدة وغيبًا على هذه الشاشة.
+          -->
+          ${raw(drafts ? html`<u class="ws-nav-draft" title="ليها مسودّة مذاكرة">✎${drafts}</u>` : '')}
           ${raw(row.hidden ? '<u>مخفيّة</u>' : '')}
         </span>
       </button>
@@ -530,6 +556,23 @@ function saveBadgeHtml() {
 function crumbHtml() {
   const open = state.open && state.open.kind !== 'text' ? openRecord() : null;
   /*
+   * ⚠️ **والمسودّةُ حالةٌ فرعيّةٌ داخل عقدتها لا مصدرٌ آخر** (بند ٢٢):
+   *    نفسُ عهد الوسائط في WS-P3 — المسارُ يبقى على العقدة، والمسودّةُ
+   *    تأتي بعدها. فتعرف دائمًا **مِن أين** جاءت هذه المسودّة.
+   */
+  if (state.open?.kind === 'draft' && state.node) {
+    const crumbs = crumbsOf(board, state.node);
+    return html`
+      <nav class="ws-crumbs" aria-label="المسار">
+        ${raw(crumbs.map((one, i) => html`
+          ${raw(i ? '<span class="ws-crumb-sep" aria-hidden="true">·</span>' : '')}
+          <button type="button" class="ws-crumb" data-ws="nav-node"
+                  data-id="${one.id}" dir="auto">${one.title}</button>`).join(''))}
+        <span class="ws-crumb-sep" aria-hidden="true">·</span>
+        <span class="ws-crumb is-now">مسودّة</span>
+      </nav>`;
+  }
+  /*
    * ═══════════════════════════════════════════════════════════
    * ⚠️ **مكانُك يُذكَر دائمًا — والوسيطُ لا يُنسَب إليه كذبًا**
    * ═══════════════════════════════════════════════════════════
@@ -582,9 +625,16 @@ function crumbHtml() {
 }
 
 function modeSwitchHtml() {
-  const kinds = state.open?.kind === 'text'
-    ? [MODE.READ, MODE.EDIT, MODE.LINK]
-    : [MODE.READ, MODE.LINK];
+  /*
+   * ⚠️ **والمسودّةُ تُقرأ ولا تُربَط من هنا** (بند ١٨): «ربط» وضعٌ
+   *    يعلّق وسائطَ بعقدة، ولا معنى له على مادّةٍ مشتقّة. وعرضُ زرٍّ
+   *    لا يفعل شيئًا أسوأُ من غيابه.
+   */
+  const kinds = state.open?.kind === 'draft'
+    ? [MODE.READ]
+    : (state.open?.kind === 'text'
+      ? [MODE.READ, MODE.EDIT, MODE.LINK]
+      : [MODE.READ, MODE.LINK]);
   return html`
     <div class="ws-modes" role="tablist" aria-label="وضع الشغل">
       ${raw(kinds.map((one) => html`
@@ -603,12 +653,20 @@ function docHeadHtml() {
     </div>`;
   }
 
+  const isDraft = state.open.kind === 'draft';
   const isText = state.open.kind === 'text';
   const target = isText ? board.targetById.get(state.open.id) : null;
-  const title = isText ? record.title : itemTitle(record);
+  const title = isText ? record.title
+    : (isDraft ? (record.subjectText || 'مسودّة') : itemTitle(record));
 
   const facts = [];
-  if (isText && target) {
+  if (isDraft) {
+    /* ⚠️ أرقامٌ محسوبةٌ من الوحدات نفسِها لا مكتوبةٌ في التصميم. */
+    const pairs = draftUnits.filter((one) => one.ru && one.ar).length;
+    facts.push('مادّة مذاكرة مشتقّة');
+    facts.push(`${draftUnits.length} وحدة`);
+    if (pairs) facts.push(`${pairs} زوج للتدريب`);
+  } else if (isText && target) {
     if (nodeKindLabel(target.kind)) facts.push(nodeKindLabel(target.kind));
     facts.push(`${target.chars} حرف`);
     if (target.children) facts.push(`${target.children} تحتها`);
@@ -650,13 +708,26 @@ function docHeadHtml() {
                     data-id="${state.open.id}">${raw(icon('link', 15))} ربط</button>
             <button type="button" class="ws-btn ws-btn-soft" data-ws="shadow"
                     data-id="${state.open.id}">تدرّب</button>` : '')}
-          ${raw(!isText ? html`
+          <!--
+            ⚠️ **«اتدرب على المسودة» هو الزرُّ القائم منذ WS25** (بند ٢١):
+               لم يُبنَ وضعُ تدريبٍ جديد. هذا مدخلٌ إليه من مكانٍ لم يكن
+               له فيه مدخل — سطحُ قراءة المسودّة في صفحة النصوص.
+
+            ⚠️ **و«الأصل» بجانبه** (بند ١٩): طريقُ العودة خفيفٌ ومرئيّ،
+               ولا عمودَ تنقّلٍ ثالثٌ يُضاف لأجله.
+          -->
+          ${raw(isDraft ? html`
+            <button type="button" class="ws-btn ws-btn-soft" data-ws="draft-back"
+                    data-id="${state.node || ''}">← النصّ الأصلي</button>
+            <button type="button" class="ws-btn ws-btn-primary" data-ws="draft-practice"
+                    data-id="${record.id}">اتدرب على المسودة</button>` : '')}
+          ${raw(!isText && !isDraft ? html`
             <button type="button" class="ws-btn ws-btn-soft" data-ws="link-item"
                     data-id="${record.id}">${raw(icon('link', 15))} ربط</button>` : '')}
           ${raw(!isText && record.kind === 'image' ? html`
             <button type="button" class="ws-btn ws-btn-soft" data-ws="zoom"
                     data-id="${record.id}">كبّر</button>` : '')}
-          ${raw(!isText ? html`
+          ${raw(!isText && !isDraft ? html`
             <button type="button" class="ws-btn ws-btn-soft" data-ws="rename-media"
                     data-id="${record.id}">سمّيه</button>` : '')}
           <!--
@@ -721,6 +792,7 @@ function docBodyHtml() {
       </div>`;
   }
 
+  if (state.open.kind === 'draft') return draftDocHtml(record);
   if (state.open.kind === 'audio') return audioDocHtml(record);
   if (state.open.kind === 'image') return imageDocHtml(record);
   if (state.mode === MODE.EDIT) return editorHtml(record);
@@ -762,7 +834,114 @@ function textDocHtml(node) {
       ${raw(mode === 'chat' ? chatHtml(text)
         : html`<pre class="ws-raw" dir="auto">${raw(withMarks(text, state.docQuery))}</pre>`)}
     </article>
+    ${raw(draftsHtml(node.id))}
     ${raw(attachedHtml(node.id))}`;
+}
+
+/* ================================================================== *
+ * مسودّاتُ المذاكرة داخل صفحة النصوص (WS-DR · بنود ١٤ إلى ٢٣)
+ * ================================================================== */
+
+/**
+ * ⚠️ **بلاغُك**: «المسودّةُ المحفوظةُ يجب ألّا تكون مخبوءةً خلف
+ *    "اتدرب على المسودة" وحدَه — أريد أن أفتح النصَّ الأصليّ، وأرى أنّ
+ *    له مسودّة، وأفتحها، وأقرأها، وأعود».
+ *
+ * فهذه هي الحلقةُ الناقصة: كانت المسودّةُ تُكتَب في لوحة الظلّ وتُقرأ
+ * من هناك وحدَها. ولا سبيلَ من صفحة المحتوى العاديّة إليها إطلاقًا.
+ *
+ * ⚠️ **ولا تُنسَخ إلى سكريبتٍ جديد** (بند ١٥): هذه إشارةٌ إلى الصفّ
+ *    القائم في `studyDrafts`. راجع `draftsForBoard` في الخدمة.
+ */
+function draftsHtml(nodeId) {
+  const rows = draftsOf(nodeId);
+  if (!rows.length) return '';
+  return html`
+    <section class="ws-drafts" aria-label="مسودّات المذاكرة">
+      <div class="ws-attached-head">
+        <h3>مسودّات مذاكرة</h3>
+      </div>
+      <ul class="ws-items">
+        ${raw(rows.map((one) => html`
+          <li class="ws-item" data-ws-draft="${one.id}">
+            <span class="ws-item-face" aria-hidden="true">
+              <span class="ws-item-icon">${raw(icon('note', 17))}</span>
+            </span>
+            <span class="ws-item-t" dir="auto">${one.subjectText || 'مسودّة'}</span>
+            <span class="ws-item-acts">
+              <button type="button" class="ws-btn ws-btn-soft ws-btn-tiny"
+                      data-ws="open-draft" data-id="${one.id}">افتحها</button>
+            </span>
+          </li>`).join(''))}
+      </ul>
+    </section>`;
+}
+
+/**
+ * سطحُ قراءةِ المسودّة — **وثيقةُ تعلّمٍ لا جدولُ تصحيح** (بند ١٨).
+ *
+ * ⚠️ **والفرقُ بينها وبين شاشة المراجعة مقصود**: المراجعةُ عملُ
+ *    استيرادٍ فيه أزرارُ ربطٍ وفكّ وحالاتٌ تقنيّة. وهذه للقراءة: أقسامٌ
+ *    بعناوينها، ومقاطعُ بترجماتها، وشرحٌ يُقرأ نثرًا. نفسُ البنية
+ *    المشتقّة، وعرضٌ مختلفٌ لأنّ المهمّةَ مختلفة.
+ *
+ * ⚠️ **ولا محلّلَ ثانٍ** (بند ١٧): تُقرأ الوحداتُ من `draftPairs` —
+ *    المحفوظُ إن وُجد وإلّا الاشتقاق — وهي نفسُها التي يقرؤها التدريب.
+ */
+function draftDocHtml(draft) {
+  const units = draftUnits;
+  if (!units.length) {
+    return html`
+      <div class="ws-empty ws-empty-doc">
+        <p>المسودّة دي لسّه فاضية.</p>
+      </div>`;
+  }
+
+  return html`
+    <article class="ws-paper ws-draft-doc" data-ws-paper>
+      ${raw(units.map(draftUnitHtml).join(''))}
+    </article>`;
+}
+
+/** وحدةٌ واحدةٌ في سطح القراءة — بحسب دورها لا بحسب شكلها. */
+function draftUnitHtml(one) {
+  if (one.status === DRAFT_STATUS.DIVIDER) return '<hr class="ws-draft-bar">';
+
+  if (one.status === DRAFT_STATUS.SECTION_HEAD) {
+    return html`<h3 class="ws-draft-head" dir="auto">${one.ar || ''}</h3>`;
+  }
+
+  if (one.status === DRAFT_STATUS.NOTE) {
+    return html`<p class="ws-draft-note" dir="auto">${one.ar || ''}</p>`;
+  }
+
+  if (one.status === DRAFT_STATUS.TEMPLATE) {
+    return html`<p class="ws-draft-tpl" dir="auto">${one.raw || ''}</p>`;
+  }
+
+  const view = translationView(one.ar || '', one.primary || 0);
+
+  /* ⚠️ سؤالُ الاسترجاع اتّجاهُه معكوس: العربيُّ يسأل والروسيُّ يجيب. */
+  if (one.status === DRAFT_STATUS.RECALL) {
+    return html`
+      <div class="ws-draft-unit is-recall">
+        <p class="ws-draft-ask" dir="rtl" lang="ar">${view.primary}</p>
+        <p class="ws-draft-ru" dir="ltr" lang="ru">${one.ru || ''}</p>
+      </div>`;
+  }
+
+  return html`
+    <div class="ws-draft-unit">
+      ${raw(one.ru ? html`<p class="ws-draft-ru" dir="ltr" lang="ru">${one.ru}</p>` : '')}
+      ${raw(view.primary ? html`<p class="ws-draft-ar" dir="rtl" lang="ar">${view.primary}</p>` : '')}
+      <!--
+        ⚠️ **البدائلُ تُرى في القراءة ولا تزحم التدريب** (بندا ٨ و٩):
+           هنا تقرأ فتحبّ أن ترى المعاني كلَّها؛ وهناك تنطق فيكفيك
+           معنًى واحدٌ اخترتَه.
+      -->
+      ${raw(view.hasAlts
+        ? html`<p class="ws-draft-alts" dir="rtl" lang="ar">${view.alts.join(' · ')}</p>` : '')}
+    </div>`;
 }
 
 /**
@@ -1360,6 +1539,12 @@ async function refresh({ doc = true } = {}) {
    *    — وهذا هو المطلوب: يعيش بعد الحفظ وإعادة التسمية وإعادة الرسم.
    */
   if (state.node && !nodeById(state.node)) state.node = null;
+  /* ⚠️ ووحداتُ المسودّة تُنعَش مع اللوحة — وإلّا قرأتَ تحليلًا قديمًا. */
+  if (state.open?.kind === 'draft') {
+    const row = draftById(state.open.id);
+    if (row) draftUnits = draftPairs(row);
+    else { state.open = state.node ? { kind: 'text', id: state.node } : null; draftUnits = []; }
+  }
   for (const id of [...state.picked]) if (!mediaById(id)) state.picked.delete(id);
 
   paintNav();
@@ -1413,6 +1598,28 @@ async function askDiscard(nextId) {
   state.mode = MODE.READ;
   applyShell();
   selectNode(nextId);
+}
+
+/**
+ * يفتح مسودّةً في مساحة العمل — **بلا مغادرةِ مكانك في الشجرة** (بند ٢٠).
+ *
+ * ⚠️ نفسُ عهد `openMedia`: `state.node` لا يُمَسّ. فالمتصفِّحُ يبقى على
+ *    العقدة، والترويسةُ تقول «العقدة · مسودّة»، والعودةُ لمسةٌ واحدة.
+ */
+function openDraftDoc(id) {
+  const row = draftById(id);
+  if (!row) return toastError('المسودّة دي مابقتش موجودة');
+  if (!openable(id)) return undefined;
+  /* ⚠️ تُشتقّ مرّةً هنا — راجع `draftUnits`. */
+  draftUnits = draftPairs(row);
+  state.open = { kind: 'draft', id };
+  state.docQuery = '';
+  if (state.mode !== MODE.READ) state.mode = MODE.READ;
+  applyShell();
+  paintDoc({ force: true });
+  paintNav();
+  if (state.inspector) paintInsp();
+  return undefined;
 }
 
 function openMedia(id, kind) {
@@ -2607,6 +2814,17 @@ export async function renderWorkspace(main, sceneId) {
        *    مصدرُه عقدةٌ بعينها فيسأل «أيَّ وسائط؟». وكلاهما ينتهي إلى
        *    `commitLink` — لا مسارَ ربطٍ ثانٍ (بند ١٧).
        */
+      case 'open-draft': return openDraftDoc(id);
+      case 'draft-back': return id ? selectNode(id) : undefined;
+      /*
+       * ⚠️ **ولا وضعَ تدريبٍ جديد** (بند ٢١): هذا نداءٌ مباشرٌ لـ
+       *    `openShadowFromDraft` — نفسُ البابِ القائم منذ WS25 بمراجعته
+       *    وحفظِه وبناءِ جلسته. أُضيف المدخلُ لا الوجهة.
+       */
+      case 'draft-practice': {
+        const { openShadowFromDraft } = await import('../services/shadow/shadow-entry.js');
+        return openShadowFromDraft(id);
+      }
       case 'link-item': return pickTargetFor(id);
       case 'link-into': return pickMediaFor(id);
       case 'item-menu': return openItemMenu(id);

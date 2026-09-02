@@ -157,6 +157,8 @@
       await import('./overlay.test.js');
       await import('./workspace-layout.test.js');
       await import('./workspace-select.test.js');
+      await import('./draft-structure.test.js');
+      await import('./draft-texts.test.js');
 
       const result = await run((event) => {
         if (event.type === 'suite') {

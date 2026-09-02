@@ -29,6 +29,9 @@
  */
 
 import { splitSentences } from './segmenter.js';
+import {
+  SECTION, matchSection, isSeparator, looksDraft, ruleOf, splitAlternatives, looksDocTitle,
+} from './draft-structure.js';
 
 /* ================================================================== */
 /* ١) تصنيفُ الكتابة (بند ٤)                                           */
@@ -251,6 +254,29 @@ export const PAIR_STATUS = Object.freeze({
   UNPAIRED_ARABIC: 'unpaired_arabic',
   /** البنيةُ ملتبسة — القرارُ لك (بند ٨). */
   NEEDS_REVIEW: 'needs_review',
+
+  /* ══════════════════════════════════════════════════════════════
+   * ⚠️ **حالاتُ البنية (WS-DR) — وليست «أزواجًا ناقصة»**
+   * ══════════════════════════════════════════════════════════════
+   *
+   * بلاغُك: «الشرحُ ليس ترجمةً مفقودة». وكانت الشاشةُ تقول عن
+   * «ليس معرفة شيء جديد، بل إزالة عدم الوضوح» إنّها **«عربي بلا
+   * أصل»** — أي تتّهم سطرًا سليمًا بالنقص، وتطلب منك إصلاحًا لا
+   * محلَّ له. سبعةَ عشرَ صفًّا كهذه في مسودّةٍ واحدة.
+   *
+   * فهذه أدوارٌ **مفهومةٌ تمامًا**: تُعرَض، وتُحفَظ، ولا تُنذِر.
+   */
+
+  /** عنوانُ قسمٍ معروف: «الإحساس:» — بنيةٌ لا محتوى. */
+  SECTION_HEAD: 'section_head',
+  /** شرحٌ عربيٌّ تحت قسمٍ نثريّ — لا أصلَ روسيًّا له ولا يُنتظَر. */
+  NOTE: 'note',
+  /** قالبٌ نحويّ: «должен / должны́ + быть + اسم مفعول» — لا يُنطَق. */
+  TEMPLATE: 'template',
+  /** سؤالُ استرجاعٍ عربيٌّ يليه جوابُه الروسيّ (بند ٣٤). */
+  RECALL: 'recall',
+  /** فاصلٌ زخرفيّ — يُبتلَع ولا يصير صفًّا. */
+  DIVIDER: 'divider',
 });
 
 /** وصفٌ عربيٌّ قصير لكلّ حالة — تعرضه المراجعة. */
@@ -260,7 +286,37 @@ export const STATUS_LABEL = Object.freeze({
   [PAIR_STATUS.UNPAIRED_RUSSIAN]: 'روسي بلا ترجمة',
   [PAIR_STATUS.UNPAIRED_ARABIC]: 'عربي بلا أصل',
   [PAIR_STATUS.NEEDS_REVIEW]: 'محتاجة مراجعة',
+  [PAIR_STATUS.SECTION_HEAD]: 'عنوان قسم',
+  [PAIR_STATUS.NOTE]: 'شرح — مالوش أصل روسي',
+  [PAIR_STATUS.TEMPLATE]: 'قالب نحوي',
+  [PAIR_STATUS.RECALL]: 'سؤال استرجاع',
+  [PAIR_STATUS.DIVIDER]: 'فاصل',
 });
+
+/**
+ * الحالاتُ التي **فُهمت** ولا تطلب منك شيئًا.
+ *
+ * ⚠️ ويُقاس عليها رأسُ المراجعة (بند ١٢): «٤٧ اتعرفت · ٣ محتاجة
+ *    مراجعتك». والفرقُ بين هذه القائمة وبين `NEEDS_REVIEW` هو الفرقُ
+ *    بين شاشةٍ تحترم وقتَك وشاشةٍ تُغرقك.
+ */
+export const SETTLED = Object.freeze(new Set([
+  PAIR_STATUS.PAIRED_STRONG,
+  PAIR_STATUS.PAIRED_STRUCTURAL,
+  PAIR_STATUS.SECTION_HEAD,
+  PAIR_STATUS.NOTE,
+  PAIR_STATUS.TEMPLATE,
+  PAIR_STATUS.RECALL,
+  PAIR_STATUS.DIVIDER,
+]));
+
+/** حالاتٌ بنيويّةٌ لا تُعرَض مقاطعَ تدريبٍ ولا تُنذِر. */
+export const STRUCTURAL = Object.freeze(new Set([
+  PAIR_STATUS.SECTION_HEAD,
+  PAIR_STATUS.NOTE,
+  PAIR_STATUS.TEMPLATE,
+  PAIR_STATUS.DIVIDER,
+]));
 
 /* ================================================================== */
 /* ٥) المحلّل                                                          */
@@ -384,6 +440,214 @@ const allSource = (rows) => rows.length > 0 && rows.every(canSource);
 /** هل كلُّها عربيّةٌ صالحةٌ للترجمة؟ */
 const allTranslation = (rows) => rows.length > 0 && rows.every(canTranslate);
 
+/* ================================================================== */
+/* ٥-ب) قراءةُ المسودّة المُهيكَلة (WS-DR · بنود ٤ و٥ و١١ و٣٠…٣٤)       */
+/* ================================================================== */
+
+/**
+ * يقرأ مسودّةَ ChatGPT بقالبها — **بالدور لا بالتناوب**.
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ ما الذي كان مكسورًا بالضبط — بالقياس لا بالانطباع
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * على مسودّةٍ حقيقيّةٍ من مسودّاتك، أعطى المحلّلُ القديم:
+ *
+ *     ٣٠ وحدة · ٤ مقترنة · ١٧ «عربي بلا أصل» · ٨ «محتاجة مراجعة»
+ *
+ * أي **٢٥ إنذارًا كاذبًا من ٣٠**. وأسبابُها أربعة:
+ *
+ *  ١ · **عناوينُ الأقسام تُقرأ محتوًى**: «الإحساس:» و«أمثلة:» و
+ *      «القالب:» ثمانيةُ عناوينَ صارت كلُّها «عربيًّا بلا أصل».
+ *
+ *  ٢ · **الشرحُ يُتَّهم بالنقص**: «ليس معرفة شيء جديد…» شرحٌ تحت
+ *      «الإحساس»، فقيل عنه إنّه ترجمةٌ ضاع أصلُها.
+ *
+ *  ٣ · **المقطعُ الروسيُّ القصيرُ يُقرأ عنوانًا**: `содержа́ть` سطرٌ
+ *      وحدَه، قصيرٌ، بلا نقطةِ نهاية — فتطابق `looksHeading` تمامًا.
+ *      ودورُه `HEADING` يمنع `canSource`، فلا يُقرَن بترجمته التي
+ *      تحته. وهذا سببُ ضياعِ **كلّ** Core Chunks — وهي جوهرُ المسودّة.
+ *
+ *  ٤ · **الفاصلُ الزخرفيُّ يصير صفًّا فارغًا** (`ru:'' ar:''`) في
+ *      المراجعة.
+ *
+ * فهذه الدالّةُ تقرأ بالقسم: تعرف أين هي، فتعرف ما دورُ ما تقرأ.
+ *
+ * ⚠️ **ولا تخمّن حين ينقص الدليل** (بند ١٣): ما لا يطابق قاعدةَ قسمه
+ *    يذهب إلى `NEEDS_REVIEW` كما كان — الذكاءُ في فهم المعروف، لا في
+ *    الجرأة على المجهول.
+ *
+ * @param {string} raw
+ * @returns {{raw: string, units: object[], stats: object, draft: true}}
+ */
+function parseDraft(raw) {
+  const blocks = toBlocks(raw);
+  const units = [];
+  let section = SECTION.NONE;
+
+  /** يصف أسطرَ كتلةٍ بلا حكمِ «عنوان» — العناوينُ هنا معروفةٌ بالاسم. */
+  const rowsOf = (lines) => lines.map((line) => ({
+    text: line,
+    script: classifyScript(line),
+  }));
+
+  /* ⚠️ داخلَ المسودّة لا يوجد «عنوانٌ مستنتَجٌ من الشكل» — راجع السبب ٣. */
+  const src = (row) => row && row.script === SCRIPT.CYRILLIC;
+  const tr = (row) => row && row.script === SCRIPT.ARABIC;
+
+  /** يبتلع الفواصلَ والعناوينَ في مقدّمة الكتلة، ويعيد الباقي. */
+  const openBlock = (lines) => {
+    const rest = [];
+    for (const line of lines) {
+      if (isSeparator(line)) {
+        units.push(unit('', '', PAIR_STATUS.DIVIDER, { section }));
+        /*
+         * ⚠️ **والفاصلُ يُنهي القسمَ لا يزيّن وحسب** — كشفه اختبارُ ٢٤.
+         *
+         *    في قالبك يفصل «━━━» بين مقطعٍ ومقطع. وكنتُ أتركُ القسمَ
+         *    السابقَ ساريًا بعده، فإذا جاء بعد «الإحساس:» مقطعٌ جديدٌ
+         *    قُرئ بقاعدةِ النثر: الروسيُّ «بلا ترجمة» والعربيُّ «شرح».
+         *
+         *    ونجا هذا في المسودّة المرجعيّة **بالمصادفة** وحدَها: كان
+         *    القسمُ السائدُ قبل كلّ فاصلٍ فيها قسمَ أزواج. ولو رتّبتَ
+         *    مسودّتَك غدًا بترتيبٍ آخر لانكسر — وهو ما لا يكشفه إلّا
+         *    اختبارٌ يقصد الحالة.
+         */
+        section = SECTION.NONE;
+        continue;
+      }
+      const found = matchSection(line);
+      if (found) {
+        section = found;
+        units.push(unit('', line.trim(), PAIR_STATUS.SECTION_HEAD, { section }));
+        continue;
+      }
+      /* عنوانُ الوثيقة — في المقدّمة وحدها (راجع `looksDocTitle`). */
+      if (section === SECTION.NONE && !units.length && looksDocTitle(line)) {
+        units.push(unit('', line.trim(), PAIR_STATUS.SECTION_HEAD, { section, title: true }));
+        continue;
+      }
+      rest.push(line);
+    }
+    return rest;
+  };
+
+  for (let b = 0; b < blocks.length; b += 1) {
+    const lines = openBlock(blocks[b]);
+    if (!lines.length) continue;
+
+    const rule = ruleOf(section);
+    const rows = rowsOf(lines);
+
+    /*
+     * ١ · قسمٌ نثريّ («الإحساس» · «السؤال») — العربيُّ فيه **شرح**.
+     *
+     * ⚠️ وهذا هو بندُ ٥ و٣٢ بعينه: لا يُوسَم «عربي بلا أصل»، لأنّ
+     *    النظامَ **لم يكن ينتظر له أصلًا** أصلًا.
+     */
+    if (rule.prose) {
+      for (const row of rows) {
+        if (tr(row)) units.push(unit('', row.text, PAIR_STATUS.NOTE, { section }));
+        else if (src(row)) units.push(unit(row.text, '', PAIR_STATUS.UNPAIRED_RUSSIAN, { section }));
+        else units.push(unit('', row.text, PAIR_STATUS.NOTE, { section }));
+      }
+      continue;
+    }
+
+    /*
+     * ٢ · قسمُ القالب — رمزٌ نحويٌّ مختلطُ اللغة، لا جملةٌ تُنطَق
+     *     ولا ترجمةٌ تُنتظَر (بند ٣٠-F).
+     */
+    if (rule.symbol) {
+      for (const row of rows) {
+        units.push(unit('', '', PAIR_STATUS.TEMPLATE, { section, raw: row.text }));
+      }
+      continue;
+    }
+
+    /*
+     * ٣ · أسئلةُ الاسترجاع — **الاتّجاهُ معكوس** (بند ٣٤): العربيُّ
+     *     يسأل والروسيُّ يجيب. وقراءتُها «روسيٌّ وترجمتُه» تقلب
+     *     الدرسَ رأسًا على عقب.
+     */
+    if (rule.reverse) {
+      let i = 0;
+      while (i < rows.length) {
+        const here = rows[i];
+        const next = rows[i + 1];
+        if (tr(here) && src(next)) {
+          units.push(unit(next.text, here.text, PAIR_STATUS.RECALL, { section, prompt: true }));
+          i += 2;
+          continue;
+        }
+        /* سؤالٌ بلا جوابٍ في كتلته — قد يكون جوابُه في الكتلة التالية. */
+        if (tr(here) && !next) {
+          const after = blocks[b + 1] ? rowsOf(openBlock(blocks[b + 1])) : [];
+          if (after.length === 1 && src(after[0])) {
+            units.push(unit(after[0].text, here.text, PAIR_STATUS.RECALL, { section, prompt: true }));
+            b += 1;
+            i += 1;
+            continue;
+          }
+        }
+        if (src(here)) units.push(unit(here.text, '', PAIR_STATUS.UNPAIRED_RUSSIAN, { section }));
+        else units.push(unit('', here.text, PAIR_STATUS.NOTE, { section }));
+        i += 1;
+      }
+      continue;
+    }
+
+    /*
+     * ٤ · قسمُ أزواج — والحالةُ الغالبةُ في Core Chunks:
+     *     كتلةٌ فيها سطرٌ روسيٌّ واحد، وكتلةٌ بعدها فيها ترجمتُه.
+     *
+     * ⚠️ **وهذا ما كان مكسورًا في كلّ مقطع** (السبب ٣): الفراغُ بين
+     *    المقطع وترجمته يجعلهما كتلتين، والمقطعُ القصيرُ كان يُقرأ
+     *    عنوانًا فلا يُقرَن. وداخلَ المسودّة لا يوجد عنوانٌ مستنتَج.
+     */
+    if (rows.length === 1 && src(rows[0])) {
+      const after = blocks[b + 1] ? rowsOf(openBlock(blocks[b + 1])) : [];
+      if (after.length === 1 && tr(after[0])) {
+        units.push(unit(rows[0].text, after[0].text, PAIR_STATUS.PAIRED_STRONG, {
+          section,
+          ...(splitAlternatives(after[0].text).length > 1 ? { alts: true } : {}),
+        }));
+        b += 1;
+        continue;
+      }
+    }
+
+    /* ٥ · التناوبُ داخل الكتلة — أمثلةٌ ومقارناتٌ وإعادةُ بناء. */
+    let i = 0;
+    while (i < rows.length) {
+      const here = rows[i];
+      const next = rows[i + 1];
+      if (src(here) && tr(next)) {
+        units.push(unit(here.text, next.text, PAIR_STATUS.PAIRED_STRONG, {
+          section,
+          ...(splitAlternatives(next.text).length > 1 ? { alts: true } : {}),
+        }));
+        i += 2;
+        continue;
+      }
+      if (src(here)) {
+        units.push(unit(here.text, '', PAIR_STATUS.UNPAIRED_RUSSIAN, { section }));
+        i += 1;
+        continue;
+      }
+      if (tr(here)) {
+        units.push(unit('', here.text, PAIR_STATUS.UNPAIRED_ARABIC, { section }));
+        i += 1;
+        continue;
+      }
+      units.push(unit('', '', PAIR_STATUS.NEEDS_REVIEW, { section, raw: here.text }));
+      i += 1;
+    }
+  }
+
+  return { raw, units, stats: summarize(units), draft: true };
+}
+
 /**
  * يقرأ نصًّا ثنائيًّا ويعيد وحداتٍ مرتَّبةً كترتيب المصدر (بند ٣٢).
  *
@@ -397,8 +661,15 @@ const allTranslation = (rows) => rows.length > 0 && rows.every(canTranslate);
  * @param {string} text
  * @returns {{raw: string, units: object[], stats: object}}
  */
-export function parseBilingual(text) {
+export function parseBilingual(text, { draft } = {}) {
   const raw = String(text || '');
+  /*
+   * ⚠️ **القراءةُ الواعيةُ بالقالب تسبق العامّة** (WS-DR · بندا ٢ و٣).
+   *    راجع `looksDraft` في `draft-structure.js` — هناك شرحُ التعارضِ
+   *    الذي يحلّه هذا السطر، ولمَ لا يكفي الشكلُ وحدَه للتمييز.
+   */
+  if (draft ?? looksDraft(raw)) return parseDraft(raw);
+
   const blocks = toBlocks(raw);
   const units = [];
 
@@ -454,12 +725,30 @@ export function parseBilingual(text) {
 export function summarize(units) {
   const by = {};
   for (const one of units) by[one.status] = (by[one.status] || 0) + 1;
+  const at = (key) => by[key] || 0;
+
+  /*
+   * ⚠️ **`settled` هو الرقمُ الذي يستحقّ أن يُقال أوّلًا** (بند ١٢):
+   *    «٤٧ اتعرفت · ٣ محتاجة مراجعتك». وقبله كان الرأسُ يقول
+   *    «٤ مقترنة» من ٣٠ — رقمٌ صادقٌ حسابيًّا يوحي بأن الاستيرادَ
+   *    فشل، بينما ٢٥ من الباقي كانت مفهومةً تمامًا ولم يكن لها اسم.
+   */
+  const needs = at(PAIR_STATUS.NEEDS_REVIEW)
+    + at(PAIR_STATUS.UNPAIRED_ARABIC)
+    + at(PAIR_STATUS.UNPAIRED_RUSSIAN);
+
   return {
     total: units.length,
-    paired: (by[PAIR_STATUS.PAIRED_STRONG] || 0) + (by[PAIR_STATUS.PAIRED_STRUCTURAL] || 0),
-    russianOnly: by[PAIR_STATUS.UNPAIRED_RUSSIAN] || 0,
-    arabicOnly: by[PAIR_STATUS.UNPAIRED_ARABIC] || 0,
-    review: by[PAIR_STATUS.NEEDS_REVIEW] || 0,
+    paired: at(PAIR_STATUS.PAIRED_STRONG) + at(PAIR_STATUS.PAIRED_STRUCTURAL)
+      + at(PAIR_STATUS.RECALL),
+    russianOnly: at(PAIR_STATUS.UNPAIRED_RUSSIAN),
+    arabicOnly: at(PAIR_STATUS.UNPAIRED_ARABIC),
+    review: at(PAIR_STATUS.NEEDS_REVIEW),
+    /* بنيةٌ مفهومة: عناوينُ وشروحٌ وقوالبُ وفواصل. */
+    structural: at(PAIR_STATUS.SECTION_HEAD) + at(PAIR_STATUS.NOTE)
+      + at(PAIR_STATUS.TEMPLATE) + at(PAIR_STATUS.DIVIDER),
+    settled: units.filter((one) => SETTLED.has(one.status)).length,
+    needs,
     by,
   };
 }
@@ -477,6 +766,17 @@ export function summarize(units) {
 export function restatus(one) {
   const ru = (one.ru || '').trim();
   const ar = (one.ar || '').trim();
+
+  /*
+   * ⚠️ **والبنيةُ لا تُعاد حسابًا** (WS-DR): عنوانُ قسمٍ فيه عربيٌّ بلا
+   *    روسيّ، وشرحٌ كذلك، وقالبٌ فارغُ الطرفين. ولو مرّت هذه على
+   *    الحساب العامّ لعادت كلُّها «عربيًّا بلا أصل» أو «محتاجة مراجعة»
+   *    عند أوّل تعديلٍ يدويٍّ في **وحدةٍ أخرى** — فيرجع الإنذارُ الكاذبُ
+   *    من بابٍ خلفيّ. وهي أدوارٌ يقرّرها القسمُ لا شكلُ الطرفين.
+   */
+  if (STRUCTURAL.has(one.status) || one.status === PAIR_STATUS.RECALL) {
+    return { ...one, ru, ar };
+  }
 
   if (ru && ar) {
     /* قرانٌ أكّده الإنسان أقوى من أيّ بنية. */

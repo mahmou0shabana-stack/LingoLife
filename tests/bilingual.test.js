@@ -407,7 +407,18 @@ describe('WS-D · الحُرّاس', () => {
     const at = src.indexOf('export async function openShadowFromDraft');
     expect(at > 0).toBe(true);
     const fn = src.slice(at, src.indexOf('\n/**', at + 10));
-    expect(fn.includes('translation: one.ar')).toBe(true);
+    /*
+     * ⚠️ **تغيّر المرساةُ ولم يتغيّر المحروس** (WS-DR · بندا ٩ و٣٨).
+     *
+     *    كان السطرُ `translation: one.ar` حرفيًّا. وصار يمرّ عبر
+     *    `pairTranslation(one).primary` لأن «إثبات / تأكيد» معنيان
+     *    لعنصرٍ واحد، والذي يدخل التدريبَ هو الذي **اخترتَه** منهما.
+     *
+     *    والمحروسُ نفسُه: أن يصل ما في `ar` إلى `translation` في
+     *    الجلسة. وحارسٌ يسقط لأنّ اسمَ الدالّة تغيّر لا يحرس شيئًا.
+     */
+    expect(fn.includes('translation:')).toBe(true);
+    expect(fn.includes('pairTranslation(one).primary')).toBe(true);
   });
 
   it('⚠️ ولا مسارَ مُصغَّرٌ للمسودّة — تُنتج مقاطعَ عاديّة (بند ٥٩)', async () => {

@@ -50,6 +50,7 @@ import { studyDrafts, media, relationships } from '../db/repositories.js';
 import { STATE } from '../db/schema.js';
 import { splitSentences } from './shadow/segmenter.js';
 import { parseBilingual } from './shadow/bilingual.js';
+import { translationView, looksDraft } from './shadow/draft-structure.js';
 import { storeStandaloneImage } from './media-service.js';
 import { link } from './link-service.js';
 
@@ -358,7 +359,67 @@ export function draftPairs(draftOrText) {
     return draftOrText.pairs;
   }
   const text = typeof draftOrText === 'string' ? draftOrText : draftOrText?.text || '';
-  return parseBilingual(text).units;
+  /* ⚠️ الوعيُ بالقالب يُقرَّر من النصّ نفسِه — راجع `looksDraft`. */
+  return parseBilingual(text, { draft: looksDraft(text) }).units;
+}
+
+/**
+ * إعادةُ قراءةِ المسودّة بعد تغيُّر نصِّها — **بحفظ تصحيحاتك** (بند ٤٠).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ لماذا لا يُعاد التحليلُ من تلقائه
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * `draftPairs` تُفضّل المحفوظَ على المشتقّ، وهذا مقصودٌ منذ WS-D: ما
+ * أصلحتَه بيدك لا يُشتَقّ. ولكنّك قد تُلحق تحليلًا جديدًا بالمسودّة،
+ * فيصير المحفوظُ أقدمَ من نصِّه.
+ *
+ * فإعادةُ القراءة **فعلٌ صريحٌ تطلبه أنت**، وهي:
+ *
+ *   · تقرأ النصَّ الحاليَّ من جديد،
+ *   · ثمّ تُعيد إلى كلّ وحدةٍ ما أصلحتَه فيها سابقًا — **بمطابقة
+ *     النصّ الروسيّ**، وهو أثبتُ هُويّةٍ متاحةٍ هنا،
+ *   · وتقول لك بالعدد كم تصحيحًا نجا وكم سقط.
+ *
+ * ⚠️ **ولا تُطابَق بالفهرس أبدًا.** سطرٌ يُضاف في الأعلى يزيح كلَّ ما
+ *    بعده، فتنتقل تصحيحاتُك إلى وحداتٍ ليست لها — وهو إفسادٌ صامتٌ
+ *    أسوأُ من الفقد الصريح.
+ *
+ * @param {object} draft صفُّ المسودّة
+ * @returns {{units: object[], kept: number, lost: number}}
+ */
+export function reparseDraft(draft) {
+  const text = draft?.text || '';
+  const fresh = parseBilingual(text, { draft: looksDraft(text) }).units;
+  const old = Array.isArray(draft?.pairs) ? draft.pairs : [];
+
+  /* تصحيحاتُك وحدها — لا كلُّ وحدةٍ قديمة. */
+  const edits = new Map();
+  for (const one of old) {
+    const key = (one.ru || '').trim();
+    if (!key) continue;
+    /*
+     * ⚠️ **و`primary: 0` ليس اختيارًا** — هو الافتراض. كشفه اختبارُ ١٣:
+     *    كنتُ أعدّ كلَّ رقمٍ صحيحٍ «تصحيحًا»، فيُحسَب الصفرُ اختيارًا
+     *    ويُبلَّغ عن تصحيحاتٍ نجت ولم تكن موجودةً أصلًا. و`saveDraftPairs`
+     *    نفسُها لا تحفظ إلّا `> 0` — فالمقياسان يتّفقان الآن.
+     */
+    if (one.manual || (Number.isInteger(one.primary) && one.primary > 0)) edits.set(key, one);
+  }
+
+  let kept = 0;
+  const units = fresh.map((one) => {
+    const was = edits.get((one.ru || '').trim());
+    if (!was) return one;
+    kept += 1;
+    return {
+      ...one,
+      ...(was.manual ? { ar: was.ar, manual: true } : {}),
+      ...(Number.isInteger(was.primary) && was.primary > 0 ? { primary: was.primary } : {}),
+    };
+  });
+
+  return { units, kept, lost: edits.size - kept };
 }
 
 /**
@@ -375,8 +436,69 @@ export async function saveDraftPairs(draftId, pairs) {
       ar: one.ar || '',
       status: one.status,
       ...(one.manual ? { manual: true } : {}),
+      /*
+       * ⚠️ **وما يُهمَل هنا يضيع** (WS-DR). كانت هذه الدالّةُ تُسقط كلَّ
+       *    حقلٍ عدا الأربعةِ الأولى، فكان الحفظُ يمحو دورَ الوحدة:
+       *    «شرح» و«عنوان قسم» و«قالب» تعود كلُّها بلا هُويّةٍ بعد أوّل
+       *    مراجعةٍ تحفظها — فيرجع الإنذارُ الكاذبُ من باب الحفظ.
+       *
+       * ⚠️ **ولا حقلَ جديدٌ في المخطَّط** (بند ٤٤): `pairs` مصفوفةٌ حرّةٌ
+       *    على الصفّ منذ WS-D. وهذه إضافةُ مفاتيحَ داخلها، لا عمودٌ
+       *    جديدٌ ولا هجرة.
+       */
+      ...(one.section ? { section: one.section } : {}),
+      ...(one.raw ? { raw: one.raw } : {}),
+      ...(one.prompt ? { prompt: true } : {}),
+      /* اختيارُك للترجمة الأساسيّة من البدائل (بند ٨) — رقمٌ لا نصّ. */
+      ...(Number.isInteger(one.primary) && one.primary > 0 ? { primary: one.primary } : {}),
     })),
     updatedAt: Date.now(),
+  });
+}
+
+/* ------------------------------------------------------------------ */
+/* بدائلُ الترجمة واختيارُ الأساسيّة (بنود ٦ و٨ و٣٨)                    */
+/* ------------------------------------------------------------------ */
+
+/**
+ * قراءةُ ترجمةِ وحدةٍ: الأساسيّةُ والبدائل.
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **الاشتقاقُ عند القراءة — ولا تُلمَس بايتةٌ في القاعدة**
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * المخزَّنُ يبقى كما لصقتَه: «إثبات / تأكيد» سلسلةً واحدة. والبدائلُ
+ * تُقرأ منها في كلّ مرّة. فمسودّاتُك القديمةُ كلُّها تفهم نفسَها فورًا
+ * بلا ترقيةٍ ولا هجرة — وهو ما يطلبه البندُ ٦ صراحةً: «إن كان التخزينُ
+ * الحاليُّ لا يمثّل مصفوفة، احفظه بأمانٍ واشتقّ البدائل عند القراءة».
+ *
+ * ⚠️ **و`primary` رقمٌ لا نصّ.** لو خزّنّا النصَّ المفضَّل لصار نسخةً
+ *    ثانيةً تتقادم عند أوّل تصحيحٍ إملائيٍّ في الأصل. والرقمُ يشير،
+ *    ولا يكرّر.
+ *
+ * @param {{ar?: string, primary?: number}} pair
+ */
+export function pairTranslation(pair) {
+  return translationView(pair?.ar || '', pair?.primary || 0);
+}
+
+/**
+ * يختار البديلَ الأساسيَّ لوحدةٍ — **بلا حذفِ الباقي** (بند ٣٨).
+ *
+ * ⚠️ **وهذا تفضيلُ عرضٍ لا حكمٌ لغويّ.** «إثبات» و«تأكيد» كلتاهما
+ *    صحيحة، وأنت تختار ما يخدم سياقَ تدريبك الآن. والبدائلُ تبقى
+ *    كاملةً في `ar`، فتغيّر رأيَك غدًا بلا خسارة.
+ *
+ * @param {object[]} pairs
+ * @param {number} at فهرسُ الوحدة
+ * @param {number} choice فهرسُ البديل داخل ترجمتها
+ */
+export function choosePrimary(pairs, at, choice) {
+  return (pairs || []).map((one, i) => {
+    if (i !== at) return one;
+    const view = translationView(one.ar || '', 0);
+    if (choice < 0 || choice >= view.all.length) return one;
+    return { ...one, primary: choice };
   });
 }
 

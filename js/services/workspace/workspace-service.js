@@ -291,6 +291,11 @@ export async function workspaceBoard(sceneId) {
    */
   const ownMedia = own;
 
+  /* ================================================================ *
+   * مسودّاتُ المذاكرة — **تُعرَض حيث وُلدت** (WS-DR · بنود ١٤…١٦)
+   * ================================================================ */
+  const { draftsOf, draftById } = await draftsForBoard(sceneId, roots, nodeById);
+
   return {
     scene: full.scene,
     roots,
@@ -304,6 +309,8 @@ export async function workspaceBoard(sceneId) {
     linkedTo,
     ownMedia,
     haystack,
+    draftsOf,
+    draftById,
     counts: {
       roots: roots.length,
       nodes: targets.length - roots.length,
@@ -312,6 +319,90 @@ export async function workspaceBoard(sceneId) {
       unlinked: unlinked.audio.length + unlinked.images.length + unlinked.texts.length,
     },
   };
+}
+
+/* ================================================================== *
+ * مسودّاتُ المذاكرة على الشجرة (WS-DR · بنود ١٤ إلى ١٧)
+ * ================================================================== */
+
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **المسودّةُ تُعرَض ولا تُنسَخ** (بند ١٥)
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * بلاغُك: «المسودّةُ المحفوظة يجب أن تُرى من صفحة النصوص العاديّة».
+ * والطريقُ الرخيصُ إلى ذلك أن نُنشئ لها `scripts` صفًّا فتظهر في
+ * الشجرة كأيّ نصّ. **وهو خطأٌ يمنعه البندُ ١٥ صراحةً**: يصير للمسودّة
+ * سجلّان، ويتفرّع تاريخُها، وتُعدُّ «مصدرًا أصيلًا» في الذاكرة الحيّة
+ * وهي مادّةٌ مشتقّة، وتنكسر نسبتُها إلى أصلها عند أوّل تعديل.
+ *
+ * فالمسودّةُ تبقى صفًّا واحدًا في `studyDrafts`، وهذه الدالّةُ تبني
+ * **خريطةَ عرضٍ** فقط: أيُّ مسودّةٍ تخصُّ أيَّ عقدة.
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **والنسبةُ تُحسَب من مفتاح الموضوع لا من حقلٍ جديد** (بند ٤٤)
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * مفتاحُ المسودّة منذ WS25 هو **نصُّ الجملة مُطبَّعًا** — «المسودّةُ
+ * مِلكُ الجملة لا مِلكُ الجلسة». وهذا يكفي تمامًا: نقسّم نصَّ كلّ عقدةٍ
+ * إلى جملٍ، ونطبّع كلَّ جملة، فنعرف أيُّ عقدةٍ تحوي الجملةَ التي
+ * كُتبت عنها المسودّة. **لا حقلَ جديدٌ ولا ترقيةَ مخطَّط.**
+ *
+ * ⚠️ **ومسودّةُ الذكرى التي لا تطابق جملةً في الشجرة لا تُخفى**:
+ *    تُنسَب إلى الجذر الأوّل. إخفاءُ ما كتبتَه لأنّ نصَّه تغيّر بعدها
+ *    هو أسوأُ ما يمكن أن يفعله عرضٌ بمادّةٍ كتبتَها بيدك.
+ */
+async function draftsForBoard(sceneId, roots, nodeById) {
+  const draftsOf = new Map();
+  const draftById = new Map();
+  if (!sceneId) return { draftsOf, draftById };
+
+  const { studyDrafts } = await import('../../db/repositories.js');
+  const { subjectKey } = await import('../study-draft.js');
+  const { splitSentences } = await import('../shadow/segmenter.js');
+
+  const rows = (await studyDrafts.byIndex('sceneId', sceneId))
+    .filter((row) => row.state === STATE.ACTIVE && (row.text || '').trim());
+  if (!rows.length) return { draftsOf, draftById };
+
+  /* مفتاحُ الجملة ← المسودّات المكتوبةُ عنها. */
+  const bySubject = new Map();
+  for (const row of rows) {
+    draftById.set(row.id, row);
+    if (!bySubject.has(row.subject)) bySubject.set(row.subject, []);
+    bySubject.get(row.subject).push(row);
+  }
+
+  const place = (nodeId, draft) => {
+    if (!draftsOf.has(nodeId)) draftsOf.set(nodeId, []);
+    const here = draftsOf.get(nodeId);
+    if (!here.some((one) => one.id === draft.id)) here.push(draft);
+  };
+
+  const claimed = new Set();
+  const scan = (node) => {
+    const text = node?.text || '';
+    if (!text.trim()) return;
+    for (const line of splitSentences(text, { requireCyrillic: false, minLength: 1 })) {
+      const found = bySubject.get(subjectKey(line));
+      if (!found) continue;
+      for (const draft of found) { place(node.id, draft); claimed.add(draft.id); }
+    }
+  };
+
+  for (const root of roots) scan(root);
+  for (const node of nodeById.values()) scan(node);
+
+  /* ما لم تُطابقه جملةٌ باقيةٌ — يُعلَّق على الجذر بدل أن يختفي. */
+  const home = roots[0]?.id;
+  if (home) {
+    for (const row of rows) if (!claimed.has(row.id)) place(home, row);
+  }
+
+  for (const list of draftsOf.values()) {
+    list.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
+  }
+  return { draftsOf, draftById };
 }
 
 /** مسارٌ مقروءٌ لهدف — «PHASE 2 · VERSION 1 · PART 3» (بند ١٠). */

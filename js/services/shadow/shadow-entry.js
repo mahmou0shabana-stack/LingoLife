@@ -251,6 +251,7 @@ export async function openShadowFromDraft(draftId) {
   const reviewed = await reviewDraftSegments(draftId);
   if (!reviewed) return undefined;
   const { draft, picked } = reviewed;
+  const { pairTranslation } = await import('../study-draft.js');
 
   /*
    * ⚠️ **جلسةٌ بترجماتٍ تبدأ والترجمةُ ظاهرة — وهذا عطبٌ قِيس لا رأي.**
@@ -288,7 +289,17 @@ export async function openShadowFromDraft(draftId) {
        *    النصَّ عاريًا. فكلُّ ما بُني في WS-D قبل هذا السطر لم يكن
        *    ليصل إلى الظلّ.
        */
-      segments: picked.map((one) => ({ text: one.ru, translation: one.ar || null })),
+      /*
+       * ⚠️ **والذي يدخل التدريبَ هو الترجمةُ الأساسيّةُ التي اخترتَها**
+       *    (WS-DR · بندا ٩ و٣٨). «إثبات / تأكيد» معنيان لعنصرٍ واحد،
+       *    وعرضُهما معًا في كلّ جملةٍ يزحم الشاشةَ بلا فائدة. فتُعرَض
+       *    واحدةٌ — اختيارُك أو الأولى — **والبدائلُ لا تُحذَف**: تبقى
+       *    في `pairs.ar` كما لصقتَها، وتغيّر رأيَك متى شئت.
+       */
+      segments: picked.map((one) => ({
+        text: one.ru,
+        translation: pairTranslation(one).primary || null,
+      })),
     });
     const withTr = picked.filter((one) => one.ar).length;
     toastOk(withTr
