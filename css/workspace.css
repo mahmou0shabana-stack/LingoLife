@@ -296,6 +296,23 @@ body.workspace-open #app-main {
 .ws-nav-add { inline-size: 100%; }
 .ws-nav-hits { margin: 0; padding: 6px 12px 0; color: var(--ink-soft); font-size: .72rem; }
 
+/* «إنت واقف على…» حين يُصفّي البحثُ صفَّك (WS-P3 · بند ٣). */
+.ws-nav-away {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin: 6px 8px 0; padding: 7px 9px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-wash);
+  color: var(--ink-soft); font-size: .72rem;
+}
+.ws-nav-away b { color: var(--ink); }
+.ws-nav-away button {
+  margin-inline-start: auto;
+  min-block-size: 32px; padding: 0 10px;
+  font: inherit; font-weight: 600; cursor: pointer;
+  color: var(--accent); background: var(--surface);
+  border: 1px solid var(--accent-line); border-radius: var(--radius-sm);
+}
+
 .ws-nav-list { list-style: none; margin: 0; padding: 4px 6px 0; }
 
 .ws-nav-group {
@@ -338,13 +355,31 @@ body.workspace-open #app-main {
  *    جانبيٌّ بلون الهُويّة وخطٌّ أثقل — ثلاثُ إشاراتٍ لا واحدة، ولا
  *    واحدةٌ منها اللونُ وحدَه (بند ٢١).
  */
+/*
+ * ⚠️ **ولمَ قوّيتُه ثانيةً في WS-P3؟** لأنّك بلّغتَ أنّ المحدَّدَ «غيرُ
+ *    واضحٍ بما يكفي». وكان سطحُه `--surface` — أي **أبيضُ فوق أبيض**
+ *    تقريبًا؛ الفرقُ الفعليُّ بينه وبين الصفّ العاديّ كان حدًّا جانبيًّا
+ *    وثِقَلَ خطّ. فصار السطحُ `--accent-wash`: لونٌ يُرى من طرف العين
+ *    بلا صراخ، والشريطُ الجانبيُّ من ٣ إلى ٤px.
+ */
 .ws-nav-row.is-on {
-  background: var(--surface);
+  background: var(--accent-wash);
   border-inline-start-color: var(--accent);
+  border-inline-start-width: 4px;
   box-shadow: var(--shadow-xs);
 }
 
 .ws-nav-row.is-on .ws-nav-t { color: var(--ink); font-weight: 700; }
+
+/*
+ * ⚠️ **«الطريقُ إلى مكانك» أخفُّ من «مكانك»** (بند ٤): الأسلافُ يأخذون
+ *    أثرًا واحدًا خافتًا — سطحًا شاحبًا بلا شريطٍ ولا ثِقَل — كي يبقى
+ *    الصفُّ المحدَّدُ **واحدًا بلا لبس**. أمّا لو تشابها لصار على الشاشة
+ *    ثلاثةُ صفوفٍ «تبدو محدَّدة».
+ */
+.ws-nav-row.is-path { background: var(--surface-tint); }
+.ws-nav-row.is-path .ws-nav-t { color: var(--ink); }
+
 .ws-nav-row.is-hidden .ws-nav-t { color: var(--ink-faint); text-decoration: line-through; }
 .ws-nav-row.is-hit .ws-nav-t { color: var(--accent-hover); }
 .ws-nav-row:hover:not(.is-on) { background: var(--surface-soft); }
@@ -631,8 +666,14 @@ body.workspace-open #app-main {
 .ws-doc {
   flex: 1;
   min-block-size: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
+  min-inline-size: 0;
+  /*
+   * ⚠️ **`auto` لا `hidden`** (WS-P3 · بند ١): `overflow-x: hidden` كان
+   *    **يبتلع** خروجَ النصّ فيبدو العطبُ «قصًّا غامضًا» بلا أيّ إشارة.
+   *    و`auto` تجعل أيَّ فائضٍ مستقبليٍّ يظهر شريطَ تمريرٍ — أي يُكتشَف
+   *    فورًا بدل أن يُخفى. والحارسُ يفحص `scrollWidth === clientWidth`.
+   */
+  overflow: auto;
   overscroll-behavior: contain;
   overflow-anchor: none;
   padding: 14px 20px var(--ws-dock);
@@ -654,8 +695,65 @@ body.workspace-open #app-main {
  * ⚠️ **عرضُ قراءةٍ لا عرضُ شاشة** (بند ١٠): سطرٌ بعرض ١٢٠ حرفًا لا
  *    يُقرأ. و`ch` تتبع الخطَّ نفسَه فتصحّ عربيًّا وروسيًّا معًا.
  */
-.ws-paper { max-inline-size: 76ch; font-size: .95rem; line-height: 1.95; }
-.ws-paper mark { padding: 0 2px; border-radius: 3px; background: var(--amber-bg); color: inherit; }
+.ws-paper {
+  max-inline-size: 76ch;
+  /* ⚠️ عنصرُ flex/grid لا ينكمش تحت محتواه إلّا بهذا (`min-width: auto`). */
+  min-inline-size: 0;
+  font-size: .95rem;
+  line-height: 1.95;
+  overflow-wrap: anywhere;
+}
+
+/*
+ * ══════════════════════════════════════════════════════════════
+ * ⚠️ **العطبُ الذي بلّغتَ عنه: النصُّ لا يلفّ أصلًا** (WS-P3 · بند ٢)
+ * ══════════════════════════════════════════════════════════════
+ *
+ * النصُّ الخامُّ يُرسَم في `<pre>`. و`<pre>` بلا قاعدةٍ يعني
+ * `white-space: pre` — أي **سطرٌ واحدٌ لا ينكسر أبدًا** مهما طال.
+ *
+ * وقاعدةُ `.ws-raw` كانت موجودةً منذ WS-F، **وسقطت سهوًا حين أعدتُ
+ * تركيبَ `workspace.css` في WS-P**: نسختُ كتلةَ المحادثة من السطر ٥٤٩،
+ * وكانت `.ws-raw` في ٥٣٣ — قبلها بستّة عشر سطرًا. فلم يبقَ لها أثرٌ في
+ * الملفّ الجديد، ولا حارسَ يشتكي: القاعدةُ المفقودةُ لا تُخطئ، هي فقط
+ * غائبة.
+ *
+ * ⚠️ **وقِيس بمستطيلات الأسطر لا بحدود الحاويات** — ولهذا لم تكشفه
+ *    قياساتُ WS-P و WS-P2 كلُّها: صندوقُ المستند كان سليمًا تمامًا،
+ *    والنصُّ داخله هو الذي يخرج:
+ *
+ *        صندوقُ المحتوى ينتهي عند  905
+ *        أبعدُ سطرٍ مرسومٍ ينتهي عند 18249
+ *        الخرق: **١٧٣٤٤px**
+ *
+ *    ثم يبتلعه `overflow-x: hidden` على اللوح فلا ترى شريطَ تمريرٍ ولا
+ *    خطأً — ترى نصًّا مبتورًا يبدو أنّه «مكمّلٌ خلف العمود».
+ */
+.ws-raw {
+  margin: 0;
+  min-inline-size: 0;
+  /* ⚠️ `pre-wrap` يحفظ الأسطرَ والمسافات **ويلفّ** — و`pre` وحدَها لا تلفّ. */
+  white-space: pre-wrap;
+  /* ⚠️ ورمزٌ روسيٌّ طويلٌ بلا مسافةٍ يُكسَر داخلَه بدل أن يمدّ السطر. */
+  overflow-wrap: anywhere;
+  font: inherit;
+  font-size: .92rem;
+  line-height: 1.95;
+}
+
+/*
+ * ⚠️ **الباقي بعد الإصلاح: ٣٫٤٤px ليست عطبًا.** بعد إعادة `.ws-raw` هبط
+ *    الخرقُ من ١٧٣٤٤px إلى ٣٫٤٤px في مسار `<pre>` وحده. ومسحٌ حرفًا حرفًا
+ *    بـ`Range` قال بالضبط مَن يرسمها: **U+0020 مسافة** عند نقطة اللفّ
+ *    (٣ مواضعَ من ٤٩ سطرًا). و`pre-wrap` تُعلِّق المسافةَ الأخيرة خارج
+ *    صندوق السطر بنصّ CSS Text — سلوكٌ مقصودٌ، بلا حبرٍ، ولا يُنشئ تمريرًا
+ *    (`scrollWidth === clientWidth === 577`). ولا تُخالف ثابتَ البند ١:
+ *    أبعدُ سطرٍ ٩٠٨ وحدُّ المساحة ٩٢٥ — أي ١٧px **داخلَها**، والمتصفِّح
+ *    يبدأ عند ٩٣٢. فلا تُطارَد بـ`break-spaces` (تُفسد الطباعة) ولا بحشوة.
+ */
+
+.ws-paper mark,
+.ws-doc mark { padding: 0 2px; border-radius: 3px; background: var(--amber-bg); color: inherit; }
 
 /* ------------------------------------------------------------------ *
  * المحرّرُ داخل الصفحة (بندا ٥ و١٣)
@@ -693,6 +791,98 @@ body.workspace-open #app-main {
 .ws-media-play { min-inline-size: 190px; }
 
 .ws-shot-btn { display: block; inline-size: 100%; padding: 0; border: 0; background: transparent; cursor: zoom-in; }
+
+.ws-media-acts { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+
+/*
+ * وسيطٌ مفتوحٌ من المكتبة وليس تحت مكانك — يُعلَّم بوضوحٍ ولا يُدَسّ
+ * في المسار وكأنّه منه (WS-P3 · بندا ١٤ و١٦).
+ */
+.ws-crumb-loose {
+  margin-inline-start: 8px;
+  padding: 1px 8px;
+  border-radius: 999px;
+  background: var(--surface-tint);
+  border: 1px dashed var(--line);
+  color: var(--ink-soft);
+}
+
+/* ------------------------------------------------------------------ *
+ * «مربوط هنا» — العناصرُ بأفعالها المباشرة (WS-P3 · بنود ٦ إلى ١٠)
+ * ------------------------------------------------------------------ */
+
+/*
+ * ⚠️ **قِسْمٌ داخلَ المستند لا داخلَ لوحٍ آخر.** ما كان يُرى إلّا في
+ *    المُفتِّش صار تحت النصّ مباشرةً — لأنّ ما تربطه أنت **هذا**، ولا
+ *    معنى لأن تفتح لوحًا جانبيًّا كي تراه.
+ */
+.ws-attached {
+  max-inline-size: 76ch;
+  min-inline-size: 0;
+  margin-block-start: 22px;
+  padding-block-start: 14px;
+  border-block-start: 1px solid var(--line-soft, var(--line));
+}
+
+.ws-attached.is-empty { border-block-start: 0; padding-block-start: 0; }
+
+.ws-attached-head { display: flex; align-items: center; gap: 10px; margin-block-end: 8px; }
+.ws-attached-head h3 { margin: 0; font-size: .8rem; font-weight: 700; color: var(--ink-soft); }
+.ws-attached-head .ws-btn { margin-inline-start: auto; }
+
+.ws-items { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+
+.ws-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-inline-size: 0;
+  padding: 5px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+
+.ws-item-face {
+  flex: 0 0 auto;
+  display: grid; place-items: center;
+  inline-size: 40px; block-size: 40px;
+  padding: 0; border: 0; border-radius: var(--radius-sm);
+  background: var(--surface-soft); color: var(--ink-soft);
+  cursor: pointer; overflow: hidden;
+}
+.ws-item-face img { inline-size: 100%; block-size: 100%; object-fit: cover; }
+
+/* ⚠️ `min-inline-size: 0` وإلّا دفع اسمٌ طويلٌ الأزرارَ خارج الصفّ. */
+.ws-item-t {
+  flex: 1 1 auto; min-inline-size: 0;
+  font-size: .85rem;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.ws-item-acts { flex: 0 0 auto; display: flex; align-items: center; gap: 2px; }
+
+/*
+ * ⚠️ **٤٤px هدفُ لمسٍ لا اقتراح** (WS-P2): أربعةُ أزرارٍ متجاورةٍ على
+ *    تابلت تعني أنّ الخطأَ بينها لمسةٌ خاطئةٌ على شيءٍ يكتب في القاعدة.
+ */
+.ws-item-acts .ws-icon-btn { min-inline-size: 44px; min-block-size: 44px; }
+
+.ws-item-link { position: relative; }
+.ws-item-link b {
+  position: absolute; inset-block-start: 4px; inset-inline-end: 4px;
+  font-size: .62rem; font-weight: 700;
+  color: var(--accent); background: var(--accent-wash);
+  border-radius: 999px; padding: 0 4px;
+}
+
+/* سطرُ «ما الذي تربطه» في المنتقي (بند ٨). */
+.ws-pick-src {
+  margin: 0 0 8px;
+  font-size: .85rem;
+  color: var(--ink-soft);
+}
+.ws-pick-src b { color: var(--ink); }
 
 /* ------------------------------------------------------------------ *
  * المُفتِّش (بند ٦)

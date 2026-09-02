@@ -155,6 +155,8 @@
       await import('./voice-playback.test.js');
       await import('./workspace-ui.test.js');
       await import('./overlay.test.js');
+      await import('./workspace-layout.test.js');
+      await import('./workspace-select.test.js');
 
       const result = await run((event) => {
         if (event.type === 'suite') {
