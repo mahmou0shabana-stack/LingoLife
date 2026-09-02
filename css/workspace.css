@@ -61,7 +61,13 @@ body.workspace-open #app-main {
   --ws-nav: 300px;
   --ws-insp: 320px;
   --ws-row: 46px;
-  --ws-dock: 58px;
+  /*
+   * ⚠️ **ارتفاعُ المشغّل مقيسٌ لا مقدَّر** (WS-P2 · بند ٢٣): قاس التحقّقُ
+   *    الحيُّ الشريطَ فوجده أعلى من ٥٨، فكان آخِرُ سطرٍ في المستند يقع
+   *    تحته — يُرى ولا يُقرأ. والحشوُ السفليُّ في الألواح الثلاثة يساوي
+   *    هذا الرقم، فرفعُه يرفعها معًا.
+   */
+  --ws-dock: 76px;
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -494,7 +500,11 @@ body.workspace-open #app-main {
 
 .ws-crumb {
   max-inline-size: 22ch;
-  padding: 3px 5px;
+  /* ⚠️ الفُتاتُ هدفُ تنقّلٍ باللمس كذلك — ٣٦ لا ٢٦ (بند ٣٢). */
+  min-block-size: 36px;
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
   border: 0;
   border-radius: var(--radius-xs);
   background: transparent;
@@ -557,9 +567,14 @@ body.workspace-open #app-main {
   background: var(--bg-alt);
 }
 
+/*
+ * ⚠️ **٤٤ لمبدّل الوضع — لا ٣٦** (WS-P2 · بند ٣٢): قاس التحقّقُ الحيُّ
+ *    ٣٦، والمواصفةُ تسمّي مبدّلَ الوضع من الأزرار التي يجب أن تكبر على
+ *    مؤشّرٍ خشن. و«يمرّ الحارس عند ٣٤» ليس هدفَ منتَج.
+ */
 .ws-mode,
 .ws-seg button {
-  min-block-size: 36px;
+  min-block-size: 44px;
   padding-inline: 15px;
   border: 0;
   border-radius: var(--radius-pill);
@@ -1428,3 +1443,108 @@ body.workspace-open.has-mini-player .app-main { padding-bottom: 0; }
   white-space: nowrap;
 }
 
+
+/* ══════════════════════════════════════════════════════════════
+   WS-P2 · الشريطُ العامُّ يتنحّى داخل الورشة (بند ٤ · القاعدة ٤)
+
+   ⚠️ **الرقمُ من قياسٍ لا من ذوق.** `--sidebar-w` عند ١٢٨٠ هو **٢٥٢px**
+      — أي ٢٠٪ من الشاشة تأخذها كلماتُ تنقّلٍ لا تُقرأ أثناء العمل على
+      نصّ. وعلى تابلت ١٢٨٠ لم يكن يبقى للورشة إلّا ~١٠٣٥.
+
+      وبالشريط المضغوط (٦٨px) يرجع للورشة **١٨٤px** — وهي بالضبط ما
+      يحتاجه المستندُ ليصير مريحًا مع المُفتِّش مفتوحًا.
+
+   ⚠️ **ولا تُحذَف وجهةٌ واحدة**: الأيقوناتُ كلُّها باقيةٌ ولها أسماءٌ
+      مقروءة، والتبديلُ إلى الكامل بضغطةٍ واحدةٍ محفوظة.
+   ══════════════════════════════════════════════════════════════ */
+body.ws-rail-compact {
+  --sidebar-w: 68px;
+}
+
+body.ws-rail-compact .app-header {
+  padding-inline: 6px;
+  align-items: center;
+}
+
+/* الاسمُ والشعارُ النصّيُّ وبطاقاتُ الأسفل: كلُّها زخرفةٌ هنا. */
+body.ws-rail-compact .brand-text,
+body.ws-rail-compact .sidebar-foot,
+body.ws-rail-compact .nav-btn > span {
+  display: none;
+}
+
+/*
+ * ⚠️ **والهدفُ يكبر حين يصغر الشريط** (بند ٣٢): أيقونةٌ وحدَها بلا
+ *    كلمةٍ تحتاج مساحةَ لمسٍ أوسع لا أضيق — ٥٢×٥٢ لا ٤٠.
+ */
+body.ws-rail-compact .nav-btn,
+body.ws-rail-compact .nav-btn.secondary {
+  justify-content: center;
+  padding: 0;
+  min-block-size: 52px;
+  inline-size: 100%;
+  border-radius: var(--radius-md);
+}
+
+body.ws-rail-compact .nav-btn svg { inline-size: 21px; block-size: 21px; }
+body.ws-rail-compact .brand-mark-btn { margin-inline: auto; }
+
+/*
+ * ⚠️ **والأزرارُ العائمةُ تختفي داخل الورشة** (بند ١١): «طوّر ده»
+ *    و«ظلٌّ سريع» أفعالٌ تخصّ شاشاتِ التصفّح، وهنا تزاحم المُفتِّشَ
+ *    والمشغّلَ والمستند. وسابقتُها قائمةٌ: الظلُّ يخفيهما منذ WS38.
+ */
+body.workspace-open .improve-fab,
+body.workspace-open .quick-fab { display: none; }
+
+body.ws-fabs-on.workspace-open .improve-fab,
+body.ws-fabs-on.workspace-open .quick-fab { display: grid; }
+
+/*
+ * ⚠️ **الانكماشُ عند فتح المُفتِّش يقع في JS لا هنا** (بند ٣): الشاشةُ
+ *    تكتب `--ws-nav` سمةً سطريّة، والسمةُ السطريّةُ تغلب أيَّ قاعدةٍ في
+ *    الورقة. فقاعدةٌ هنا كانت ستُكتَب ولا تُطبَّق أبدًا — وهو أسوأُ من
+ *    ألّا تُكتَب. راجع `applyShell`.
+ */
+
+/* صفُّ «فيه أكتر» — رقمٌ صادقٌ ومعه بابٌ (بند ٢٩). */
+.ws-nav-limit {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ws-nav-limit button {
+  min-block-size: 38px;
+  padding-inline: 12px;
+  border: 1px solid var(--amber-line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--amber);
+  font: inherit;
+  font-size: .74rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* شارةُ الوضع الحاليّ — أوضحُ من خلفيّةٍ بيجٍ خفيفة (بند ٢١). */
+.ws-mode.is-on {
+  background: var(--accent);
+  color: var(--ink-invert);
+  box-shadow: none;
+}
+
+.ws-mode.is-on::before {
+  content: '';
+  inline-size: 6px;
+  block-size: 6px;
+  margin-inline-end: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* والمُفتِّشُ تبويباتُه ثانويّةٌ — لا تنافس الوضعَ الأوّل. */
+.ws-insp-tab { font-weight: 500; }
+.ws-insp-tab.is-on { font-weight: 700; }

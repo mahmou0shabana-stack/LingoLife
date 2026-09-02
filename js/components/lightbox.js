@@ -33,6 +33,7 @@ import { openLinksModal } from '../modals/link-modal.js';
 import { openShadowFromImage } from '../services/shadow/shadow-entry.js';
 import { icon } from './icons.js';
 import { pushLayer, dropLayer } from './layers.js';
+import { isolateBehind } from './overlay-guard.js';
 
 /** مستويات التكبير — ثلاثةٌ تكفي لقراءة لافتة. */
 const ZOOMS = [1, 2, 3];
@@ -162,10 +163,21 @@ export async function openLightbox(mediaId, sceneId) {
    *    لورا». الصورة طبقةٌ فوق الشاشة لا وجهةٌ تُغادَر إليها.
    */
   let layer = null;
+  let release = null;
+  let closed = false;
   const close = async () => {
+    /* ⚠️ إغلاقان متتاليان (زرٌّ ثم رجوعُ نظام) لا يُنقصان العدّاد مرّتين. */
+    if (closed) return;
+    closed = true;
     await flushCaption();
     box.remove();
     document.removeEventListener('keydown', onKey);
+    /*
+     * ⚠️ **العزلُ يُرفَع بعد الحذف لا قبله** (WS-P2 · بند ٥): وهو الذي
+     *    ينصب حاجزَ الإيماءة فيبتلع ما تبقّى من اللمسة التي أغلقتنا —
+     *    فلا تكمل طريقَها إلى زرٍّ في الورشة تحتنا.
+     */
+    if (release) { release(); release = null; }
     if (layer) {
       dropLayer(layer);
       layer = null;
@@ -215,12 +227,27 @@ export async function openLightbox(mediaId, sceneId) {
     return Math.hypot(a.x - b.x, a.y - b.y);
   };
 
+  /** منتصفُ الإصبعين — نقطةُ الارتكاز التي يجب ألّا تتحرّك (WS-P2 · بند ٦). */
+  const midpoint = () => {
+    const [a, b] = [...touches.values()];
+    return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+  };
+
   stage.addEventListener('pointerdown', (event) => {
     touches.set(event.pointerId, { x: event.clientX, y: event.clientY });
     if (touches.size === 2) {
       /* بدأ القرص: نُلغي السحب كي لا يتحرّك الإطار مع التكبير. */
       drag = null;
-      pinch = { start: spread(), from: free ?? ZOOMS[zoom] };
+      /*
+       * ⚠️ **القرصُ يكبّر حول ما بين إصبعيك لا حول مركز الصورة**
+       *    (WS-P2 · بند ٦). التكبيرُ حول المركز يجعل ما تقرصه ينزلق
+       *    بعيدًا كلّما كبّرت — فتقرص السطرَ الروسيَّ في الزاوية فيهرب
+       *    منك. والارتكازُ الصادق أن تبقى النقطةُ تحت أصابعك مكانَها.
+       */
+      pinch = {
+        start: spread(), from: free ?? ZOOMS[zoom],
+        focal: midpoint(), panFrom: { ...pan },
+      };
       return;
     }
     drag = { x: event.clientX, y: event.clientY, panX: pan.x, panY: pan.y, moved: false };
@@ -236,7 +263,22 @@ export async function openLightbox(mediaId, sceneId) {
       const now = spread();
       if (pinch.start > 0) {
         /* ⚠️ مُقيَّدٌ بين ١ و٦: تكبيرٌ بلا حدٍّ يضيّع الصورة خارج الشاشة. */
-        free = Math.min(6, Math.max(1, pinch.from * (now / pinch.start)));
+        const next = Math.min(6, Math.max(1, pinch.from * (now / pinch.start)));
+        /*
+         * المركزُ غيرُ المحوَّل هو مركزُ المسرح — الصورةُ موسّطةٌ فيه
+         * بـflex. ومنه تُحسَب الإزاحةُ التي تُبقي نقطةَ الارتكاز ثابتة:
+         *
+         *     pan' = f − c − (f − c − pan) × (s'/s)
+         */
+        const box2 = stage.getBoundingClientRect();
+        const cx = box2.left + box2.width / 2;
+        const cy = box2.top + box2.height / 2;
+        const ratio = next / pinch.from;
+        pan = next <= 1.01 ? { x: 0, y: 0 } : {
+          x: pinch.focal.x - cx - (pinch.focal.x - cx - pinch.panFrom.x) * ratio,
+          y: pinch.focal.y - cy - (pinch.focal.y - cy - pinch.panFrom.y) * ratio,
+        };
+        free = next;
         applyZoom();
       }
       return;
@@ -410,8 +452,23 @@ export async function openLightbox(mediaId, sceneId) {
 
   captionInput.addEventListener('blur', flushCaption);
 
+  /*
+   * ⚠️ **دورانُ الجهاز يعيد حساب الإطار** (بند ٧): المسرحُ يتغيّر عرضًا
+   *    وطولًا، والإزاحةُ المحفوظةُ تصير خارجه فتختفي الصورةُ الظاهرة.
+   *    فالإزاحةُ تُصفَّر عند التغيّر — أصدقُ من إبقائها على قياسٍ مات.
+   */
+  const onResize = () => { pan = { x: 0, y: 0 }; applyZoom(); };
+  window.addEventListener('resize', onResize, { passive: true });
+  const stopResize = () => window.removeEventListener('resize', onResize);
+
   document.addEventListener('keydown', onKey);
   layer = pushLayer(() => { close(); }, { id: 'lightbox' });
   document.body.append(box);
+  /*
+   * ⚠️ **العزلُ بعد الإلحاق**: `isolateBehind` تنقل التركيزَ إلى أوّل
+   *    عنصرٍ داخل الطبقة، وذلك مستحيلٌ قبل وجودها في الصفحة.
+   */
+  const dropIsolation = isolateBehind(box);
+  release = () => { stopResize(); dropIsolation(); };
   await show(index);
 }

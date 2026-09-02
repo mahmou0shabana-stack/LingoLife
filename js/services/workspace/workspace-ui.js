@@ -197,7 +197,9 @@ export function navGroups(board) {
  * @param {{expanded:Set<string>, query?:string, shown?:Map<string,number>}} opts
  * @returns {{rows:Array, hits:number, truncated:number}}
  */
-export function navRows(board, { expanded, query = '', shown = new Map() } = {}) {
+export function navRows(board, {
+  expanded, query = '', shown = new Map(), budget = NAV_MAX_ROWS,
+} = {}) {
   const found = searchReveal(board, query);
   const groups = navGroups(board);
   const rows = [];
@@ -224,7 +226,7 @@ export function navRows(board, { expanded, query = '', shown = new Map() } = {})
        *    عدد — أو ما هو أسوأ: حذفناه صامتين. والعدُّ بلا إنشاء صفٍّ
        *    رخيصٌ، والرسمُ هو الغالي.
        */
-      if (drawn >= NAV_MAX_ROWS) {
+      if (drawn >= budget) {
         overBudget += 1;
       } else {
         drawn += 1;
@@ -244,7 +246,7 @@ export function navRows(board, { expanded, query = '', shown = new Map() } = {})
       if (open && depth < MAX_DEPTH) pushKids(row.children, depth + 1, id);
     }
 
-    if (usable.length > slice.length && drawn < NAV_MAX_ROWS) {
+    if (usable.length > slice.length && drawn < budget) {
       truncated += usable.length - slice.length;
       rows.push({
         type: 'more',
@@ -268,7 +270,7 @@ export function navRows(board, { expanded, query = '', shown = new Map() } = {})
     for (const root of usable) {
       const kids = (board.treeByRoot.get(root.id) || []).filter((one) => visible(one.node.id));
       const open = isOpen(root.id) && kids.length > 0;
-      if (drawn >= NAV_MAX_ROWS) {
+      if (drawn >= budget) {
         overBudget += 1;
       } else {
         drawn += 1;

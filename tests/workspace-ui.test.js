@@ -142,14 +142,19 @@ describe('WS-P · أ · المُتصفِّح', () => {
   it('٢ · الفردُ والطيُّ يغيّران عددَ الصفوف فعلًا (بند ٣)', async () => {
     const { host, w } = await mount();
     try {
-      const before = $$('.ws-nav-row', host).length;
-      $(`[data-ws="twist"][data-id="${w.rootId}"]`, host).click();
-      await wait(40);
+      /*
+       * ⚠️ **الجذرُ الأوّل مفرودٌ عند الفتح** (بند ١٤) — فالضغطةُ الأولى
+       *    تطوي لا تفرد. وأوّلُ صياغةٍ لهذا الاختبار افترضت العكسَ
+       *    فسقطت، وكانت هي المخطئة لا الشاشة.
+       */
       const open = $$('.ws-nav-row', host).length;
-      expect(open > before).toBe(true);
       $(`[data-ws="twist"][data-id="${w.rootId}"]`, host).click();
       await wait(40);
-      expect($$('.ws-nav-row', host).length).toBe(before);
+      const shut = $$('.ws-nav-row', host).length;
+      expect(shut < open).toBe(true);
+      $(`[data-ws="twist"][data-id="${w.rootId}"]`, host).click();
+      await wait(40);
+      expect($$('.ws-nav-row', host).length).toBe(open);
     } finally { unmount(host); }
   });
 
@@ -967,5 +972,185 @@ describe('WS-P · ز · الأداء', () => {
     expect(svc.includes('subtreeOf(')).toBe(false);
     expect(svc.includes("relationships.byIndex('kind', PART_OF)")).toBe(true);
     expect(relationships.byIndex.length >= 1).toBe(true);
+  });
+});
+
+/* ================================================================== *
+ * ح · WS-P2 · الهرميّةُ المرنة (بنود ١٣…١٨ و٣٧)
+ * ================================================================== */
+
+describe('WS-P2 · ح · شجرةٌ تنمو كما يريد صاحبُها', () => {
+  /**
+   * شجرةٌ واقعيّة: سكريبت ← ١٢ مرحلة، والثانيةُ مقسومةٌ إلى ٢أ/٢ب/٢ج،
+   * و٢ب فيها ابنان. تُبنى مرّةً ويُقاس عليها كلُّ ما تحت.
+   */
+  let tree = null;
+  async function buildTree() {
+    if (tree) return tree;
+    const scene = await createScene({ titleAr: `${TAG} هرميّة`, date: '2026-09-04' });
+    const root = await addScript(scene.id, { title: 'التواصل في الشغل', text: 'جذر' });
+    const phases = [];
+    for (let i = 1; i <= 12; i += 1) {
+      /* eslint-disable-next-line no-await-in-loop */
+      phases.push(await addNode(root.id, { title: `مرحلة ${i}`, nodeKind: 'phase', text: `م${i}` }));
+    }
+    const p2 = phases[1];
+    const a = await addNode(p2.id, { title: '٢أ — النطق', nodeKind: 'part', text: 'أ' });
+    const b = await addNode(p2.id, { title: '٢ب — الجمارك', nodeKind: 'part', text: 'ب' });
+    await addNode(p2.id, { title: '٢ج — المراجعة', nodeKind: 'part', text: 'ج' });
+    const deep1 = await addNode(b.id, { title: 'محتوى أوّل', nodeKind: 'custom', text: 'كلمة-نادرة-جدًّا' });
+    await addNode(b.id, { title: 'محتوى تاني', nodeKind: 'custom', text: 'تاني' });
+    tree = {
+      sceneId: scene.id, rootId: root.id, phases: phases.map((one) => one.id),
+      p2: p2.id, a: a.id, b: b.id, deep1: deep1.id,
+    };
+    return tree;
+  }
+
+  it('٥٥ · النموذجُ يحتمل عمقًا حرًّا — لا ثلاثةَ مستوياتٍ مفروضة (بند ١٣)', async () => {
+    const t = await buildTree();
+    const board = await workspaceBoard(t.sceneId);
+    /* جذر ← مرحلة ← جزء ← محتوى = أربعةُ مستوياتٍ حقيقيّةٍ في القاعدة. */
+    expect(board.targetById.get(t.deep1).depth).toBe(3);
+    expect(crumbsOf(board, t.deep1)).toHaveLength(4);
+  });
+
+  it('٥٦ · ولا افتراضَ لعدد المراحل — اثنتا عشرةَ أو غيرُها سواء (بند ١٣)', async () => {
+    const t = await buildTree();
+    const board = await workspaceBoard(t.sceneId);
+    expect(board.targetById.get(t.rootId).children).toBe(12);
+    /*
+     * ⚠️ **حارسٌ يفحص الافتراضَ لا الرقم.** أوّلُ صياغةٍ منعت السلسلةَ
+     *    «12» في الملفّ — فسقطت على `1280` في تعليقِ قياس، وعلى `120`
+     *    في تأخير البحث. وحارسٌ يسقط على رقمٍ لا علاقةَ له بالمراد
+     *    حارسٌ يُعطَّل بعد أوّل إزعاج. فالمفحوصُ الأنماطُ الدالّة.
+     */
+    const view = codeOnly(await (await fetch('../js/views/workspace-view.js')).text());
+    const ui = codeOnly(await (await fetch('../js/services/workspace/workspace-ui.js')).text());
+    const code = view + ui;
+    for (const shape of [
+      /length\s*===\s*\d+/, /PHASE_COUNT/, /phases?\s*\[\s*\d{2}/,
+      /slice\(0,\s*12\)/, /'مرحلة '\s*\+/,
+    ]) {
+      expect(`${shape}:${shape.test(code)}`).toBe(`${shape}:false`);
+    }
+    /* والمستوياتُ تُحسَب من البيان: العمقُ حرٌّ حتى `MAX_DEPTH`. */
+    expect(ui.includes('const MAX_DEPTH = 12')).toBe(true);
+  });
+
+  it('٥٧ · والمسارُ الحاليُّ وحدَه يُفرَد — لا الشجرةُ كلُّها (بند ١٤)', async () => {
+    const t = await buildTree();
+    const { host } = await mount();
+    try {
+      await renderWorkspace(host, t.sceneId);
+      await wait(120);
+      __wsp.selectNode(t.deep1);
+      await wait(80);
+      /* آباؤه مفرودون. */
+      for (const id of [t.rootId, t.p2, t.b]) {
+        expect(`${id}:${__wsp.state.expanded.has(id)}`).toBe(`${id}:true`);
+      }
+      /* وإخوتُه من المراحل الأخرى مطويّون. */
+      expect(__wsp.state.expanded.has(t.phases[5])).toBe(false);
+      /* والمرسومُ أقلُّ بكثيرٍ من كلّ العُقد. */
+      const drawn = $$('.ws-nav-row', host).length;
+      expect(`${drawn < 20}`).toBe('true');
+    } finally { unmount(host); }
+  });
+
+  it('٥٨ · وإعادةُ التسمية تُبقي المعرّفَ والأبناءَ والروابط (بند ١٦)', async () => {
+    const t = await buildTree();
+    const { renameNode } = await import('../js/services/organize-service.js');
+    const before = await workspaceBoard(t.sceneId);
+    const kids = before.targetById.get(t.p2).children;
+
+    await renameNode(t.p2, 'المرحلة الصعبة');
+    const after = await workspaceBoard(t.sceneId);
+
+    expect(after.targetById.get(t.p2).title).toBe('المرحلة الصعبة');
+    expect(after.targetById.get(t.p2).children).toBe(kids);
+    /* والفُتاتُ يتحدّث فورًا لأنّه مشتقٌّ من نفس البيان. */
+    expect(crumbsOf(after, t.deep1).map((one) => one.title))
+      .toEqual(['التواصل في الشغل', 'المرحلة الصعبة', '٢ب — الجمارك', 'محتوى أوّل']);
+    await renameNode(t.p2, 'مرحلة 2');
+  });
+
+  it('٥٩ · وإضافةُ ابنٍ تُقسّم المرحلةَ بلا شاشةِ إدارة (بند ١٨)', async () => {
+    const t = await buildTree();
+    const made = await addNode(t.phases[2], { title: '٣أ — تفريع', nodeKind: 'part', text: 'ت' });
+    const board = await workspaceBoard(t.sceneId);
+    expect(board.targetById.get(made.id).parentId).toBe(t.phases[2]);
+    expect(board.targetById.get(t.phases[2]).children).toBe(1);
+  });
+
+  it('٦٠ · وإضافةُ شقيقٍ تزيد مرحلةً — والاسمُ اسمُك (بند ١٥)', async () => {
+    const t = await buildTree();
+    const { addTextAt } = await import('../js/services/workspace/workspace-service.js');
+    const made = await addTextAt(t.phases[0], 'after', { title: 'مرحلة ١ب', text: 'ب' });
+    expect(Boolean(made)).toBe(true);
+    const board = await workspaceBoard(t.sceneId);
+    expect(board.targetById.get(made.id).parentId).toBe(t.rootId);
+    expect(board.targetById.get(made.id).title).toBe('مرحلة ١ب');
+  });
+
+  it('٦١ · والنقلُ إلى أبٍ آخرَ يعمل، وإلى نسلِه يُرفَض (بند ١٧)', async () => {
+    const t = await buildTree();
+    const org = await import('../js/services/organize-service.js');
+
+    await org.moveNodeTo(t.a, t.phases[4]);
+    let board = await workspaceBoard(t.sceneId);
+    expect(board.targetById.get(t.a).parentId).toBe(t.phases[4]);
+
+    /* ⚠️ عقدةٌ داخل أحد أبنائها = شجرةٌ مكسورة. تُرفَض في الخدمة. */
+    let refused = '';
+    try { await org.moveNodeTo(t.p2, t.b); } catch (error) { refused = error.message; }
+    expect(refused).toContain('مينفعش');
+    /* وإلى نفسِها تُرفَض بلا استثناء. */
+    expect(await org.moveNodeTo(t.p2, t.p2)).toBe(false);
+
+    await org.moveNodeTo(t.a, t.p2);
+    board = await workspaceBoard(t.sceneId);
+    expect(board.targetById.get(t.a).parentId).toBe(t.p2);
+  });
+
+  it('٦٢ · والبحثُ يصل إلى عنصرٍ عميقٍ بسلسلة نسبه (بند ٣٠)', async () => {
+    const t = await buildTree();
+    const board = await workspaceBoard(t.sceneId);
+    const found = searchReveal(board, 'كلمة-نادرة-جدًّا');
+    expect(found.hit.has(t.deep1)).toBe(true);
+    for (const id of [t.b, t.p2, t.rootId]) {
+      expect(`${id}:${found.reveal.has(id)}`).toBe(`${id}:true`);
+    }
+  });
+
+  it('٦٣ · وعنوانان متطابقان تحت أبوين مختلفين يُميَّزان بالمسار (بند ٣٠)', async () => {
+    const t = await buildTree();
+    const one = await addNode(t.phases[6], { title: 'مراجعة', nodeKind: 'part', text: 'x' });
+    const two = await addNode(t.phases[7], { title: 'مراجعة', nodeKind: 'part', text: 'y' });
+    const board = await workspaceBoard(t.sceneId);
+    const a = board.targetById.get(one.id).path.join(' · ');
+    const b = board.targetById.get(two.id).path.join(' · ');
+    expect(a === b).toBe(false);
+    expect(a).toContain('مرحلة 7');
+    expect(b).toContain('مرحلة 8');
+  });
+
+  it('٦٤ · وسقفُ الصفوف يرتفع بطلبك — فتصل لأيّ نتيجة (بند ٢٩)', () => {
+    const kids = Array.from({ length: 900 }, (_, i) => ({
+      node: { id: `k${i}`, title: `عقدة ${i}` }, children: [], depth: 0,
+    }));
+    const board = {
+      roots: [{ id: 'r', title: 'جذر' }], looseTexts: [],
+      treeByRoot: new Map([['r', kids]]),
+      targetById: new Map([['r', {}]]), haystack: new Map(),
+    };
+    const first = navRows(board, { expanded: new Set(['r']), shown: new Map([['r', 900]]) });
+    const wider = navRows(board, {
+      expanded: new Set(['r']), shown: new Map([['r', 900]]), budget: 800,
+    });
+    expect(first.drawn <= 400).toBe(true);
+    expect(wider.drawn > first.drawn).toBe(true);
+    /* والزرُّ موجودٌ فعلًا في الشاشة لا في النيّة. */
+    expect(first.rows.some((one) => one.type === 'limit')).toBe(true);
   });
 });

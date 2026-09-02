@@ -5,6 +5,7 @@
  */
 
 import { pushLayer, dropLayer } from './layers.js';
+import { isolateBehind } from './overlay-guard.js';
 
 /**
  * مكدّس النوافذ.
@@ -67,11 +68,19 @@ export function showModal({
      *    ميّتٌ لكل نافذةٍ فتحتَها، فتضغط رجوع فلا يحدث شيء.
      */
     let layer = null;
+    let release = null;
     const finish = (value) => {
       document.removeEventListener('keydown', onKey);
       overlay.remove();
       const index = stack.indexOf(overlay);
       if (index >= 0) stack.splice(index, 1);
+      /*
+       * ⚠️ **نفسُ عزل عارض الصور — والسببُ نفسُه** (WS-P2 · بند ٢٤).
+       *    نافذةٌ تُغلَق بلمسةٍ على خلفيّتها كانت تحذف نفسَها داخل
+       *    السلسلة، فتقع `click` المولَّدةُ لمسيًّا على ما تحتها. والقاعدةُ
+       *    عامّة: ما يعلو بصريًّا يعلو تفاعليًّا.
+       */
+      if (release) { release(); release = null; }
       if (layer) dropLayer(layer);
       resolve(value);
     };
@@ -131,6 +140,9 @@ export function showModal({
     // قبل التركيز: `onMount` قد تُخفي حقلًا أو تُظهره، والتركيز على
     // حقلٍ مخفيّ لا يعمل.
     onMount?.(overlay.querySelector('.modal'));
+
+    /* العزلُ بعد `onMount` كي يرى الحقولَ التي أنشأتها. */
+    release = isolateBehind(overlay, { focus: false });
 
     const firstField = overlay.querySelector(
       'input:not([hidden]), textarea:not([hidden]), select:not([hidden])'

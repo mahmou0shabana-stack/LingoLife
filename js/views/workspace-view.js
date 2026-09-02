@@ -56,10 +56,13 @@ import { showModal, confirmAction } from '../components/modal.js';
 import { toastOk, toastError } from '../components/toast.js';
 import {
   urlFor, releaseUrls, AUDIO_ROLE_LABEL, addFilesToScene, pickFiles,
-  isCloudOnly, ensureBytes,
+  isCloudOnly, ensureBytes, setCaption,
 } from '../services/media-service.js';
 import { api as audio, subscribe as subscribeAudio } from '../services/audio-service.js';
 import { openLightbox } from '../components/lightbox.js';
+import {
+  audioButtonHtml, refreshAudioButtons, playIntent,
+} from '../components/audio-button.js';
 import {
   workspaceBoard, linkSelection, unlinkOne,
   createMainScript, addLooseText, placeTextUnder, addTextAt, saveNodeText,
@@ -70,9 +73,11 @@ import {
   MODE, MODE_LABEL, TAB, TAB_LABEL, SAVE, SAVE_LABEL,
   makeDraft, draftChanged, draftCommitted,
   navRows, ancestorsOf, crumbsOf, mediaOf, linkRowsFor,
-  MEDIA_FILTERS, mediaLibrary, PANE, paneFit,
+  MEDIA_FILTERS, mediaLibrary, PANE, paneFit, NAV_MAX_ROWS,
 } from '../services/workspace/workspace-ui.js';
-import { effectivePanes, writePanePrefs } from '../services/workspace/pane-prefs.js';
+import {
+  effectivePanes, writePanePrefs, readChromePrefs, writeChromePrefs,
+} from '../services/workspace/pane-prefs.js';
 
 /* ================================================================== *
  * الحالة
@@ -96,6 +101,8 @@ const state = {
   /** كم صفًّا مفرودًا تحت كلّ أبٍ الآن (بند ١٥). */
   shown: new Map(),
   navQuery: '',
+  /** ⚠️ سقفُ الصفوف الحاليّ — يرتفع بطلبك، ويعود لأصله مع كلّ بحثٍ جديد. */
+  navBudget: NAV_MAX_ROWS,
   docQuery: '',
   /** «نصّ» أو «محادثة» — لنصٍّ يبدو حوارًا (بند ٤). */
   docMode: 'chat',
@@ -111,6 +118,8 @@ const state = {
   scroll: { nav: 0, doc: 0, insp: 0 },
   docScroll: { text: 0, chat: 0 },
   panes: { nav: PANE.NAV_DEFAULT, insp: PANE.INSP_DEFAULT },
+  /** شكلُ الشريط العامّ وظهورُ العائمات داخل الورشة (بندا ٤ و١١). */
+  chrome: { rail: 'compact', fabs: false },
   loading: false,
   error: null,
   /** جلبُ بايتات وسيطٍ من Drive — حالةٌ حقيقيّةٌ لا شريطُ زينة (بند ١٤). */
@@ -265,8 +274,17 @@ function navRowHtml(row) {
      *    و«٤٠٠ نتيجة» وحدَها كذبةٌ بالحذف.
      */
     return html`
-      <li class="ws-nav-limit" role="status">
-        بيتعرض ${row.shown} من ${row.shown + row.hidden} — ضيّق البحث عشان تشوف الباقي
+      <li class="ws-nav-limit">
+        <span role="status">بيتعرض ${row.shown} من ${row.shown + row.hidden}</span>
+        <!--
+          ⚠️ **«فيه ١٧١٠ مخفيّة» بلا بابٍ إليها ليس إعلامًا — هو حائط**
+             (WS-P2 · بند ٢٩). فالعددُ يبقى صادقًا، ويصير معه طريقٌ:
+             تُوسِّع البحثَ صفحةً صفحة، أو تضيّقه بكلمةٍ أدقّ. والاثنان
+             يصلان إلى العنصر بعينه — والرسالةُ وحدَها لا تصل.
+        -->
+        <button type="button" data-ws="nav-more-rows">
+          عرِّضني ${Math.min(row.hidden, NAV_MAX_ROWS)} كمان
+        </button>
       </li>`;
   }
 
@@ -342,6 +360,7 @@ function navHtml() {
 
   const { rows, hits } = navRows(board, {
     expanded: state.expanded, query: state.navQuery, shown: state.shown,
+    budget: state.navBudget,
   });
 
   const empty = state.navQuery
@@ -509,6 +528,9 @@ function docHeadHtml() {
           ${raw(!isText && record.kind === 'image' ? html`
             <button type="button" class="ws-btn ws-btn-soft" data-ws="zoom"
                     data-id="${record.id}">كبّر</button>` : '')}
+          ${raw(!isText ? html`
+            <button type="button" class="ws-btn ws-btn-soft" data-ws="rename-media"
+                    data-id="${record.id}">سمّيه</button>` : '')}
           <button type="button" class="ws-btn ws-btn-soft ws-insp-toggle" data-ws="insp"
                   aria-expanded="${state.inspector ? 'true' : 'false'}"
                   aria-controls="ws-inspector">
@@ -634,18 +656,17 @@ function editorHtml(node) {
 }
 
 function audioDocHtml(item) {
-  const busy = state.fetching.has(item.id);
-  const on = audio.state.mediaId === item.id && audio.state.playing;
-
+  /*
+   * ⚠️ **زرٌّ واحدٌ يشتقّ حالتَه من الخدمة** (WS-P2 · بند ٨): كانت هذه
+   *    الدالّةُ تحسب `on` بيدها، فكانت الحقيقةُ تُحسَب في مكانين.
+   */
   return html`
     <div class="ws-media-doc">
       <div class="ws-media-face is-audio" aria-hidden="true">${raw(icon('waveform', 40))}</div>
-      <button type="button" class="ws-btn ws-btn-primary ws-media-play" data-ws="play"
-              data-id="${item.id}" ${busy ? 'disabled' : ''}>
-        ${raw(busy
-          ? '<span class="ws-spin" aria-hidden="true"></span> بينزّل من Drive…'
-          : `${icon(on ? 'pause' : 'play', 18)} <span>${on ? 'وقّف' : 'شغّل'}</span>`)}
-      </button>
+      ${raw(audioButtonHtml({
+        mediaId: item.id, snapshot: audio.state, loading: state.fetching.has(item.id),
+        name: itemTitle(item), size: 20, className: 'ws-btn ws-btn-primary ws-media-play',
+      }))}
       <!--
         ⚠️ **والتحكّمُ الكاملُ في الشريط تحت لا هنا** (بند ٣٥): الصوتُ
            خدمةٌ عامّةٌ تكمل وأنت تقلّب في النصوص — ولو ملكت هذه الشاشةُ
@@ -846,9 +867,12 @@ function thumbHtml(row) {
           ? html`✓ ${pathOf(at[0]) || ''}${at.length > 1 ? ` +${at.length - 1}` : ''}`
           : 'غير مربوط')}${raw(cloud ? ' <i class="ws-tagline">Drive</i>' : '')}</span>
       </div>
-      ${raw(row.kind === 'audio' ? html`
-        <button type="button" class="ws-icon-btn" data-ws="play" data-id="${row.id}"
-                aria-label="شغّل ${itemTitle(row)}">${raw(icon('play', 16))}</button>` : '')}
+      ${raw(row.kind === 'audio' ? audioButtonHtml({
+        mediaId: row.id, snapshot: audio.state, loading: state.fetching.has(row.id),
+        name: itemTitle(row), size: 16, className: 'ws-icon-btn',
+      }) : '')}
+      <button type="button" class="ws-icon-btn" data-ws="rename-media" data-id="${row.id}"
+              aria-label="إعادة تسمية ${itemTitle(row)}">${raw(icon('edit', 15))}</button>
     </li>`;
 }
 
@@ -968,17 +992,35 @@ const paintNow = (snapshot) => {
   el.hidden = !snapshot?.hasTrack;
 
   /*
-   * ⚠️ **وزرُّ التشغيل في سطح الصوت يُحدَّث وحدَه لا بإعادة رسم السطح**
-   *    (بند ١٥): الخدمةُ تبثّ الحالةَ عدّةَ مرّاتٍ في الثانية أثناء
-   *    التشغيل، وإعادةُ رسم المستند مع كلّ بثٍّ تُحرِق الإطارات وتقطع
-   *    أيَّ تحديدٍ داخل الصفحة.
+   * ⚠️ **كلُّ أزرار التشغيل تُصحَّح، لا زرُّ السطح وحدَه** (بند ٨): صفُّ
+   *    الوسائط في المُفتِّش وزرُّ المستند ومُلتقِطُ الربط — ثلاثتُها قد
+   *    تعرض نفسَ المقطع في اللحظة نفسِها، وواحدٌ فقط يجوز أن يقول ❚❚.
+   *
+   * ⚠️ **وتصحيحٌ في المكان لا إعادةُ رسم** (بند ٢٩): الخدمةُ تبثّ عدّةَ
+   *    مرّاتٍ في الثانية، وإعادةُ رسم القائمة مع كلّ بثٍّ تحرق الإطارات.
    */
-  const play = $('.ws-media-play');
-  if (!play || state.open?.kind !== 'audio') return;
-  const on = snapshot?.mediaId === state.open.id && snapshot?.playing;
-  if (state.fetching.has(state.open.id)) return;
-  play.innerHTML = `${icon(on ? 'pause' : 'play', 18)} <span>${on ? 'وقّف' : 'شغّل'}</span>`;
+  refreshAudioButtons(document, snapshot, { loading: state.fetching });
 };
+
+/**
+ * يكتب تفضيلاتِ قشرةِ الورشة على `body` — والـCSS تتولّى الباقي.
+ *
+ * ⚠️ **صنفٌ على `body` لا تعديلٌ في `index.html`** (بند ٤): الشريطُ
+ *    العامُّ ملكُ القشرة لا ملكُ هذه الشاشة، وكتابةُ الورشة في بنيته
+ *    تجعل شاشةً واحدةً تملك تنقّلَ التطبيق كلِّه. فالورشةُ **تطلب**
+ *    شكلًا، والقشرةُ تستجيب — وعند المغادرة يعود كما كان.
+ */
+function applyChrome() {
+  document.body.classList.toggle('ws-rail-compact', state.chrome.rail === 'compact');
+  document.body.classList.toggle('ws-fabs-on', state.chrome.fabs === true);
+  const btn = $('[data-ws="rail"]');
+  if (btn) {
+    const compact = state.chrome.rail === 'compact';
+    btn.setAttribute('aria-pressed', compact ? 'true' : 'false');
+    btn.setAttribute('aria-label', compact ? 'وسّع شريط التطبيق' : 'اضغط شريط التطبيق');
+    btn.title = btn.getAttribute('aria-label');
+  }
+}
 
 /** يكتب أعرافَ التخطيط على الجذر — والـCSS وحدَها تقرّر الشكل (بند ٨). */
 function applyShell() {
@@ -990,7 +1032,17 @@ function applyShell() {
   root.dataset.insp = state.inspector ? 'on' : 'off';
   root.dataset.zen = state.zen ? 'on' : 'off';
   root.dataset.drawer = state.drawer || '';
-  root.style.setProperty('--ws-nav', `${state.panes.nav}px`);
+  /*
+   * ⚠️ **حين يُفتَح المُفتِّشُ ينكمش المُتصفِّحُ — لا المستند** (بند ٣).
+   *    الأولويّةُ معلَنةٌ: المستندُ أوّلًا، ثمّ المُتصفِّح، ثمّ المُفتِّش.
+   *    فعلى عرضٍ لا يكفي الثلاثةَ براحة، المُتصفِّحُ هو الذي يتنازل —
+   *    ويبقى كاملَ الوظيفة، أضيقَ عرضًا وحسب. وقياسُ ١٢٨٠: المستندُ
+   *    كان ٤٣٤ والمُتصفِّحُ ٢٨٠؛ وبالانكماش يصير المستندُ ٤٧٤.
+   */
+  const navNow = state.inspector && fit.inspDocked
+    ? Math.max(PANE.NAV_MIN, Math.min(state.panes.nav, 240))
+    : state.panes.nav;
+  root.style.setProperty('--ws-nav', `${navNow}px`);
   root.style.setProperty('--ws-insp', `${state.panes.insp}px`);
   /*
    * ⚠️ **والمُفتِّشُ يصير درجًا حين لا يتّسع** (بند ٨): إبقاؤه عمودًا
@@ -1185,8 +1237,19 @@ async function playItem(mediaId) {
   const item = mediaById(mediaId);
   if (!item) return toastError('التسجيل ده مابقاش موجود');
 
-  const same = audio.state.mediaId === mediaId;
-  if (same && audio.state.playing) { audio.pause(); return undefined; }
+  /*
+   * ⚠️ **القرارُ من العقد المشترك لا من شرطٍ مكتوبٍ هنا** (بند ٩):
+   *    وقّف · كمّل من موضعه · ابدأ من أوّله — ثلاثةٌ لا اثنان، والفرقُ
+   *    بين «كمّل» و«ابدأ» هو ما يجعل الضغطةَ الثانية تفعل ما تتوقّعه.
+   */
+  const intent = playIntent(audio.state, mediaId, { loading: state.fetching.has(mediaId) });
+  if (intent === 'ignore') return undefined;
+  if (intent === 'pause') { audio.pause(); return undefined; }
+  if (intent === 'resume') {
+    const out2 = await audio.play();
+    if (out2 && out2.ok === false) toastError('تعذّر تشغيل التسجيل');
+    return undefined;
+  }
 
   /*
    * ⚠️ **والجلبُ من Drive حالةٌ معروضةٌ لا انتظارٌ صامت** (بند ١٤): لو
@@ -1287,9 +1350,10 @@ async function pickMediaFor(nodeId) {
                 <span class="ws-pick-sub">${already ? 'مربوط هنا خلاص'
                   : (at.length ? `مربوط بـ ${pathOf(at[0]) || ''}` : 'غير مربوط')}</span>
               </button>
-              ${raw(row.kind === 'audio' ? html`
-                <button type="button" class="ws-icon-btn" data-pick-play="${row.id}"
-                        aria-label="اسمع ${itemTitle(row)}">${raw(icon('play', 15))}</button>` : '')}
+              ${raw(row.kind === 'audio' ? audioButtonHtml({
+                mediaId: row.id, snapshot: audio.state, name: itemTitle(row),
+                size: 15, className: 'ws-icon-btn',
+              }) : '')}
             </li>`;
         }).join('') : '<li class="ws-empty"><p>مفيش وسائط في المصفاة دي</p></li>';
         root.querySelector('[data-pick-n]').textContent = state.picked.size
@@ -1305,8 +1369,8 @@ async function pickMediaFor(nodeId) {
           draw();
           return;
         }
-        const play = event.target.closest('[data-pick-play]');
-        if (play) { playItem(play.dataset.pickPlay); return; }
+        const play = event.target.closest('[data-audio-btn]');
+        if (play) { playItem(play.dataset.audioBtn); draw(); return; }
         const chip = event.target.closest('[data-pick-filter]');
         if (chip) {
           filter = chip.dataset.pickFilter;
@@ -1431,6 +1495,53 @@ async function dropLink(mediaId, at) {
   } catch (error) {
     return toastError(`فكّ الربط فشل: ${error?.message || 'مش معروف'}`);
   }
+}
+
+/**
+ * إعادةُ تسمية وسيطٍ — **اسمٌ معروضٌ لا هُويّةٌ جديدة** (WS-P2 · بند ١٠).
+ *
+ * ⚠️ **ولا سجلَّ يُنشَأ ولا بايتاتٍ تُنسَخ** (القاعدة ٥): الاسمُ حقلُ
+ *    `caption` القائم منذ WS0 — يُكتَب بـ`media.update` على السجلّ
+ *    نفسِه. فالمعرّفُ باقٍ، والروابطُ باقيةٌ لأنّها تشير إليه، وهُويّةُ
+ *    الملفّ على Drive باقيةٌ لأنّها لا تُشتقّ من الاسم أصلًا.
+ *
+ * ⚠️ **والملفُّ الأصليُّ اسمُه لا يُمَسّ**: `filename` هو ما رُفِع، وهو
+ *    ما يُنزَّل. وخلطُ الاسمين يجعل «سمِّها لافتة المستودع» يغيّر ما
+ *    يصل إلى قرصك — وذلك مسٌّ بالتخزين لأجل عرض.
+ */
+async function renameMedia(mediaId) {
+  const row = mediaById(mediaId);
+  if (!row) return toastError('العنصر ده مابقاش موجود');
+  let saved = false;
+
+  const done = await showModal({
+    title: 'إعادة تسمية',
+    submitLabel: 'احفظ',
+    body: html`
+      <label class="fld"><span>الاسم المعروض</span>
+        <input name="name" dir="auto" maxlength="200" value="${itemTitle(row)}"></label>
+      <p class="ws-hint">
+        ده الاسم اللي هتشوفه وتدوّر بيه. الملفّ نفسه ومعرّفه وروابطه ما بيتغيّروش.
+      </p>`,
+    onSubmit: async (data, close) => {
+      const name = String(data.name || '').trim();
+      /* ⚠️ اسمٌ فارغٌ يُرفَض ولا يُحوَّل إلى فراغٍ محفوظ (بند ١٠). */
+      if (!name) return toastError('اكتب اسم — مش هينفع يفضل فاضي');
+      try {
+        await setCaption(mediaId, name);
+        saved = true;
+        close();
+      } catch (error) {
+        toastError(`إعادة التسمية فشلت: ${error?.message || 'مش معروف'}`);
+      }
+      return undefined;
+    },
+  });
+
+  if (done !== 'submit' || !saved) return undefined;
+  await refresh({ doc: state.mode !== MODE.EDIT });
+  if (state.inspector) paintInsp();
+  return toastOk('اتغيّر الاسم');
 }
 
 /* ================================================================== *
@@ -1636,6 +1747,98 @@ async function openPaste(parentId) {
  * قائمةُ العنصر
  * ================================================================== */
 
+/**
+ * نقلُ عقدةٍ تحت أبٍ آخَر — **باختيارٍ صريحٍ لا بسحبٍ دقيق** (بند ١٧).
+ *
+ * ⚠️ **السحبُ والإفلات ليس مسارًا وحيدًا على لوحٍ زجاجيّ.** إصبعٌ يجرّ
+ *    صفًّا في شجرةٍ تمرّر نفسَها هو أسوأُ ما يُطلَب من مستعمِلِ تابلت.
+ *    فالمسارُ هنا: اختر الوجهةَ من قائمةٍ تبحث فيها، وشاهد المسارَ
+ *    كاملًا، ثم أكّد.
+ *
+ * ⚠️ **والنقلُ المستحيلُ يُمنَع في الخدمة لا في الشاشة**: `moveNodeTo`
+ *    ترفض العقدةَ إلى نفسها وإلى أحد أبنائها. فالحارسُ في مكانٍ واحدٍ
+ *    مهما تعدّدت الشاشاتُ التي تنادي.
+ */
+async function moveNode(nodeId) {
+  const node = nodeById(nodeId);
+  const here = board.targetById.get(nodeId);
+  if (!node || !here) return toastError('العقدة دي مابقتش موجودة');
+
+  /* الوجهاتُ الممكنة: كلُّ هدفٍ ليس هو ولا من نسله ولا أبوه الحاليّ. */
+  const banned = new Set([nodeId]);
+  for (const one of board.targets) {
+    if (one.path.length > here.path.length
+      && one.path.slice(0, here.path.length).join('\u0000') === here.path.join('\u0000')) {
+      banned.add(one.id);
+    }
+  }
+
+  let chosen = null;
+  const done = await showModal({
+    title: `نقل «${node.title}»`,
+    wide: true,
+    submitLabel: 'انقله',
+    body: html`
+      <p class="ws-crumb-line" dir="auto">مكانه دلوقتي: ${here.path.join(SEP)}</p>
+      <input class="ws-input" data-pick-find type="search" dir="auto"
+             placeholder="دوّر على المكان الجديد…" aria-label="دوّر على المكان الجديد">
+      <ul class="ws-pick-list" data-pick-list></ul>
+      <p class="ws-pick-n" data-pick-n role="status">مفيش مكان متحدِّد</p>`,
+    onMount(root) {
+      let query = '';
+      const draw = () => {
+        const needle = query.trim().toLowerCase();
+        const rows = board.targets.filter((one) => !banned.has(one.id)
+          && one.id !== here.parentId
+          && (!needle || one.path.join(' ').toLowerCase().includes(needle)));
+        const list = root.querySelector('[data-pick-list]');
+        list.innerHTML = rows.length ? rows.slice(0, 300).map((one) => html`
+          <li class="ws-pick-row ${chosen === one.id ? 'is-on' : ''}">
+            <button type="button" class="ws-pick-hit" data-pick="${one.id}"
+                    role="radio" aria-checked="${chosen === one.id ? 'true' : 'false'}">
+              <span class="ws-pick-box" aria-hidden="true">${chosen === one.id ? '✓' : ''}</span>
+              <span class="ws-pick-t" dir="auto">${one.title}</span>
+              <span class="ws-pick-sub" dir="auto">${one.path.join(SEP)}</span>
+            </button>
+          </li>`).join('')
+          : '<li class="ws-empty"><p>مفيش مكان ينفع — جرّب اسم تاني</p></li>';
+        root.querySelector('[data-pick-n]').textContent = chosen
+          ? `هيتحطّ جوّه: ${pathOf(chosen)}` : 'مفيش مكان متحدِّد';
+      };
+      draw();
+      root.addEventListener('click', (event) => {
+        const hit = event.target.closest('[data-pick]');
+        if (!hit) return;
+        chosen = hit.dataset.pick;
+        draw();
+      }, wired());
+      root.addEventListener('input', (event) => {
+        if (!event.target.matches('[data-pick-find]')) return;
+        query = event.target.value;
+        draw();
+      }, wired());
+    },
+    onSubmit: async (data, close) => {
+      if (!chosen) return toastError('اختار المكان الجديد الأول');
+      close();
+      return undefined;
+    },
+  });
+
+  if (done !== 'submit' || !chosen) return undefined;
+  const where = pathOf(chosen);
+  try {
+    const org = await import('../services/organize-service.js');
+    await org.moveNodeTo(nodeId, chosen);
+    state.expanded.add(chosen);
+    await refresh({ doc: false });
+    revealAndOpen(nodeId);
+    return toastOk(`اتنقل جوّه ${where}`);
+  } catch (error) {
+    return toastError(error?.message || 'النقل فشل');
+  }
+}
+
 async function openNodeMenu(nodeId) {
   const node = nodeById(nodeId);
   if (!node) return undefined;
@@ -1647,10 +1850,17 @@ async function openNodeMenu(nodeId) {
     submitLabel: 'اقفل',
     actions: [{ label: 'اقفل', value: null, variant: 'ghost' }],
     body: html`
+      <!--
+        ⚠️ **إضافةُ ابنٍ وإضافةُ شقيقٍ هما المفتاحان** (WS-P2 · بند ١٥):
+           بهما وحدَهما تنمو الشجرةُ في أيّ اتّجاه — تقسم «المرحلة ٢»
+           إلى ٢أ و٢ب (أبناء)، أو تضيف «المرحلة ١٣» (شقيق). ولا رقمَ
+           مفروضٌ ولا عددَ مراحلَ مفترَض: الاسمُ اسمُك.
+      -->
       <div class="ws-menu">
         <button type="button" data-m="rename">إعادة تسمية</button>
-        <button type="button" data-m="inside">+ نصّ جوّه ده</button>
-        ${raw(isRoot ? '' : '<button type="button" data-m="after">+ نصّ بعد ده</button>')}
+        <button type="button" data-m="inside">+ إضافة تحته</button>
+        ${raw(isRoot ? '' : '<button type="button" data-m="after">+ إضافة بعده</button>')}
+        ${raw(isRoot ? '' : '<button type="button" data-m="move">نقل لمكان تاني</button>')}
         ${raw(isRoot ? '' : '<button type="button" data-m="up">حرّكه فوق</button>')}
         ${raw(isRoot ? '' : '<button type="button" data-m="down">حرّكه تحت</button>')}
         ${raw(isRoot && isLoose
@@ -1684,6 +1894,7 @@ async function openNodeMenu(nodeId) {
     if (value === 'submit') await refresh();
     return undefined;
   }
+  if (pick === 'move') return moveNode(nodeId);
   if (pick === 'inside') return addTextInside(nodeId);
   if (pick === 'after') {
     const parentId = board.targetById.get(nodeId)?.parentId;
@@ -1824,6 +2035,7 @@ export async function renderWorkspace(main, sceneId) {
   state.expanded = new Set();
   state.shown = new Map();
   state.navQuery = '';
+  state.navBudget = NAV_MAX_ROWS;
   state.docQuery = '';
   state.inspector = false;
   state.tab = TAB.LINKS;
@@ -1840,6 +2052,8 @@ export async function renderWorkspace(main, sceneId) {
 
   /* ⚠️ يُخفي المُشغّلَ العالميَّ — راجع سبب ذلك في `workspace.css`. */
   document.body.classList.add('workspace-open');
+  state.chrome = readChromePrefs();
+  applyChrome();
   state.panes = effectivePanes(main.clientWidth || window.innerWidth);
 
   main.innerHTML = html`
@@ -1852,9 +2066,20 @@ export async function renderWorkspace(main, sceneId) {
                 aria-label="افتح شجرة المحتوى">${raw(icon('language', 18))}</button>
         <h1 class="ws-scene" dir="auto" data-ws-scene>…</h1>
         <div class="ws-top-acts">
+          <button type="button" class="ws-icon-btn" data-ws="rail"
+                  aria-pressed="true" aria-label="وسّع شريط التطبيق"
+                  title="وسّع شريط التطبيق">${raw(icon('language', 18))}</button>
           <button type="button" class="ws-icon-btn" data-ws="zen"
                   aria-pressed="false" aria-label="وضع التركيز">${raw(icon('eye', 18))}</button>
-          <a class="ws-btn ws-btn-soft ws-only-wide" href="#/organize/${sceneId}">وضع التنظيم</a>
+          <!--
+            ⚠️ **«وضع التنظيم» لم يكن يقول ما يفعل** (WS-P2 · بند ١٢).
+               دقّقتُ الشاشةَ التي يفتحها: سؤالُها الحقيقيّ «إيه اللي
+               لسّه ما نظّمتهوش؟» — فرزٌ على مستوى الذكرى كلِّها، وورشةُ
+               ربطٍ بالجملة. وذلك عملٌ حقيقيٌّ لا تغطّيه هذه الشاشة،
+               فبقي البابُ **باسمه الصادق** لا باسمٍ غامض.
+          -->
+          <a class="ws-btn ws-btn-soft ws-only-wide" href="#/organize/${sceneId}"
+             title="فرزُ غير المربوط في الذكرى كلِّها، وربطٌ بالجملة">الفرز والربط بالجملة</a>
         </div>
       </header>
 
@@ -1912,12 +2137,21 @@ export async function renderWorkspace(main, sceneId) {
   paintNav();
   paintDoc({ force: true });
   applyShell();
+  applyChrome();
 
   /*
    * ⚠️ **مستمعٌ واحدٌ مفوَّضٌ على الشاشة** — وكلُّه يأخذ إشارةَ القطع،
    *    لأن الشاشةَ تُغادَر ويجب أن يموت معها.
    */
   main.addEventListener('click', async (event) => {
+    /*
+     * ⚠️ **أزرارُ الصوت المشتركة تُوجَّه أوّلًا** (بند ٩): هي لا تحمل
+     *    `data-ws` لأنّها ليست فعلًا خاصًّا بالورشة — هي عقدٌ عامٌّ
+     *    يستعمله أيُّ سطحٍ فيه تشغيل.
+     */
+    const sound = event.target.closest('[data-audio-btn]');
+    if (sound) { playItem(sound.dataset.audioBtn); return; }
+
     const btn = event.target.closest('[data-ws]');
     if (!btn) return;
     const act = btn.dataset.ws;
@@ -1929,6 +2163,15 @@ export async function renderWorkspace(main, sceneId) {
         if (state.drawer === 'insp') state.inspector = true;
         applyShell();
         if (state.drawer === 'insp') paintInsp();
+        return undefined;
+      }
+      case 'rail': {
+        state.chrome.rail = state.chrome.rail === 'compact' ? 'full' : 'compact';
+        writeChromePrefs(state.chrome);
+        applyChrome();
+        /* العرضُ الفعليُّ تغيّر — فتُعاد قسمةُ الألواح على ما بقي. */
+        state.panes = effectivePanes($('.ws')?.clientWidth || window.innerWidth);
+        applyShell();
         return undefined;
       }
       case 'zen': {
@@ -1974,8 +2217,13 @@ export async function renderWorkspace(main, sceneId) {
         state.shown.set(id, now + 150);
         return paintNav();
       }
+      case 'nav-more-rows': {
+        state.navBudget += NAV_MAX_ROWS;
+        return paintNav();
+      }
       case 'nav-clear': {
         state.navQuery = '';
+        state.navBudget = NAV_MAX_ROWS;
         paintNav();
         $('[data-ws-nav-find]')?.focus();
         return undefined;
@@ -1996,6 +2244,7 @@ export async function renderWorkspace(main, sceneId) {
       }
 
       case 'open-media': return openMedia(id, btn.dataset.kind);
+      case 'rename-media': return renameMedia(id);
       case 'play': return playItem(id);
       case 'toggle': return audio.state.playing ? audio.pause() : audio.play();
       case 'zoom': return openLightbox(id, state.sceneId);
@@ -2046,6 +2295,8 @@ export async function renderWorkspace(main, sceneId) {
 
     if (t.matches('[data-ws-nav-find]')) {
       state.navQuery = t.value;
+      /* ⚠️ بحثٌ جديدٌ يعني سقفًا جديدًا — وإلّا ورث السقفَ الموسَّع بلا سبب. */
+      state.navBudget = NAV_MAX_ROWS;
       /*
        * ⚠️ **ولا يُعاد بناءُ الشجرة عند كلّ حرف** (بند ١٥): على أربعة
        *    آلاف عقدةٍ كان ذلك مسحًا كاملًا كلَّ ٤٠ مِلّي. فتأخيرٌ قصيرٌ
@@ -2161,6 +2412,8 @@ export async function reloadWorkspace() {
 
 export function disposeWorkspace() {
   document.body.classList.remove('workspace-open');
+  /* ⚠️ القشرةُ تعود كما كانت — الورشةُ استعارت شكلَها ولم تملكه. */
+  document.body.classList.remove('ws-rail-compact', 'ws-fabs-on');
   wires?.abort();
   wires = null;
   stopAudioWatch?.();
@@ -2176,6 +2429,6 @@ export function disposeWorkspace() {
 
 /** ⚠️ للتجربة الميدانيّة والاختبار وحدَهما — لا يُنادى من الواجهة. */
 export const __wsp = {
-  state, selectNode, openMedia, setMode, saveDraft, refresh,
+  state, selectNode, openMedia, setMode, saveDraft, refresh, applyChrome, renameMedia,
   playItem, commitLink, dropLink, revealAndOpen, applyShell,
 };

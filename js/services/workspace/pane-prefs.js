@@ -30,6 +30,43 @@ import { PANE, clampPane } from './workspace-ui.js';
 
 const KEY = 'lingolife.workspace.panes';
 
+/*
+ * ⚠️ **تفضيلاتُ قشرةِ الورشة — نفسُ الحجّة ونفسُ الحدود** (WS-P2 · بند ٤).
+ *    شكلُ الشريط العامّ (مضغوطٌ أم كامل) وظهورُ الأزرار العائمة: كلاهما
+ *    تفضيلٌ بصريٌّ لا يشير إلى سجلٍّ ولا يوجّه فعلًا ولا يمكن أن يكتب.
+ *    فلا مخزنَ IndexedDB ولا سجلَّ تغييرٍ ولا مزامنة — جهازٌ واحدٌ فقط.
+ */
+const CHROME_KEY = 'lingolife.workspace.chrome';
+
+/** الافتراضُ داخل الورشة: شريطٌ مضغوطٌ وأزرارٌ عائمةٌ مخفيّة. */
+const CHROME_DEFAULT = Object.freeze({ rail: 'compact', fabs: false });
+
+export function readChromePrefs() {
+  try {
+    const raw = localStorage.getItem(CHROME_KEY);
+    if (!raw) return { ...CHROME_DEFAULT };
+    const value = JSON.parse(raw);
+    return {
+      rail: value?.rail === 'full' ? 'full' : 'compact',
+      fabs: value?.fabs === true,
+    };
+  } catch {
+    return { ...CHROME_DEFAULT };
+  }
+}
+
+export function writeChromePrefs(next) {
+  try {
+    localStorage.setItem(CHROME_KEY, JSON.stringify({
+      rail: next.rail === 'full' ? 'full' : 'compact',
+      fabs: next.fabs === true,
+    }));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** يقرأ التفضيلَ المحفوظ — وأيُّ فشلٍ يعني «مافيش تفضيل» لا انهيارًا. */
 export function readPanePrefs() {
   try {
