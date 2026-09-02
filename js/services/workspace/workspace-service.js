@@ -143,29 +143,57 @@ export async function workspaceBoard(sceneId) {
   const treeByRoot = new Map();
   for (const root of roots) treeByRoot.set(root.id, buildTree(root.id, [root.title], 0, new Set()));
 
-  const pushTarget = (node, path, depth, rootId) => {
+  const pushTarget = (node, path, depth, rootId, parentId) => {
     targets.push({
       id: node.id,
       title: node.title,
       kind: node.nodeKind || NODE_KIND.CUSTOM,
       depth,
       rootId,
+      /*
+       * ⚠️ **والأبُ يُحسَب هنا مرّةً لا في الشاشة كلَّ لمسة** (بند ١٥ من
+       *    WS-P). كانت الشاشةُ تبني فهرسَ آباءٍ خاصًّا بها بمشيٍ ثانٍ على
+       *    الشجرة نفسِها — مشيتان لنفس البيان، وواحدةٌ منهما تكفي.
+       */
+      parentId,
       hidden: node.hidden === 1,
       hasText: Boolean((node.text || '').trim()),
+      /* ⚠️ طولُ النصّ رقمٌ مشتقٌّ من البيان لا من تصميم (بند ٢٣ من WS-P). */
+      chars: (node.text || '').length,
+      updatedAt: node.updatedAt || node.createdAt || null,
+      createdAt: node.createdAt || null,
       path,
     });
   };
   for (const root of roots) {
-    pushTarget(root, [root.title], 0, root.id);
-    const walk = (rows) => {
+    pushTarget(root, [root.title], 0, root.id, null);
+    const walk = (rows, parentId) => {
       for (const row of rows) {
-        pushTarget(row.node, row.path, row.depth + 1, root.id);
-        walk(row.children);
+        pushTarget(row.node, row.path, row.depth + 1, root.id, parentId);
+        walk(row.children, row.node.id);
       }
     };
-    walk(treeByRoot.get(root.id) || []);
+    walk(treeByRoot.get(root.id) || [], root.id);
   }
   const targetById = new Map(targets.map((row) => [row.id, row]));
+
+  /*
+   * ⚠️ **فهرسُ بحثٍ يُبنى مرّةً عند القراءة** (بنود ١٥ و١٦ من WS-P).
+   *    البحثُ القديم كان يبني `title + text` ويُصغّره **لكلّ عقدةٍ في
+   *    كلّ ضغطةِ مفتاح** — أي مسحٌ كاملٌ للنصّ المخزَّن مرّةً كلَّ ٤٠
+   *    مِلّي ثانية. وعلى أربعة آلاف عقدةٍ ذلك مسحُ ميغابايتاتٍ لأجل
+   *    حرفٍ واحدٍ كتبتَه.
+   *
+   *    والسلسلةُ الجاهزةُ هنا تُبنى مرّةً لكلّ قراءةِ لوحة، فتصير
+   *    الضغطةُ `includes` على سلاسلَ جاهزة.
+   */
+  const haystack = new Map();
+  for (const root of roots) {
+    haystack.set(root.id, `${root.title}\n${root.text || ''}`.toLowerCase());
+  }
+  for (const [id, node] of nodeById) {
+    haystack.set(id, `${node.title}\n${node.text || ''}`.toLowerCase());
+  }
 
   /* ================================================================ *
    * الوسائط — وأين ترتبط **داخل هذه الذكرى**
@@ -254,6 +282,15 @@ export async function workspaceBoard(sceneId) {
     texts: looseTexts,
   };
 
+  /*
+   * ⚠️ **والصفوفُ نفسُها تُعاد لا أعدادُها وحدَها** (بند ١٥ من WS-P).
+   *    كانت `own` تُحسَب هنا بالصفوف الحقيقيّة ثم تُرمى ولا يبقى إلّا
+   *    `.length`. فكانت الشاشةُ تعيد اكتشافَ ما عُلِّق على عقدةٍ بـ
+   *    `board.audio.filter(...)` — مسحٌ على كلّ وسائط الذكرى لكلّ عقدةٍ
+   *    تفتحها. والحسابُ موجودٌ أصلًا، وإخفاؤه هو الهدر.
+   */
+  const ownMedia = own;
+
   return {
     scene: full.scene,
     roots,
@@ -265,6 +302,8 @@ export async function workspaceBoard(sceneId) {
     looseTexts,
     unlinked,
     linkedTo,
+    ownMedia,
+    haystack,
     counts: {
       roots: roots.length,
       nodes: targets.length - roots.length,

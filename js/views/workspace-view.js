@@ -1,57 +1,63 @@
 /**
- * LingoLife — ورشةُ المحتوى الموحَّدة (WS-F · **تجريبيّة**)
+ * LingoLife — ورشةُ المحتوى الموحَّدة (WS-P · إعادةُ بناء التفاعل)
  *
  * ═══════════════════════════════════════════════════════════════
- * ⚠️ **مكتبٌ واحدٌ لا رحلةُ صفحات** (بند ٧)
+ * ⚠️ **العطبُ لم يكن في البيانات — كان في تقسيم الشاشة** (بندا ١ و٣٣)
  * ═══════════════════════════════════════════════════════════════
  *
- * بلاغُك كان دقيقًا: النموذجُ بسيطٌ والتجربةُ تجعله معقّدًا. كنتَ
- * تفتح صفحةً وتتفحّص عنصرًا وترجع وتفتح أخرى وتحاول أن **تتذكّر**
- * ما رأيتَه، ثم تفتح نافذةَ ربطٍ وتبحث عن الهدف. والتذكّرُ هو الضريبة.
+ * الشاشةُ السابقة كانت أربعةَ أعمدةٍ متجاورةٍ لها **نفسُ الوزن البصريّ**:
+ * السكريبتات · الشجرة · المحتوى · المعاينة. وقياسٌ حقيقيٌّ على مقاس
+ * التابلت (١٢٨٠×٨٠٠) قال الحكمَ بلا مجاملة:
  *
- * فالمبدأ هنا: **عايِن قبل ما تربط، وضِيف أيّ حاجة في أيّ وقت، من
- * مكانٍ واحد.**
+ *     .ws-a 168px · .ws-b 252px · .ws-c 265px · .ws-d **340px**
  *
- * ═══════════════════════════════════════════════════════════════
- * ⚠️ **ثلاثةُ أنواعٍ يراها المستعمِل، والباقي تحت الأرض** (بندا ٢ و١١٩)
- * ═══════════════════════════════════════════════════════════════
+ * أي أنّ **المستندَ — وهو سببُ وجود الشاشة كلِّها — كان يأخذ ٢٧٪ من
+ * العرض**، والبنيةُ والأدوات تأخذ ٧٣٪. وهذا ليس نقصَ ذوقٍ بصريّ: هو
+ * متصفّحُ قاعدةِ بياناتٍ لا مساحةُ عمل.
  *
- *   نصّ   = البنية        (وهو `scripts` بكلّ عمقها)
- *   صوت   = مرفَق          (`audio:script`)
- *   صورة  = مرفَق          (`image:script`)
+ * فالمبدأُ الذي تُقاس به كلُّ سطرٍ تحت (بند ٢):
  *
- * ولا تسأل الشاشةُ عن `relationships` ولا `nodeKind` ولا `parentId`.
- * تلك تفاصيلُ تخزينٍ لا تفاصيلُ حياة.
+ *     البنيةُ توصِّلك إلى المحتوى.
+ *     المحتوى هو الشيءُ نفسُه.
+ *     الأدواتُ السياقيّةُ تخدمه **حين تُطلَب**.
  *
- * ═══════════════════════════════════════════════════════════════
- * ⚠️ **والصوتُ لا ينقطع لأنك تقرأ** (بنود ١٥ و٧٥ و١٠٢)
- * ═══════════════════════════════════════════════════════════════
- *
- * هذا هو التدفّقُ الحقيقيّ: تشغّل صوتًا مجهولًا، وتتصفّح النصوصَ وأنت
- * تسمع، حتى تعرف أيُّها هو. فلو أوقفت المعاينةُ الصوتَ لَاستحال
- * التعرّفُ أصلًا.
- *
- * والضمانُ **بنيويّ**: `audio-service` تملك عنصرَ `<audio>` واحدًا
- * ملحقًا بـ`body` خارج الشاشات كلِّها (WS28). وشريطُ «بتسمع دلوقتي»
- * هنا **مشتركٌ يرسم حالتَها** لا مالكٌ لعنصرها — فإعادةُ رسم المعاينة
- * لا تلمس التشغيل، ولا يمكنها ذلك.
- *
- * وبند ٧٦ (صوتٌ واحدٌ فعّال) مضمونٌ للسبب نفسِه: العنصرُ واحد.
+ * فلا تتساوى الثلاثةُ في الوزن أبدًا: مُتصفِّحٌ واحدٌ هرميّ، ومساحةُ
+ * عملٍ مسيطرة، ومُفتِّشٌ يُفتَح ويُغلَق — **وحين يُغلَق يسترجع المستندُ
+ * عرضَه فورًا، ولا يبقى عمودٌ ميّتٌ محجوز** (بند ٦).
  *
  * ═══════════════════════════════════════════════════════════════
- * ⚠️ **ولا تُعاد كتابةُ الشاشة كلِّها عند كلّ لمسة** (بنود ٧٢…٧٤)
+ * ⚠️ **ثلاثةُ أوضاعٍ مسمّاةٍ بدل حالاتٍ ضمنيّة** (بند ٥)
  * ═══════════════════════════════════════════════════════════════
  *
- * لكلّ لوحٍ دالّةُ رسمٍ خاصّةٌ تكتب `innerHTML` **الخاصّ بها**. لمسةٌ
- * على عقدةٍ في الشجرة تعيد رسمَ الشجرة والمعاينة والشريط — ولا تلمس
- * المكتبَ ولا تمريرَه ولا تحديدَه ولا بحثَه.
+ * «تحرير» كان نافذةً منبثقة، و«ربط» كان عنصرًا ممسوكًا في شريطٍ سفليّ.
+ * أي أنّ وضعَك الحاليَّ كان يُستنتَج من وجود نافذةٍ أو امتلاء شريط —
+ * والمُستنتَجُ لا يُعرَض ولا يُحفَظ ولا يُختبَر.
+ *
+ * وهنا: **قراءة · تحرير · ربط**، والتبديلُ بينها لا يفقد شيئًا — لا
+ * التحديدَ ولا التمريرَ ولا المسوّدةَ ولا فروعَ الشجرة المفرودة.
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **وما لم يتغيّر حرفًا — عمدًا** (بندا ٢٢ و٣٥)
+ * ═══════════════════════════════════════════════════════════════
+ *
+ *   • النموذج: `scripts` و`relationships` و`media` كما هي. لا مخزنَ
+ *     جديد، ولا ترقية، ولا نسخةَ سجلٍّ لتسهيل العرض.
+ *   • الصوت: `audio-service` تملك `<audio>` الوحيد خارج الشاشات
+ *     (WS28). هذه الشاشةُ **مشتركةٌ ترسم حالتَها** ولا تملك عنصرًا —
+ *     فإعادةُ الرسم لا تقطع التشغيل، ولا يمكنها ذلك.
+ *   • اللصقُ الذكيّ والمحادثاتُ والوسائطُ والظلُّ: نفسُ الخدمات، نفسُ
+ *     الدوالّ. ما استُخرِج منها استُخرِج إلى `workspace-ui.js` **قبل**
+ *     حذف حاويته البصريّة (بند ٠).
  */
 
-import { html, raw, esc, formatDuration } from '../utils/dom.js';
+import { html, raw, esc, formatDuration, formatBytes } from '../utils/dom.js';
 import { icon } from '../components/icons.js';
 import { showModal, confirmAction } from '../components/modal.js';
 import { toastOk, toastError } from '../components/toast.js';
-import { urlFor, releaseUrls, AUDIO_ROLE_LABEL, addFilesToScene, pickFiles } from '../services/media-service.js';
+import {
+  urlFor, releaseUrls, AUDIO_ROLE_LABEL, addFilesToScene, pickFiles,
+  isCloudOnly, ensureBytes,
+} from '../services/media-service.js';
 import { api as audio, subscribe as subscribeAudio } from '../services/audio-service.js';
 import { openLightbox } from '../components/lightbox.js';
 import {
@@ -60,59 +66,61 @@ import {
   commitPaste, conflictsFor, NODE_KIND_LABEL,
 } from '../services/workspace/workspace-service.js';
 import { conversationModel, looksLikeDialogue } from '../services/workspace/speaker-parser.js';
+import {
+  MODE, MODE_LABEL, TAB, TAB_LABEL, SAVE, SAVE_LABEL,
+  makeDraft, draftChanged, draftCommitted,
+  navRows, ancestorsOf, crumbsOf, mediaOf, linkRowsFor,
+  MEDIA_FILTERS, mediaLibrary, PANE, paneFit,
+} from '../services/workspace/workspace-ui.js';
+import { effectivePanes, writePanePrefs } from '../services/workspace/pane-prefs.js';
 
 /* ================================================================== *
- * الحالة — عابرةٌ عمدًا، ومحفوظةٌ داخل الجلسة (بنود ٧٢…٧٤)
+ * الحالة
  * ================================================================== */
 
+/**
+ * ⚠️ **كلُّها حالةُ جلسةٍ عابرة — ولا سطرَ منها يُحفَظ** (بند ٤٩ من
+ *    WS-F): «أين كنتَ واقفًا» و«ما في يدك» لو عادا بعد يومين أرجعاك
+ *    إلى سياقٍ لم تعُد فيه، وضغطةٌ واحدةٌ حينها تكتب في القاعدة بهدفٍ
+ *    نسيتَه. والاستثناءُ الوحيدُ عرضُ اللوحين — تفضيلٌ بصريٌّ لا يوجّه
+ *    فعلًا (راجع `pane-prefs.js`).
+ */
 const state = {
   sceneId: null,
-  rootId: null,
-  targetId: null,
-  /** ما تعرضه المعاينةُ الآن: نصٌّ أو صوتٌ أو صورة (بند ٤٣). */
-  focus: null,
-  selection: new Set(),
-  filter: 'all',
-  query: '',
-  treeQuery: '',
+  /** المستندُ المفتوح: `{ kind: 'text'|'audio'|'image', id }`. */
+  open: null,
+  mode: MODE.READ,
+  /** مسوّدةُ التحرير — تعيش عبر تبديل الأوضاع (بند ٥). */
+  draft: null,
   expanded: new Set(),
-  previewMode: 'chat',
-  previewQuery: '',
-  /** اللوحُ الظاهر في العرض الضيّق — والعريضُ يعرضها كلَّها (بند ٧١). */
-  pane: 'tree',
-  /** ذاكرةٌ لكلّ سكريبتٍ رئيسيّ: أين كنتَ فيه (بند ٩٤). */
-  perRoot: new Map(),
-
-  /*
-   * ═══════════════════════════════════════════════════════════
-   * ⚠️ **العنصرُ الممسوك** (WS-F2، بند ٣٦) — حالةُ واجهةٍ لا بيان
-   * ═══════════════════════════════════════════════════════════
-   *
-   * معناه: «الحاجة اللي بحاول أعرف مكانها دلوقتي».
-   *
-   * ولا يُحفَظ في القاعدة ولا في الإعدادات أبدًا (حارسٌ نصّيّ يمنعه):
-   * هو عن الدقيقة التي أنت فيها، لا عن ذكرياتك. وحفظُه يعني أن تفتح
-   * الشاشةَ غدًا فتجدها تقول «بتربط voice_18» ولا تذكر لماذا.
-   *
-   * `{ kind: 'audio'|'image'|'text', id }`
-   */
-  workingItem: null,
-
-  /*
-   * ⚠️ **وموضعُ التمرير يُحفَظ من المُمرِّر الحقيقيّ** (بند ٥٧).
-   *    قِيست السلسلةُ في WS-F2: المُمرِّرُ هو `.ws-col` نفسُه — وهو
-   *    **نفسُ العنصر** الذي يُعاد رسمُ داخله. فكلُّ لمسةٍ كانت تعيده
-   *    إلى الصفر. وهذا هو درسُ WS-E حرفيًّا: لا تفترض المُمرِّر، قِسه.
-   */
-  scroll: { roots: 0, tree: 0, desk: 0, preview: 0 },
-
-  /* ⚠️ ولكلّ نمطِ معاينةٍ موضعُه (بند ٢٩) — نصٌّ ومحادثةٌ طولان مختلفان. */
-  previewScroll: { text: 0, chat: 0 },
+  /** كم صفًّا مفرودًا تحت كلّ أبٍ الآن (بند ١٥). */
+  shown: new Map(),
+  navQuery: '',
+  docQuery: '',
+  /** «نصّ» أو «محادثة» — لنصٍّ يبدو حوارًا (بند ٤). */
+  docMode: 'chat',
+  inspector: false,
+  tab: TAB.LINKS,
+  zen: false,
+  /** درجٌ مفتوحٌ في العرض الضيّق: `'nav'` أو `'insp'` أو `null` (بند ٨). */
+  drawer: null,
+  mediaFilter: 'unlinked',
+  mediaQuery: '',
+  /** تحديدُ مُلتقِط الربط — دفعةٌ واحدةٌ تُربَط معًا (بند ١٨). */
+  picked: new Set(),
+  scroll: { nav: 0, doc: 0, insp: 0 },
+  docScroll: { text: 0, chat: 0 },
+  panes: { nav: PANE.NAV_DEFAULT, insp: PANE.INSP_DEFAULT },
+  loading: false,
+  error: null,
+  /** جلبُ بايتات وسيطٍ من Drive — حالةٌ حقيقيّةٌ لا شريطُ زينة (بند ١٤). */
+  fetching: new Set(),
 };
 
 let board = null;
 let wires = null;
 let stopAudioWatch = null;
+let savedTimer = null;
 
 const freshWires = () => { wires?.abort(); wires = new AbortController(); };
 const wired = (extra = {}) => ({ ...extra, signal: wires?.signal });
@@ -125,318 +133,254 @@ const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
  * ================================================================== */
 
 /**
- * ⚠️ **فاصلُ المسار نقطةٌ وسطى لا سهم** — نفسُ درس WS56 حرفيًّا:
- *    `›` محرفٌ ذو اتجاه ينقلب في السياق العربيّ فيُقرأ فاصلة. و`·`
- *    محايدةٌ ثنائيّةُ الاتجاه، تُقرأ كما هي في الاتّجاهين (بند ٨٩).
+ * ⚠️ **فاصلُ المسار نقطةٌ وسطى لا سهم** (بند ٩): `›` محرفٌ ذو اتجاهٍ
+ *    ينقلب في السياق العربيّ فيُقرأ فاصلة. و`·` محايدةٌ ثنائيّةُ
+ *    الاتجاه، تُقرأ كما هي في الاتّجاهين.
  */
 const SEP = ' · ';
-const pathOf = (id) => {
-  const target = board?.targetById.get(id);
-  return target ? target.path.join(SEP) : null;
-};
-
-/**
- * مسارٌ مقصوصٌ من **الوسط** — والطرفان هما ما يفيد (بند ٧).
- *
- * ⚠️ **ولا يُقَصّ الآخِر أبدًا.** «السكريبت أ · … · جزء ٣» تقول لك
- *    الجذرَ والوجهة، أمّا القصُّ من الآخِر فيخفي بالضبط ما تسأل عنه.
- *    والقيمةُ كاملةً تبقى في `title` لقارئ الشاشة وللمسةٍ طويلة.
- */
-const shortPath = (parts, keep = 3) => {
-  if (!parts?.length) return '';
-  if (parts.length <= keep) return parts.join(SEP);
-  return [parts[0], '…', ...parts.slice(-(keep - 1))].join(SEP);
-};
+const pathOf = (id) => board?.targetById.get(id)?.path.join(SEP) || null;
 
 const itemTitle = (item) => {
-  if (item.caption) return item.caption;
-  if (item.kind === 'audio') return AUDIO_ROLE_LABEL[item.role] || 'تسجيل';
+  if (item?.caption) return item.caption;
+  if (item?.kind === 'audio') return AUDIO_ROLE_LABEL[item.role] || 'تسجيل';
   return 'صورة';
 };
 
 const nodeKindLabel = (kind) => NODE_KIND_LABEL[kind] || '';
 
-/** يبرز مواضعَ البحث داخل نصٍّ مهرَّب — بحثٌ محلّيٌّ خفيف (بند ٤٢). */
+/**
+ * سطرُ بياناتٍ مفصولٌ بنقطةٍ محايدة.
+ *
+ * ⚠️ **وسمُ `html` يهرّب كلَّ قيمةٍ وحدَه** — فلا `esc` هنا ولا هناك.
+ *    الفاصلُ وحدَه علامةٌ حرفيّةٌ نكتبها، والقيمُ تمرّ بالوسم.
+ */
+const factsRow = (facts) => facts
+  .map((one) => html`<span>${one}</span>`)
+  .join('<i aria-hidden="true">·</i>');
+
+/** يبرز مواضعَ البحث داخل نصٍّ مهرَّب — بحثٌ محلّيٌّ خفيف. */
 function withMarks(text, query) {
   const safe = esc(text);
-  const needle = query.trim();
+  const needle = (query || '').trim();
   if (!needle) return safe;
   const parts = esc(needle).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   return safe.replace(new RegExp(parts, 'gi'), (hit) => `<mark>${hit}</mark>`);
 }
 
-/* ================================================================== *
- * أ · السكريبتات الرئيسيّة (بنود ٥ و٦ و٦٤)
- * ================================================================== */
+/**
+ * فهرسُ السجلّات الحقيقيّة: المعرّف → السجلّ.
+ *
+ * ⚠️ **يُبنى مرّةً عند القراءة لا عند كلّ لمسة** (بند ١٥). أوّلُ صياغةٍ
+ *    كتبتُها كانت تمشي الشجرةَ كلَّها في كلّ مرّةٍ تسأل «فين العقدة
+ *    دي؟» — ورسمُ صفحةٍ واحدةٍ يسأل ذلك عشراتِ المرّات. على أربعة آلاف
+ *    عقدةٍ يصير الرسمُ الواحدُ مئاتِ الآلاف من الخطوات، وهو بالضبط
+ *    O(n²) الذي يمنعه البند.
+ */
+let recordIndex = new Map();
 
-function rootsHtml() {
-  return html`
-    <div class="ws-pane-head">
-      <h3>السكريبتات</h3>
-      <button type="button" class="ws-mini" data-ws="new-root" title="سكريبت رئيسي جديد">+</button>
-    </div>
-    <ul class="ws-roots">
-      ${raw(board.roots.map((row) => {
-        const target = board.targetById.get(row.id);
-        return html`
-        <li>
-          <button type="button" class="ws-root ${row.id === state.rootId ? 'on' : ''}"
-                  data-ws="root" data-id="${row.id}">
-            <span class="ws-root-t" dir="auto">${row.title}</span>
-            <span class="ws-root-n">${target ? target.sub.audio + target.own.audio : 0}🎙
-              ${target ? target.sub.images + target.own.images : 0}🖼</span>
-          </button>
-        </li>`;
-      }).join(''))}
-    </ul>`;
+function buildIndex() {
+  const index = new Map();
+  if (!board) { recordIndex = index; return; }
+  for (const row of board.roots) index.set(row.id, row);
+  const walk = (rows) => {
+    for (const row of rows) { index.set(row.node.id, row.node); walk(row.children); }
+  };
+  for (const list of board.treeByRoot.values()) walk(list);
+  for (const row of board.audio) index.set(row.id, row);
+  for (const row of board.images) index.set(row.id, row);
+  recordIndex = index;
+}
+
+/* ⚠️ الوسائطُ وحدَها لها `kind`؛ والسكريبتاتُ لها `nodeKind`. فلا يلتبسان. */
+const nodeById = (id) => {
+  const row = id ? recordIndex.get(id) : null;
+  return row && row.kind !== 'audio' && row.kind !== 'image' ? row : null;
+};
+
+const mediaById = (id) => {
+  const row = id ? recordIndex.get(id) : null;
+  return row && (row.kind === 'audio' || row.kind === 'image') ? row : null;
+};
+
+/** العنصرُ المفتوحُ أيًّا كان نوعُه — أو `null` إن اختفى من القاعدة. */
+function openRecord() {
+  if (!state.open) return null;
+  return state.open.kind === 'text' ? nodeById(state.open.id) : mediaById(state.open.id);
 }
 
 /* ================================================================== *
- * ب · شجرةُ النصّ (بنود ٩ و١٠ و٥٤ و٥٥ و٥٦)
+ * أ · المُتصفِّح الهرميّ الواحد (بند ٣)
  * ================================================================== */
-
-/** هل تطابق العقدةُ أو أحدُ أحفادها بحثَ الشجرة؟ */
-function treeHit(row, needle) {
-  if (!needle) return true;
-  const hay = `${row.node.title}\n${row.node.text || ''}`.toLowerCase();
-  if (hay.includes(needle)) return true;
-  return row.children.some((child) => treeHit(child, needle));
-}
-
-function treeRows(rows, needle, out = []) {
-  for (const row of rows) {
-    if (!treeHit(row, needle)) continue;
-    const target = board.targetById.get(row.node.id);
-    const open = state.expanded.has(row.node.id) || Boolean(needle);
-    out.push({ row, target, open });
-    if (open) treeRows(row.children, needle, out);
-  }
-  return out;
-}
-
-function treeHtml() {
-  const root = board.roots.find((one) => one.id === state.rootId);
-  if (!root) return '<p class="ws-empty">اختار سكريبت رئيسي</p>';
-
-  const needle = state.treeQuery.trim().toLowerCase();
-  const rows = treeRows(board.treeByRoot.get(root.id) || [], needle);
-  const rootTarget = board.targetById.get(root.id);
-
-  const line = (node, target, depth, open, kids) => html`
-    <li class="ws-node ${node.id === state.targetId ? 'is-target' : ''}
-               ${node.hidden === 1 ? 'is-hidden' : ''}" style="--ws-d:${depth}">
-      <button type="button" class="ws-twist ${kids ? '' : 'is-leaf'}"
-              data-ws="twist" data-id="${node.id}"
-              aria-label="${open ? 'اطوِ' : 'افرد'}">${kids ? (open ? '▾' : '▸') : '·'}</button>
-      <button type="button" class="ws-node-btn" data-ws="node" data-id="${node.id}">
-        <span class="ws-node-t" dir="auto">${node.title}</span>
-        <span class="ws-node-meta">
-          ${raw(nodeKindLabel(node.nodeKind) ? html`<i>${nodeKindLabel(node.nodeKind)}</i>` : '')}
-          ${raw(target?.own.audio ? `<b>🎙${target.own.audio}</b>` : '')}
-          ${raw(target?.own.images ? `<b>🖼${target.own.images}</b>` : '')}
-          <!--
-            ⚠️ **العدُّ المباشرُ والعدُّ التراكميّ لا يُخلَطان** (بند ٥٤).
-               «🎙٢» ما عُلِّق على العقدة نفسِها، و«+٧ تحتها» ما في
-               أبنائها. ورقمٌ واحدٌ يجمعهما لا يقول أيَّهما — فتفتح
-               المرحلةَ تبحث عن تسعةٍ فلا تجد إلّا اثنين.
-          -->
-          ${raw(target && (target.sub.audio || target.sub.images)
-            ? `<em>+${target.sub.audio + target.sub.images} تحتها</em>` : '')}
-        </span>
-      </button>
-      <button type="button" class="ws-node-more" data-ws="node-menu" data-id="${node.id}"
-              aria-label="خيارات">⋯</button>
-    </li>`;
-
-  return html`
-    <div class="ws-pane-head">
-      <h3 dir="auto">${root.title}</h3>
-      <button type="button" class="ws-mini" data-ws="add-text-here" title="نصّ جوّه المحدَّد">+ نصّ</button>
-    </div>
-    <input class="ws-find" data-ws-tree-find type="search" dir="auto"
-           placeholder="دوّر في العناوين والنصّ…" value="${state.treeQuery}">
-    <ul class="ws-tree">
-      ${raw(line(root, rootTarget, 0, true, rows.length))}
-      ${raw(rows.map(({ row, target, open }) => line(
-        row.node, target, row.depth + 1, open, row.children.length
-      )).join(''))}
-    </ul>
-    ${raw(rows.length ? ''
-      : (needle ? html`<p class="ws-empty">مفيش نتيجة لـ «${needle}»</p>`
-        : html`<div class="ws-empty">
-            <p>السكريبت ده مفيهوش تقسيمات داخلية لسه</p>
-            <button type="button" class="ws-mini" data-ws="add-text-here">+ أضف جزء</button>
-          </div>`))}`;
-}
-
-/* ================================================================== *
- * ج · مكتبُ المحتوى (بنود ١٩…٢٢ و٨٧)
- * ================================================================== */
-
-const FILTERS = [
-  { id: 'all', label: 'الكل' },
-  { id: 'unlinked', label: 'غير مربوط' },
-  { id: 'text', label: 'نصوص' },
-  { id: 'audio', label: 'أصوات' },
-  { id: 'image', label: 'صور' },
-];
-
-function deskItems() {
-  const needle = state.query.trim().toLowerCase();
-  const match = (title) => !needle || title.toLowerCase().includes(needle);
-
-  const texts = board.looseTexts
-    .filter((row) => match(`${row.title} ${row.text || ''}`))
-    .map((row) => ({ kind: 'text', row }));
-  const audios = board.audio
-    .filter((row) => match(itemTitle(row)))
-    .map((row) => ({ kind: 'audio', row }));
-  const images = board.images
-    .filter((row) => match(itemTitle(row)))
-    .map((row) => ({ kind: 'image', row }));
-
-  const all = [...texts, ...audios, ...images];
-  if (state.filter === 'text') return texts;
-  if (state.filter === 'audio') return audios;
-  if (state.filter === 'image') return images;
-  /*
-   * ⚠️ **«غير مربوط» ليس تحذيرًا** (بند ٢١): هو الكومةُ التي لسّه
-   *    ما رتّبتهاش، وهي أنفعُ حالةٍ في الشاشة كلِّها — فلا تُدفَن
-   *    خلف قائمةٍ ولا تُلوَّن بالأحمر.
-   */
-  if (state.filter === 'unlinked') {
-    return all.filter((one) => one.kind === 'text' || !board.linkedTo.has(one.row.id));
-  }
-  return all;
-}
-
-function cardHtml(entry) {
-  const { kind, row } = entry;
-  const picked = state.selection.has(row.id);
-  const focused = state.focus?.id === row.id;
-  const at = kind === 'text' ? [] : (board.linkedTo.get(row.id) || []);
-  const where = at.length ? pathOf(at[0]) : null;
-  const more = at.length - 1;
-  const holding = state.workingItem?.id === row.id;
-
-  const face = kind === 'image'
-    ? html`<img src="${urlFor(row, { thumb: true })}" alt="" loading="lazy" decoding="async">`
-    : (kind === 'audio'
-      ? html`<span class="ws-face is-audio">${raw(icon('mic', 18))}</span>`
-      : html`<span class="ws-face is-text">${raw(icon('script', 18))}</span>`);
-
-  const title = kind === 'text' ? row.title : itemTitle(row);
-  const sub = kind === 'audio'
-    ? (row.durationMs ? formatDuration(row.durationMs) : 'صوت')
-    : (kind === 'text' ? `${(row.text || '').length} حرف` : 'صورة');
-
-  return html`
-    <li class="ws-card ${picked ? 'is-picked' : ''} ${focused ? 'is-focus' : ''}
-               ${holding ? 'is-holding' : ''}"
-        data-ws-card="${row.id}" data-kind="${kind}">
-      <button type="button" class="ws-card-face" data-ws="focus"
-              data-id="${row.id}" data-kind="${kind === 'text' ? 'loose' : kind}"
-              aria-label="عايِن ${title}">${raw(face)}</button>
-      <div class="ws-card-body">
-        <button type="button" class="ws-card-t" data-ws="focus"
-                data-id="${row.id}" data-kind="${kind === 'text' ? 'loose' : kind}"
-                dir="auto">${title}</button>
-        <span class="ws-card-sub">${sub}</span>
-        <!--
-          ⚠️ **وأين هو مكتوبٌ على البطاقة** (بند ٨٤): ألّا تعرف مكانَ
-             شيءٍ إلّا بفتح تفاصيله هو نفسُه التعبُ الذي جئنا نزيله.
-        -->
-        <!--
-          ⚠️ **و«مربوط» غير «بتبصّ عليه دلوقتي»** (بند ٥٤): الأولى
-             علامةٌ ثابتةٌ (✓) والثانيةُ إطارُ تركيز. وشكلان لا لونان،
-             لأن اللونَ وحدَه لا يكفي.
-        -->
-        ${raw(at.length
-          ? html`<span class="ws-card-at" title="${at.map((one) => pathOf(one)).join(' | ')}">
-              ✓ ${where}${more > 0 ? ` +${more}` : ''}</span>`
-          : (kind === 'text' ? '<span class="ws-card-at is-loose">نصّ سايب</span>'
-            : '<span class="ws-card-at is-loose">غير مربوط</span>'))}
-      </div>
-      <div class="ws-card-acts">
-        ${raw(kind === 'audio' ? html`
-          <button type="button" class="ws-play" data-ws="play" data-id="${row.id}"
-                  aria-label="شغّل">${raw(icon('play', 16))}</button>` : '')}
-        ${raw(kind === 'text' ? '' : html`
-          <button type="button" class="ws-pick ${picked ? 'on' : ''}" data-ws="pick"
-                  data-id="${row.id}" role="checkbox" aria-checked="${picked ? 'true' : 'false'}"
-                  aria-label="اختار">${picked ? '✓' : ''}</button>`)}
-      </div>
-    </li>`;
-}
 
 /**
- * ⚠️ **الفراغُ يقول ما تعمله لا ما ينقص** (بند ٥٢). «مفيش حاجة هنا»
- *    جملةٌ ميّتة؛ و«مفيش أصوات لسّه · [+ أضف صوت]» بابٌ.
+ * زرُّ الإنشاء السياقيّ — **اسمُه يقول نطاقَه** (بندا ٣ و١٧).
+ *
+ * ⚠️ **ولا ثلاثةُ أزرارٍ اسمُها «+ أضف» بنطاقاتٍ مختلفة.** الشاشةُ
+ *    القديمة كان فيها `add` و`add-kind` و`add-text-here` و`new-root` —
+ *    أربعةُ أزرارٍ متشابهةٍ لا يقول أيٌّ منها **أين** سيقع ما تضيفه.
  */
-function emptyDeskHtml() {
-  const say = {
-    audio: ['مفيش أصوات هنا لسه', 'audio', '+ أضف صوت'],
-    image: ['مفيش صور هنا لسه', 'image', '+ أضف صورة'],
-    text: ['مفيش نصوص سايبة', 'text', '+ أضف نصّ'],
-    unlinked: ['كل العناصر الحالية مربوطة', null, ''],
-    all: ['المكتب فاضي', 'audio', '+ أضف'],
-  }[state.filter] || ['المكتب فاضي', null, ''];
+function addScopeLabel() {
+  const at = state.open?.kind === 'text' ? board.targetById.get(state.open.id) : null;
+  if (!at) return { label: '+ إضافة سكريبت', where: null };
+  if (at.depth === 0) return { label: '+ إضافة جزء', where: at };
+  return { label: '+ إضافة محتوى', where: at };
+}
 
-  const [line, kind, label] = say;
-  if (state.query.trim()) {
-    return html`<p class="ws-empty">مفيش نتيجة لـ «${state.query.trim()}»</p>`;
-  }
+function navHeadHtml() {
+  const add = addScopeLabel();
   return html`
-    <div class="ws-empty">
-      <p>${line}</p>
-      ${raw(kind ? html`<button type="button" class="ws-mini"
-              data-ws="add-kind" data-kind="${kind}">${label}</button>` : '')}
+    <div class="ws-nav-head">
+      <div class="ws-nav-search">
+        ${raw(icon('search', 16))}
+        <input class="ws-input" data-ws-nav-find type="search" dir="auto"
+               aria-label="دوّر في السكريبتات والنصّ"
+               placeholder="دوّر في العناوين والنصّ…" value="${state.navQuery}">
+        ${raw(state.navQuery ? html`
+          <button type="button" class="ws-clear" data-ws="nav-clear"
+                  aria-label="امسح البحث">${raw(icon('close', 14))}</button>` : '')}
+      </div>
+      <button type="button" class="ws-btn ws-btn-soft ws-nav-add" data-ws="add"
+              title="${add.where ? `جوّه: ${add.where.path.join(SEP)}` : 'سكريبت رئيسي جديد'}">
+        ${add.label}
+      </button>
     </div>`;
 }
 
-function deskHtml() {
-  const items = deskItems();
-  const counts = {
-    unlinked: board.counts.unlinked,
-  };
+function navRowHtml(row) {
+  if (row.type === 'group') {
+    return html`
+      <li class="ws-nav-group" role="presentation">
+        <span>${row.label}</span>
+        <span class="ws-nav-group-n">${row.count}</span>
+        ${raw(row.key === 'scripts' ? html`
+          <button type="button" class="ws-icon-btn" data-ws="new-root"
+                  aria-label="سكريبت رئيسي جديد">${raw(icon('plus', 15))}</button>` : '')}
+      </li>`;
+  }
+
+  if (row.type === 'limit') {
+    /*
+     * ⚠️ **والمخفيُّ يُعلَن بعدده لا يُحذَف صامتًا** (بندا ١٥ و٢٣):
+     *    «٤٠٠ من ٢١١٠» تقول لك أنّ بحثَك واسعٌ وأنّ ما تراه جزء —
+     *    و«٤٠٠ نتيجة» وحدَها كذبةٌ بالحذف.
+     */
+    return html`
+      <li class="ws-nav-limit" role="status">
+        بيتعرض ${row.shown} من ${row.shown + row.hidden} — ضيّق البحث عشان تشوف الباقي
+      </li>`;
+  }
+
+  if (row.type === 'more') {
+    /*
+     * ⚠️ **والعددُ الباقي حقيقيٌّ لا «المزيد»** (بند ٢٣): «+ ٣٨٤٠ كمان»
+     *    تقول لك حجمَ ما تحت إصبعك؛ و«المزيد» لا تقول شيئًا.
+     */
+    return html`
+      <li class="ws-nav-more" style="--ws-d:${row.depth}">
+        <button type="button" data-ws="nav-more" data-id="${row.parentId}">
+          + ${row.remaining} كمان (من ${row.total})
+        </button>
+      </li>`;
+  }
+
+  const on = state.open?.kind === 'text' && state.open.id === row.id;
+  const t = row.target;
+  const media = t ? t.own.audio + t.own.images : 0;
+  const under = t ? t.sub.audio + t.sub.images : 0;
 
   return html`
-    <div class="ws-pane-head">
-      <h3>المحتوى</h3>
-      <button type="button" class="ws-mini" data-ws="add">+ أضف</button>
-    </div>
-    <div class="ws-filters" role="tablist">
-      ${raw(FILTERS.map((one) => html`
-        <button type="button" class="ws-filter ${state.filter === one.id ? 'on' : ''}"
-                data-ws="filter" data-v="${one.id}" role="tab"
-                aria-selected="${state.filter === one.id ? 'true' : 'false'}">
-          ${one.label}${one.id === 'unlinked' && counts.unlinked ? ` (${counts.unlinked})` : ''}
-        </button>`).join(''))}
-    </div>
-    <input class="ws-find" data-ws-desk-find type="search" dir="auto"
-           placeholder="دوّر بالاسم…" value="${state.query}">
-    <ul class="ws-cards">${raw(items.map(cardHtml).join(''))}</ul>
-    ${raw(items.length ? '' : emptyDeskHtml())}`;
+    <li class="ws-nav-row ${on ? 'is-on' : ''} ${row.hidden ? 'is-hidden' : ''}
+               ${row.hit ? 'is-hit' : ''}"
+        style="--ws-d:${row.depth}" role="none">
+      <button type="button" class="ws-twist ${row.hasKids ? '' : 'is-leaf'}"
+              data-ws="twist" data-id="${row.id}" tabindex="-1"
+              aria-hidden="${row.hasKids ? 'false' : 'true'}"
+              aria-label="${row.open ? 'اطوِ' : 'افرد'}">${row.hasKids ? (row.open ? '▾' : '▸') : ''}</button>
+      <button type="button" class="ws-nav-item" data-ws="nav-node" data-id="${row.id}"
+              title="${row.title}"
+              role="treeitem" aria-level="${row.depth + 1}" aria-selected="${on ? 'true' : 'false'}"
+              ${row.hasKids ? `aria-expanded="${row.open ? 'true' : 'false'}"` : ''}>
+        <span class="ws-nav-face" aria-hidden="true">${raw(icon(row.root ? 'book' : 'script', 15))}</span>
+        <span class="ws-nav-t" dir="auto">${row.title}</span>
+        <span class="ws-nav-meta">
+          <!--
+            ⚠️ **ولا كلمةُ «جزء» بجوار أيقونة الجزء** (بند ١٠): إشارتان
+               تقولان الشيءَ نفسَه، والثمنُ مقيس — على مُتصفِّحٍ عرضُه
+               ٢٨٠px كانت «PART 1 — المفردات الأساسية» تُقَصّ إلى
+               «PART 1 — ...ساسية». والنوعُ مكتوبٌ كاملًا في رأس المستند
+               وفي «الخصائص»، فمكانُه هناك لا هنا.
+          -->
+          <!--
+            ⚠️ **العدُّ المباشرُ والتراكميُّ لا يُخلَطان** (بند ٢٣): «٢ عليها»
+               ما عُلِّق على العقدة نفسِها، و«+٧ تحتها» ما في أبنائها.
+               ورقمٌ واحدٌ يجمعهما لا يقول أيَّهما.
+          -->
+          ${raw(media ? html`<b title="مربوط بالعقدة دي">${media}</b>` : '')}
+          ${raw(under ? html`<em title="مربوط بما تحتها">+${under}</em>` : '')}
+          ${raw(row.hidden ? '<u>مخفيّة</u>' : '')}
+        </span>
+      </button>
+      <button type="button" class="ws-icon-btn ws-nav-more-btn" data-ws="node-menu"
+              data-id="${row.id}" aria-label="خيارات ${row.title}">⋯</button>
+    </li>`;
+}
+
+function navHtml() {
+  if (state.error) {
+    return html`
+      ${raw(navHeadHtml())}
+      <div class="ws-fail">
+        <p>مقدرتش أقرا محتوى الذكرى.</p>
+        <p class="ws-fail-why" dir="auto">${state.error}</p>
+        <button type="button" class="ws-btn" data-ws="retry-load">حاوِل تاني</button>
+      </div>`;
+  }
+  if (state.loading && !board) {
+    return html`<div class="ws-load" role="status">
+      <span class="ws-spin" aria-hidden="true"></span> بيحمّل المحتوى…</div>`;
+  }
+
+  const { rows, hits } = navRows(board, {
+    expanded: state.expanded, query: state.navQuery, shown: state.shown,
+  });
+
+  const empty = state.navQuery
+    ? html`<div class="ws-empty">
+        <p>مفيش نتيجة لـ «${state.navQuery.trim()}»</p>
+        <button type="button" class="ws-btn ws-btn-soft" data-ws="nav-clear">امسح البحث</button>
+      </div>`
+    : html`<div class="ws-empty">
+        <p>الذكرى دي لسّه مفيهاش سكريبتات</p>
+        <button type="button" class="ws-btn" data-ws="new-root">+ إضافة سكريبت</button>
+      </div>`;
+
+  return html`
+    ${raw(navHeadHtml())}
+    ${raw(state.navQuery
+      ? html`<p class="ws-nav-hits" role="status">${hits} نتيجة</p>` : '')}
+    <ul class="ws-nav-list" role="tree" aria-label="سكريبتات الذكرى">
+      ${raw(rows.map(navRowHtml).join(''))}
+    </ul>
+    ${raw(rows.some((row) => row.type === 'item') ? '' : empty)}`;
 }
 
 /* ================================================================== *
- * د · المعاينة الذكيّة (بنود ١٢…١٨ و٣٧…٤٣)
+ * ب · مساحةُ العمل — المستند (بند ٤)
  * ================================================================== */
 
 /**
- * يرسم نصًّا محادثةً — **بلا مساسٍ بالمخزَّن** (بند ٤١).
+ * يرسم نصًّا محادثةً — **بلا مساسٍ بالمخزَّن** (بند ٢٢).
  *
- * ⚠️ **والدَّورُ يبقى كتلةً واحدةً مهما تعدّدت فقراتُه** (بند ٣٩).
- *    قطعُ كلِّ سطرٍ فقاعةً يحوّل شرحًا متّصلًا إلى رشقاتٍ لا تُقرأ.
+ * ⚠️ **والدَّورُ يبقى كتلةً واحدةً مهما تعدّدت فقراتُه.** قطعُ كلِّ سطرٍ
+ *    فقاعةً يحوّل شرحًا متّصلًا إلى رشقاتٍ لا تُقرأ.
  */
 function chatHtml(text) {
   /*
-   * ⚠️ **تحليلٌ واحدٌ لا واحدٌ لكلّ دور** (بند ٦٠): `conversationModel`
-   *    تُنادى مرّةً هنا، والرسمُ من ناتجها. ومئةُ دورٍ لا تعني مئةَ
-   *    تحليل.
+   * ⚠️ **تحليلٌ واحدٌ لا واحدٌ لكلّ دور**: `conversationModel` تُنادى
+   *    مرّةً هنا، والرسمُ من ناتجها. ومئةُ دورٍ لا تعني مئةَ تحليل.
    */
   const turns = conversationModel(text);
-  const q = state.previewQuery;
+  const q = state.docQuery;
 
   return html`
     <div class="ws-chat">
@@ -447,21 +391,15 @@ function chatHtml(text) {
               <p dir="${para.dir}">${raw(withMarks(para.text, q))}</p>`).join(''))}
           </div>`;
         }
-        /*
-         * ⚠️ **تبادلُ الجهة لا فقاعاتُ دردشة** (بندا ٢٢ و٢٦). هذه
-         *    نصوصٌ تعليميّةٌ قد يطول الدَّورُ فيها صفحة، فالمطلوبُ عرضُ
-         *    قراءةٍ مريح: عرضٌ أقصى معقول، وتباعدُ أسطرٍ للقراءة، وحدٌّ
-         *    جانبيٌّ يقول من المتكلّم — لا حشوٌ ضخمٌ ولا خطٌّ صغير.
-         */
         return html`
           <div class="ws-turn" data-sp="${turn.speaker}"
                data-side="${Number(turn.speaker) % 2 === 0 ? 'b' : 'a'}">
             <span class="ws-turn-who">المتحدث ${turn.speaker}</span>
             <div class="ws-turn-body">
               <!--
-                ⚠️ **اتّجاهٌ لكلّ فقرة** (بند ٢٤): فقرةٌ روسيّةٌ وأخرى
-                   عربيّةٌ في نفس الدَّور، وفرضُ اتّجاهٍ واحدٍ يقذف
-                   النقطةَ إلى أوّل السطر.
+                ⚠️ **اتّجاهٌ لكلّ فقرة** (بند ٩): فقرةٌ روسيّةٌ وأخرى عربيّةٌ
+                   في نفس الدَّور، وفرضُ اتّجاهٍ واحدٍ يقذف النقطةَ إلى أوّل
+                   السطر. ولا تُفرَض محاذاةٌ عربيّةٌ على فقرةٍ روسيّة.
               -->
               ${raw(turn.paragraphs.map((para) => html`
                 <p dir="${para.dir}" lang="${para.dir === 'ltr' ? 'ru' : 'ar'}"
@@ -472,176 +410,478 @@ function chatHtml(text) {
     </div>`;
 }
 
-function textPreview(node) {
+/** حالةُ الحفظ — شارةٌ هادئةٌ دائمةٌ جنبَ العنوان (بند ١٣). */
+function saveBadgeHtml() {
+  const d = state.draft;
+  if (!d || state.open?.kind !== 'text' || d.id !== state.open.id) return '';
+  const status = d.status === SAVE.CLEAN && draftChanged(d) ? SAVE.DIRTY : d.status;
+  return html`
+    <span class="ws-save is-${status}" data-ws-save role="status" aria-live="polite">
+      ${raw(status === SAVE.SAVING ? '<span class="ws-spin" aria-hidden="true"></span> ' : '')}
+      ${SAVE_LABEL[status]}
+    </span>`;
+}
+
+function crumbHtml() {
+  if (state.open?.kind !== 'text') {
+    const item = openRecord();
+    return html`<nav class="ws-crumbs" aria-label="المسار">
+      <button type="button" class="ws-crumb" data-ws="tab-media">الوسائط</button>
+      <span class="ws-crumb-sep" aria-hidden="true">·</span>
+      <span class="ws-crumb is-now" dir="auto">${item ? itemTitle(item) : '—'}</span>
+    </nav>`;
+  }
+
+  const crumbs = crumbsOf(board, state.open.id);
+  return html`
+    <nav class="ws-crumbs" aria-label="المسار">
+      ${raw(crumbs.map((one, i) => html`
+        ${raw(i ? '<span class="ws-crumb-sep" aria-hidden="true">·</span>' : '')}
+        ${raw(one.current
+          ? html`<span class="ws-crumb is-now" dir="auto">${one.title}</span>`
+          : html`<button type="button" class="ws-crumb" data-ws="nav-node"
+                         data-id="${one.id}" dir="auto">${one.title}</button>`)}`).join(''))}
+    </nav>`;
+}
+
+function modeSwitchHtml() {
+  const kinds = state.open?.kind === 'text'
+    ? [MODE.READ, MODE.EDIT, MODE.LINK]
+    : [MODE.READ, MODE.LINK];
+  return html`
+    <div class="ws-modes" role="tablist" aria-label="وضع الشغل">
+      ${raw(kinds.map((one) => html`
+        <button type="button" class="ws-mode ${state.mode === one ? 'is-on' : ''}"
+                role="tab" aria-selected="${state.mode === one ? 'true' : 'false'}"
+                data-ws="mode" data-v="${one}">${MODE_LABEL[one]}</button>`).join(''))}
+    </div>`;
+}
+
+function docHeadHtml() {
+  if (!state.open) return '';
+  const record = openRecord();
+  if (!record) {
+    return html`<div class="ws-doc-head">
+      <div class="ws-doc-title"><h2>العنصر ده مابقاش موجود</h2></div>
+    </div>`;
+  }
+
+  const isText = state.open.kind === 'text';
+  const target = isText ? board.targetById.get(state.open.id) : null;
+  const title = isText ? record.title : itemTitle(record);
+
+  const facts = [];
+  if (isText && target) {
+    if (nodeKindLabel(target.kind)) facts.push(nodeKindLabel(target.kind));
+    facts.push(`${target.chars} حرف`);
+    if (target.children) facts.push(`${target.children} تحتها`);
+    if (target.own.audio) facts.push(`${target.own.audio} صوت`);
+    if (target.own.images) facts.push(`${target.own.images} صورة`);
+    if (target.hidden) facts.push('مخفيّة');
+  } else if (record.kind === 'audio') {
+    facts.push(record.durationMs ? formatDuration(record.durationMs) : 'مدّة مش معروفة');
+    facts.push(AUDIO_ROLE_LABEL[record.role] || 'مش متصنّف');
+    if (record.bytes) facts.push(formatBytes(record.bytes));
+    if (isCloudOnly(record)) facts.push('على Drive بس');
+  } else {
+    if (record.bytes) facts.push(formatBytes(record.bytes));
+    if (isCloudOnly(record)) facts.push('على Drive بس');
+  }
+
+  return html`
+    <div class="ws-doc-head">
+      ${raw(crumbHtml())}
+      <div class="ws-doc-title">
+        <h2 dir="auto">${title}</h2>
+        ${raw(saveBadgeHtml())}
+      </div>
+      <div class="ws-doc-facts">
+        ${raw(factsRow(facts))}
+      </div>
+      <div class="ws-doc-bar">
+        ${raw(modeSwitchHtml())}
+        <div class="ws-doc-acts">
+          ${raw(state.mode === MODE.EDIT ? html`
+            <button type="button" class="ws-btn ws-btn-primary" data-ws="save">احفظ</button>` : '')}
+          ${raw(isText && state.mode !== MODE.EDIT ? html`
+            <button type="button" class="ws-btn ws-btn-soft" data-ws="shadow"
+                    data-id="${state.open.id}">تدرّب</button>` : '')}
+          ${raw(!isText && record.kind === 'image' ? html`
+            <button type="button" class="ws-btn ws-btn-soft" data-ws="zoom"
+                    data-id="${record.id}">كبّر</button>` : '')}
+          <button type="button" class="ws-btn ws-btn-soft ws-insp-toggle" data-ws="insp"
+                  aria-expanded="${state.inspector ? 'true' : 'false'}"
+                  aria-controls="ws-inspector">
+            ${raw(icon('link', 15))} <span>المُفتِّش</span>
+          </button>
+        </div>
+      </div>
+    </div>`;
+}
+
+/** سطحُ المستند: نصٌّ · محادثةٌ · محرّرٌ · صوتٌ · صورة (بند ٤). */
+function docBodyHtml() {
+  if (state.error) {
+    return html`<div class="ws-fail" role="alert">
+      <p>مقدرتش أفتح المحتوى.</p>
+      <p class="ws-fail-why" dir="auto">${state.error}</p>
+      <button type="button" class="ws-btn" data-ws="retry-load">حاوِل تاني</button>
+    </div>`;
+  }
+  if (state.loading && !board) {
+    return html`<div class="ws-load" role="status">
+      <span class="ws-spin" aria-hidden="true"></span> بيحمّل…</div>`;
+  }
+  if (!state.open) {
+    return html`<div class="ws-empty ws-empty-doc">
+      <p>اختار سكريبت أو جزء من الشمال عشان تشتغل عليه.</p>
+    </div>`;
+  }
+
+  const record = openRecord();
+  if (!record) {
+    /*
+     * ⚠️ **وعقدةٌ اختفت ومعك فيها مسوّدةٌ لا يجوز أن تبتلع كلامَك**
+     *    (بندا ١٣ و٢٦): الحذفُ قد يأتي من جهازٍ آخر أثناء كتابتك.
+     *    فيُقال ما حدث، ويبقى ما كتبتَه **معروضًا وقابلًا للنسخ** —
+     *    لا يُمحى بصمتٍ مع السجلّ الذي ذهب.
+     */
+    const lost = state.draft && draftChanged(state.draft) ? state.draft : null;
+    return html`
+      <div class="ws-fail" role="alert">
+        <p>العنصر اللي كان مفتوح مابقاش موجود — يمكن اتشال أو اتنقل.</p>
+        ${raw(lost ? html`
+          <p class="ws-fail-why">اللي كتبتَه لسّه هنا — انسخه قبل ما تسيب الصفحة.</p>
+          <textarea class="ws-area" readonly dir="auto">${lost.text}</textarea>` : '')}
+      </div>`;
+  }
+
+  if (state.open.kind === 'audio') return audioDocHtml(record);
+  if (state.open.kind === 'image') return imageDocHtml(record);
+  if (state.mode === MODE.EDIT) return editorHtml(record);
+  return textDocHtml(record);
+}
+
+function textDocHtml(node) {
   const text = node.text || '';
   const dialogue = looksLikeDialogue(text);
-  const mode = dialogue && state.previewMode === 'chat' ? 'chat' : 'text';
-  const target = board.targetById.get(node.id);
+  const mode = dialogue && state.docMode === 'chat' ? 'chat' : 'text';
+
+  if (!text.trim()) {
+    return html`
+      <div class="ws-empty ws-empty-doc">
+        <p>العقدة دي لسّه مفيهاش نصّ.</p>
+        <button type="button" class="ws-btn" data-ws="mode" data-v="${MODE.EDIT}">اكتب فيها</button>
+      </div>`;
+  }
 
   return html`
-    <div class="ws-prev-head">
-      <div class="ws-crumb" dir="auto">${target ? target.path.join(SEP) : node.title}</div>
-      <div class="ws-prev-acts">
-        ${raw(dialogue ? html`
-          <span class="ws-seg">
-            <button type="button" class="${mode === 'text' ? 'on' : ''}"
-                    data-ws="pmode" data-v="text">نصّ</button>
-            <button type="button" class="${mode === 'chat' ? 'on' : ''}"
-                    data-ws="pmode" data-v="chat">محادثة</button>
-          </span>` : '')}
-        <button type="button" class="ws-mini" data-ws="edit-text" data-id="${node.id}">تحرير</button>
-        <button type="button" class="ws-mini" data-ws="shadow" data-id="${node.id}">تدرّب</button>
+    <div class="ws-doc-tools">
+      ${raw(dialogue ? html`
+        <div class="ws-seg" role="tablist" aria-label="شكل العرض">
+          <button type="button" role="tab" aria-selected="${mode === 'text' ? 'true' : 'false'}"
+                  class="${mode === 'text' ? 'is-on' : ''}" data-ws="dmode" data-v="text">نصّ</button>
+          <button type="button" role="tab" aria-selected="${mode === 'chat' ? 'true' : 'false'}"
+                  class="${mode === 'chat' ? 'is-on' : ''}" data-ws="dmode" data-v="chat">محادثة</button>
+        </div>` : '')}
+      <div class="ws-doc-find">
+        ${raw(icon('search', 15))}
+        <input class="ws-input" data-ws-doc-find type="search" dir="auto"
+               aria-label="دوّر جوّه النصّ" placeholder="دوّر جوّه النصّ…"
+               value="${state.docQuery}">
       </div>
     </div>
-    <input class="ws-find" data-ws-prev-find type="search" dir="auto"
-           placeholder="دوّر جوّه النصّ…" value="${state.previewQuery}">
-    <div class="ws-prev-body" data-ws-prev-body>
-      ${raw(text.trim()
-        ? (mode === 'chat' ? chatHtml(text)
-          : html`<pre class="ws-raw" dir="auto">${raw(withMarks(text, state.previewQuery))}</pre>`)
-        : '<p class="ws-empty">العقدة دي لسّه مفيهاش نصّ</p>')}
-    </div>
-    ${raw(mediaStrip(node.id))}`;
-}
-
-/** ما عُلِّق على هذه العقدة نفسِها — ولو كان لها أبناء (بند ٥٣). */
-function mediaStrip(nodeId) {
-  const mine = {
-    audio: board.audio.filter((row) => (board.linkedTo.get(row.id) || []).includes(nodeId)),
-    images: board.images.filter((row) => (board.linkedTo.get(row.id) || []).includes(nodeId)),
-  };
-  if (!mine.audio.length && !mine.images.length) return '';
-
-  return html`
-    <div class="ws-strip">
-      <h4>مربوط بالعقدة دي</h4>
-      <ul class="ws-strip-list">
-        ${raw(mine.audio.map((row) => html`
-          <li><button type="button" data-ws="focus" data-kind="audio" data-id="${row.id}">
-            🎙 ${itemTitle(row)}</button>
-            <button type="button" class="ws-unlink" data-ws="unlink"
-                    data-id="${row.id}" data-at="${nodeId}">فكّ</button>
-          </li>`).join(''))}
-        ${raw(mine.images.map((row) => html`
-          <li><button type="button" data-ws="focus" data-kind="image" data-id="${row.id}">
-            🖼 ${itemTitle(row)}</button>
-            <button type="button" class="ws-unlink" data-ws="unlink"
-                    data-id="${row.id}" data-at="${nodeId}">فكّ</button>
-          </li>`).join(''))}
-      </ul>
-    </div>`;
+    <article class="ws-paper" data-ws-paper>
+      ${raw(mode === 'chat' ? chatHtml(text)
+        : html`<pre class="ws-raw" dir="auto">${raw(withMarks(text, state.docQuery))}</pre>`)}
+    </article>`;
 }
 
 /**
- * وجهاتُ عنصرٍ — قائمةٌ لا سطر (بنود ٣٩…٤٢).
+ * المحرّرُ **داخل الصفحة** لا نافذةً (بندا ٥ و١٣).
  *
- * ⚠️ **ولكلّ وجهةٍ زرُّ فكٍّ خاصٌّ بها** (بند ٤٠): فكُّ «أ · جزء ١» لا
- *    يجوز أن يمسّ «ب · جزء ٤». وزرٌّ واحدٌ اسمُه «فكّ» على عنصرٍ له
- *    وجهتان لا يقول أيَّهما سيفكّ — فيصير الفعلُ قمارًا.
+ * ⚠️ **ولا يُعاد رسمُ هذا الحقلُ عند كلّ حرف.** المسوّدةُ تُحدَّث في
+ *    الحالة، والذي يُعاد رسمُه شارةُ الحفظ وحدَها — وإلّا قفزت
+ *    المؤشّرةُ إلى الآخِر عند كلّ ضغطةِ مفتاح.
  */
-function destinationsHtml(item) {
-  const at = board.linkedTo.get(item.id) || [];
-  if (!at.length) {
-    return html`<p class="ws-dests is-none">لسّه غير مربوط — اختار مكان واضغط «اربط هنا».</p>`;
-  }
+function editorHtml(node) {
+  const d = state.draft && state.draft.id === node.id ? state.draft : makeDraft(node);
+  state.draft = d;
+
   return html`
-    <div class="ws-dests">
-      <h4>مربوط بـ</h4>
-      <ul>
-        ${raw(at.map((one) => html`
-          <li>
-            <button type="button" class="ws-dest-go" data-ws="node" data-id="${one}"
-                    dir="auto" title="${pathOf(one)}">✓ ${pathOf(one)}</button>
-            <button type="button" class="ws-unlink" data-ws="unlink"
-                    data-id="${item.id}" data-at="${one}"
-                    aria-label="فكّ الربط من ${pathOf(one)}">فكّ</button>
-          </li>`).join(''))}
-      </ul>
+    <div class="ws-editor">
+      <label class="ws-fld">
+        <span>العنوان</span>
+        <input class="ws-input ws-title-in" data-ws-edit-title dir="auto"
+               value="${d.title}">
+      </label>
+      <label class="ws-fld ws-fld-grow">
+        <span>النصّ</span>
+        <textarea class="ws-area" data-ws-edit-text dir="auto"
+                  spellcheck="false">${d.text}</textarea>
+      </label>
+      ${raw(d.status === SAVE.FAILED ? html`
+        <!--
+          ⚠️ **والفشلُ لا يطردك من التحرير ولا يبتلع ما كتبتَه** (بند ١٣).
+        -->
+        <div class="ws-fail is-inline" role="alert">
+          <p>الحفظ فشل — اللي كتبتَه لسّه هنا.</p>
+          <p class="ws-fail-why" dir="auto">${d.error || 'سبب مش معروف'}</p>
+          <button type="button" class="ws-btn" data-ws="save">جرّب تحفظ تاني</button>
+        </div>` : '')}
+      <p class="ws-hint">الحفظ بيسجّل نسخة في تاريخ السكريبت — زيّ أيّ تعديل.</p>
     </div>`;
 }
 
-function audioPreview(item) {
+function audioDocHtml(item) {
+  const busy = state.fetching.has(item.id);
+  const on = audio.state.mediaId === item.id && audio.state.playing;
+
   return html`
-    <div class="ws-prev-head">
-      <div class="ws-crumb">🎙 ${itemTitle(item)}</div>
-      <div class="ws-prev-acts">
-        <button type="button" class="ws-mini" data-ws="play" data-id="${item.id}">شغّل / وقّف</button>
-        <button type="button" class="ws-mini" data-ws="hold"
-                data-id="${item.id}" data-kind="audio">امسكه للربط</button>
-      </div>
-    </div>
-    <dl class="ws-facts">
-      <dt>المدّة</dt><dd>${item.durationMs ? formatDuration(item.durationMs) : '—'}</dd>
-      <dt>التصنيف</dt><dd>${AUDIO_ROLE_LABEL[item.role] || 'مش متصنّف'}</dd>
-    </dl>
-    ${raw(destinationsHtml(item))}
-    <!--
-      ⚠️ **والتشغيلُ نفسُه في الشريط السفليّ لا هنا** (بند ٧٥): لو كان
-         عنصرُ الصوت داخل هذا اللوح لَمات مع أوّل عقدةٍ تفتحها — وهو
-         بالضبط ما يمنع التعرّفَ على الصوت المجهول.
-    -->
-    <p class="ws-note">التشغيل في الشريط تحت — كمّل سماع وأنت بتقلّب في النصوص.</p>`;
+    <div class="ws-media-doc">
+      <div class="ws-media-face is-audio" aria-hidden="true">${raw(icon('waveform', 40))}</div>
+      <button type="button" class="ws-btn ws-btn-primary ws-media-play" data-ws="play"
+              data-id="${item.id}" ${busy ? 'disabled' : ''}>
+        ${raw(busy
+          ? '<span class="ws-spin" aria-hidden="true"></span> بينزّل من Drive…'
+          : `${icon(on ? 'pause' : 'play', 18)} <span>${on ? 'وقّف' : 'شغّل'}</span>`)}
+      </button>
+      <!--
+        ⚠️ **والتحكّمُ الكاملُ في الشريط تحت لا هنا** (بند ٣٥): الصوتُ
+           خدمةٌ عامّةٌ تكمل وأنت تقلّب في النصوص — ولو ملكت هذه الشاشةُ
+           مشغّلًا لَمات مع أوّل عقدةٍ تفتحها.
+      -->
+      <p class="ws-hint">التشغيل بيكمّل وإنت بتقلّب — الشريط تحت فيه الموضع والوقت.</p>
+    </div>`;
 }
 
-function imagePreview(item) {
+function imageDocHtml(item) {
+  if (isCloudOnly(item)) {
+    return html`
+      <div class="ws-media-doc">
+        <div class="ws-media-face is-image" aria-hidden="true">${raw(icon('image', 40))}</div>
+        <p>الصورة دي على Drive بس — مش متنزّلة على الجهاز ده.</p>
+        <button type="button" class="ws-btn" data-ws="fetch" data-id="${item.id}"
+                ${state.fetching.has(item.id) ? 'disabled' : ''}>
+          ${raw(state.fetching.has(item.id)
+            ? '<span class="ws-spin" aria-hidden="true"></span> بينزّل…' : 'نزّلها')}
+        </button>
+      </div>`;
+  }
   return html`
-    <div class="ws-prev-head">
-      <div class="ws-crumb">🖼 ${itemTitle(item)}</div>
-      <div class="ws-prev-acts">
-        <button type="button" class="ws-mini" data-ws="zoom" data-id="${item.id}">كبّر</button>
-        <button type="button" class="ws-mini" data-ws="hold"
-                data-id="${item.id}" data-kind="image">امسكها للربط</button>
-      </div>
-    </div>
     <div class="ws-shot">
-      <img src="${urlFor(item, { thumb: false })}" alt="${itemTitle(item)}" decoding="async">
-    </div>
-    ${raw(destinationsHtml(item))}`;
+      <button type="button" class="ws-shot-btn" data-ws="zoom" data-id="${item.id}"
+              aria-label="كبّر ${itemTitle(item)}">
+        <img src="${urlFor(item, { thumb: false })}" alt="${itemTitle(item)}" decoding="async">
+      </button>
+    </div>`;
 }
-
-function previewHtml() {
-  if (!state.focus) return '<p class="ws-empty">المس أيّ حاجة عشان تعاينها</p>';
-
-  if (state.focus.kind === 'text') {
-    const full = nodeById(state.focus.id);
-    return full ? textPreview(full) : '<p class="ws-empty">العقدة دي مابقتش موجودة</p>';
-  }
-
-  const list = state.focus.kind === 'audio' ? board.audio : board.images;
-  const item = list.find((row) => row.id === state.focus.id);
-  if (!item) return '<p class="ws-empty">العنصر ده مابقاش موجود</p>';
-  return state.focus.kind === 'audio' ? audioPreview(item) : imagePreview(item);
-}
-
-/**
- * فهرسُ العُقَد الحقيقيّة: المعرّف → `{ node, parentId }`.
- *
- * ⚠️ **يُبنى مرّةً عند القراءة لا عند كلّ لمسة.** أوّلُ صياغةٍ كتبتُها
- *    كانت تمشي الشجرةَ كلَّها في كلّ معاينةٍ وفي كلّ قائمةِ عقدة —
- *    مسحٌ كاملٌ لمئة عقدةٍ لأجل سطرٍ واحد. وبند ٩١ يمنع ذلك صراحةً.
- */
-let nodeIndex = new Map();
-
-function buildNodeIndex() {
-  const index = new Map();
-  for (const root of board.roots) {
-    index.set(root.id, { node: root, parentId: null });
-    const walk = (list, parentId) => {
-      for (const row of list) {
-        index.set(row.node.id, { node: row.node, parentId });
-        walk(row.children, row.node.id);
-      }
-    };
-    walk(board.treeByRoot.get(root.id) || [], root.id);
-  }
-  nodeIndex = index;
-}
-
-const nodeById = (id) => nodeIndex.get(id)?.node || null;
-const parentOf = (id) => nodeIndex.get(id)?.parentId || null;
 
 /* ================================================================== *
- * الشريطان السفليّان — «بتسمع» و«اربط» (بنود ٨٢ و٨٦)
+ * ج · المُفتِّش (بند ٦)
+ * ================================================================== */
+
+function linkRowHtml(row) {
+  if (row.relation === 'parent') {
+    return html`
+      <li class="ws-link-row is-structural">
+        <span class="ws-link-kind">${row.label}</span>
+        <span class="ws-link-t" dir="auto" title="${(row.path || []).join(SEP)}">
+          ${row.missing ? 'الأب مابقاش موجود' : row.title}</span>
+        ${raw(row.missing ? '' : html`
+          <button type="button" class="ws-btn ws-btn-tiny" data-ws="nav-node"
+                  data-id="${row.id}">افتح</button>`)}
+      </li>`;
+  }
+
+  if (row.relation === 'placed') {
+    return html`
+      <li class="ws-link-row ${row.missing ? 'is-gone' : ''}">
+        <span class="ws-link-kind">${row.label}</span>
+        <span class="ws-link-t" dir="auto" title="${(row.path || []).join(SEP)}">
+          ${row.missing ? 'الهدف مابقاش موجود' : (row.path || []).join(SEP)}</span>
+        <!--
+          ⚠️ **هدفٌ مفقودٌ يُعلَن ولا يُمحى** (بند ٢٦): العلاقةُ حصلت
+             فعلًا، وإخفاؤها كتابةٌ للتاريخ من جديد. فيبقى الصفُّ ظاهرًا،
+             والزرُّ الذي لا يقدر أن يعمل **معطَّلٌ ومشروح** لا مختفٍ.
+        -->
+        ${raw(row.missing ? html`
+          <button type="button" class="ws-btn ws-btn-tiny" disabled
+                  title="العقدة اتشالت — مفيش مكان نفتحه">افتح</button>`
+          : html`<button type="button" class="ws-btn ws-btn-tiny" data-ws="nav-node"
+                         data-id="${row.id}">افتح</button>`)}
+        <button type="button" class="ws-btn ws-btn-tiny ws-btn-danger" data-ws="unlink"
+                data-id="${state.open.id}" data-at="${row.id}">فكّ</button>
+      </li>`;
+  }
+
+  const item = row.item;
+  const cloud = isCloudOnly(item);
+  return html`
+    <li class="ws-link-row">
+      <span class="ws-link-kind">${row.label}</span>
+      <span class="ws-link-t" dir="auto">${itemTitle(item)}
+        ${raw(cloud ? '<i class="ws-tagline">على Drive بس</i>' : '')}</span>
+      <button type="button" class="ws-btn ws-btn-tiny" data-ws="open-media"
+              data-id="${item.id}" data-kind="${row.relation}">افتح</button>
+      <button type="button" class="ws-btn ws-btn-tiny ws-btn-danger" data-ws="unlink"
+              data-id="${item.id}" data-at="${row.at}">فكّ</button>
+    </li>`;
+}
+
+function linksTabHtml() {
+  const rows = linkRowsFor(board, state.open);
+  const real = rows.filter((one) => one.relation !== 'parent');
+
+  return html`
+    <div class="ws-insp-body">
+      ${raw(real.length ? html`
+        <ul class="ws-links">${raw(rows.map(linkRowHtml).join(''))}</ul>`
+        : html`
+          <ul class="ws-links">${raw(rows.map(linkRowHtml).join(''))}</ul>
+          <div class="ws-empty">
+            <p>${state.open?.kind === 'text'
+              ? 'مفيش صوت ولا صورة مربوطين بالعقدة دي.'
+              : 'العنصر ده لسّه غير مربوط بأيّ مكان.'}</p>
+          </div>`)}
+      <button type="button" class="ws-btn ws-btn-primary ws-block" data-ws="link-add">
+        + إضافة رابط
+      </button>
+    </div>`;
+}
+
+function propsTabHtml() {
+  const record = openRecord();
+  if (!record) return '<div class="ws-insp-body"><p class="ws-empty">مفيش عنصر مفتوح</p></div>';
+
+  /*
+   * ⚠️ **خصائصُ محفوظةٌ فعلًا لا حقولُ عرض** (بند ٢٣). ما لا نقدر أن
+   *    نشتقَّه من السجلّ لا يُعرَض ولو ترك فراغًا — والفراغُ الصادقُ
+   *    أفضلُ من «٠» مخترَعة.
+   */
+  const facts = [];
+  if (state.open.kind === 'text') {
+    const t = board.targetById.get(state.open.id);
+    if (t) {
+      facts.push(['المكان', t.path.join(SEP)]);
+      if (nodeKindLabel(t.kind)) facts.push(['النوع', nodeKindLabel(t.kind)]);
+      facts.push(['طول النصّ', `${t.chars} حرف`]);
+      facts.push(['عناصر تحتها', String(t.children)]);
+      facts.push(['مربوط عليها', `${t.own.audio} صوت · ${t.own.images} صورة`]);
+      facts.push(['تحتها', `${t.sub.audio} صوت · ${t.sub.images} صورة`]);
+      facts.push(['ظاهرة', t.hidden ? 'لأ — مخفيّة' : 'أيوه']);
+      if (t.updatedAt) facts.push(['آخر تعديل', new Date(t.updatedAt).toLocaleString('ar-EG')]);
+    }
+  } else {
+    facts.push(['النوع', record.kind === 'audio' ? 'صوت' : 'صورة']);
+    if (record.durationMs) facts.push(['المدّة', formatDuration(record.durationMs)]);
+    if (record.role) facts.push(['التصنيف', AUDIO_ROLE_LABEL[record.role] || record.role]);
+    if (record.mime) facts.push(['الصيغة', record.mime]);
+    if (record.bytes) facts.push(['الحجم', formatBytes(record.bytes)]);
+    facts.push(['على الجهاز ده', isCloudOnly(record) ? 'لأ — على Drive بس' : 'أيوه']);
+    if (record.createdAt) facts.push(['اتضاف', new Date(record.createdAt).toLocaleString('ar-EG')]);
+  }
+
+  return html`
+    <div class="ws-insp-body">
+      <dl class="ws-facts">
+        ${raw(facts.map(([k, v]) => html`<dt>${k}</dt><dd dir="auto">${v}</dd>`).join(''))}
+      </dl>
+    </div>`;
+}
+
+function mediaTabHtml() {
+  const items = mediaLibrary(board, { filter: state.mediaFilter, query: state.mediaQuery });
+  const here = state.open?.kind === 'text' ? mediaOf(board, state.open.id) : null;
+
+  return html`
+    <div class="ws-insp-body">
+      ${raw(here && (here.audio.length || here.images.length) ? html`
+        <h4 class="ws-insp-h">على العقدة دي</h4>
+        <ul class="ws-thumbs">
+          ${raw([...here.audio, ...here.images].map(thumbHtml).join(''))}
+        </ul>` : '')}
+
+      <h4 class="ws-insp-h">وسائط الذكرى</h4>
+      <div class="ws-chips" role="tablist" aria-label="تصفية الوسائط">
+        ${raw(MEDIA_FILTERS.map((one) => html`
+          <button type="button" role="tab" class="ws-chip ${state.mediaFilter === one.id ? 'is-on' : ''}"
+                  aria-selected="${state.mediaFilter === one.id ? 'true' : 'false'}"
+                  data-ws="media-filter" data-v="${one.id}">${one.label}</button>`).join(''))}
+      </div>
+      <div class="ws-doc-find">
+        ${raw(icon('search', 15))}
+        <input class="ws-input" data-ws-media-find type="search" dir="auto"
+               aria-label="دوّر في الوسائط" placeholder="دوّر بالاسم…" value="${state.mediaQuery}">
+      </div>
+      ${raw(items.length
+        ? html`<ul class="ws-thumbs">${raw(items.map((one) => thumbHtml(one.row)).join(''))}</ul>`
+        : html`<div class="ws-empty">
+            <p>${state.mediaQuery.trim()
+              ? `مفيش نتيجة لـ «${state.mediaQuery.trim()}»`
+              : 'مفيش وسائط في المصفاة دي'}</p>
+            <button type="button" class="ws-btn ws-btn-soft" data-ws="upload"
+                    data-kind="audio">+ ارفع صوت</button>
+            <button type="button" class="ws-btn ws-btn-soft" data-ws="upload"
+                    data-kind="image">+ ارفع صورة</button>
+          </div>`)}
+    </div>`;
+}
+
+function thumbHtml(row) {
+  const at = board.linkedTo.get(row.id) || [];
+  const cloud = isCloudOnly(row);
+  return html`
+    <li class="ws-thumb ${state.open?.id === row.id ? 'is-on' : ''}">
+      <button type="button" class="ws-thumb-face" data-ws="open-media"
+              data-id="${row.id}" data-kind="${row.kind}"
+              aria-label="افتح ${itemTitle(row)}">
+        ${raw(row.kind === 'image' && !cloud
+          ? html`<img src="${urlFor(row, { thumb: true })}" alt="" loading="lazy" decoding="async">`
+          : html`<span class="ws-thumb-icon">${raw(icon(row.kind === 'audio' ? 'mic' : 'image', 18))}</span>`)}
+      </button>
+      <div class="ws-thumb-body">
+        <b dir="auto">${itemTitle(row)}</b>
+        <span>${raw(at.length
+          ? html`✓ ${pathOf(at[0]) || ''}${at.length > 1 ? ` +${at.length - 1}` : ''}`
+          : 'غير مربوط')}${raw(cloud ? ' <i class="ws-tagline">Drive</i>' : '')}</span>
+      </div>
+      ${raw(row.kind === 'audio' ? html`
+        <button type="button" class="ws-icon-btn" data-ws="play" data-id="${row.id}"
+                aria-label="شغّل ${itemTitle(row)}">${raw(icon('play', 16))}</button>` : '')}
+    </li>`;
+}
+
+function inspectorHtml() {
+  const tabs = [TAB.LINKS, TAB.PROPS, TAB.MEDIA];
+  if (!state.open) {
+    return html`
+      <div class="ws-insp-head">
+        <span class="ws-insp-title">المُفتِّش</span>
+        <button type="button" class="ws-icon-btn" data-ws="insp-close"
+                aria-label="اقفل المُفتِّش">${raw(icon('close', 16))}</button>
+      </div>
+      <div class="ws-insp-body">
+        <div class="ws-empty"><p>افتح عنصر عشان تشوف روابطه وخصائصه.</p></div>
+      </div>`;
+  }
+  return html`
+    <div class="ws-insp-head">
+      <div class="ws-insp-tabs" role="tablist" aria-label="أدوات العنصر">
+        ${raw(tabs.map((one) => html`
+          <button type="button" role="tab" class="ws-insp-tab ${state.tab === one ? 'is-on' : ''}"
+                  aria-selected="${state.tab === one ? 'true' : 'false'}"
+                  data-ws="tab" data-v="${one}">${TAB_LABEL[one]}</button>`).join(''))}
+      </div>
+      <button type="button" class="ws-icon-btn" data-ws="insp-close"
+              aria-label="اقفل المُفتِّش">${raw(icon('close', 16))}</button>
+    </div>
+    ${raw(state.tab === TAB.LINKS ? linksTabHtml()
+      : (state.tab === TAB.PROPS ? propsTabHtml() : mediaTabHtml()))}`;
+}
+
+/* ================================================================== *
+ * د · شريطُ السماع — مشتركٌ لا مالك (بند ٣٥)
  * ================================================================== */
 
 function nowHtml(snapshot) {
@@ -655,117 +895,16 @@ function nowHtml(snapshot) {
       ${raw(icon(snapshot.playing ? 'pause' : 'play', 18))}
     </button>
     <div class="ws-now-mid">
-      <!--
-        ⚠️ **مقارنةٌ صغيرةٌ تمنع لبسًا كبيرًا** (بند ٨٦): «بتسمع X»
-           و«المرشَّح Y» جنبَ بعضٍ — فلا تربط صوتًا بجزءٍ وأنت تظنّ
-           أنك تسمع غيرَه.
-      -->
       <span class="ws-now-t" dir="auto">بتسمع: ${snapshot.title || 'تسجيل'}</span>
       <div class="ws-seek" data-ws="seek" role="slider" tabindex="0"
-           aria-label="موضع التشغيل"
-           aria-valuemin="0" aria-valuemax="100"
+           aria-label="موضع التشغيل" aria-valuemin="0" aria-valuemax="100"
            aria-valuenow="${Math.round(ratio * 100)}">
         <div class="ws-seek-fill" style="inline-size:${(ratio * 100).toFixed(1)}%"></div>
       </div>
       <span class="ws-now-time">${clock(snapshot.currentTime)} / ${clock(snapshot.duration)}</span>
     </div>
-    <button type="button" class="ws-now-link" data-ws="link-current"
-            ${state.targetId ? '' : 'disabled'}>اربط الصوت الحالي هنا</button>`;
-}
-
-/**
- * مِلَفُّ العنصر الممسوك — «إيه اللي في إيدي؟» (بنود ٤ و٣٦ و٤٤).
- *
- * ⚠️ **وليس مشغّلًا ثانيًا** (بند ٩): لا يملك عنصرَ صوت، بل يعرض ما
- *    تقوله `audio-service`. والنقلُ نفسُه في شريط «بتسمع» فوقه.
- */
-function workingHtml() {
-  const it = state.workingItem;
-  const target = state.targetId ? board.targetById.get(state.targetId) : null;
-
-  const row = it.kind === 'audio' ? board.audio.find((one) => one.id === it.id)
-    : (it.kind === 'image' ? board.images.find((one) => one.id === it.id)
-      : nodeById(it.id));
-  if (!row) return '';
-
-  const title = it.kind === 'text' ? row.title : itemTitle(row);
-  const at = it.kind === 'text' ? [] : (board.linkedTo.get(it.id) || []);
-  const face = { audio: '🎧', image: '🖼', text: '📝' }[it.kind];
-  const peek = it.kind === 'text'
-    ? (row.text || '').split('\n').filter(Boolean).slice(0, 2).join(' · ').slice(0, 90)
-    : (at.length ? `مربوط بـ ${pathOf(at[0])}${at.length > 1 ? ` +${at.length - 1}` : ''}`
-      : 'لسّه غير مربوط');
-
-  /* ⚠️ «قريتها؟» فعلٌ يفتح المعاينة — لا يربط ولا يلغي المسك. */
-  const look = { audio: 'اسمعه', image: 'اعرضها', text: 'اقراه' }[it.kind];
-
-  return html`
-    <div class="ws-hold-head">
-      <span class="ws-hold-face" aria-hidden="true">${face}</span>
-      <div class="ws-hold-id">
-        <span class="ws-hold-lbl">بتربط دلوقتي</span>
-        <b class="ws-hold-t" dir="auto">${title}</b>
-        <span class="ws-hold-sub" dir="auto">${peek}</span>
-      </div>
-      <button type="button" class="ws-hold-x" data-ws="drop"
-              aria-label="بطّل الربط">✕</button>
-    </div>
-    <div class="ws-hold-aim">
-      <span class="ws-bar-lbl">الهدف الحالي</span>
-      <!--
-        ⚠️ **المسارُ كاملٌ في سمة العنوان، مقصوصٌ في العرض** (بند ٧):
-           تعرف الجذرَ والوجهة بلا أن يبتلع الشريطُ الشاشة.
-
-        ⚠️ ولا علامةَ اقتباسٍ خلفيّةٍ في تعليقٍ داخل قالب — تُنهيه.
-      -->
-      <b class="ws-bar-path" dir="auto" title="${target ? target.path.join(SEP) : ''}">
-        ${target ? shortPath(target.path) : 'مفيش مكان محدَّد'}</b>
-    </div>
-    <div class="ws-hold-acts">
-      <button type="button" class="btn btn-ghost" data-ws="focus"
-              data-id="${it.id}" data-kind="${it.kind}">${look}</button>
-      <button type="button" class="btn btn-ghost ws-hold-tree" data-ws="pane"
-              data-v="tree">الشجرة</button>
-      <button type="button" class="btn btn-primary" data-ws="link-here"
-              ${target ? '' : 'disabled'}>اربط هنا</button>
-    </div>`;
-}
-
-function barHtml() {
-  const target = state.targetId ? board.targetById.get(state.targetId) : null;
-  const n = state.selection.size;
-
-  /*
-   * ⚠️ **والمساران يعيشان معًا** (بند ٤٣).
-   *
-   *    أوّلُ صياغةٍ جعلت المِلَفَّ **بديلًا** عن شريط التحديد، فكان
-   *    مسكُ ملفٍّ يُخفي «اربط المحدد هنا» — أي أن تحسينَ مسار العنصر
-   *    الواحد كسر مسارَ الدفعة. وأمسكه الفحصُ الميدانيّ حين عجز عن
-   *    إيجاد الزرّ.
-   *
-   *    فالصفُّ الأوّل هو ما في يدك (أو المكان وحدَه)، والثاني يظهر
-   *    **فقط** إن كان عندك تحديد. ولا يتراكم صفٌّ بلا داعٍ.
-   */
-  const head = state.workingItem ? workingHtml() : html`
-    <div class="ws-bar-target">
-      <span class="ws-bar-lbl">المكان الحالي</span>
-      <!--
-        ⚠️ **ولا هدفَ قديمٌ يبقى معروضًا** (بند ٨٣): لو اتشالت العقدةُ
-           أو اتنقلت، الشريطُ يقول «مفيش» بدل أن يشير إلى معرّفٍ ميّت.
-      -->
-      <b class="ws-bar-path" dir="auto" title="${target ? target.path.join(SEP) : ''}">
-        ${target ? shortPath(target.path) : 'مفيش مكان محدَّد'}</b>
-    </div>`;
-
-  const bulk = n ? html`
-    <div class="ws-bar-bulk">
-      <span class="ws-bar-n">${n} متحدِّد</span>
-      <button type="button" class="btn btn-primary" data-ws="link-selected"
-              ${target ? '' : 'disabled'}>اربط المحدد هنا</button>
-      <button type="button" class="btn btn-ghost" data-ws="clear-pick">إلغاء التحديد</button>
-    </div>` : '';
-
-  return `${head}${bulk}`;
+    <button type="button" class="ws-btn ws-btn-soft" data-ws="link-current"
+            ${state.open?.kind === 'text' ? '' : 'disabled'}>اربطه بالمفتوح</button>`;
 }
 
 /* ================================================================== *
@@ -773,304 +912,551 @@ function barHtml() {
  * ================================================================== */
 
 /*
- * ═══════════════════════════════════════════════════════════════
- * ⚠️ المُمرِّرُ هو **نفسُ** العنصر الذي نعيد رسمَ داخله (بند ٥٧)
- * ═══════════════════════════════════════════════════════════════
- *
- * قِيست السلسلةُ في WS-F2:
- *
- *     .ws-b   client:1156  scroll:1677  overflow-y:auto   ← المُمرِّر
- *     .ws-tree            overflow:visible                ← ليس مُمرِّرًا
- *
- * و`paintTree` تكتب `innerHTML` على `.ws-b` نفسِها. وكتابةُ محتوى
- * مُمرِّرٍ تصفّر `scrollTop` حتمًا. فكانت كلُّ لمسةِ عقدةٍ ترميك إلى
- * أوّل الشجرة — وWS-F لم يمسكها لأن قياسي وقتها كان `0 → 0`، وهو
- * ليس إثباتًا (بند ٨١).
- *
- * فيُحفَظ الموضعُ قبل الرسم ويُعاد بعده، **من `.ws-col` لا من ابنها**.
+ * ⚠️ **المُمرِّرُ هو نفسُ العنصر الذي نعيد رسمَ داخله** — درسٌ مقيسٌ من
+ *    WS-F2: كتابةُ `innerHTML` على مُمرِّرٍ تصفّر `scrollTop` حتمًا.
+ *    فيُحفَظ الموضعُ قبل الرسم ويُعاد بعده، **بلا** `requestAnimationFrame`
+ *    لأن إطارًا واحدًا من الوميض عند الصفر يُرى.
  */
 const SCROLLERS = Object.freeze({
-  roots: '[data-ws-roots]', tree: '[data-ws-tree]',
-  desk: '[data-ws-desk]', preview: '[data-ws-preview]',
+  nav: '[data-ws-nav]', doc: '[data-ws-doc]', insp: '[data-ws-insp]',
 });
 
-/** يرسم لوحًا مع حفظ موضع تمريره واستعادته. */
 function paintPane(key, render, { keepScroll = true } = {}) {
   const el = $(SCROLLERS[key]);
   if (!el) return;
   const at = keepScroll ? el.scrollTop : 0;
   el.innerHTML = render();
-  /* ⚠️ بعد الكتابة مباشرةً — لا في `requestAnimationFrame`: إطارٌ
-   *    واحدٌ من الوميض عند الصفر يُرى على اللوح. */
   el.scrollTop = keepScroll ? at : 0;
   state.scroll[key] = el.scrollTop;
 }
 
-const paintRoots = () => paintPane('roots', rootsHtml);
-const paintTree = () => paintPane('tree', treeHtml);
-const paintDesk = () => paintPane('desk', deskHtml);
-const paintBar = () => { const el = $('[data-ws-bar]'); if (el) el.innerHTML = barHtml(); };
+const paintNav = () => paintPane('nav', navHtml);
+
+function paintHead() {
+  const el = $('[data-ws-head]');
+  if (el) el.innerHTML = docHeadHtml();
+}
 
 /**
- * المعاينةُ لها ذاكرتان — واحدةٌ لكلّ نمط (بند ٢٩).
- *
- * ⚠️ **ولا تُخترَع خريطةٌ دلاليّة بين النمطين.** «نصّ» و«محادثة» طولان
- *    مختلفان تمامًا، ومحاولةُ ردِّ موضعٍ في أحدهما إلى الآخر تخمينٌ
- *    هشّ. فالصادقُ: لكلّ نمطٍ موضعُه هو، ويعود إليه كما تركتَه.
- *    وتبديلُ العقدةِ يبدأ من الأعلى، لأنه نصٌّ آخر.
+ * ⚠️ **ولا يُعاد رسمُ المستند وأنت تكتب فيه** (بندا ٥ و١٣): الحفظُ
+ *    والإنعاشُ يعيدان قراءةَ اللوحة، وإعادةُ رسم الـ`textarea` وقتها
+ *    تمسح موضعَ المؤشّرة وتخسر التحديد. فالتحريرُ يملك سطحَه.
  */
-function paintPreview({ keepScroll = false } = {}) {
-  const el = $(SCROLLERS.preview);
+function paintDoc({ keepScroll = false, force = false } = {}) {
+  if (state.mode === MODE.EDIT && !force) { paintHead(); return; }
+  const el = $('[data-ws-doc]');
   if (!el) return;
-  /*
-   * ⚠️ **ترميمٌ فقط — والحفظُ على المُستدعي.** أوّلُ صياغةٍ حفظت هنا
-   *    أيضًا، وبـ`state.previewMode` **بعد** أن يكون المبدِّلُ غيّره.
-   *    فكانت تكتب موضعَ النمط المغادِر في خانة القادم ثم تستعيده —
-   *    أي أنّ التبديلَ لا يبدّل شيئًا. قِيس: ١٢٠ في «محادثة» رجعت ٦٠.
-   *
-   *    ومالكٌ واحدٌ لكلّ قيمة: `pmode` يحفظ المغادِر، وهذه تستعيد
-   *    القادم، والمستمعُ لا يلمس ذاكرةَ الأنماط أصلًا.
-   */
-  el.innerHTML = previewHtml();
-  el.scrollTop = keepScroll ? (state.previewScroll[state.previewMode] ?? 0) : 0;
-  state.scroll.preview = el.scrollTop;
+  el.innerHTML = docBodyHtml();
+  el.scrollTop = keepScroll ? (state.docScroll[state.docMode] ?? 0) : 0;
+  state.scroll.doc = el.scrollTop;
+  paintHead();
 }
+
+const paintInsp = () => paintPane('insp', inspectorHtml);
+
+/** شارةُ الحفظ وحدَها — أرخصُ إعادةِ رسمٍ ممكنة (بند ١٣). */
+function paintSave() {
+  const el = $('[data-ws-save]');
+  if (!el) { paintHead(); return; }
+  el.outerHTML = saveBadgeHtml();
+}
+
 const paintNow = (snapshot) => {
   const el = $('[data-ws-now]');
   if (!el) return;
   el.innerHTML = nowHtml(snapshot);
   el.hidden = !snapshot?.hasTrack;
+
+  /*
+   * ⚠️ **وزرُّ التشغيل في سطح الصوت يُحدَّث وحدَه لا بإعادة رسم السطح**
+   *    (بند ١٥): الخدمةُ تبثّ الحالةَ عدّةَ مرّاتٍ في الثانية أثناء
+   *    التشغيل، وإعادةُ رسم المستند مع كلّ بثٍّ تُحرِق الإطارات وتقطع
+   *    أيَّ تحديدٍ داخل الصفحة.
+   */
+  const play = $('.ws-media-play');
+  if (!play || state.open?.kind !== 'audio') return;
+  const on = snapshot?.mediaId === state.open.id && snapshot?.playing;
+  if (state.fetching.has(state.open.id)) return;
+  play.innerHTML = `${icon(on ? 'pause' : 'play', 18)} <span>${on ? 'وقّف' : 'شغّل'}</span>`;
 };
 
-/**
- * يبدّل اللوحَ الظاهر في العرض الضيّق — بلا مساسٍ بالحالة (بند ٧١).
- *
- * ⚠️ **وتبديلُ اللوح يعيد موضعَ تمريره.** اللوحُ المخفيُّ بـ`display:none`
- *    يفقد `scrollTop`، فيُعاد من الذاكرة عند ظهوره — وإلّا كان كلُّ
- *    رجوعٍ للشجرة رجوعًا إلى أوّلها.
- */
-function showPane() {
+/** يكتب أعرافَ التخطيط على الجذر — والـCSS وحدَها تقرّر الشكل (بند ٨). */
+function applyShell() {
   const root = $('.ws');
   if (!root) return;
-  root.dataset.pane = state.pane;
-  $$('[data-ws="pane"]', root).forEach((btn) => {
-    btn.classList.toggle('on', btn.dataset.v === state.pane);
-    btn.setAttribute('aria-selected', btn.dataset.v === state.pane ? 'true' : 'false');
-  });
-  const key = { tree: 'tree', desk: 'desk', preview: 'preview' }[state.pane];
-  const el = key && $(SCROLLERS[key]);
-  if (el) el.scrollTop = state.scroll[key] ?? 0;
-}
+  const fit = paneFit(root.clientWidth || window.innerWidth, state.panes);
 
-/** يعيد قراءةَ اللوحة بالكامل — بعد كتابةٍ لا بعد لمسة. */
-async function refresh() {
-  board = await workspaceBoard(state.sceneId);
-  if (!board) return;
-  buildNodeIndex();
-  if (!board.roots.some((row) => row.id === state.rootId)) {
-    state.rootId = board.roots[0]?.id || null;
-  }
-  /* ⚠️ هدفٌ اختفى لا يبقى هدفًا (بند ٨٣). */
-  if (state.targetId && !board.targetById.has(state.targetId)) state.targetId = null;
-  if (state.focus?.kind === 'text' && !board.targetById.has(state.focus.id)) state.focus = null;
-  for (const id of [...state.selection]) {
-    if (!board.audio.some((r) => r.id === id) && !board.images.some((r) => r.id === id)) {
-      state.selection.delete(id);
-    }
-  }
-  paintRoots(); paintTree(); paintDesk(); paintPreview(); paintBar();
+  root.dataset.mode = state.mode;
+  root.dataset.insp = state.inspector ? 'on' : 'off';
+  root.dataset.zen = state.zen ? 'on' : 'off';
+  root.dataset.drawer = state.drawer || '';
+  root.style.setProperty('--ws-nav', `${state.panes.nav}px`);
+  root.style.setProperty('--ws-insp', `${state.panes.insp}px`);
+  /*
+   * ⚠️ **والمُفتِّشُ يصير درجًا حين لا يتّسع** (بند ٨): إبقاؤه عمودًا
+   *    ثابتًا على شاشةٍ ضيّقةٍ يأكل المستندَ — والمستندُ هو الأولويّة
+   *    الأولى حين يضيق العرض، لا اللوحان حولَه.
+   */
+  root.dataset.fit = fit.inspDocked ? 'wide' : (fit.navDocked ? 'mid' : 'narrow');
+
+  const scrim = $('[data-ws-scrim]');
+  if (scrim) scrim.hidden = !state.drawer;
+
+  const toggle = $('.ws-insp-toggle');
+  if (toggle) toggle.setAttribute('aria-expanded', state.inspector ? 'true' : 'false');
 }
 
 /* ================================================================== *
- * الأفعال
+ * القراءة والأفعال
  * ================================================================== */
 
-/**
- * يُظهر لوحًا فيه المعاينة — أيًّا كانت المرتبة.
- *
- * في العرض العريض الألواحُ كلُّها ظاهرة، فالنداءُ بلا أثرٍ مرئيّ.
- */
-function showPreviewPane() {
-  if (state.pane === 'preview') return;
-  state.pane = 'preview';
-  showPane();
-}
-
-/** يلتقط حالةَ الجذر الحاليّ كاملةً — لتعود كما تركتَها (بند ٣٢). */
-function rememberRoot() {
-  if (!state.rootId) return;
-  state.perRoot.set(state.rootId, {
-    targetId: state.targetId,
+/** يعيد قراءةَ اللوحة — بعد كتابةٍ لا بعد لمسة. */
+async function refresh({ doc = true } = {}) {
+  try {
+    board = await workspaceBoard(state.sceneId);
+    state.error = null;
+  } catch (error) {
     /*
-     * ⚠️ **والفروعُ المفرودةُ جزءٌ من «أين كنت»** — لا الهدفُ وحدَه.
-     *    كانت `selectRoot` تمسح `expanded` كلَّها، فترجع إلى سكريبتٍ
-     *    فتحتَ فيه أربعةَ مستوياتٍ فتجده مطويًّا من أوّله. وبند ٣٢
-     *    يسمّيها صراحةً: «A's tree expansion restored».
+     * ⚠️ **والفشلُ يُعرَض على الشاشة لا في سجلّ المتصفّح** (بند ٢٥):
+     *    لوحةٌ فارغةٌ بلا كلمةٍ تجعلك تظنّ أن ذكرياتك راحت.
      */
-    expanded: new Set(state.expanded),
-    treeQuery: state.treeQuery,
-    treeScroll: $(SCROLLERS.tree)?.scrollTop ?? 0,
-  });
-}
-
-function selectNode(id) {
-  state.targetId = id;
-  state.focus = { kind: 'text', id };
-  state.previewQuery = '';
-  rememberRoot();
-  paintTree(); paintPreview(); paintBar();
-  /* اللمسةُ على عقدةٍ تعني «وَرّيني نصَّها» — والشجرةُ تبقى معها حيث تتّسع. */
-  showPreviewPane();
-}
-
-function selectRoot(id) {
-  if (id === state.rootId) return;
-  rememberRoot();
-  state.rootId = id;
+    state.error = String(error?.message || error);
+    paintNav();
+    paintDoc({ force: true });
+    return;
+  }
+  if (!board) return;
+  buildIndex();
 
   /*
-   * ⚠️ **ولا يُمسَح المحتوى ولا التحديدُ ولا الصوت ولا الممسوك**
-   *    (بنود ٦ و٣٢ و٩٤): بدّلتَ السكريبتَ لا الذكرى. والمكتبُ محتوى
-   *    الذكرى كلِّها، والممسوكُ في إيدك أيًّا كان السكريبت المفتوح.
+   * ⚠️ عنصرٌ اختفى لا يبقى مفتوحًا يشير إلى معرّفٍ ميّت (بند ٢٦) —
+   *    **إلّا** إن كانت معك فيه مسوّدةٌ فيها تعديلات. حينها يبقى
+   *    مفتوحًا كي يُعرَض ما كتبتَه ويُنسَخ قبل أن يضيع.
    */
-  const memory = state.perRoot.get(id);
-  state.expanded = memory?.expanded ? new Set(memory.expanded) : new Set();
-  state.treeQuery = memory?.treeQuery || '';
-  state.targetId = memory && board.targetById.has(memory.targetId) ? memory.targetId : id;
-  state.focus = { kind: 'text', id: state.targetId };
+  const holding = state.draft && draftChanged(state.draft)
+    && state.open?.kind === 'text' && state.open.id === state.draft.id;
+  if (state.open && !openRecord() && !holding) state.open = null;
+  for (const id of [...state.picked]) if (!mediaById(id)) state.picked.delete(id);
 
-  paintRoots(); paintTree(); paintPreview(); paintBar();
-  /* التمريرُ بعد الرسم — قبله لا يوجد ما يُمرَّر. */
-  const tree = $(SCROLLERS.tree);
-  if (tree) { tree.scrollTop = memory?.treeScroll ?? 0; state.scroll.tree = tree.scrollTop; }
+  paintNav();
+  if (doc) paintDoc({ keepScroll: true });
+  else paintHead();
+  if (state.inspector) paintInsp();
+}
+
+/**
+ * يفتح عقدةً في مساحة العمل.
+ *
+ * ⚠️ **ولا يكتب هذا الفعلُ حرفًا في القاعدة** (بند ٤٨ من WS-F): لمسةُ
+ *    الشجرةِ استكشاف؛ والربطُ فعلٌ مسمًّى له زرُّه ووضعُه. وخلطُهما
+ *    يجعل كلَّ تصفّحٍ كتابة.
+ */
+function selectNode(id) {
+  if (!openable(id)) return;
+  state.open = { kind: 'text', id };
+  state.docQuery = '';
+  state.docScroll = { text: 0, chat: 0 };
+  if (state.mode === MODE.EDIT) state.draft = makeDraft(nodeById(id));
+  for (const one of ancestorsOf(board, id)) state.expanded.add(one);
+  closeDrawer();
+  paintNav();
+  paintDoc({ force: true });
+  if (state.inspector) paintInsp();
+}
+
+/**
+ * ⚠️ **ولا تُلقى مسوّدةٌ فيها تعديلاتٌ بلا سؤال** (بند ٥). فتحُ عنصرٍ
+ *    آخرَ وأنت في نصف تحريرٍ يخسر ما كتبتَه إن مررنا بلا استئذان.
+ */
+function openable(id) {
+  const d = state.draft;
+  if (!d || d.id === id || !draftChanged(d)) return true;
+  askDiscard(id);
+  return false;
+}
+
+async function askDiscard(nextId) {
+  const go = await confirmAction({
+    title: 'فيه تعديلات مش متحفظة',
+    message: 'لو خرجت من العنصر ده دلوقتي هتخسر اللي كتبتَه. تحبّ تحفظ الأول؟',
+    confirmLabel: 'اخرج من غير حفظ',
+    danger: true,
+  });
+  if (!go) return;
+  state.draft = null;
+  state.mode = MODE.READ;
+  applyShell();
+  selectNode(nextId);
+}
+
+function openMedia(id, kind) {
+  const record = mediaById(id);
+  if (!record) return toastError('العنصر ده مابقاش موجود');
+  if (!openable(id)) return undefined;
+  state.open = { kind: record.kind === 'audio' ? 'audio' : 'image', id };
+  if (state.mode === MODE.EDIT) state.mode = MODE.READ;
+  applyShell();
+  paintDoc({ force: true });
+  paintNav();
+  if (state.inspector) paintInsp();
+  return undefined;
+}
+
+function closeDrawer() {
+  if (!state.drawer) return;
+  state.drawer = null;
+  applyShell();
+}
+
+/**
+ * تبديلُ الوضع — **بلا فقدِ شيء** (بند ٥).
+ *
+ * ⚠️ الخروجُ من «تحرير» بمسوّدةٍ فيها تعديلاتٌ **يُبقيها**: تعود إلى
+ *    «تحرير» فتجد كلامَك كما تركتَه. والتخلّي عنها فعلٌ صريحٌ وحدَه.
+ */
+function setMode(next) {
+  if (state.mode === next) return;
+  const wasEditing = state.mode === MODE.EDIT;
+  if (wasEditing) captureDraft();
+
+  state.mode = next;
+  if (next === MODE.EDIT && state.open?.kind === 'text') {
+    const node = nodeById(state.open.id);
+    if (!state.draft || state.draft.id !== state.open.id) state.draft = makeDraft(node);
+  }
+  if (next === MODE.LINK) {
+    state.inspector = true;
+    state.tab = TAB.LINKS;
+  }
+  applyShell();
+  paintDoc({ force: true });
+  if (state.inspector) paintInsp();
+}
+
+/** يلتقط ما في الحقول قبل أيّ إعادةِ رسمٍ تمسحها. */
+function captureDraft() {
+  const d = state.draft;
+  if (!d) return;
+  const title = $('[data-ws-edit-title]');
+  const text = $('[data-ws-edit-text]');
+  if (title) d.title = title.value;
+  if (text) d.text = text.value;
+}
+
+/**
+ * الحفظُ — **ولا تُقال «اتحفظ» قبل أن ترجع الكتابةُ** (بند ١٣).
+ */
+async function saveDraft() {
+  captureDraft();
+  const d = state.draft;
+  if (!d) return;
+  if (!draftChanged(d) && d.status !== SAVE.FAILED) {
+    d.status = SAVE.CLEAN;
+    paintSave();
+    return;
+  }
+
+  d.status = SAVE.SAVING;
+  d.error = null;
+  paintSave();
+
+  try {
+    await saveNodeText(d.id, { title: d.title, text: d.text });
+    state.draft = draftCommitted(d);
+    /* ⚠️ إنعاشٌ بلا لمسِ سطح التحرير — المؤشّرةُ حيث تركتَها. */
+    await refresh({ doc: false });
+    paintSave();
+    clearTimeout(savedTimer);
+    savedTimer = setTimeout(() => {
+      if (state.draft && state.draft.status === SAVE.SAVED) {
+        state.draft.status = SAVE.CLEAN;
+        paintSave();
+      }
+    }, 2600);
+  } catch (error) {
+    d.status = SAVE.FAILED;
+    d.error = String(error?.message || error);
+    paintDoc({ force: true });
+    toastError('الحفظ فشل — اللي كتبتَه لسّه موجود');
+  }
 }
 
 async function playItem(mediaId) {
-  const item = board.audio.find((row) => row.id === mediaId);
+  const item = mediaById(mediaId);
   if (!item) return toastError('التسجيل ده مابقاش موجود');
+
+  const same = audio.state.mediaId === mediaId;
+  if (same && audio.state.playing) { audio.pause(); return undefined; }
+
   /*
-   * ⚠️ **وهي `load` لا عنصرٌ ننشئه** (بندا ٧٥ و٧٦): الخدمةُ تملك
-   *    `<audio>` واحدًا خارج الشاشات، فتبديلُ المقطع يوقف السابقَ
-   *    حتمًا، والتشغيلُ يعيش بعد كلّ إعادة رسمٍ هنا.
+   * ⚠️ **والجلبُ من Drive حالةٌ معروضةٌ لا انتظارٌ صامت** (بند ١٤): لو
+   *    كانت البايتاتُ على السحابة وحدَها، الزرُّ يقول «بينزّل من Drive…»
+   *    ولا يتظاهر بنسبةٍ مخترَعة — لأنّ التقدّمَ هنا غيرُ مقيسٍ فعلًا.
    */
-  await audio.load({
-    mediaId: item.id,
-    url: urlFor(item, { thumb: false }),
-    title: itemTitle(item),
-    subtitle: board.scene?.titleAr || '',
-  });
-  state.focus = { kind: 'audio', id: mediaId };
-  state.workingItem = { kind: 'audio', id: mediaId };
-  paintDesk(); paintPreview(); paintBar();
-  showPreviewPane();
-  return undefined;
-}
-
-async function linkThese(ids) {
-  if (!state.targetId) return toastError('اختار المكان الأول');
-  if (!ids.length) return toastError('مفيش حاجة متحدِّدة');
-  const where = pathOf(state.targetId);
-  /*
-   * ⚠️ **إضافةٌ لا نقل** (بند ٤٠): الربطُ هنا يزيد وجهةً ولا يهدم
-   *    وجهةً قائمة. والفكُّ فعلٌ صريحٌ له زرُّه بجوار كلّ وجهة.
-   */
-  const { linked } = await linkSelection(ids, state.targetId, board, { mode: 'attach' });
-  state.selection.clear();
-  await refresh();
-  /*
-   * ⚠️ **ويبقى الممسوكُ ممسوكًا** (بند ٣٩): ملفٌّ واحدٌ قد يخدم مرحلةً
-   *    وجزأين، فإفلاتُه بعد أوّل ربطٍ يجبرك أن تمسكه من جديد لكلّ وجهة.
-   */
-  return toastOk(`اترّبط ${linked} — ${where}`);
-}
-
-async function openAddMenu() {
-  const choice = await showModal({
-    title: '+ أضف محتوى',
-    submitLabel: 'اقفل',
-    actions: [{ label: 'اقفل', value: null, variant: 'ghost' }],
-    body: html`
-      <!--
-        ⚠️ **ثلاثةُ أنواعٍ لا اثنا عشر** (بند ٢٣): البنيةُ الداخليّة
-           فيها مرحلةٌ ونسخةٌ وجولةٌ ونصُّ تدريب — وعرضُها كلِّها هنا
-           يحوّل زرَّ «أضف» إلى امتحان. أنت تضيف نصًّا، ونوعُه تفصيلٌ
-           تختاره بعدين لو حبّيت (بند ٢٦).
-      -->
-      <div class="ws-add">
-        <button type="button" class="ws-add-btn" data-add="text">
-          <b>📝 نصّ</b><span>عقدة جديدة أو ملاحظة سايبة</span></button>
-        <button type="button" class="ws-add-btn" data-add="paste">
-          <b>📥 استيراد نصّ منظَّم</b><span>الصق رحلة كاملة مرّة واحدة</span></button>
-        <button type="button" class="ws-add-btn" data-add="audio">
-          <b>🎙 صوت</b><span>ملفّ أو أكتر — يروح «غير مربوط»</span></button>
-        <button type="button" class="ws-add-btn" data-add="image">
-          <b>🖼 صورة</b><span>ملفّ أو أكتر — يروح «غير مربوط»</span></button>
-      </div>`,
-    onMount(root) {
-      root.addEventListener('click', (event) => {
-        const pick = event.target.closest('[data-add]')?.dataset.add;
-        if (!pick) return;
-        root.closest('.overlay')?.__close?.(pick);
-      }, wired());
-    },
-  });
-
-  if (choice === 'text') return openAddText();
-  if (choice === 'paste') return openPaste();
-  if (choice === 'audio' || choice === 'image') return uploadFiles(choice);
-  return undefined;
-}
-
-/**
- * رفعُ ملفّاتٍ — **بلا ربطٍ إجباريّ** (بندا ٢٢ و٦١).
- *
- * ⚠️ ويروح المرفوعُ إلى «غير مربوط» لا إلى المكان الحاليّ. الربطُ
- *    قرارٌ يحتاج أن تسمع الملفَّ أوّلًا — وهذا هو البندُ ١٣ كلُّه.
- */
-async function uploadFiles(kind) {
-  const files = await pickFiles({
-    accept: kind === 'audio' ? 'audio/*' : 'image/*',
-    multiple: true,
-  });
-  if (!files?.length) return undefined;
-
-  /* ما قبل الرفع — لنعرف الجديدَ بالضبط بلا تخمينٍ من الاسم. */
-  const before = new Set([...board.audio, ...board.images].map((row) => row.id));
-  await addFilesToScene(state.sceneId, files);
-  state.filter = 'unlinked';
-  await refresh();
-  const fresh = [...board.audio, ...board.images]
-    .filter((row) => !before.has(row.id)).map((row) => row.id);
-
-  const target = state.targetId ? board.targetById.get(state.targetId) : null;
-  if (!target || !fresh.length) {
-    return toastOk(`اتضاف ${files.length} — تلاقيهم في «غير مربوط»`);
+  let record = item;
+  if (isCloudOnly(item)) {
+    state.fetching.add(mediaId);
+    paintDoc({ keepScroll: true });
+    if (state.inspector) paintInsp();
+    try {
+      record = (await ensureBytes(mediaId)) || item;
+    } catch (error) {
+      state.fetching.delete(mediaId);
+      paintDoc({ keepScroll: true });
+      return toastError(`تعذّر تنزيل التسجيل: ${error?.message || 'مش متاح'}`);
+    }
+    state.fetching.delete(mediaId);
+    await refresh({ doc: false });
+    record = mediaById(mediaId) || record;
   }
 
   /*
-   * ⚠️ **ولا يُربَط شيءٌ تلقائيًّا** (بندا ١٣ و٥١). أنت واقفٌ على جزءٍ
-   *    ورفعتَ ملفًّا — والاحتمالُ أنّه له، لكنّه احتمالٌ لا يقين. فيُعرَض
-   *    السؤالُ ويُترَك «أضف بس» أوّلَ خيارٍ: الافتراضُ ألّا نكتب.
-   *
-   * ⚠️ **والمرفوعُ لا يصير «الممسوك» من نفسه** (بند ٥١): لو كنتَ ماسكًا
-   *    صورةً وأضفتَ صوتًا، تبقى الصورةُ في إيدك حتى تقول غيرَ ذلك.
+   * ⚠️ **وهي `load` لا عنصرٌ ننشئه** (بند ٣٥): الخدمةُ تملك `<audio>`
+   *    واحدًا خارج الشاشات، فتبديلُ المقطع يوقف السابقَ حتمًا، والتشغيلُ
+   *    يعيش بعد كلّ إعادة رسمٍ هنا.
    */
-  const choice = await showModal({
-    title: `اتضاف ${fresh.length}`,
-    submitLabel: 'اقفل',
-    actions: [{ label: 'أضف بس', value: null, variant: 'ghost' }],
+  const out = await audio.load({
+    mediaId: record.id,
+    url: urlFor(record, { thumb: false }),
+    title: itemTitle(record),
+    subtitle: board.scene?.titleAr || '',
+  });
+  if (out && out.ok === false) toastError('تعذّر تشغيل التسجيل');
+  return undefined;
+}
+
+/* ================================================================== *
+ * الربط — ملتقِطٌ يبحث ويعاين ثم يؤكّد (بند ١٨)
+ * ================================================================== */
+
+/**
+ * ⚠️ **الربطُ خطوةٌ مقصودةٌ لا نتيجةَ لمسةٍ عابرة** (بند ٦): تفتح
+ *    العنصر، وتدخل وضعَ «ربط»، وتفتح المُفتِّش على «الربط»، وتضغط
+ *    «+ إضافة رابط»، وتبحث، **وتعاين**، ثم تؤكّد. وكلُّ خطوةٍ منها
+ *    قابلةٌ للتراجع قبل الكتابة.
+ */
+async function openLinkPicker() {
+  if (!state.open) return toastError('افتح عنصر الأول');
+  state.picked = new Set();
+
+  if (state.open.kind === 'text') return pickMediaFor(state.open.id);
+  return pickTargetFor(state.open.id);
+}
+
+/** عقدةٌ مفتوحة → نختار لها وسائط. */
+async function pickMediaFor(nodeId) {
+  const target = board.targetById.get(nodeId);
+  const done = await showModal({
+    title: 'اربط وسائط بالعقدة دي',
+    wide: true,
+    submitLabel: 'اربط المحدد',
     body: html`
-      <p class="ws-note">
-        تحبّ نربطهم دلوقتي بالمكان اللي إنت واقف عليه؟
-      </p>
-      <p class="ws-crumb" dir="auto" title="${target.path.join(SEP)}">
-        ${shortPath(target.path)}
-      </p>
+      <p class="ws-crumb-line" dir="auto" title="${target?.path.join(SEP) || ''}">
+        ${target?.path.join(SEP) || ''}</p>
+      <input class="ws-input" data-pick-find type="search" dir="auto"
+             placeholder="دوّر في وسائط الذكرى…" aria-label="دوّر في الوسائط">
+      <div class="ws-pick-chips" role="tablist">
+        ${raw(MEDIA_FILTERS.map((one, i) => html`
+          <button type="button" role="tab" class="ws-chip ${i === 0 ? 'is-on' : ''}"
+                  data-pick-filter="${one.id}">${one.label}</button>`).join(''))}
+      </div>
+      <ul class="ws-pick-list" data-pick-list></ul>
+      <p class="ws-pick-n" data-pick-n role="status">مفيش حاجة متحدِّدة</p>`,
+    onMount(root) {
+      let filter = 'unlinked';
+      let query = '';
+
+      const draw = () => {
+        const list = root.querySelector('[data-pick-list]');
+        const items = mediaLibrary(board, { filter, query });
+        list.innerHTML = items.length ? items.map(({ row }) => {
+          const at = board.linkedTo.get(row.id) || [];
+          const already = at.includes(nodeId);
+          const on = state.picked.has(row.id);
+          return html`
+            <li class="ws-pick-row ${on ? 'is-on' : ''} ${already ? 'is-already' : ''}">
+              <button type="button" class="ws-pick-hit" data-pick="${row.id}"
+                      role="checkbox" aria-checked="${on ? 'true' : 'false'}"
+                      ${already ? 'disabled' : ''}>
+                <span class="ws-pick-box" aria-hidden="true">${on ? '✓' : ''}</span>
+                <span class="ws-pick-face" aria-hidden="true">
+                  ${raw(row.kind === 'image' && !isCloudOnly(row)
+                    ? html`<img src="${urlFor(row, { thumb: true })}" alt="" loading="lazy">`
+                    : icon(row.kind === 'audio' ? 'mic' : 'image', 16))}</span>
+                <span class="ws-pick-t" dir="auto">${itemTitle(row)}</span>
+                <span class="ws-pick-sub">${already ? 'مربوط هنا خلاص'
+                  : (at.length ? `مربوط بـ ${pathOf(at[0]) || ''}` : 'غير مربوط')}</span>
+              </button>
+              ${raw(row.kind === 'audio' ? html`
+                <button type="button" class="ws-icon-btn" data-pick-play="${row.id}"
+                        aria-label="اسمع ${itemTitle(row)}">${raw(icon('play', 15))}</button>` : '')}
+            </li>`;
+        }).join('') : '<li class="ws-empty"><p>مفيش وسائط في المصفاة دي</p></li>';
+        root.querySelector('[data-pick-n]').textContent = state.picked.size
+          ? `${state.picked.size} متحدِّد` : 'مفيش حاجة متحدِّدة';
+      };
+
+      draw();
+      root.addEventListener('click', (event) => {
+        const hit = event.target.closest('[data-pick]');
+        if (hit) {
+          const id = hit.dataset.pick;
+          if (state.picked.has(id)) state.picked.delete(id); else state.picked.add(id);
+          draw();
+          return;
+        }
+        const play = event.target.closest('[data-pick-play]');
+        if (play) { playItem(play.dataset.pickPlay); return; }
+        const chip = event.target.closest('[data-pick-filter]');
+        if (chip) {
+          filter = chip.dataset.pickFilter;
+          root.querySelectorAll('[data-pick-filter]')
+            .forEach((one) => one.classList.toggle('is-on', one === chip));
+          draw();
+        }
+      }, wired());
+      root.addEventListener('input', (event) => {
+        if (!event.target.matches('[data-pick-find]')) return;
+        query = event.target.value;
+        draw();
+      }, wired());
+    },
+    onSubmit: async (data, close) => {
+      if (!state.picked.size) return toastError('اختار حاجة الأول');
+      close();
+      return undefined;
+    },
+  });
+
+  if (done !== 'submit' || !state.picked.size) { state.picked.clear(); return undefined; }
+  return commitLink([...state.picked], nodeId);
+}
+
+/** وسيطٌ مفتوح → نختار له مكانًا في الشجرة. */
+async function pickTargetFor(mediaId) {
+  const item = mediaById(mediaId);
+  const at = new Set(board.linkedTo.get(mediaId) || []);
+  let chosen = null;
+
+  const done = await showModal({
+    title: `اربط «${itemTitle(item)}» بمكان`,
+    wide: true,
+    submitLabel: 'اربط',
+    body: html`
+      <input class="ws-input" data-pick-find type="search" dir="auto"
+             placeholder="دوّر في السكريبتات والأجزاء…" aria-label="دوّر في الأماكن">
+      <ul class="ws-pick-list" data-pick-list></ul>
+      <p class="ws-pick-n" data-pick-n role="status">مفيش مكان متحدِّد</p>`,
+    onMount(root) {
+      let query = '';
+      const draw = () => {
+        const needle = query.trim().toLowerCase();
+        const rows = board.targets.filter((one) => !needle
+          || one.path.join(' ').toLowerCase().includes(needle));
+        const list = root.querySelector('[data-pick-list]');
+        list.innerHTML = rows.length ? rows.slice(0, 300).map((one) => html`
+          <li class="ws-pick-row ${chosen === one.id ? 'is-on' : ''}
+                     ${at.has(one.id) ? 'is-already' : ''}">
+            <button type="button" class="ws-pick-hit" data-pick="${one.id}"
+                    role="radio" aria-checked="${chosen === one.id ? 'true' : 'false'}"
+                    ${at.has(one.id) ? 'disabled' : ''}>
+              <span class="ws-pick-box" aria-hidden="true">${chosen === one.id ? '✓' : ''}</span>
+              <span class="ws-pick-t" dir="auto">${one.title}</span>
+              <span class="ws-pick-sub" dir="auto">${at.has(one.id)
+                ? 'مربوط هنا خلاص' : one.path.join(SEP)}</span>
+            </button>
+          </li>`).join('') : '<li class="ws-empty"><p>مفيش مكان بالاسم ده</p></li>';
+        root.querySelector('[data-pick-n]').textContent = chosen
+          ? `المكان: ${pathOf(chosen)}` : 'مفيش مكان متحدِّد';
+      };
+      draw();
+      root.addEventListener('click', (event) => {
+        const hit = event.target.closest('[data-pick]');
+        if (!hit) return;
+        chosen = hit.dataset.pick;
+        draw();
+      }, wired());
+      root.addEventListener('input', (event) => {
+        if (!event.target.matches('[data-pick-find]')) return;
+        query = event.target.value;
+        draw();
+      }, wired());
+    },
+    onSubmit: async (data, close) => {
+      if (!chosen) return toastError('اختار مكان الأول');
+      close();
+      return undefined;
+    },
+  });
+
+  if (done !== 'submit' || !chosen) return undefined;
+  return commitLink([mediaId], chosen);
+}
+
+/**
+ * الكتابةُ نفسُها — **بنفس نموذج العلاقات القائم** (بند ١٨).
+ *
+ * ⚠️ **وهي إضافةٌ لا نقل** (بند ٢٢): الربطُ يزيد وجهةً ولا يهدم وجهةً
+ *    قائمة، فملفٌّ واحدٌ يخدم مرحلةً وجزأين بلا نسخِ بايتاته.
+ */
+async function commitLink(mediaIds, targetId) {
+  const where = pathOf(targetId);
+  try {
+    const { linked } = await linkSelection(mediaIds, targetId, board, { mode: 'attach' });
+    state.picked.clear();
+    await refresh({ doc: false });
+    if (state.inspector) paintInsp();
+    return toastOk(`اترّبط ${linked} — ${where}`);
+  } catch (error) {
+    return toastError(`الربط فشل: ${error?.message || 'مش معروف'}`);
+  }
+}
+
+async function dropLink(mediaId, at) {
+  const where = at ? pathOf(at) : null;
+  const item = mediaById(mediaId);
+  const go = await confirmAction({
+    title: 'فكّ الربط',
+    message: where
+      ? `هيتفكّ «${esc(itemTitle(item) || '')}» من «${esc(where)}». الملفّ نفسه هيفضل موجود.`
+      : 'هيتفكّ الربط. الملفّ نفسه هيفضل موجود.',
+    confirmLabel: 'فكّ',
+  });
+  if (!go) return undefined;
+  try {
+    await unlinkOne(mediaId, board, at || null);
+    await refresh({ doc: false });
+    if (state.inspector) paintInsp();
+    return toastOk(where ? `اتفكّ من ${where}` : 'اتفكّ الربط');
+  } catch (error) {
+    return toastError(`فكّ الربط فشل: ${error?.message || 'مش معروف'}`);
+  }
+}
+
+/* ================================================================== *
+ * الإنشاء السياقيّ (بند ١٧)
+ * ================================================================== */
+
+async function openAddMenu() {
+  const add = addScopeLabel();
+  if (!add.where) return newRoot();
+
+  const choice = await showModal({
+    title: add.label,
+    submitLabel: 'اقفل',
+    actions: [{ label: 'اقفل', value: null, variant: 'ghost' }],
+    body: html`
+      <p class="ws-crumb-line" dir="auto" title="${add.where.path.join(SEP)}">
+        جوّه: ${add.where.path.join(SEP)}</p>
       <div class="ws-add">
-        <button type="button" class="ws-add-btn" data-add="link">
-          <b>اربطهم بالمكان ده</b><span>تقدر تفكّهم بعدين من معاينة كلّ واحد</span></button>
-        <button type="button" class="ws-add-btn" data-add="later">
-          <b>سيبهم في «غير مربوط»</b><span>أسمعهم وأقرّر بعدين</span></button>
+        <button type="button" class="ws-add-btn" data-add="text">
+          <b>📝 نصّ</b><span>عقدة جديدة تحت المكان ده</span></button>
+        <button type="button" class="ws-add-btn" data-add="paste">
+          <b>📥 استيراد نصّ منظَّم</b><span>الصق رحلة كاملة مرّة واحدة</span></button>
+        <button type="button" class="ws-add-btn" data-add="audio">
+          <b>🎙 صوت</b><span>ملفّ أو أكتر — تربطه وإنت شايفه</span></button>
+        <button type="button" class="ws-add-btn" data-add="image">
+          <b>🖼 صورة</b><span>ملفّ أو أكتر — تربطها وإنتِ شايفها</span></button>
       </div>`,
     onMount(root) {
       root.addEventListener('click', (event) => {
@@ -1080,74 +1466,150 @@ async function uploadFiles(kind) {
     },
   });
 
-  if (choice === 'link') {
-    const { linked } = await linkSelection(fresh, state.targetId, board, { mode: 'attach' });
-    await refresh();
-    return toastOk(`اترّبط ${linked} — ${pathOf(state.targetId)}`);
-  }
-  return toastOk(`اتضاف ${fresh.length} — تلاقيهم في «غير مربوط»`);
+  if (choice === 'text') return addTextInside(add.where.id);
+  if (choice === 'paste') return openPaste(add.where.id);
+  if (choice === 'audio' || choice === 'image') return uploadFiles(choice);
+  return undefined;
 }
 
-/** إضافةُ نصٍّ: جوّه · بعده · سايب (بنود ٢٤ و٢٥ و٦٣). */
-async function openAddText(where = null) {
-  const target = state.targetId ? board.targetById.get(state.targetId) : null;
+/**
+ * ⚠️ **وبعد الإنشاء: يُحدَّد ويُفرَد الطريقُ إليه ويُفتَح فورًا** (بند ١٧).
+ *    عقدةٌ تُنشَأ ثم تختفي في شجرةٍ مطويّةٍ ليست إنشاءً — هي فقدان.
+ */
+async function addTextInside(parentId) {
+  const parent = board.targetById.get(parentId);
+  let made = null;
 
-  const result = await showModal({
+  const done = await showModal({
     title: 'نصّ جديد',
     wide: true,
     submitLabel: 'احفظ',
     body: html`
+      <p class="ws-crumb-line" dir="auto">جوّه: ${parent?.path.join(SEP) || ''}</p>
       <label class="fld"><span>العنوان</span>
         <input name="title" dir="auto" placeholder="مثلاً: PART 4 — الجمارك"></label>
       <label class="fld"><span>النصّ</span>
         <textarea name="text" rows="8" dir="auto"></textarea></label>
       <fieldset class="ws-where">
         <legend>يتحطّ فين؟</legend>
-        ${raw(target ? html`
-          <label><input type="radio" name="where" value="inside" checked>
-            جوّه <b dir="auto">${target.title}</b></label>
-          <label><input type="radio" name="where" value="after">
-            بعد <b dir="auto">${target.title}</b></label>` : '')}
-        <label><input type="radio" name="where" value="loose" ${target ? '' : 'checked'}>
+        <label><input type="radio" name="where" value="inside" checked>
+          جوّه <b dir="auto">${parent?.title || ''}</b></label>
+        <label><input type="radio" name="where" value="after">
+          بعد <b dir="auto">${parent?.title || ''}</b></label>
+        <label><input type="radio" name="where" value="loose">
           سايب — أقرّر مكانه بعدين</label>
       </fieldset>`,
+    /*
+     * ⚠️ **وفشلُ الإنشاء يُبقي ما كتبتَه في النافذة** (بند ١٧): النافذةُ
+     *    لا تُغلَق إلّا بعد أن ترجع الكتابةُ محقَّقة.
+     */
     onSubmit: async (data, close) => {
       const title = String(data.title || '').trim();
       const text = String(data.text || '');
       if (!title && !text.trim()) return toastError('اكتب عنوان أو نصّ');
-      const place = where || data.where || 'loose';
-
-      if (place === 'loose' || !state.targetId) {
-        await addLooseText(state.sceneId, { title: title || 'نصّ جديد', text });
-      } else {
-        const made = await addTextAt(state.targetId, place, { title: title || 'نصّ جديد', text });
-        if (!made) {
-          await addLooseText(state.sceneId, { title: title || 'نصّ جديد', text });
-          toastOk('السكريبت الرئيسي مالوش أب — اتحفظ سكريبت مستقلّ');
+      const place = data.where || 'inside';
+      try {
+        if (place === 'loose') {
+          made = await addLooseText(state.sceneId, { title: title || 'نصّ جديد', text });
+        } else {
+          made = await addTextAt(parentId, place, { title: title || 'نصّ جديد', text });
+          if (!made) {
+            made = await addLooseText(state.sceneId, { title: title || 'نصّ جديد', text });
+            toastOk('المكان ده مالوش أب — اتحفظ سكريبت مستقلّ');
+          }
         }
+        close();
+      } catch (error) {
+        toastError(`الحفظ فشل: ${error?.message || 'مش معروف'} — اللي كتبتَه لسّه هنا`);
       }
-      close();
       return undefined;
     },
   });
 
-  if (result === 'submit') { state.filter = state.targetId ? state.filter : 'unlinked'; await refresh(); }
-  return undefined;
+  if (done !== 'submit' || !made) return undefined;
+  state.expanded.add(parentId);
+  await refresh({ doc: false });
+  revealAndOpen(made.id);
+  return toastOk('اتعملت — وإنت واقف عليها دلوقتي');
 }
 
-/** اللصقُ المنظَّم تحت المكان الحاليّ (بندا ٦٥ و٦٦). */
-async function openPaste() {
-  const parentId = state.targetId || state.rootId;
-  if (!parentId) return toastError('اختار سكريبت رئيسي الأول');
-  const parent = board.targetById.get(parentId);
+/** يفرد الطريقَ إلى عقدةٍ ويفتحها ويجرّها إلى الشاشة (بند ١٧). */
+function revealAndOpen(id) {
+  for (const one of ancestorsOf(board, id)) state.expanded.add(one);
+  state.open = { kind: 'text', id };
+  state.draft = null;
+  state.mode = MODE.READ;
+  applyShell();
+  paintNav();
+  paintDoc({ force: true });
+  if (state.inspector) paintInsp();
+  const row = $(`[data-ws="nav-node"][data-id="${id}"]`);
+  row?.scrollIntoView({ block: 'nearest' });
+}
 
+async function newRoot() {
+  let made = null;
+  const done = await showModal({
+    title: 'سكريبت رئيسي جديد',
+    submitLabel: 'اعمله',
+    body: html`<label class="fld"><span>الاسم</span>
+      <input name="title" dir="auto" placeholder="مثلاً: مراجعة الجمارك"></label>`,
+    onSubmit: async (data, close) => {
+      try {
+        made = await createMainScript(state.sceneId, { title: data.title });
+        close();
+      } catch (error) {
+        toastError(`الإنشاء فشل: ${error?.message || 'مش معروف'}`);
+      }
+    },
+  });
+  if (done !== 'submit' || !made) return undefined;
+  await refresh({ doc: false });
+  revealAndOpen(made.id);
+  return toastOk('اتعمل — تقدر تلصق فيه دلوقتي');
+}
+
+/**
+ * رفعُ ملفّاتٍ — **بلا ربطٍ إجباريّ**.
+ *
+ * ⚠️ ويروح المرفوعُ إلى «غير مربوط» لا إلى المكان الحاليّ: الربطُ قرارٌ
+ *    يحتاج أن تسمع الملفَّ أوّلًا.
+ */
+async function uploadFiles(kind) {
+  const files = await pickFiles({
+    accept: kind === 'audio' ? 'audio/*' : 'image/*', multiple: true,
+  });
+  if (!files?.length) return undefined;
+
+  const before = new Set([...board.audio, ...board.images].map((row) => row.id));
+  try {
+    await addFilesToScene(state.sceneId, files);
+  } catch (error) {
+    return toastError(`الرفع فشل: ${error?.message || 'مش معروف'}`);
+  }
+  await refresh({ doc: false });
+
+  const fresh = [...board.audio, ...board.images]
+    .filter((row) => !before.has(row.id)).map((row) => row.id);
+
+  state.inspector = true;
+  state.tab = TAB.MEDIA;
+  state.mediaFilter = 'unlinked';
+  applyShell();
+  paintInsp();
+  return toastOk(`اتضاف ${fresh.length || files.length} — تلاقيهم في «غير مربوط»`);
+}
+
+/** اللصقُ المنظَّم تحت المكان الحاليّ. */
+async function openPaste(parentId) {
+  const parent = board.targetById.get(parentId);
   const { openSmartPaste } = await import('../modals/smart-paste.js');
   const decided = await openSmartPaste({ parentLabel: parent?.title || 'السكريبت' });
   if (!decided?.ok) return undefined;
 
   /*
-   * ⚠️ **والتعارضُ يُعرَض قبل الكتابة لا بعدها** (بند ٦٧): «PART 1»
-   *    تحت أبٍ فيه «PART 1» ليست هي هي، ولا تُدمَج بالاسم أبدًا.
+   * ⚠️ **والتعارضُ يُعرَض قبل الكتابة لا بعدها**: «PART 1» تحت أبٍ فيه
+   *    «PART 1» ليست هي هي، ولا تُدمَج بالاسم أبدًا.
    */
   const clashes = await conflictsFor(parentId, decided.proposal);
   if (clashes.length) {
@@ -1160,11 +1622,19 @@ async function openPaste() {
     if (!go) return undefined;
   }
 
-  const { created } = await commitPaste(parentId, decided.proposal, { excluded: decided.excluded });
-  state.expanded.add(parentId);
-  await refresh();
-  return toastOk(`اتعملت ${created} عقدة تحت ${parent?.title || 'السكريبت'}`);
+  try {
+    const { created } = await commitPaste(parentId, decided.proposal, { excluded: decided.excluded });
+    state.expanded.add(parentId);
+    await refresh({ doc: false });
+    return toastOk(`اتعملت ${created} عقدة تحت ${parent?.title || 'السكريبت'}`);
+  } catch (error) {
+    return toastError(`الاستيراد فشل: ${error?.message || 'مش معروف'}`);
+  }
 }
+
+/* ================================================================== *
+ * قائمةُ العنصر
+ * ================================================================== */
 
 async function openNodeMenu(nodeId) {
   const node = nodeById(nodeId);
@@ -1179,12 +1649,12 @@ async function openNodeMenu(nodeId) {
     body: html`
       <div class="ws-menu">
         <button type="button" data-m="rename">إعادة تسمية</button>
-        <button type="button" data-m="inside">+ نصّ جوّه هنا</button>
+        <button type="button" data-m="inside">+ نصّ جوّه ده</button>
         ${raw(isRoot ? '' : '<button type="button" data-m="after">+ نصّ بعد ده</button>')}
-        ${raw(isRoot ? '' : '<button type="button" data-m="up">فوق</button>')}
-        ${raw(isRoot ? '' : '<button type="button" data-m="down">تحت</button>')}
+        ${raw(isRoot ? '' : '<button type="button" data-m="up">حرّكه فوق</button>')}
+        ${raw(isRoot ? '' : '<button type="button" data-m="down">حرّكه تحت</button>')}
         ${raw(isRoot && isLoose
-          ? '<button type="button" data-m="place">حطّه جوّه المكان الحالي</button>' : '')}
+          ? '<button type="button" data-m="place">حطّه جوّه المفتوح دلوقتي</button>' : '')}
         ${raw(isRoot ? '' : '<button type="button" data-m="detach">طلّعه برّه الشجرة</button>')}
         <button type="button" data-m="hide">${node.hidden === 1 ? 'رجّعه' : 'اخفيه'}</button>
         <button type="button" class="danger" data-m="del">احذف</button>
@@ -1214,19 +1684,22 @@ async function openNodeMenu(nodeId) {
     if (value === 'submit') await refresh();
     return undefined;
   }
-  if (pick === 'inside' || pick === 'after') {
-    state.targetId = nodeId;
-    return openAddText(pick);
+  if (pick === 'inside') return addTextInside(nodeId);
+  if (pick === 'after') {
+    const parentId = board.targetById.get(nodeId)?.parentId;
+    return parentId ? addTextInside(parentId) : toastError('ده جذر — مالوش أب');
   }
   if (pick === 'up' || pick === 'down') {
-    const parentId = parentOf(nodeId);
+    const parentId = board.targetById.get(nodeId)?.parentId;
     if (parentId) await org.moveNode(parentId, nodeId, pick);
     await refresh();
     return undefined;
   }
   if (pick === 'place') {
-    if (!state.targetId || state.targetId === nodeId) return toastError('اختار مكان الأول');
-    await placeTextUnder(nodeId, state.targetId);
+    if (state.open?.kind !== 'text' || state.open.id === nodeId) {
+      return toastError('افتح المكان اللي عايزه الأول');
+    }
+    await placeTextUnder(nodeId, state.open.id);
     await refresh();
     return toastOk('اتحطّ في الشجرة');
   }
@@ -1253,36 +1726,89 @@ async function openNodeMenu(nodeId) {
     });
     if (!go) return undefined;
     await org.removeNode(nodeId, { policy: org.DELETE_POLICY.CASCADE });
-    if (state.targetId === nodeId) state.targetId = null;
-    if (state.focus?.id === nodeId) state.focus = null;
+    if (state.open?.id === nodeId) { state.open = null; state.draft = null; }
     await refresh();
     return toastOk('اتشال — تلاقيه في السلّة');
   }
   return undefined;
 }
 
-/** تحريرُ نصّ عقدة — **عبر `updateScript`** فتُحفَظ نسخةٌ (بند ٦٠). */
-async function editText(nodeId) {
-  const node = nodeById(nodeId);
-  if (!node) return undefined;
+/* ================================================================== *
+ * لوحةُ المفاتيح داخل المُتصفِّح (بند ٢١)
+ * ================================================================== */
 
-  const done = await showModal({
-    title: `تحرير: ${node.title}`,
-    wide: true,
-    submitLabel: 'احفظ',
-    body: html`
-      <label class="fld"><span>العنوان</span>
-        <input name="title" dir="auto" value="${node.title}"></label>
-      <label class="fld"><span>النصّ</span>
-        <textarea name="text" rows="16" dir="auto">${node.text || ''}</textarea></label>
-      <p class="ws-note">الحفظ بيسجّل نسخة في تاريخ السكريبت — زيّ أيّ تعديل.</p>`,
-    onSubmit: async (data, close) => {
-      await saveNodeText(nodeId, { title: data.title, text: data.text });
-      close();
-    },
-  });
-  if (done === 'submit') { await refresh(); toastOk('اتحفظ'); }
+function navKeys(event) {
+  const item = event.target.closest('[data-ws="nav-node"]');
+  if (!item) return;
+  const rows = $$('[data-ws="nav-node"]', $('[data-ws-nav]'));
+  const at = rows.indexOf(item);
+  const id = item.dataset.id;
+  const open = item.getAttribute('aria-expanded');
+
+  const go = (next) => {
+    if (!rows[next]) return;
+    rows[next].focus();
+    event.preventDefault();
+  };
+
+  if (event.key === 'ArrowDown') return go(at + 1);
+  if (event.key === 'ArrowUp') return go(at - 1);
+  if (event.key === 'Home') return go(0);
+  if (event.key === 'End') return go(rows.length - 1);
+
+  /* ⚠️ في RTL «الفرد» يمينًا و«الطيّ» يسارًا لا العكس (بند ٩). */
+  if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+    const wantOpen = event.key === 'ArrowLeft';
+    if (open === null) return undefined;
+    if (wantOpen && open === 'false') { toggleTwist(id); event.preventDefault(); }
+    if (!wantOpen && open === 'true') { toggleTwist(id); event.preventDefault(); }
+    return undefined;
+  }
   return undefined;
+}
+
+function toggleTwist(id) {
+  if (state.expanded.has(id)) state.expanded.delete(id); else state.expanded.add(id);
+  paintNav();
+  /* ⚠️ لا يُنقَل التركيزُ بعد إعادةِ رسمٍ سلبيّة — يُعاد لمكانه (بند ٢١). */
+  $(`[data-ws="nav-node"][data-id="${id}"]`)?.focus({ preventScroll: true });
+}
+
+/* ================================================================== *
+ * تحجيمُ الألواح (بند ١١)
+ * ================================================================== */
+
+function startResize(event, which) {
+  const root = $('.ws');
+  if (!root) return;
+  const rtl = getComputedStyle(root).direction === 'rtl';
+  const startX = event.clientX;
+  const from = which === 'nav' ? state.panes.nav : state.panes.insp;
+  event.target.setPointerCapture?.(event.pointerId);
+
+  const move = (ev) => {
+    const raw2 = ev.clientX - startX;
+    /* في RTL: المُتصفِّحُ على اليمين، فالسحبُ يسارًا يوسّعه. */
+    const delta = which === 'nav' ? (rtl ? -raw2 : raw2) : (rtl ? raw2 : -raw2);
+    const width = from + delta;
+    const viewport = root.clientWidth;
+    if (which === 'nav') {
+      const other = state.inspector ? state.panes.insp : 0;
+      state.panes.nav = Math.round(Math.max(PANE.NAV_MIN,
+        Math.min(PANE.NAV_MAX, Math.min(width, viewport - other - PANE.MAIN_MIN))));
+    } else {
+      state.panes.insp = Math.round(Math.max(PANE.INSP_MIN,
+        Math.min(PANE.INSP_MAX, Math.min(width, viewport - state.panes.nav - PANE.MAIN_MIN))));
+    }
+    applyShell();
+  };
+  const up = () => {
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', up);
+    writePanePrefs(state.panes);
+  };
+  window.addEventListener('pointermove', move, wired());
+  window.addEventListener('pointerup', up, wired({ once: true }));
 }
 
 /* ================================================================== *
@@ -1292,59 +1818,104 @@ async function editText(nodeId) {
 export async function renderWorkspace(main, sceneId) {
   freshWires();
   state.sceneId = sceneId;
-  state.selection = new Set();
+  state.open = null;
+  state.mode = MODE.READ;
+  state.draft = null;
   state.expanded = new Set();
-  state.perRoot = new Map();
-  state.filter = 'all';
-  state.query = '';
-  state.treeQuery = '';
-  state.previewQuery = '';
-  state.pane = 'tree';
-  state.focus = null;
+  state.shown = new Map();
+  state.navQuery = '';
+  state.docQuery = '';
+  state.inspector = false;
+  state.tab = TAB.LINKS;
+  state.zen = false;
+  state.drawer = null;
+  state.picked = new Set();
+  state.mediaFilter = 'unlinked';
+  state.mediaQuery = '';
+  state.fetching = new Set();
+  state.error = null;
+  state.loading = true;
+  board = null;
+  recordIndex = new Map();
 
   /* ⚠️ يُخفي المُشغّلَ العالميَّ — راجع سبب ذلك في `workspace.css`. */
   document.body.classList.add('workspace-open');
+  state.panes = effectivePanes(main.clientWidth || window.innerWidth);
 
-  board = await workspaceBoard(sceneId);
-  if (!board) {
+  main.innerHTML = html`
+    <div class="ws" data-mode="read" data-insp="off" data-zen="off" data-drawer="" data-fit="wide"
+         style="--ws-nav:${state.panes.nav}px; --ws-insp:${state.panes.insp}px">
+      <header class="ws-top">
+        <a class="ws-icon-btn" href="#/scene/${sceneId}" aria-label="رجوع للذكرى">
+          ${raw(icon('back', 18))}</a>
+        <button type="button" class="ws-icon-btn ws-only-narrow" data-ws="drawer" data-v="nav"
+                aria-label="افتح شجرة المحتوى">${raw(icon('language', 18))}</button>
+        <h1 class="ws-scene" dir="auto" data-ws-scene>…</h1>
+        <div class="ws-top-acts">
+          <button type="button" class="ws-icon-btn" data-ws="zen"
+                  aria-pressed="false" aria-label="وضع التركيز">${raw(icon('eye', 18))}</button>
+          <a class="ws-btn ws-btn-soft ws-only-wide" href="#/organize/${sceneId}">وضع التنظيم</a>
+        </div>
+      </header>
+
+      <div class="ws-body">
+        <aside class="ws-nav" data-ws-nav aria-label="مُتصفِّح المحتوى"></aside>
+        <div class="ws-split" data-ws-split="nav" role="separator"
+             aria-label="عرض المُتصفِّح" tabindex="0"></div>
+
+        <main class="ws-main" data-ws-main>
+          <div class="ws-head" data-ws-head></div>
+          <div class="ws-doc" data-ws-doc></div>
+        </main>
+
+        <div class="ws-split" data-ws-split="insp" role="separator"
+             aria-label="عرض المُفتِّش" tabindex="0"></div>
+        <aside class="ws-insp" id="ws-inspector" data-ws-insp aria-label="المُفتِّش"></aside>
+      </div>
+
+      <button type="button" class="ws-scrim" data-ws-scrim data-ws="drawer" data-v=""
+              aria-label="اقفل الدرج" hidden></button>
+      <div class="ws-now" data-ws-now hidden></div>
+    </div>`;
+
+  /* رسمُ حالة التحميل قبل انتظار القاعدة — الانتظارُ يشرح نفسَه (بند ١٤). */
+  paintNav();
+  paintDoc({ force: true });
+
+  try {
+    board = await workspaceBoard(sceneId);
+  } catch (error) {
+    state.error = String(error?.message || error);
+  }
+  state.loading = false;
+
+  if (!board && !state.error) {
     main.innerHTML = '<p class="ws-empty">الذكرى دي مش موجودة</p>';
     return;
   }
-  buildNodeIndex();
-  state.rootId = board.roots[0]?.id || null;
-  state.targetId = state.rootId;
-  if (state.rootId) state.focus = { kind: 'text', id: state.rootId };
 
-  main.innerHTML = html`
-    <div class="ws" data-pane="tree">
-      <header class="ws-top">
-        <a class="ws-back" href="#/scene/${sceneId}" aria-label="رجوع للذكرى">‹</a>
-        <h2 dir="auto">${board.scene.titleAr || 'ذكرى'}</h2>
-        <span class="ws-exp">ورشة · تجريبي</span>
-        <a class="ws-alt" href="#/organize/${sceneId}">وضع التنظيم</a>
-      </header>
-
-      <!-- التبويبات تظهر في العرض الضيّق وحدَه (بند ٧١). -->
-      <nav class="ws-panes" role="tablist">
-        <button type="button" data-ws="pane" data-v="tree" role="tab" class="on">الشجرة</button>
-        <button type="button" data-ws="pane" data-v="desk" role="tab">المحتوى</button>
-        <button type="button" data-ws="pane" data-v="preview" role="tab">المعاينة</button>
-      </nav>
-
-      <div class="ws-grid">
-        <section class="ws-col ws-a" data-ws-roots>${raw(rootsHtml())}</section>
-        <section class="ws-col ws-b" data-ws-tree>${raw(treeHtml())}</section>
-        <section class="ws-col ws-c" data-ws-desk>${raw(deskHtml())}</section>
-        <section class="ws-col ws-d" data-ws-preview>${raw(previewHtml())}</section>
-      </div>
-
-      <div class="ws-now" data-ws-now hidden></div>
-      <div class="ws-bar" data-ws-bar>${raw(barHtml())}</div>
-    </div>`;
+  if (board) {
+    buildIndex();
+    $('[data-ws-scene]').textContent = board.scene.titleAr || 'ذكرى';
+    const first = board.roots[0];
+    if (first) {
+      state.open = { kind: 'text', id: first.id };
+      /*
+       * ⚠️ **ومستوًى واحدٌ مفرودٌ عند أوّل فتح** (بند ٣): شجرةٌ مطويّةٌ
+       *    بالكامل تجعل أوّلَ ما تراه في الورشة **جذرًا واحدًا** لا
+       *    يقول شيئًا عن بنية الذكرى. ومستوًى واحدٌ يكفي ليقول «فيه
+       *    أجزاء» بلا أن يغرقك — والباقي بيدك.
+       */
+      state.expanded.add(first.id);
+    }
+  }
+  paintNav();
+  paintDoc({ force: true });
+  applyShell();
 
   /*
    * ⚠️ **مستمعٌ واحدٌ مفوَّضٌ على الشاشة** — وكلُّه يأخذ إشارةَ القطع،
-   *    لأن الشاشةَ تُغادَر ويجب أن يموت معها (نفسُ انضباط الظلّ).
+   *    لأن الشاشةَ تُغادَر ويجب أن يموت معها.
    */
   main.addEventListener('click', async (event) => {
     const btn = event.target.closest('[data-ws]');
@@ -1353,148 +1924,113 @@ export async function renderWorkspace(main, sceneId) {
     const id = btn.dataset.id;
 
     switch (act) {
-      case 'pane': state.pane = btn.dataset.v; return showPane();
-      case 'root': return selectRoot(id);
-      case 'node': return selectNode(id);
-      case 'node-menu': return openNodeMenu(id);
-
-      case 'twist': {
-        if (state.expanded.has(id)) state.expanded.delete(id); else state.expanded.add(id);
-        paintTree();
-        return rememberRoot();
-      }
-
-      case 'focus': {
-        const kind = btn.dataset.kind;
-        /*
-         * ⚠️ **عقدةُ الشجرة هدفٌ مرشَّح، وبطاقةُ المكتب شيءٌ تمسكه.**
-         *    الاثنان نصٌّ في القاعدة، ودورُهما هنا متعاكس: واحدٌ «فين
-         *    أحطّه؟» والآخر «إيه اللي في إيدي؟». وخلطُهما كان يجعل
-         *    لمسةَ ملاحظةٍ سائبةٍ تجعلها هدفَ الربط.
-         */
-        if (kind === 'text') return selectNode(id);
-
-        const real = kind === 'loose' ? 'text' : kind;
-        state.focus = { kind: real, id };
-        /*
-         * ⚠️ **والتفحّصُ هو بدايةُ الربط** (بند ٣): لحظةَ تفتح ملفًّا
-         *    مجهولًا تكون قد بدأت تسأل «ده بتاع فين؟». فيُمسَك تلقائيًّا
-         *    ويبقى معروضًا حتى تفلته — فلا تحتاج أن تتذكّره أبدًا.
-         */
-        state.workingItem = { kind: real, id };
-        paintDesk(); paintPreview(); paintBar();
-        /*
-         * ⚠️ **ولا يبقى المكتبُ حاجبًا معاينتَه.** في مرتبة التابلت
-         *    يُخفي لوحُ «المحتوى» المعاينةَ، فكانت أزرارُ العنصر نفسِه
-         *    (كبّر · فكّ الربط) موجودةً في الـDOM وغيرَ مرئيّة — أمسكها
-         *    الفحصُ الميدانيّ حين عجز عن نقر «كبّر».
-         *
-         *    و`preview` في تلك المرتبة تعرض **الشجرةَ والمعاينةَ معًا**،
-         *    فالتبديلُ إليها يكسب المعاينةَ بلا أن يخسر الشجرة.
-         */
-        showPreviewPane();
+      case 'drawer': {
+        state.drawer = btn.dataset.v || null;
+        if (state.drawer === 'insp') state.inspector = true;
+        applyShell();
+        if (state.drawer === 'insp') paintInsp();
         return undefined;
       }
-
-      /*
-       * ⚠️ **المسكُ لا يربط** (بندا ٦ و٣٧): «امسكه» تعني «ده اللي
-       *    بحاول أعرف مكانه»، والربطُ فعلٌ منفصلٌ صريح. وخلطُهما يجعل
-       *    كلَّ لمسةِ استكشافٍ كتابةً في القاعدة.
-       */
-      case 'hold': {
-        const kind = btn.dataset.kind;
-        state.workingItem = { kind, id };
-        state.focus = { kind, id };
-        paintDesk(); paintPreview(); paintBar();
-        return toastOk('ماسكها — اختار المكان واضغط «اربط هنا»');
-      }
-      case 'drop': {
-        state.workingItem = null;
-        paintDesk(); paintBar();
+      case 'zen': {
+        /*
+         * ⚠️ **وضعُ التركيز يخفي ولا يعيد التحميل** (بند ٧): لا إعادةَ
+         *    رسمٍ للمستند، ولا تصفيرَ تحديد، ولا فقدَ مسوّدة — سِمةٌ على
+         *    الجذر والـCSS تتولّى الباقي. والصوتُ لا يشعر بها أصلًا.
+         */
+        state.zen = !state.zen;
+        btn.setAttribute('aria-pressed', state.zen ? 'true' : 'false');
+        applyShell();
         return undefined;
       }
-      case 'link-here': {
-        const it = state.workingItem;
-        if (!it) return toastError('مفيش حاجة ماسكها');
-        if (!state.targetId) return toastError('اختار المكان الأول');
-        if (it.kind === 'text') {
-          await placeTextUnder(it.id, state.targetId);
-          const where = pathOf(state.targetId);
-          state.workingItem = null;
-          await refresh();
-          return toastOk(`اتحطّ في ${where}`);
+      case 'insp': {
+        state.inspector = !state.inspector;
+        if (state.inspector) {
+          const root = $('.ws');
+          const fit = paneFit(root?.clientWidth || window.innerWidth, state.panes);
+          if (!fit.inspDocked) state.drawer = 'insp';
+          paintInsp();
+        } else {
+          state.drawer = null;
         }
-        return linkThese([it.id]);
+        applyShell();
+        return undefined;
+      }
+      case 'insp-close': {
+        state.inspector = false;
+        state.drawer = null;
+        applyShell();
+        return undefined;
+      }
+      case 'tab': state.tab = btn.dataset.v; return paintInsp();
+      case 'tab-media': {
+        state.inspector = true; state.tab = TAB.MEDIA;
+        applyShell(); return paintInsp();
       }
 
+      case 'nav-node': return selectNode(id);
+      case 'twist': return toggleTwist(id);
+      case 'nav-more': {
+        const now = state.shown.get(id) ?? 150;
+        state.shown.set(id, now + 150);
+        return paintNav();
+      }
+      case 'nav-clear': {
+        state.navQuery = '';
+        paintNav();
+        $('[data-ws-nav-find]')?.focus();
+        return undefined;
+      }
+      case 'node-menu': return openNodeMenu(id);
+      case 'add': return openAddMenu();
+      case 'new-root': return newRoot();
+      case 'upload': return uploadFiles(btn.dataset.kind);
+
+      case 'mode': return setMode(btn.dataset.v);
+      case 'save': return saveDraft();
+      case 'dmode': {
+        /* ⚠️ يُحفَظ موضعُ النمط المغادَر **قبل** تبديله، وإلّا حُفظ في خانة الجديد. */
+        const el = $('[data-ws-doc]');
+        if (el) state.docScroll[state.docMode] = el.scrollTop;
+        state.docMode = btn.dataset.v;
+        return paintDoc({ keepScroll: true, force: true });
+      }
+
+      case 'open-media': return openMedia(id, btn.dataset.kind);
       case 'play': return playItem(id);
       case 'toggle': return audio.state.playing ? audio.pause() : audio.play();
       case 'zoom': return openLightbox(id, state.sceneId);
-
-      case 'pick': {
-        if (state.selection.has(id)) state.selection.delete(id); else state.selection.add(id);
-        /* ⚠️ لمسةُ اختيارٍ تبدّل بطاقةً وشريطًا — لا تعيد رسمَ المكتب. */
-        const card = main.querySelector(`[data-ws-card="${id}"]`);
-        card?.classList.toggle('is-picked', state.selection.has(id));
-        btn.classList.toggle('on', state.selection.has(id));
-        btn.setAttribute('aria-checked', state.selection.has(id) ? 'true' : 'false');
-        btn.textContent = state.selection.has(id) ? '✓' : '';
-        return paintBar();
-      }
-
-      case 'filter': state.filter = btn.dataset.v; return paintDesk();
-      case 'pmode': {
-        /* ⚠️ يُحفَظ موضعُ النمط المغادَر **قبل** تبديله، وإلّا حُفظ في خانة الجديد. */
-        const el = $(SCROLLERS.preview);
-        if (el) state.previewScroll[state.previewMode] = el.scrollTop;
-        state.previewMode = btn.dataset.v;
-        return paintPreview({ keepScroll: true });
-      }
-
-      case 'link-selected': return linkThese([...state.selection]);
-      case 'link-current': {
-        const now = audio.state.mediaId;
-        if (!now) return toastError('مفيش صوت شغّال');
-        return linkThese([now]);
-      }
-      case 'clear-pick': {
-        state.selection.clear();
-        paintDesk(); return paintBar();
-      }
-      case 'unlink': {
-        /* ⚠️ الوجهةُ المسمّاة وحدَها — لا كنسُ باقي الوجهات (بند ٤٠). */
-        const where = btn.dataset.at ? pathOf(btn.dataset.at) : null;
-        await unlinkOne(id, board, btn.dataset.at || null);
-        await refresh();
-        return toastOk(where ? `اتفكّ من ${where}` : 'اتفكّ الربط');
-      }
-
-      case 'add': return openAddMenu();
-      case 'add-kind': {
-        const kind = btn.dataset.kind;
-        if (kind === 'text') return openAddText();
-        return uploadFiles(kind);
-      }
-      case 'add-text-here': return openAddText('inside');
-      case 'new-root': {
-        const made = await showModal({
-          title: 'سكريبت رئيسي جديد',
-          submitLabel: 'اعمله',
-          body: html`<label class="fld"><span>الاسم</span>
-            <input name="title" dir="auto" placeholder="مثلاً: مراجعة الجمارك"></label>`,
-          onSubmit: async (data, close) => {
-            const row = await createMainScript(state.sceneId, { title: data.title });
-            state.rootId = row.id;
-            state.targetId = row.id;
-            state.focus = { kind: 'text', id: row.id };
-            close();
-          },
-        });
-        if (made === 'submit') { await refresh(); toastOk('اتعمل — تقدر تلصق فيه دلوقتي'); }
+      case 'fetch': {
+        state.fetching.add(id);
+        paintDoc({ keepScroll: true });
+        try {
+          await ensureBytes(id);
+          state.fetching.delete(id);
+          await refresh();
+        } catch (error) {
+          state.fetching.delete(id);
+          paintDoc({ keepScroll: true });
+          toastError(`التنزيل فشل: ${error?.message || 'مش متاح'}`);
+        }
         return undefined;
       }
 
-      case 'edit-text': return editText(id);
+      case 'link-add': return openLinkPicker();
+      case 'unlink': return dropLink(id, btn.dataset.at || null);
+      case 'link-current': {
+        const now = audio.state.mediaId;
+        if (!now) return toastError('مفيش صوت شغّال');
+        if (state.open?.kind !== 'text') return toastError('افتح المكان الأول');
+        return commitLink([now], state.open.id);
+      }
+
+      case 'media-filter': state.mediaFilter = btn.dataset.v; return paintInsp();
+      case 'retry-load': {
+        state.loading = true; state.error = null;
+        paintNav();
+        await refresh();
+        state.loading = false;
+        return paintNav();
+      }
       case 'shadow': {
         const { openShadowForScript } = await import('../services/shadow/shadow-entry.js');
         return openShadowForScript(id, state.sceneId);
@@ -1503,57 +2039,88 @@ export async function renderWorkspace(main, sceneId) {
     }
   }, wired());
 
-  /* البحثُ يعيد رسمَ لوحِه وحدَه — فلا يضيع تمريرُ غيره (بند ٧٤). */
+  /* البحثُ والكتابة — كلٌّ يعيد رسمَ لوحِه وحدَه. */
+  let navTimer = null;
   main.addEventListener('input', (event) => {
-    if (event.target.matches('[data-ws-tree-find]')) {
-      state.treeQuery = event.target.value;
-      paintTree();
-      $('[data-ws-tree-find]')?.focus();
+    const t = event.target;
+
+    if (t.matches('[data-ws-nav-find]')) {
+      state.navQuery = t.value;
+      /*
+       * ⚠️ **ولا يُعاد بناءُ الشجرة عند كلّ حرف** (بند ١٥): على أربعة
+       *    آلاف عقدةٍ كان ذلك مسحًا كاملًا كلَّ ٤٠ مِلّي. فتأخيرٌ قصيرٌ
+       *    يجمع الضغطات، والفهرسُ جاهزٌ من الخدمة أصلًا.
+       */
+      clearTimeout(navTimer);
+      navTimer = setTimeout(() => {
+        paintNav();
+        const box = $('[data-ws-nav-find]');
+        if (box) { box.focus(); box.setSelectionRange(box.value.length, box.value.length); }
+      }, 140);
       return;
     }
-    if (event.target.matches('[data-ws-desk-find]')) {
-      state.query = event.target.value;
-      const list = $('[data-ws-desk] .ws-cards');
-      if (list) list.innerHTML = deskItems().map(cardHtml).join('');
-      return;
-    }
-    if (event.target.matches('[data-ws-prev-find]')) {
-      state.previewQuery = event.target.value;
-      const body = $('[data-ws-prev-body]');
-      if (!body) return;
-      const node = nodeById(state.focus?.id);
-      if (!node) return;
+
+    if (t.matches('[data-ws-doc-find]')) {
+      state.docQuery = t.value;
+      const paper = $('[data-ws-paper]');
+      const node = nodeById(state.open?.id);
+      if (!paper || !node) return;
       const text = node.text || '';
-      body.innerHTML = looksLikeDialogue(text) && state.previewMode === 'chat'
+      paper.innerHTML = looksLikeDialogue(text) && state.docMode === 'chat'
         ? chatHtml(text)
-        : `<pre class="ws-raw" dir="auto">${withMarks(text, state.previewQuery)}</pre>`;
+        : `<pre class="ws-raw" dir="auto">${withMarks(text, state.docQuery)}</pre>`;
+      return;
+    }
+
+    if (t.matches('[data-ws-media-find]')) {
+      state.mediaQuery = t.value;
+      paintInsp();
+      const box = $('[data-ws-media-find]');
+      if (box) { box.focus(); box.setSelectionRange(box.value.length, box.value.length); }
+      return;
+    }
+
+    /*
+     * ⚠️ **الكتابةُ تحدّث الحالةَ والشارةَ فقط** (بند ١٣): لا رسالةَ
+     *    نجاحٍ عند كلّ حرف، ولا إعادةَ رسمٍ للحقل — المؤشّرةُ تبقى مكانها.
+     */
+    if (t.matches('[data-ws-edit-title]') || t.matches('[data-ws-edit-text]')) {
+      const d = state.draft;
+      if (!d) return;
+      if (t.matches('[data-ws-edit-title]')) d.title = t.value; else d.text = t.value;
+      const next = draftChanged(d) ? SAVE.DIRTY : SAVE.CLEAN;
+      if (d.status !== next && d.status !== SAVE.SAVING) { d.status = next; paintSave(); }
     }
   }, wired());
 
-  /*
-   * ⚠️ **يُلتقَط التمريرُ اليدويُّ كذلك** (بند ٥٧): الحفظُ عند الرسم
-   *    وحدَه يكفي للرسم، ولا يكفي لتبديل الألواح في الطول — اللوحُ
-   *    المخفيُّ بـ`display:none` يفقد `scrollTop`، فلا بدّ من قيمةٍ
-   *    محفوظةٍ ساعةَ أخفيناه.
-   */
+  main.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      if (state.drawer) { closeDrawer(); return; }
+      if (state.zen) { state.zen = false; applyShell(); return; }
+    }
+    /* Ctrl/Cmd + S يحفظ في وضع التحرير — عادةٌ لا يجب أن تفتح حوارَ المتصفّح. */
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's'
+        && state.mode === MODE.EDIT) {
+      event.preventDefault();
+      saveDraft();
+      return;
+    }
+    navKeys(event);
+  }, wired());
+
+  /* التمريرُ اليدويُّ يُلتقَط — اللوحُ المخفيُّ يفقد `scrollTop`. */
   for (const [key, sel] of Object.entries(SCROLLERS)) {
     $(sel)?.addEventListener('scroll', () => {
       const el = $(sel);
       if (!el) return;
       state.scroll[key] = el.scrollTop;
-      /*
-       * ⚠️ **ولا يكتب المستمعُ في ذاكرة الأنماط.** حدثُ التمرير يصل
-       *    **بعد** أن نكون بدّلنا `previewMode`، فينسب موضعَ النمط
-       *    القديم إلى الجديد. قِيس: خزّنتُ ١٢٠ في «محادثة» فرجعت ٦٠.
-       *
-       *    فذاكرةُ الأنماط يملكها مبدّلُ النمط وحدَه: يحفظ المغادِرَ
-       *    صراحةً قبل التبديل، ويستعيد القادم بعده.
-       */
     }, wired({ passive: true }));
   }
 
-  /* شريطُ السماع: تمريرُ الموضع. */
   main.addEventListener('pointerdown', (event) => {
+    const split = event.target.closest('[data-ws-split]');
+    if (split) { startResize(event, split.dataset.wsSplit); return; }
+
     const track = event.target.closest('[data-ws="seek"]');
     if (!track) return;
     const box = track.getBoundingClientRect();
@@ -1566,23 +2133,30 @@ export async function renderWorkspace(main, sceneId) {
   }, wired());
 
   /*
-   * ⚠️ **الشريطُ مشتركٌ لا مالك** (بند ٧٥): يرسم ما تقوله الخدمة،
-   *    ولا يملك عنصرَ الصوت — فلا يستطيع أن يوقفه بإعادة رسم.
+   * ⚠️ **والتخطيطُ يُعاد حسابُه عند تغيّر العرض الفعليّ** (بند ٨): دورانُ
+   *    الجهاز أو انقسامُ الشاشة يغيّر ما يتّسع — بلا سؤالِ ترويسةِ متصفّح.
+   */
+  window.addEventListener('resize', () => {
+    state.panes = effectivePanes($('.ws')?.clientWidth || window.innerWidth);
+    applyShell();
+  }, wired({ passive: true }));
+
+  /*
+   * ⚠️ **الشريطُ مشتركٌ لا مالك** (بند ٣٥): يرسم ما تقوله الخدمة، ولا
+   *    يملك عنصرَ الصوت — فلا يستطيع أن يوقفه بإعادة رسم.
    */
   stopAudioWatch = subscribeAudio((snapshot) => paintNow(snapshot));
-  showPane();
 }
 
 /**
  * يُنعش الورشةَ **في مكانها** — بلا إعادة رسمٍ من الصفر.
  *
  * ⚠️ تُنادى من `ui-state` بعد رفعِ ملفٍّ أو إغلاق عارض. و`renderWorkspace`
- *    لا تصلح هنا: هي تُصفّر المحدَّدَ والمكانَ والفلترَ والتمرير — أي
- *    تعاقبك على أنك أضفتَ صورة.
+ *    لا تصلح هنا: هي تُصفّر المفتوحَ والوضعَ والمسوّدةَ والتمرير.
  */
 export async function reloadWorkspace() {
   if (!board || !state.sceneId) return;
-  await refresh();
+  await refresh({ doc: state.mode !== MODE.EDIT });
 }
 
 export function disposeWorkspace() {
@@ -1591,6 +2165,7 @@ export function disposeWorkspace() {
   wires = null;
   stopAudioWatch?.();
   stopAudioWatch = null;
+  clearTimeout(savedTimer);
   board = null;
   /*
    * ⚠️ **ولا يُوقَف الصوت عند المغادرة.** هو خدمةٌ عامّةٌ منذ WS28،
@@ -1599,5 +2174,8 @@ export function disposeWorkspace() {
   releaseUrls();
 }
 
-/** ⚠️ للتجربة الميدانيّة وحدَها — لا يُنادى من الواجهة. */
-export const __wsf = { state, selectNode, selectRoot, playItem, linkThese, refresh };
+/** ⚠️ للتجربة الميدانيّة والاختبار وحدَهما — لا يُنادى من الواجهة. */
+export const __wsp = {
+  state, selectNode, openMedia, setMode, saveDraft, refresh,
+  playItem, commitLink, dropLink, revealAndOpen, applyShell,
+};

@@ -630,9 +630,23 @@ describe('WS-F · مصدرُ حقيقةٍ واحد', () => {
     for (const banned of ['linkSelection', 'linkItemsTo', 'link(', 'placeTextUnder']) {
       expect(`${banned}:${body.includes(banned)}`).toBe(`${banned}:false`);
     }
-    /* والربطُ فعلٌ صريحٌ له اسمُه. */
-    expect(code.includes("case 'link-here'")).toBe(true);
-    expect(code.includes("case 'link-selected'")).toBe(true);
+
+    /*
+     * ⚠️ **الأسماءُ تغيّرت في WS-P، والمحروسُ لم يتغيّر.**
+     *
+     *    كان الربطُ فعلين اسمُهما `link-here` و`link-selected`: تمسك
+     *    عنصرًا في شريطٍ سفليّ ثم تضغط زرًّا. وWS-P (بند ١٨) جعله
+     *    مسارًا مقصودًا: تفتح العنصر ← وضع «ربط» ← المُفتِّش ←
+     *    «+ إضافة رابط» ← بحثٌ ← معاينةٌ ← تأكيد.
+     *
+     *    فالحارسُ يحرس **المعنى** لا الاسم: لمسةُ الشجرة استكشافٌ لا
+     *    تكتب، والربطُ فعلٌ مسمًّى منفصلٌ له حالتُه. ولو ثبّتُّ الاسمَ
+     *    القديم لَكان الحارسُ يمنع إعادةَ التسمية لا يمنع الخلط.
+     */
+    expect(code.includes("case 'link-add'")).toBe(true);
+    expect(code.includes("case 'unlink'")).toBe(true);
+    /* والكتابةُ نفسُها في دالّةٍ واحدةٍ مسمّاةٍ لا مبعثرةٍ في المعالج. */
+    expect(code.includes('async function commitLink')).toBe(true);
   });
 
   it('٤٩ · ⚠️ والممسوكُ والهدفُ حالةُ واجهةٍ لا تُحفَظ (بندا ٣٦ و٦٤)', async () => {
@@ -647,9 +661,10 @@ describe('WS-F · مصدرُ حقيقةٍ واحد', () => {
     }
   });
 
-  it('٥٠ · ⚠️ وتبديلُ نمط المعاينة لا يكتب نصًّا (بندا ٢١ و٦٧)', async () => {
+  it('٥٠ · ⚠️ وتبديلُ نمط العرض لا يكتب نصًّا (بندا ٢١ و٦٧)', async () => {
     const code = codeOnly(await (await fetch('../js/views/workspace-view.js')).text());
-    const from = code.indexOf("case 'pmode'");
+    /* ⚠️ `pmode` صار `dmode` في WS-P — المعاينةُ صارت هي المستندَ نفسَه. */
+    const from = code.indexOf("case 'dmode'");
     expect(from > 0).toBe(true);
     const body = code.slice(from, from + 400);
     for (const banned of ['saveNodeText', 'updateScript', 'scripts.update']) {
@@ -668,9 +683,22 @@ describe('WS-F · مصدرُ حقيقةٍ واحد', () => {
 
     const code = codeOnly(await (await fetch('../js/views/workspace-view.js')).text());
     expect(code.includes('const SCROLLERS')).toBe(true);
-    /* ومالكٌ واحدٌ لذاكرة الأنماط: المبدِّلُ يحفظ، والرسمُ يستعيد. */
-    const paint = code.slice(code.indexOf('function paintPreview'), code.indexOf('const paintNow'));
-    expect(paint.includes('state.previewScroll[mode] =')).toBe(false);
+
+    /*
+     * ⚠️ **مالكٌ واحدٌ لذاكرة الأنماط: المبدِّلُ يحفظ، والرسمُ يستعيد.**
+     *
+     *    قِيس العطبُ في WS-F2: كان الرسمُ يحفظ الموضعَ أيضًا، وبـ
+     *    `docMode` **بعد** أن يكون المبدِّلُ غيّره — فيكتب موضعَ النمط
+     *    المغادِر في خانة القادم ثم يستعيده. أي أنّ التبديلَ لا يبدّل
+     *    شيئًا: خزّنتُ ١٢٠ في «محادثة» فرجعت ٦٠.
+     *
+     *    (كان اسمُه `paintPreview` و`previewScroll` قبل WS-P؛ صار
+     *     `paintDoc` و`docScroll` لأن المعاينةَ صارت هي المستندَ.)
+     */
+    const from = code.indexOf('function paintDoc');
+    expect(from > 0).toBe(true);
+    const paint = code.slice(from, code.indexOf('const paintInsp', from));
+    expect(paint.includes('state.docScroll[state.docMode] =')).toBe(false);
   });
 
   it('٥٢ · ولا يُنشَأ عارضُ صورٍ ثانٍ (بند ١٣ من ٨٠)', async () => {

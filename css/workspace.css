@@ -1,36 +1,47 @@
 /**
- * LingoLife — ورشةُ المحتوى الموحَّدة (WS-F)
+ * LingoLife — ورشةُ المحتوى الموحَّدة (WS-P · إعادةُ بناء التفاعل)
  *
- * ⚠️ **رموزُ التصميم القائمة لا لوحةٌ أخرى** (بند ٨٨): المخطّطاتُ
- *    التي أرسلتَها بنفسجيّةٌ، وهي **تصوّرٌ لا التزام**. فالألوانُ من
- *    متغيّرات التطبيق، والوضعان الفاتحُ والداكنُ يعملان بلا سطرٍ
- *    إضافيّ لأنّنا لم نكتب لونًا صريحًا أصلًا.
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **ثلاثةُ أوزانٍ لا ثلاثةُ أعمدةٍ متساوية** (بندا ٢ و١٠)
+ * ═══════════════════════════════════════════════════════════════
  *
- * ⚠️ **والشريطان السفليّان لا يبتلعان لمسةً** (بندا ١٠٩ و١٢٢): لهما
- *    ارتفاعٌ معلومٌ في `--ws-dock`، والألواحُ تحجز ذلك الارتفاع
- *    حشوًا سفليًّا. وبلا ذلك تكون آخرُ بطاقةٍ في المكتب تحت الشريط —
- *    تراها ولا تستطيع لمسَها، وهو أسوأُ من ألّا تراها.
+ * الشكلُ السابق كان أربعةَ أعمدةٍ بيضاءَ متجاورةٍ لها نفسُ الحدود
+ * ونفسُ الحشو — فكانت العينُ لا تعرف أيُّها المهمّ. وقياسٌ على مقاس
+ * التابلت أعطى الحكم: المستندُ ٣٤٠px من ١٢٨٠ (٢٧٪).
+ *
+ * فالتفريقُ هنا **بالسطح والمساحة لا بكثرة الحدود** (بند ١٠):
+ *
+ *   المُتصفِّح  → سطحٌ أهدأ (`--bg-alt`)، بلا حدٍّ لكلّ صفّ
+ *   المستند    → ورقةٌ بيضاء، حشوٌ سخيّ، أكبرُ خطّ — وهو البطل
+ *   المُفتِّش   → سطحٌ ثالثٌ فاتحٌ، محتواه أدوات
+ *
+ * وأربعةُ مستوياتِ تأكيدٍ لا أكثر: نصُّ المستند · المحدَّدُ ومهمّةُ
+ * المُفتِّش · البياناتُ والأفعالُ الثانويّة · البنيةُ الخاملة.
+ *
+ * ⚠️ **ولا بطاقةٌ داخل بطاقةٍ داخل بطاقة** (بند ١٠): كلُّ سطحٍ يحمل
+ *    نصفَ قطرٍ واحدًا وظلًّا واحدًا على الأكثر — وما زاد ضجيج.
+ *
+ * ⚠️ **والهُويّةُ البنفسجيّةُ لهجةٌ لا طلاء** (بند ١٠): تظهر في
+ *    المحدَّد وفي الفعل الأوّل، ولا تصبغ أسطحًا كاملة.
  */
 
 /*
  * ═══════════════════════════════════════════════════════════════
- * ⚠️ قفلُ الارتفاع — بدونه لا يوجد «مكتب» أصلًا (WS-F2 · بند ٥٧)
+ * ⚠️ قفلُ الارتفاع — بدونه لا توجد «مساحةُ عمل» أصلًا (بند ٤)
  * ═══════════════════════════════════════════════════════════════
  *
  * قِيست سلسلةُ الارتفاع في WS-F2 فتبيّن أن `.ws { block-size: 100% }`
  * **لا تُحَلّ إطلاقًا**: `.app-main` ارتفاعُه `auto`، والنسبةُ المئويّة
- * تحتاج أبًا بارتفاعٍ محدَّد. فكانت كلُّ الأعمدة تنمو إلى أطول محتوًى
+ * تحتاج أبًا بارتفاعٍ محدَّد. فكانت الألواحُ تنمو إلى أطول محتوًى
  * وتُمرَّر **الصفحةُ كلُّها معًا**:
  *
  *     HTML  client:1280  scroll:1875   ← الصفحةُ هي المُمرِّر
- *     .ws-b  2064/2064                 ← والعمودُ لا يمرّر أبدًا
+ *     .ws-b  2064/2064                 ← واللوحُ لا يمرّر أبدًا
  *
- * وأثرُه ليس تجميليًّا: أربعةُ ألواحٍ تُمرَّر معًا ليست مكتبًا، بل
- * صفحةٌ طويلة. وشجرةٌ تمشي مع النصّ تُفقِدك مكانَك في الاثنين.
+ * وأثرُه ليس تجميليًّا: شجرةٌ تمشي مع النصّ تُفقِدك مكانَك في الاثنين.
  *
  * ⚠️ **ولا يُخفى هيكلُ التطبيق هنا** — الظلُّ وضعٌ غامرٌ يملأ الشاشة،
- *    والورشةُ مكانٌ داخل التطبيق تخرج منه بالتنقّل السفليّ. فيُقفَل
- *    الارتفاعُ فقط، ويُلغى عرضُ `.app-main` الأقصى وحشوُه.
+ *    والورشةُ مكانٌ داخل التطبيق تخرج منه بالتنقّل السفليّ.
  */
 body.workspace-open {
   overflow: hidden;
@@ -47,248 +58,315 @@ body.workspace-open #app-main {
 }
 
 .ws {
-  --ws-dock: 132px;
-  --ws-row: 44px;
+  --ws-nav: 300px;
+  --ws-insp: 320px;
+  --ws-row: 46px;
+  --ws-dock: 58px;
   display: flex;
   flex-direction: column;
   flex: 1;
   block-size: 100%;
   min-block-size: 0;
+  background: var(--bg);
   color: var(--ink);
 }
 
 /* ------------------------------------------------------------------ *
- * الرأس
+ * الرأسُ العامّ — أنحفُ عنصرٍ في الشاشة (بند ٢)
  * ------------------------------------------------------------------ */
 
 .ws-top {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
+  gap: 6px;
+  padding: 6px 10px;
   border-block-end: 1px solid var(--line);
+  background: var(--surface);
 }
 
-.ws-top h2 {
+.ws-scene {
   flex: 1;
+  min-inline-size: 0;
   margin: 0;
-  font-size: 1.05rem;
+  font-family: var(--font-display);
+  font-size: .98rem;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.ws-back,
-.ws-alt {
+.ws-top-acts { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; }
+
+/* ------------------------------------------------------------------ *
+ * الأزرارُ — هدفُ لمسٍ واحدٌ لكلّ شيء (بند ٢٠)
+ * ------------------------------------------------------------------ */
+
+.ws-btn {
+  min-block-size: 42px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  min-inline-size: var(--ws-row);
-  min-block-size: var(--ws-row);
-  padding-inline: 10px;
-  border-radius: 10px;
-  color: var(--ink-soft);
-  text-decoration: none;
-  font-size: .85rem;
-}
-
-.ws-back:hover,
-.ws-alt:hover { background: var(--surface-2); }
-
-.ws-exp {
-  padding: 3px 8px;
+  gap: 6px;
+  padding-inline: 14px;
   border: 1px solid var(--line);
-  border-radius: 999px;
-  color: var(--ink-soft);
-  font-size: .72rem;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
 }
+
+.ws-btn:hover { background: var(--surface-soft); }
+.ws-btn:disabled { opacity: .45; cursor: default; }
+.ws-btn-soft { background: transparent; color: var(--ink-soft); font-weight: 500; }
+.ws-btn-soft:hover { background: var(--surface-soft); color: var(--ink); }
+
+.ws-btn-primary {
+  border-color: transparent;
+  background: var(--accent);
+  color: var(--ink-invert);
+}
+.ws-btn-primary:hover { background: var(--accent-hover); }
+
+.ws-btn-tiny { min-block-size: 34px; padding-inline: 10px; font-size: .74rem; }
+.ws-btn-danger { color: var(--red); border-color: var(--red-line); }
+.ws-block { inline-size: 100%; margin-block-start: 12px; }
+
+/*
+ * ⚠️ **ولا أيقونةٌ ١٦px هي الفعلُ الوحيد** (بند ٢٠): الأيقونةُ تُرسَم
+ *    صغيرةً ويُلمَس حولها ٤٤ — والفرقُ بين الاثنين هو الحشو، لا الحجم.
+ */
+.ws-icon-btn {
+  min-inline-size: 44px;
+  min-block-size: 44px;
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-soft);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.ws-icon-btn:hover { background: var(--surface-soft); color: var(--ink); }
+
+/* ⚠️ التركيزُ يُرى دائمًا — ولا `outline: none` في هذا الملفّ (بند ٢١). */
+.ws :focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
+.ws-input {
+  inline-size: 100%;
+  min-block-size: 40px;
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--ink);
+  font: inherit;
+  font-size: .84rem;
+}
+
+.ws-input::placeholder { color: var(--ink-faint); }
 
 /* ------------------------------------------------------------------ *
- * الشبكة — أربعةُ ألواحٍ في العرض، واحدٌ في الطول (بند ٧١)
+ * الجسم — مُتصفِّحٌ · مساحةُ عملٍ · مُفتِّش (بند ٢)
  * ------------------------------------------------------------------ */
 
-.ws-grid {
+.ws-body {
   flex: 1;
   min-block-size: 0;
   display: grid;
-  gap: 1px;
-  background: var(--line);
-}
-
-.ws-col {
-  min-block-size: 0;
-  overflow-y: auto;
-  overflow-x: hidden;
   /*
-   * ⚠️ **تثبيتُ كروم التلقائيُّ يعارض إدارتَنا الصريحة.** بعد تبديل
-   *    المحتوى يعدّل المتصفّحُ `scrollTop` بنفسه ليُبقي عقدةً مرئيّة —
-   *    فكان يُلغي ما نضعه. قِيس: بدّلتُ إلى «نصّ» وأمرتُ بـ٠ فقُرئت
-   *    ١٢٠. ومَن يملك الموضعَ هنا هو ذاكرةُ النمط لا التخمين.
+   * ⚠️ **`minmax(0,1fr)` لا `1fr`**: الأخيرةُ لا تنكمش تحت محتواها،
+   *    فسطرٌ روسيٌّ طويلٌ يمدّ العمودَ ويدفع الشاشةَ إلى تمريرٍ أفقيّ.
    */
-  overflow-anchor: none;
-  background: var(--surface);
-  padding: 10px;
-  /* حجزُ مكان الشريطين — راجع رأس الملفّ. */
-  padding-block-end: calc(var(--ws-dock) + 12px);
+  grid-template-columns: var(--ws-nav) 7px minmax(0, 1fr) 0 0;
+  min-inline-size: 0;
 }
-
-.ws-panes {
-  display: flex;
-  gap: 6px;
-  padding: 8px 12px;
-  border-block-end: 1px solid var(--line);
-}
-
-.ws-panes button {
-  flex: 1;
-  min-block-size: var(--ws-row);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
-  color: var(--ink-soft);
-  font: inherit;
-  font-size: .85rem;
-}
-
-.ws-panes button.on {
-  background: var(--accent-soft, var(--surface-2));
-  color: var(--ink);
-  border-color: var(--accent, var(--line));
-}
-
-/* ------------------------------------------------------------------ *
- * ثلاثُ مراتب — والوسطى هي جوابُ التابلت طوليًّا (WS-F2، بنود ٣ و٥ و٤٥)
- * ------------------------------------------------------------------ */
 
 /*
- * ⚠️ **لوحٌ واحدٌ في الطول لم يكن كافيًا للربط.** بلاغُك: «الربطُ في
- *    الطول لسّه محتاج تنقّلًا كتير بين الألواح». والسببُ أن الشجرةَ
- *    والنصَّ المرشَّح شيئان تحتاجهما **معًا** وقتَ القرار.
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **كلُّ لوحٍ يُسمّى عمودَه — والوضعُ التلقائيُّ كان عطبًا مقيسًا**
+ * ═══════════════════════════════════════════════════════════════
  *
- *    وGalaxy Tab طوليًّا ~٨٠٠px — يتّسع لعمودَين مريحَين. فالمرتبةُ
- *    الوسطى تعرض **الشجرةَ والمعاينةَ جنبَ بعض**، والمكتبُ بتبويب.
- *    فلا تفتح النصَّ لتفقد الشجرة، ولا العكس.
+ * أوّلُ صياغةٍ تركت الشبكةَ تضع الأبناءَ تلقائيًّا. ثم صار المُتصفِّحُ
+ * `position: fixed` في الطول (درجًا)، والفاصلان `display: none` —
+ * فخرجوا من تدفّق الشبكة، **فانزلقت مساحةُ العمل إلى العمود الأوّل
+ * وعرضُه صفر**. وقاسه المسبارُ حرفيًّا:
+ *
+ *     800×1180 · fit=narrow · main.w = 0 · doc.w = 40
+ *
+ * أي أنّ التابلتَ طوليًّا كان يعرض شاشةً بلا محتوًى. والوضعُ التلقائيُّ
+ * لا يُلام: هو يفعل ما وُصف له بالضبط. والصوابُ أن يُسمّى العمود.
  */
+.ws-nav { grid-column: 1; grid-row: 1; }
+.ws-split[data-ws-split="nav"] { grid-column: 2; grid-row: 1; }
+.ws-main { grid-column: 3; grid-row: 1; }
+.ws-split[data-ws-split="insp"] { grid-column: 4; grid-row: 1; }
+.ws-insp { grid-column: 5; grid-row: 1; }
 
-/* ضيّقٌ حقًّا (هاتف): لوحٌ واحد. */
-@media (max-width: 699px) {
-  .ws-grid { grid-template-columns: 1fr; }
-  .ws[data-pane="tree"] .ws-c,
-  .ws[data-pane="tree"] .ws-d,
-  .ws[data-pane="desk"] .ws-b,
-  .ws[data-pane="desk"] .ws-d,
-  .ws[data-pane="preview"] .ws-b,
-  .ws[data-pane="preview"] .ws-c { display: none; }
+/* المُفتِّشُ مرسوٌّ عمودًا — وله عرضُه — فقط حين تتّسع الشاشةُ فعلًا. */
+.ws[data-fit="wide"][data-insp="on"] .ws-body {
+  grid-template-columns: var(--ws-nav) 7px minmax(0, 1fr) 7px var(--ws-insp);
 }
 
-/* التابلتُ طوليًّا: الشجرةُ والنصُّ معًا، والمكتبُ بتبويب. */
-@media (min-width: 700px) and (max-width: 1099px) {
-  .ws-grid { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); }
-  .ws-a { grid-column: 1 / -1; }
+/*
+ * ⚠️ **وحين يُقفَل المُفتِّشُ يسترجع المستندُ عرضَه فورًا** (بند ٦):
+ *    عمودٌ محجوزٌ فارغٌ هو أسوأُ الاحتمالات — يأخذ المساحةَ ولا يعطي.
+ */
+.ws[data-insp="off"] .ws-body { grid-template-columns: var(--ws-nav) 7px minmax(0, 1fr) 0 0; }
 
-  /* تبويبُ «المعاينة» لا معنى له هنا — هي ظاهرةٌ دائمًا. */
-  [data-ws="pane"][data-v="preview"] { display: none; }
+/* المرتبةُ الوسطى: المُتصفِّحُ عمودٌ، والمُفتِّشُ درج. */
+.ws[data-fit="mid"] .ws-body { grid-template-columns: var(--ws-nav) 7px minmax(0, 1fr) 0 0; }
 
-  .ws[data-pane="desk"] .ws-b,
-  .ws[data-pane="desk"] .ws-d { display: none; }
-  .ws[data-pane="desk"] .ws-c { grid-column: 1 / -1; }
-  .ws:not([data-pane="desk"]) .ws-c { display: none; }
-}
+/* المرتبةُ الضيّقة: المستندُ وحدَه، والاثنان دَرجان (بند ٨). */
+.ws[data-fit="narrow"] .ws-body { grid-template-columns: 0 0 minmax(0, 1fr) 0 0; }
 
-/* المرتبتان الضيّقتان تشتركان في شريط السكريبتات الأفقيّ. */
-@media (max-width: 1099px) {
-  .ws-a {
-    padding-block-end: 10px;
-    /* ⚠️ شريطُ الجذور لا يمرَّر رأسيًّا — هو صفٌّ واحد. */
-    overflow-y: hidden;
-  }
-  .ws-a .ws-pane-head { margin-block-end: 4px; }
-  .ws-a .ws-roots { display: flex; gap: 6px; overflow-x: auto; }
-  .ws-a .ws-roots li { flex: 0 0 auto; }
-  .ws-root { inline-size: auto; min-inline-size: 128px; }
-}
-
-@media (min-width: 1100px) {
-  .ws-panes { display: none; }
-  .ws-grid { grid-template-columns: 168px minmax(0, 1fr) minmax(0, 1.05fr) minmax(0, 1.35fr); }
-}
-
-.ws-pane-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-block-end: 8px;
-}
-
-.ws-pane-head h3 {
-  flex: 1;
-  margin: 0;
-  font-size: .82rem;
-  color: var(--ink-soft);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ws-mini {
-  min-block-size: var(--ws-row);
-  min-inline-size: var(--ws-row);
-  padding-inline: 10px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
-  color: var(--ink);
-  font: inherit;
-  font-size: .8rem;
-}
-
-.ws-mini:hover { background: var(--surface-2); }
-
-.ws-empty {
-  padding: 16px 8px;
-  color: var(--ink-soft);
-  font-size: .85rem;
-  text-align: center;
-}
-
-.ws-note {
-  margin-block-start: 10px;
-  color: var(--ink-soft);
-  font-size: .78rem;
-  line-height: 1.7;
-}
-
-.ws-find {
-  inline-size: 100%;
-  min-block-size: var(--ws-row);
-  margin-block-end: 8px;
-  padding: 6px 10px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface-2);
-  color: var(--ink);
-  font: inherit;
-  font-size: .85rem;
-}
+/*
+ * ⚠️ **وضعُ التركيز يخفي ولا يهدم** (بند ٧): سِمةٌ واحدةٌ على الجذر،
+ *    والمستندُ باقٍ في مكانه بنفس تمريره ونفس مسوّدته — لا إعادةَ
+ *    رسمٍ ولا إعادةَ تحميل.
+ */
+/* ⚠️ `[data-fit]` معه ليعلوَ على قاعدة «عريض + مُفتِّشٌ مفتوح» — وإلّا
+ *    لَما انطبق التركيزُ إلّا والمُفتِّشُ مقفولٌ أصلًا. */
+.ws[data-zen="on"][data-fit] .ws-body { grid-template-columns: 0 0 minmax(0, 1fr) 0 0; }
+.ws[data-zen="on"] .ws-nav,
+.ws[data-zen="on"] .ws-insp,
+.ws[data-zen="on"] .ws-split { display: none; }
 
 /* ------------------------------------------------------------------ *
- * أ · السكريبتات الرئيسيّة
+ * المُتصفِّح (بند ٣)
  * ------------------------------------------------------------------ */
 
-.ws-roots { list-style: none; margin: 0; padding: 0; }
+.ws-nav {
+  min-inline-size: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  /* ⚠️ يمنع المتصفّحَ أن «يثبّت» موضعًا فيقاوم ما نستعيده يدويًّا. */
+  overflow-anchor: none;
+  padding-block-end: var(--ws-dock);
+  background: var(--bg-alt);
+  border-inline-end: 1px solid var(--line);
+}
 
-.ws-root {
-  inline-size: 100%;
+.ws-nav-head {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 2;
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  background: var(--bg-alt);
+  border-block-end: 1px solid var(--line-soft);
+}
+
+.ws-nav-search { position: relative; display: flex; align-items: center; }
+.ws-nav-search svg { position: absolute; inset-inline-start: 9px; color: var(--ink-faint); }
+.ws-nav-search .ws-input { padding-inline-start: 32px; padding-inline-end: 36px; }
+.ws-clear {
+  position: absolute;
+  inset-inline-end: 2px;
+  min-inline-size: 36px;
+  min-block-size: 36px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--ink-faint);
+  cursor: pointer;
+}
+
+.ws-nav-add { inline-size: 100%; }
+.ws-nav-hits { margin: 0; padding: 6px 12px 0; color: var(--ink-soft); font-size: .72rem; }
+
+.ws-nav-list { list-style: none; margin: 0; padding: 4px 6px 0; }
+
+.ws-nav-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 8px 4px;
+  color: var(--ink-faint);
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
+
+.ws-nav-group-n { color: var(--ink-faint); font-weight: 500; }
+.ws-nav-group .ws-icon-btn { margin-inline-start: auto; min-inline-size: 34px; min-block-size: 34px; }
+
+/*
+ * ⚠️ **الإزاحةُ منطقيّةٌ لا يسارًا** (بند ٩): `padding-inline-start`
+ *    تنقلب مع الاتّجاه وحدَها، و`padding-left` كانت ستُزيح الشجرةَ
+ *    إلى الجهة الخطأ في العربيّة.
+ */
+.ws-nav-row {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  padding-inline-start: calc(var(--ws-d, 0) * 13px);
+  border-radius: var(--radius-sm);
+  /*
+   * ⚠️ **حدٌّ شفّافٌ على كلّ صفّ لا على المحدَّد وحدَه** — وإلّا قفز
+   *    الصفُّ ٣px عند تحديده. والحدُّ **منطقيٌّ** لا `box-shadow`: الظلُّ
+   *    الداخليُّ إزاحتُه فيزيائيّةٌ لا تنقلب مع الاتّجاه، فكان الشريطُ
+   *    البنفسجيُّ يقع في **آخِر** الصفّ في العربيّة — أي يتبع الاسمَ
+   *    بدل أن يتقدّمه. رآه الفحصُ البصريّ ولم يره أيُّ قياس.
+   */
+  border-inline-start: 3px solid transparent;
+}
+
+/*
+ * ⚠️ **والتحديدُ ليس حدًّا بـ١px** (بند ٣): هو **سطحٌ مختلفٌ** وحدٌّ
+ *    جانبيٌّ بلون الهُويّة وخطٌّ أثقل — ثلاثُ إشاراتٍ لا واحدة، ولا
+ *    واحدةٌ منها اللونُ وحدَه (بند ٢١).
+ */
+.ws-nav-row.is-on {
+  background: var(--surface);
+  border-inline-start-color: var(--accent);
+  box-shadow: var(--shadow-xs);
+}
+
+.ws-nav-row.is-on .ws-nav-t { color: var(--ink); font-weight: 700; }
+.ws-nav-row.is-hidden .ws-nav-t { color: var(--ink-faint); text-decoration: line-through; }
+.ws-nav-row.is-hit .ws-nav-t { color: var(--accent-hover); }
+.ws-nav-row:hover:not(.is-on) { background: var(--surface-soft); }
+
+.ws-twist {
+  flex: 0 0 auto;
+  inline-size: 26px;
+  min-block-size: var(--ws-row);
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--ink-faint);
+  font-size: .78rem;
+  cursor: pointer;
+}
+
+.ws-twist.is-leaf { cursor: default; }
+
+.ws-nav-item {
+  flex: 1;
+  min-inline-size: 0;
   min-block-size: var(--ws-row);
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 2px;
-  padding: 7px 9px;
-  margin-block-end: 4px;
-  border: 1px solid transparent;
-  border-radius: 10px;
-  background: none;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 4px;
+  border: 0;
+  background: transparent;
   color: var(--ink);
   font: inherit;
   font-size: .84rem;
@@ -296,108 +374,386 @@ body.workspace-open #app-main {
   cursor: pointer;
 }
 
-.ws-root:hover { background: var(--surface-2); }
+.ws-nav-face { flex: 0 0 auto; display: grid; place-items: center; color: var(--ink-faint); }
 
-.ws-root.on {
-  background: var(--surface-2);
-  border-color: var(--accent, var(--line));
-  font-weight: 600;
-}
-
-.ws-root-t { inline-size: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.ws-root-n { color: var(--ink-soft); font-size: .7rem; }
-
-/* ------------------------------------------------------------------ *
- * ب · الشجرة
- * ------------------------------------------------------------------ */
-
-.ws-tree { list-style: none; margin: 0; padding: 0; }
-
-.ws-node {
-  display: flex;
-  align-items: stretch;
-  gap: 2px;
-  /* الإزاحةُ منطقيّةٌ لا يسارًا — فتنقلب صحيحًا في RTL (بند ٨٩). */
-  margin-inline-start: calc(var(--ws-d, 0) * 13px);
-  border-radius: 10px;
-}
-
-.ws-node.is-target { background: var(--surface-2); outline: 1px solid var(--accent, var(--line)); }
-.ws-node.is-hidden { opacity: .5; }
-
-.ws-twist,
-.ws-node-more {
-  flex: 0 0 auto;
-  /* ⚠️ ٤٤ لا ٣٤ — بند ٥٥ يسمّي «مقبض الفرد» أوّلَ ما يسمّي، وقِيس ٣٤. */
-  min-inline-size: 44px;
-  min-block-size: var(--ws-row);
-  border: 0;
-  border-radius: 10px;
-  background: none;
-  color: var(--ink-soft);
-  font: inherit;
-  cursor: pointer;
-}
-
-.ws-twist.is-leaf { opacity: .3; pointer-events: none; }
-.ws-twist:hover,
-.ws-node-more:hover { background: var(--surface-2); }
-
-.ws-node-btn {
+.ws-nav-t {
   flex: 1;
   min-inline-size: 0;
-  min-block-size: var(--ws-row);
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: center;
-  gap: 1px;
-  padding: 5px 4px;
-  border: 0;
-  background: none;
-  color: var(--ink);
-  font: inherit;
-  font-size: .86rem;
-  text-align: start;
-  cursor: pointer;
-}
-
-.ws-node-t {
-  inline-size: 100%;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.ws-node-meta {
+.ws-nav-meta {
+  flex: 0 0 auto;
   display: flex;
-  gap: 6px;
-  color: var(--ink-soft);
+  align-items: center;
+  gap: 5px;
+  color: var(--ink-faint);
   font-size: .68rem;
+  font-style: normal;
 }
 
-.ws-node-meta i { font-style: normal; opacity: .8; }
-.ws-node-meta b { font-weight: 600; }
-/* ⚠️ التراكميُّ بشكلٍ مختلفٍ عن المباشر — لا رقمان متشابهان (بند ٥٤). */
-.ws-node-meta em { font-style: normal; opacity: .65; }
+.ws-nav-meta i { font-style: normal; }
+.ws-nav-meta b { font-weight: 700; color: var(--ink-soft); }
+.ws-nav-meta em { font-style: normal; }
+.ws-nav-meta u { text-decoration: none; color: var(--amber); }
+
+.ws-nav-more-btn { min-inline-size: 34px; }
+
+.ws-nav-more { padding-inline-start: calc(var(--ws-d, 0) * 13px + 26px); }
+
+.ws-nav-limit {
+  margin: 6px 8px;
+  padding: 9px 11px;
+  border-radius: var(--radius-sm);
+  background: var(--amber-bg);
+  color: var(--amber);
+  font-size: .74rem;
+  line-height: 1.6;
+}
+
+.ws-nav-more button {
+  min-block-size: 38px;
+  inline-size: 100%;
+  padding-inline: 10px;
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: .76rem;
+  text-align: start;
+  cursor: pointer;
+}
 
 /* ------------------------------------------------------------------ *
- * ج · مكتبُ المحتوى
+ * المقبضُ بين الألواح (بند ١١)
  * ------------------------------------------------------------------ */
 
-.ws-filters {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-block-end: 8px;
+.ws-split {
+  position: relative;
+  cursor: col-resize;
+  background: transparent;
+  touch-action: none;
 }
 
-.ws-filter {
-  /* ⚠️ ٤٤px حتى لو بدت سمينة — قِيست ٣٤ فسقطت في فحص اللمس (§110). */
-  min-block-size: 44px;
-  padding: 5px 10px;
-  border: 1px solid var(--line);
+/* ⚠️ يُرى ٧px ويُلمَس ٢٤ — نفسُ درسِ شريط الموضع (بند ٢٠). */
+.ws-split::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: -9px;
+  inline-size: 25px;
+}
+
+.ws-split::after {
+  content: '';
+  position: absolute;
+  inset-block: 40% 40%;
+  inset-inline-start: 2px;
+  inline-size: 3px;
   border-radius: 999px;
+  background: var(--line-strong);
+  opacity: 0;
+}
+
+.ws-split:hover::after,
+.ws-split:focus-visible::after { opacity: 1; }
+.ws[data-fit="narrow"] .ws-split { display: none; }
+.ws[data-fit="mid"] .ws-split[data-ws-split="insp"] { display: none; }
+.ws[data-insp="off"] .ws-split[data-ws-split="insp"] { display: none; }
+
+/* ------------------------------------------------------------------ *
+ * مساحةُ العمل — البطل (بند ٤)
+ * ------------------------------------------------------------------ */
+
+.ws-main {
+  min-inline-size: 0;
+  display: flex;
+  flex-direction: column;
+  min-block-size: 0;
+  background: var(--surface);
+}
+
+.ws-head {
+  flex: 0 0 auto;
+  padding: 12px 20px 0;
+  border-block-end: 1px solid var(--line-soft);
+  background: var(--surface);
+}
+
+.ws-crumbs {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  min-block-size: 26px;
+  font-size: .72rem;
+}
+
+.ws-crumb {
+  max-inline-size: 22ch;
+  padding: 3px 5px;
+  border: 0;
+  border-radius: var(--radius-xs);
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: .72rem;
+  cursor: pointer;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ws-crumb:hover { background: var(--surface-soft); color: var(--ink); }
+.ws-crumb.is-now { color: var(--ink); font-weight: 600; cursor: default; }
+/* ⚠️ `·` محايدةٌ ثنائيّةُ الاتّجاه — و`›` تنقلب فتُقرأ فاصلة (بند ٩). */
+.ws-crumb-sep { color: var(--ink-faint); }
+
+.ws-doc-title { display: flex; align-items: baseline; gap: 10px; margin-block: 2px 4px; }
+
+.ws-doc-title h2 {
+  margin: 0;
+  min-inline-size: 0;
+  font-family: var(--font-display);
+  font-size: 1.22rem;
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.ws-doc-facts {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: var(--ink-soft);
+  font-size: .74rem;
+}
+
+.ws-doc-facts i { color: var(--ink-faint); font-style: normal; }
+
+.ws-doc-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding-block: 10px 8px;
+}
+
+.ws-doc-acts { margin-inline-start: auto; display: flex; align-items: center; gap: 6px; }
+
+/* ------------------------------------------------------------------ *
+ * مبدّلُ الأوضاع (بند ٥)
+ * ------------------------------------------------------------------ */
+
+.ws-modes,
+.ws-seg {
+  display: inline-flex;
+  padding: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--bg-alt);
+}
+
+.ws-mode,
+.ws-seg button {
+  min-block-size: 36px;
+  padding-inline: 15px;
+  border: 0;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: .8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/*
+ * ⚠️ **والوضعُ المختارُ يُعلَن للتقنيات المساعدة لا يُلوَّن فقط**
+ *    (بند ٢١): `aria-selected` في الشاشة، وهنا سطحٌ وظلٌّ ولونُ حبرٍ —
+ *    ثلاثُ إشاراتٍ لا اللونُ وحدَه.
+ */
+.ws-mode.is-on,
+.ws-seg button.is-on {
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-xs);
+}
+
+/* ------------------------------------------------------------------ *
+ * حالةُ الحفظ (بند ١٣)
+ * ------------------------------------------------------------------ */
+
+/*
+ * ⚠️ **ولا رمادٌ صغيرٌ لحالةٍ حرجة** (بند ١٠): «الحفظ فشل» تأخذ لونَ
+ *    الخطر وخلفيّةً، و«فيه تعديلات» تأخذ الكهرمان — لأنّ الفرقَ بين
+ *    «محفوظ» و«مش محفوظ» ليس تفصيلًا.
+ */
+.ws-save {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  font-size: .72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ws-save.is-clean { color: var(--ink-faint); }
+.ws-save.is-saving { color: var(--ink-soft); background: var(--bg-alt); }
+.ws-save.is-saved { color: var(--green); background: var(--green-bg); }
+.ws-save.is-dirty { color: var(--amber); background: var(--amber-bg); }
+.ws-save.is-failed { color: var(--red); background: var(--red-bg); }
+
+/* ------------------------------------------------------------------ *
+ * سطحُ المستند
+ * ------------------------------------------------------------------ */
+
+.ws-doc {
+  flex: 1;
+  min-block-size: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  overflow-anchor: none;
+  padding: 14px 20px var(--ws-dock);
+}
+
+.ws-doc-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-block-end: 14px;
+}
+
+.ws-doc-find { position: relative; flex: 1; min-inline-size: 160px; max-inline-size: 320px; display: flex; align-items: center; }
+.ws-doc-find svg { position: absolute; inset-inline-start: 9px; color: var(--ink-faint); }
+.ws-doc-find .ws-input { padding-inline-start: 32px; }
+
+/*
+ * ⚠️ **عرضُ قراءةٍ لا عرضُ شاشة** (بند ١٠): سطرٌ بعرض ١٢٠ حرفًا لا
+ *    يُقرأ. و`ch` تتبع الخطَّ نفسَه فتصحّ عربيًّا وروسيًّا معًا.
+ */
+.ws-paper { max-inline-size: 76ch; font-size: .95rem; line-height: 1.95; }
+.ws-paper mark { padding: 0 2px; border-radius: 3px; background: var(--amber-bg); color: inherit; }
+
+/* ------------------------------------------------------------------ *
+ * المحرّرُ داخل الصفحة (بندا ٥ و١٣)
+ * ------------------------------------------------------------------ */
+
+.ws-editor { display: flex; flex-direction: column; gap: 12px; min-block-size: 100%; max-inline-size: 82ch; }
+.ws-fld { display: grid; gap: 5px; }
+.ws-fld > span { color: var(--ink-soft); font-size: .74rem; font-weight: 600; }
+.ws-fld-grow { flex: 1; min-block-size: 0; }
+.ws-title-in { font-size: 1rem; font-weight: 600; }
+
+.ws-area {
+  inline-size: 100%;
+  min-block-size: 46vh;
+  block-size: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface-soft);
+  color: var(--ink);
+  font: inherit;
+  font-size: .92rem;
+  line-height: 1.9;
+  resize: vertical;
+}
+
+.ws-hint { margin: 0; color: var(--ink-faint); font-size: .74rem; }
+
+/* ------------------------------------------------------------------ *
+ * أسطحُ الوسائط
+ * ------------------------------------------------------------------ */
+
+.ws-media-doc { display: grid; justify-items: center; gap: 14px; padding-block: 24px; text-align: center; }
+.ws-media-face { display: grid; place-items: center; inline-size: 96px; block-size: 96px; border-radius: 50%; background: var(--accent-wash); color: var(--accent); }
+.ws-media-play { min-inline-size: 190px; }
+
+.ws-shot-btn { display: block; inline-size: 100%; padding: 0; border: 0; background: transparent; cursor: zoom-in; }
+
+/* ------------------------------------------------------------------ *
+ * المُفتِّش (بند ٦)
+ * ------------------------------------------------------------------ */
+
+.ws-insp {
+  min-inline-size: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  overflow-anchor: none;
+  padding-block-end: var(--ws-dock);
+  background: var(--surface-soft);
+  border-inline-start: 1px solid var(--line);
+}
+
+.ws[data-insp="off"] .ws-insp { display: none; }
+
+.ws-insp-head {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  background: var(--surface-soft);
+  border-block-end: 1px solid var(--line-soft);
+}
+
+.ws-insp-title { flex: 1; padding-inline-start: 8px; font-size: .8rem; font-weight: 700; }
+.ws-insp-tabs { flex: 1; display: flex; gap: 2px; min-inline-size: 0; }
+
+.ws-insp-tab {
+  flex: 1;
+  min-block-size: 40px;
+  border: 0;
+  border-block-end: 2px solid transparent;
+  background: transparent;
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: .8rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.ws-insp-tab.is-on { color: var(--ink); border-block-end-color: var(--accent); }
+.ws-insp-body { padding: 12px; }
+.ws-insp-h { margin: 14px 0 6px; color: var(--ink-faint); font-size: .68rem; font-weight: 700; letter-spacing: .04em; }
+.ws-insp-h:first-child { margin-block-start: 0; }
+
+.ws-links { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+
+.ws-link-row {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+
+.ws-link-row.is-structural { grid-template-columns: 1fr auto; background: transparent; }
+.ws-link-row.is-gone { background: var(--red-bg); }
+.ws-link-kind { grid-column: 1 / -1; color: var(--ink-faint); font-size: .66rem; font-weight: 700; }
+.ws-link-t { min-inline-size: 0; font-size: .8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-tagline { color: var(--ink-faint); font-size: .66rem; font-style: normal; }
+
+.ws-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-block-end: 8px; }
+
+.ws-chip {
+  min-block-size: 36px;
+  padding-inline: 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
   background: var(--surface);
   color: var(--ink-soft);
   font: inherit;
@@ -405,146 +761,208 @@ body.workspace-open #app-main {
   cursor: pointer;
 }
 
-.ws-filter.on {
-  background: var(--surface-2);
-  border-color: var(--accent, var(--line));
-  color: var(--ink);
-  font-weight: 600;
-}
+.ws-chip.is-on { border-color: transparent; background: var(--accent-wash); color: var(--accent-hover); font-weight: 700; }
 
-.ws-cards { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ws-thumbs { list-style: none; margin: 0 0 8px; padding: 0; display: grid; gap: 5px; }
 
-.ws-card {
+.ws-thumb {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 5px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-sm);
   background: var(--surface);
 }
 
-.ws-card.is-picked { border-color: var(--accent, var(--ink)); background: var(--surface-2); }
-.ws-card.is-focus { outline: 2px solid var(--accent, var(--line)); outline-offset: -2px; }
+.ws-thumb { border-inline-start: 3px solid transparent; }
+.ws-thumb.is-on { border-inline-start-color: var(--accent); }
 
-.ws-card-face {
+.ws-thumb-face {
   flex: 0 0 auto;
-  inline-size: 48px;
-  block-size: 48px;
+  inline-size: 44px;
+  block-size: 44px;
   display: grid;
   place-items: center;
   overflow: hidden;
-  padding: 0;
   border: 0;
-  border-radius: 9px;
-  background: var(--surface-2);
-  cursor: pointer;
-}
-
-.ws-card-face img { inline-size: 100%; block-size: 100%; object-fit: cover; }
-.ws-face { color: var(--ink-soft); }
-
-.ws-card-body { flex: 1; min-inline-size: 0; display: flex; flex-direction: column; gap: 1px; }
-
-.ws-card-t {
-  padding: 0;
-  border: 0;
-  background: none;
-  color: var(--ink);
-  font: inherit;
-  font-size: .85rem;
-  text-align: start;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.ws-card-sub { color: var(--ink-soft); font-size: .7rem; }
-
-.ws-card-at {
+  border-radius: var(--radius-xs);
+  background: var(--bg-alt);
   color: var(--ink-soft);
-  font-size: .68rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-/* ⚠️ «غير مربوط» حالةٌ لا خطأ — محايدةٌ بلا أحمر (بند ٢١، ودرسُ WS56). */
-.ws-card-at.is-loose { opacity: .7; font-style: italic; }
-
-.ws-card-acts { flex: 0 0 auto; display: flex; gap: 3px; }
-
-.ws-play,
-.ws-pick {
-  min-inline-size: var(--ws-row);
-  min-block-size: var(--ws-row);
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
-  color: var(--ink);
-  font: inherit;
   cursor: pointer;
 }
 
-.ws-pick.on { background: var(--accent, var(--ink)); color: var(--surface); border-color: transparent; }
+.ws-thumb-face img { inline-size: 100%; block-size: 100%; object-fit: cover; }
+.ws-thumb-body { flex: 1; min-inline-size: 0; display: grid; gap: 1px; }
+.ws-thumb-body b { font-size: .8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-thumb-body span { color: var(--ink-faint); font-size: .68rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
 /* ------------------------------------------------------------------ *
- * د · المعاينة
+ * الدَّرَجان في العرض الضيّق (بند ٨)
  * ------------------------------------------------------------------ */
 
-.ws-prev-head {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  margin-block-end: 8px;
+/*
+ * ⚠️ **الأولويّةُ حين يضيق العرض: المستندُ أوّلًا** (بند ٨). فالمُتصفِّحُ
+ *    والمُفتِّشُ يصيران دَرَجَين يُطلَبان ويُغلَقان، ولا يقتسمان عرضًا لا
+ *    يكفي ثلاثةً أصلًا. وثلاثةُ أعمدةٍ ضيّقةٍ لكلٍّ تمريرُه هي بالضبط
+ *    ما يحذّر منه بند ٢٠.
+ */
+.ws[data-fit="narrow"] .ws-nav,
+.ws[data-fit="mid"][data-insp="on"] .ws-insp,
+.ws[data-fit="narrow"][data-insp="on"] .ws-insp {
+  position: fixed;
+  inset-block: 0;
+  z-index: 40;
+  inline-size: min(88vw, 370px);
+  box-shadow: var(--shadow-lg);
+  visibility: hidden;
+  opacity: 0;
+  transition: opacity .16s ease, visibility .16s;
 }
 
-.ws-crumb {
-  flex: 1;
-  min-inline-size: 120px;
-  color: var(--ink-soft);
-  font-size: .78rem;
-  line-height: 1.6;
-}
+.ws[data-fit="narrow"] .ws-nav { inset-inline-start: 0; }
+.ws[data-fit="mid"][data-insp="on"] .ws-insp,
+.ws[data-fit="narrow"][data-insp="on"] .ws-insp { inset-inline-end: 0; display: block; }
 
-.ws-prev-acts { display: flex; gap: 5px; }
+.ws[data-drawer="nav"] .ws-nav,
+.ws[data-drawer="insp"] .ws-insp { visibility: visible; opacity: 1; }
 
-.ws-seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
-
-.ws-seg button {
-  min-block-size: var(--ws-row);
-  padding-inline: 12px;
+.ws-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
   border: 0;
-  background: var(--surface);
-  color: var(--ink-soft);
-  font: inherit;
-  font-size: .8rem;
+  background: rgba(31, 36, 48, .34);
   cursor: pointer;
 }
 
-.ws-seg button.on { background: var(--surface-2); color: var(--ink); font-weight: 600; }
+.ws-only-narrow { display: none; }
+.ws[data-fit="narrow"] .ws-only-narrow { display: inline-grid; }
+.ws[data-fit="narrow"] .ws-only-wide { display: none; }
 
-.ws-prev-body { line-height: 1.9; }
+/* ------------------------------------------------------------------ *
+ * الفراغُ والانتظارُ والفشل (بنود ١٢ و١٤ و٢٤ و٢٥)
+ * ------------------------------------------------------------------ */
 
-.ws-raw {
-  margin: 0;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
+/*
+ * ⚠️ **الفراغُ يقول ما تعمله لا ما ينقص** (بند ٢٤): «مفيش حاجة هنا»
+ *    جملةٌ ميّتة؛ و«مفيش سكريبتات · [+ إضافة سكريبت]» بابٌ.
+ */
+.ws-empty {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding: 26px 16px;
+  color: var(--ink-soft);
+  font-size: .85rem;
+  text-align: center;
+}
+
+.ws-empty p { margin: 0; }
+.ws-empty-doc { padding-block: 12vh; }
+
+.ws-load {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 26px 16px;
+  color: var(--ink-soft);
+  font-size: .82rem;
+}
+
+/*
+ * ⚠️ **دوّارةٌ صادقةٌ لا نسبةٌ مخترَعة** (بند ١٤): ما دام التقدّمُ غيرَ
+ *    مقيسٍ فعلًا، فالإعلانُ الصادقُ «بيشتغل» لا «٦٣٪».
+ */
+.ws-spin {
+  inline-size: 14px;
+  block-size: 14px;
+  border: 2px solid var(--line-strong);
+  border-block-start-color: var(--accent);
+  border-radius: 50%;
+  animation: ws-spin .8s linear infinite;
+}
+
+@keyframes ws-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .ws-spin { animation-duration: 2.4s; } }
+
+.ws-fail {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  margin: 12px;
+  padding: 16px;
+  border: 1px solid var(--red-line);
+  border-radius: var(--radius-md);
+  background: var(--red-bg);
+  color: var(--ink);
+  font-size: .85rem;
+  text-align: center;
+}
+
+.ws-fail p { margin: 0; }
+/* ⚠️ سببُ الفشل يُعرَض — ولا يُدفَن في سجلّ المتصفّح (بند ٢٥). */
+.ws-fail-why { color: var(--red); font-size: .76rem; overflow-wrap: anywhere; }
+.ws-fail.is-inline { justify-items: start; margin: 0; text-align: start; }
+
+/* ------------------------------------------------------------------ *
+ * مُلتقِطُ الربط (بند ١٨)
+ * ------------------------------------------------------------------ */
+
+.ws-crumb-line {
+  margin: 0 0 10px;
+  padding: 7px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-wash);
+  color: var(--accent-hover);
+  font-size: .78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ws-pick-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-block: 10px; }
+.ws-pick-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-block-size: 46vh; overflow-y: auto; }
+.ws-pick-row { display: flex; align-items: center; gap: 4px; border-radius: var(--radius-sm); }
+.ws-pick-row.is-on { background: var(--accent-wash); }
+.ws-pick-row.is-already { opacity: .55; }
+
+.ws-pick-hit {
+  flex: 1;
+  min-inline-size: 0;
+  min-block-size: var(--ws-row);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--ink);
   font: inherit;
-  font-size: .9rem;
-  line-height: 1.95;
+  text-align: start;
+  cursor: pointer;
 }
 
-.ws-prev-body mark {
-  padding: 0 2px;
-  border-radius: 3px;
-  background: var(--accent-soft, #ffe58a);
-  color: inherit;
+.ws-pick-hit:disabled { cursor: default; }
+
+.ws-pick-box {
+  flex: 0 0 auto;
+  inline-size: 22px;
+  block-size: 22px;
+  display: grid;
+  place-items: center;
+  border: 1.5px solid var(--line-strong);
+  border-radius: var(--radius-xs);
+  font-size: .72rem;
+  color: var(--accent);
 }
+
+.ws-pick-face { flex: 0 0 auto; inline-size: 32px; block-size: 32px; display: grid; place-items: center; overflow: hidden; border-radius: var(--radius-xs); background: var(--bg-alt); color: var(--ink-soft); }
+.ws-pick-face img { inline-size: 100%; block-size: 100%; object-fit: cover; }
+.ws-pick-t { flex: 1; min-inline-size: 0; font-size: .84rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-pick-sub { flex: 0 0 auto; max-inline-size: 40%; color: var(--ink-faint); font-size: .7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ws-pick-n { margin: 8px 0 0; color: var(--ink-soft); font-size: .76rem; }
 
 /* ------------------------------------------------------------------ *
  * المحادثة — هادئةٌ لا فقاعاتُ دردشة (بندا ٣٧ و٣٨)
@@ -618,7 +1036,7 @@ body.workspace-open #app-main {
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: var(--surface-2);
+  background: var(--surface-soft);
 }
 
 .ws-shot img { inline-size: 100%; block-size: 100%; object-fit: contain; }
@@ -634,30 +1052,9 @@ body.workspace-open #app-main {
 .ws-facts dt { color: var(--ink-soft); }
 .ws-facts dd { margin: 0; overflow-wrap: anywhere; }
 
-.ws-strip { margin-block-start: 16px; padding-block-start: 12px; border-block-start: 1px solid var(--line); }
-.ws-strip h4 { margin: 0 0 6px; font-size: .76rem; color: var(--ink-soft); }
-.ws-strip-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
-
-.ws-strip-list li { display: flex; gap: 5px; }
-
-.ws-strip-list button {
-  flex: 1;
-  min-block-size: var(--ws-row);
-  padding: 5px 9px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
-  color: var(--ink);
-  font: inherit;
-  font-size: .8rem;
-  text-align: start;
-  cursor: pointer;
-}
-
-.ws-unlink { flex: 0 0 auto !important; color: var(--ink-soft) !important; }
 
 /* ------------------------------------------------------------------ *
- * الشريطان السفليّان
+ * إخفاءُ المُشغّل العالميّ
  * ------------------------------------------------------------------ */
 
 /*
@@ -682,42 +1079,42 @@ body.workspace-open #app-main {
 body.workspace-open .mini-player { display: none; }
 body.workspace-open.has-mini-player .app-main { padding-bottom: 0; }
 
-.ws-now,
-.ws-bar {
-  position: sticky;
+
+
+/* ------------------------------------------------------------------ *
+ * شريطُ السماع — مشتركٌ لا مالك (بند ٣٥)
+ * ------------------------------------------------------------------ */
+
+.ws-now {
+  position: absolute;
   inset-inline: 0;
-  /* وفوق أيّ شيءٍ داخل الشاشة — الأشرطةُ آخرُ ما يُحجَب. */
-  z-index: 6;
+  inset-block-end: 0;
+  /* وفوق أيّ شيءٍ داخل الشاشة — الشريطُ آخرُ ما يُحجَب. */
+  z-index: 20;
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 7px 10px;
+  padding: 6px 12px;
   border-block-start: 1px solid var(--line);
   background: var(--surface);
+  box-shadow: var(--shadow-sm);
 }
 
-.ws-now { bottom: 60px; }
-.ws-bar { bottom: 0; }
+.ws { position: relative; }
 
-.ws-now-play,
-.ws-now-link {
-  min-inline-size: var(--ws-row);
-  min-block-size: var(--ws-row);
+.ws-now-play {
+  min-inline-size: 44px;
+  min-block-size: 44px;
   display: grid;
   place-items: center;
-  padding-inline: 10px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   background: var(--surface);
   color: var(--ink);
-  font: inherit;
-  font-size: .78rem;
   cursor: pointer;
 }
 
-.ws-now-link:disabled { opacity: .45; cursor: default; }
-
-.ws-now-mid { flex: 1; min-inline-size: 0; display: grid; gap: 3px; }
+.ws-now-mid { flex: 1; min-inline-size: 0; display: grid; gap: 2px; }
 
 .ws-now-t {
   min-inline-size: 0;
@@ -727,6 +1124,7 @@ body.workspace-open.has-mini-player .app-main { padding-bottom: 0; }
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
 
 /*
  * ⚠️ **يُرى رفيعًا ويُلمَس ٤٤** (بند ٥٥). أوّلُ صياغةٍ كتبت الحشوَ
@@ -759,25 +1157,6 @@ body.workspace-open.has-mini-player .app-main { padding-bottom: 0; }
 
 .ws-now-time { color: var(--ink-soft); font-size: .68rem; font-variant-numeric: tabular-nums; }
 
-.ws-bar-target { flex: 1; min-inline-size: 0; display: grid; gap: 1px; }
-.ws-bar-lbl { color: var(--ink-soft); font-size: .68rem; }
-
-.ws-bar-path {
-  /*
-   * ⚠️ **عنصرُ الشبكة لا ينكمش تحت محتواه إلّا بهذا.** `min-width`
-   *    الافتراضيّة `auto`، فمسارٌ عميقٌ طويل يمدّ الخليّة فيزحف فوق
-   *    زرّ «اربط المحدد» — يُرى ولا يُلمَس (§109).
-   */
-  min-inline-size: 0;
-  font-size: .82rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ws-bar-acts { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; }
-.ws-bar-n { color: var(--ink-soft); font-size: .72rem; }
-.ws-bar-acts .btn { min-block-size: var(--ws-row); }
 
 /* ------------------------------------------------------------------ *
  * نوافذُ الورشة
@@ -804,12 +1183,12 @@ body.workspace-open.has-mini-player .app-main { padding-bottom: 0; }
 }
 
 .ws-add-btn:hover,
-.ws-menu button:hover { background: var(--surface-2); }
+.ws-menu button:hover { background: var(--surface-soft); }
 .ws-add-btn b { font-size: .95rem; }
 .ws-add-btn span { color: var(--ink-soft); font-size: .76rem; }
 
 .ws-menu { display: grid; gap: 6px; }
-.ws-menu button.danger { color: var(--danger, #c0392b); }
+.ws-menu button.danger { color: var(--red); }
 
 .ws-where { margin-block-start: 12px; padding: 10px; border: 1px solid var(--line); border-radius: 12px; }
 .ws-where legend { padding-inline: 6px; color: var(--ink-soft); font-size: .78rem; }
@@ -826,7 +1205,7 @@ body.workspace-open.has-mini-player .app-main { padding-bottom: 0; }
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: var(--surface-2);
+  background: var(--surface-soft);
   color: var(--ink);
   font: inherit;
   font-size: .86rem;
@@ -842,13 +1221,13 @@ body.workspace-open.has-mini-player .app-main { padding-bottom: 0; }
   margin-block-end: 12px;
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: var(--surface-2);
+  background: var(--surface-soft);
 }
 
 .sp-found { margin: 0 0 4px; font-size: .92rem; }
 .sp-dim { margin: 0; color: var(--ink-soft); font-size: .76rem; line-height: 1.8; }
 .sp-audit { margin: 6px 0 0; color: var(--ink-soft); font-size: .74rem; }
-.sp-audit.is-bad { color: var(--danger, #c0392b); font-weight: 700; }
+.sp-audit.is-bad { color: var(--red); font-weight: 700; }
 
 .sp-block { margin-block-end: 14px; }
 .sp-block h4 { margin: 0 0 5px; font-size: .82rem; }
@@ -882,7 +1261,7 @@ body.workspace-open.has-mini-player .app-main { padding-bottom: 0; }
   cursor: pointer;
 }
 
-.sp-lvl:hover { background: var(--surface-2); color: var(--ink); }
+.sp-lvl:hover { background: var(--surface-soft); color: var(--ink); }
 
 .sp-tree { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; }
 
@@ -906,7 +1285,7 @@ body.workspace-open.has-mini-player .app-main { padding-bottom: 0; }
   min-block-size: 40px;
   border: 0;
   border-radius: 9px;
-  background: var(--surface-2);
+  background: var(--surface-soft);
   color: var(--ink-soft);
   font: inherit;
   cursor: pointer;
@@ -919,7 +1298,7 @@ body.workspace-open.has-mini-player .app-main { padding-bottom: 0; }
   flex: 0 0 auto;
   padding: 3px 7px;
   border-radius: 999px;
-  background: var(--surface-2);
+  background: var(--surface-soft);
   color: var(--ink-soft);
   font-size: .68rem;
 }
@@ -937,7 +1316,7 @@ body.workspace-open.has-mini-player .app-main { padding-bottom: 0; }
   font-size: .84rem;
 }
 
-.sp-title:focus { border-color: var(--line); background: var(--surface-2); outline: none; }
+.sp-title:focus { border-color: var(--line); background: var(--surface-soft); outline: none; }
 .sp-meta { flex: 0 0 auto; color: var(--ink-soft); font-size: .68rem; }
 .sp-nudge { flex: 0 0 auto; display: flex; gap: 3px; }
 
@@ -947,7 +1326,7 @@ body.workspace-open.has-mini-player .app-main { padding-bottom: 0; }
   padding: 9px;
   overflow: auto;
   border-radius: 9px;
-  background: var(--surface-2);
+  background: var(--surface-soft);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
   font-size: .78rem;
@@ -958,111 +1337,6 @@ body.workspace-open.has-mini-player .app-main { padding-bottom: 0; }
 .sp-details summary { min-block-size: 44px; display: flex; align-items: center; color: var(--ink-soft); font-size: .8rem; cursor: pointer; }
 
 /* ================================================================== *
- * WS-F2 · مِلَفُّ العنصر الممسوك (بنود ٤ و٤٤ و٤٥)
- * ================================================================== */
-
-/*
- * ⚠️ **يحلّ محلّ شريط الربط لا فوقه.** ثلاثةُ أشرطةٍ في الطول تأكل
- *    نصفَ الشاشة، وبند ٤٥ يرتّب الأولويّة: النصُّ المرشَّح أوّلًا، ثم
- *    هُويّةُ ما تمسكه، ثم الفعل. فالشريطُ واحدٌ يبدّل محتواه.
- */
-.ws-bar { flex-wrap: wrap; row-gap: 6px; }
-
-.ws-hold-head {
-  inline-size: 100%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-inline-size: 0;
-}
-
-.ws-hold-face { font-size: 1.1rem; }
-
-.ws-hold-id { flex: 1; min-inline-size: 0; display: grid; gap: 1px; }
-.ws-hold-lbl { color: var(--ink-soft); font-size: .66rem; }
-
-.ws-hold-t,
-.ws-hold-sub {
-  min-inline-size: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.ws-hold-t { font-size: .86rem; }
-.ws-hold-sub { color: var(--ink-soft); font-size: .7rem; }
-
-.ws-hold-x {
-  flex: 0 0 auto;
-  min-inline-size: var(--ws-row);
-  min-block-size: var(--ws-row);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
-  color: var(--ink-soft);
-  font: inherit;
-  cursor: pointer;
-}
-
-.ws-hold-aim {
-  flex: 1;
-  min-inline-size: 0;
-  display: grid;
-  gap: 1px;
-  padding-block-start: 4px;
-  border-block-start: 1px dashed var(--line);
-}
-
-.ws-hold-acts { flex: 0 0 auto; display: flex; gap: 6px; align-items: center; }
-.ws-hold-acts .btn { min-block-size: var(--ws-row); padding-inline: 12px; }
-
-/* ⚠️ زرُّ الشجرة للطول وحدَه — في العرض الشجرةُ ظاهرةٌ أصلًا (بند ٤٧). */
-@media (min-width: 700px) { .ws-hold-tree { display: none; } }
-
-/* البطاقةُ الممسوكة معلَّمةٌ بشكلٍ لا بلونٍ وحدَه (بند ٥٤). */
-.ws-card.is-holding {
-  border-color: var(--accent, var(--ink));
-  box-shadow: inset 0 0 0 1px var(--accent, var(--ink));
-}
-
-.ws-card.is-holding .ws-card-t::before {
-  content: '🖐 ';
-  font-size: .8em;
-}
-
-/* ================================================================== *
- * WS-F2 · وجهاتُ العنصر (بنود ٣٩…٤٢)
- * ================================================================== */
-
-.ws-dests { margin-block-start: 14px; }
-.ws-dests h4 { margin: 0 0 6px; font-size: .76rem; color: var(--ink-soft); }
-.ws-dests.is-none { color: var(--ink-soft); font-size: .8rem; line-height: 1.8; }
-.ws-dests ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 5px; }
-.ws-dests li { display: flex; gap: 5px; }
-
-.ws-dest-go {
-  flex: 1;
-  min-inline-size: 0;
-  min-block-size: var(--ws-row);
-  padding: 5px 9px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--surface);
-  color: var(--ink);
-  font: inherit;
-  font-size: .8rem;
-  text-align: start;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.ws-dest-go:hover { background: var(--surface-2); }
-
-/* الحالةُ الفارغة النافعة (بند ٥٢). */
-.ws-empty { display: grid; gap: 8px; justify-items: center; }
-.ws-empty p { margin: 0; }
 
 /* ================================================================== *
  * WS-F2 · تقسيمُ المراجعة ودمجُها (بنود ١٥…١٩)
@@ -1108,7 +1382,7 @@ body.workspace-open.has-mini-player .app-main { padding-bottom: 0; }
   cursor: pointer;
 }
 
-.sp-node-acts button:hover:not(:disabled) { background: var(--surface-2); color: var(--ink); }
+.sp-node-acts button:hover:not(:disabled) { background: var(--surface-soft); color: var(--ink); }
 .sp-node-acts button:disabled { opacity: .4; cursor: default; }
 
 .sp-node.is-cutting { border-color: var(--accent, var(--ink)); }
@@ -1118,7 +1392,7 @@ body.workspace-open.has-mini-player .app-main { padding-bottom: 0; }
   margin: 8px 0 0;
   padding: 8px;
   border-radius: 10px;
-  background: var(--surface-2);
+  background: var(--surface-soft);
   display: grid;
   gap: 3px;
 }
@@ -1154,14 +1428,3 @@ body.workspace-open.has-mini-player .app-main { padding-bottom: 0; }
   white-space: nowrap;
 }
 
-/* ⚠️ صفُّ الدفعة يظهر مع المِلَفّ لا بدلًا منه (بند ٤٣). */
-.ws-bar-bulk {
-  inline-size: 100%;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding-block-start: 6px;
-  border-block-start: 1px dashed var(--line);
-}
-
-.ws-bar-bulk .btn { min-block-size: var(--ws-row); }
