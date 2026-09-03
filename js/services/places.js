@@ -129,7 +129,7 @@ export const PLACES = {
   '/analysis': { name: 'تحليل' },
   '/studio': { name: 'الاستوديو' },
   '/import': { name: 'استيراد' },
-  '/prompts': { name: 'مكتبة الطلبات' },
+  '/prompts': { name: 'مكتبة البرومبتات' },
   '/duplicates': { name: 'المكرَّر' },
   '/trash': { name: 'سلة المهملات' },
   '/settings': { name: 'الإعدادات' },

@@ -201,10 +201,10 @@ function pasteStage() {
 
     <div class="card imp-intro">
       <p>
-        ⚠️ ومعندكش حزمة لسّه؟ <b>مكتبة الطلبات</b> بتعملك ملف السؤال —
+        ⚠️ ومعندكش حزمة لسّه؟ <b>مكتبة البرومبتات</b> بتعملك ملف السؤال —
         من ذكرى عندك، أو من <b>مادّة خام</b> لسّه مالهاش ذكرى.
       </p>
-      <a class="btn btn-ghost" href="#/prompts">افتح مكتبة الطلبات</a>
+      <a class="btn btn-ghost" href="#/prompts">افتح مكتبة البرومبتات</a>
     </div>
 
     <div class="imp-actions">

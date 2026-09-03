@@ -1,0 +1,401 @@
+/**
+ * LingoLife — مكتبة البرومبتات (WS-PL)
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **العارضُ هو البطل — والشبكةُ هي التي تقول ذلك**
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * ثلاثةُ أعمدةٍ متساويةٍ هي العطبُ الذي أُصلح في الورشة (WS-P): كلُّ
+ * لوحٍ ضيّقٌ، ولا واحدَ منها يكفي لعمل. فالنسبةُ هنا معلَنةٌ في الشبكة
+ * نفسِها: التصنيفاتُ ثابتةٌ ضيّقة، والقائمةُ معتدلةٌ تنكمش، والعارضُ
+ * `1fr` يأخذ ما بقي.
+ *
+ * ⚠️ **والانكماشُ بترتيبٍ مقصود** (بند ٤١): يختفي اللوحُ الجانبيُّ
+ *    أوّلًا، ثمّ تصير القائمةُ شاشةً تسبق العارض. والعارضُ لا يُضحّى به.
+ */
+
+.pl {
+  display: grid;
+  grid-template-columns: 216px minmax(240px, 320px) minmax(430px, 1fr);
+  gap: 0;
+  block-size: calc(100dvh - var(--app-top, 56px));
+  min-block-size: 0;
+  background: var(--surface-soft);
+}
+
+/* ⚠️ `min-inline-size: 0` على كلّ لوح — بدونها لا ينكمش عنصرُ الشبكة
+   تحت محتواه، فيدفع النصُّ الطويلُ اللوحَ المجاورَ خارج الشاشة. */
+.pl-side,
+.pl-list,
+.pl-viewer {
+  min-inline-size: 0;
+  min-block-size: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.pl-side {
+  grid-column: 1;
+  padding: 12px 10px;
+  border-inline-end: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.pl-list {
+  grid-column: 2;
+  border-inline-end: 1px solid var(--line);
+  background: var(--surface);
+}
+
+.pl-viewer {
+  grid-column: 3;
+  background: var(--surface-soft);
+  padding: 0 0 40px;
+}
+
+/* ------------------------------------------------------------------ *
+ * اللوحُ الجانبيّ — مضغوطٌ لا بطاقاتٌ ضخمة (بند ٥٧)
+ * ------------------------------------------------------------------ */
+
+.pl-side-head { margin-block-end: 12px; }
+.pl-new { inline-size: 100%; justify-content: center; }
+
+.pl-faces { display: grid; gap: 2px; margin-block-end: 14px; }
+
+.pl-face {
+  display: flex; align-items: center; gap: 8px;
+  inline-size: 100%; min-block-size: 40px;
+  padding: 0 10px;
+  font: inherit; font-size: .84rem; text-align: start; cursor: pointer;
+  color: var(--ink-soft); background: transparent;
+  border: 0; border-inline-start: 3px solid transparent;
+  border-radius: var(--radius-sm);
+}
+.pl-face:hover { background: var(--surface-soft); }
+.pl-face b { margin-inline-start: auto; font-size: .74rem; color: var(--ink-faint); }
+
+/*
+ * ⚠️ **والمختارُ ثلاثُ إشاراتٍ لا لونٌ وحدَه** (بند ٤٥): سطحٌ وحدٌّ
+ *    جانبيٌّ منطقيٌّ وثِقَلُ خطّ — ومعها `aria-pressed` لقارئ الشاشة.
+ */
+.pl-face.is-on {
+  background: var(--accent-wash);
+  border-inline-start-color: var(--accent);
+  color: var(--ink); font-weight: 700;
+}
+.pl-face.is-on b { color: var(--accent); }
+
+.pl-group { margin-block-end: 14px; }
+.pl-group h3 {
+  margin: 0 0 6px; padding-inline-start: 10px;
+  font-size: .7rem; font-weight: 700; color: var(--ink-faint);
+}
+
+.pl-cats { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+.pl-cats li { display: flex; align-items: center; gap: 2px; }
+
+.pl-cat {
+  flex: 1; min-inline-size: 0;
+  display: flex; align-items: center; gap: 8px;
+  min-block-size: 36px; padding: 0 10px;
+  font: inherit; font-size: .82rem; text-align: start; cursor: pointer;
+  color: var(--ink-soft); background: transparent; border: 0;
+  border-radius: var(--radius-sm);
+}
+.pl-cat > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl-cat b { margin-inline-start: auto; font-size: .72rem; color: var(--ink-faint); }
+.pl-cat:hover { background: var(--surface-soft); }
+.pl-cat.is-on { background: var(--accent-wash); color: var(--accent); font-weight: 700; }
+
+.pl-cat-more { flex: 0 0 auto; min-inline-size: 34px; min-block-size: 34px; opacity: .55; }
+.pl-cats li:hover .pl-cat-more { opacity: 1; }
+
+.pl-tags { display: flex; flex-wrap: wrap; gap: 4px; padding-inline-start: 6px; }
+.pl-tag {
+  font: inherit; font-size: .74rem; cursor: pointer;
+  min-block-size: 30px; padding: 0 9px;
+  color: var(--ink-soft); background: var(--surface-soft);
+  border: 1px solid var(--line); border-radius: 999px;
+}
+.pl-tag i { color: var(--ink-faint); font-style: normal; font-size: .68rem; }
+.pl-tag.is-on {
+  background: var(--accent-wash); border-color: var(--accent-line);
+  color: var(--accent); font-weight: 700;
+}
+
+/* ------------------------------------------------------------------ *
+ * القائمة — كثيفةٌ تُمسَح بالعين (بند ٥٨)
+ * ------------------------------------------------------------------ */
+
+.pl-list-head {
+  position: sticky; inset-block-start: 0; z-index: 2;
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border-block-end: 1px solid var(--line);
+}
+
+.pl-find { position: relative; flex: 1; min-inline-size: 0; display: flex; align-items: center; }
+.pl-find svg { position: absolute; inset-inline-start: 9px; color: var(--ink-faint); }
+.pl-find .ws-input { padding-inline-start: 32px; }
+.pl-find .ws-clear { position: absolute; inset-inline-end: 4px; }
+
+.pl-sort select {
+  font: inherit; font-size: .78rem; min-block-size: 38px;
+  padding: 0 8px; border: 1px solid var(--line); border-radius: var(--radius-sm);
+  background: var(--surface); color: var(--ink-soft);
+}
+
+.pl-active {
+  display: flex; flex-wrap: wrap; gap: 5px;
+  padding: 8px 12px 0;
+}
+.pl-chip {
+  font: inherit; font-size: .74rem; cursor: pointer;
+  min-block-size: 30px; padding: 0 9px;
+  color: var(--accent); background: var(--accent-wash);
+  border: 1px solid var(--accent-line); border-radius: 999px;
+}
+.pl-chip.is-clear { color: var(--ink-soft); background: var(--surface-soft); border-color: var(--line); }
+
+.pl-count { margin: 8px 12px 4px; font-size: .72rem; color: var(--ink-faint); }
+
+.pl-rows { list-style: none; margin: 0; padding: 0 6px 20px; display: grid; gap: 1px; }
+
+.pl-row { border-inline-start: 3px solid transparent; border-radius: var(--radius-sm); }
+.pl-row:hover:not(.is-on) { background: var(--surface-soft); }
+.pl-row.is-on {
+  background: var(--accent-wash);
+  border-inline-start-color: var(--accent);
+}
+
+.pl-row-hit {
+  display: grid; gap: 3px;
+  inline-size: 100%; min-block-size: 44px;
+  padding: 9px 10px;
+  font: inherit; text-align: start; cursor: pointer;
+  background: transparent; border: 0; border-radius: var(--radius-sm);
+}
+
+.pl-row-top { display: flex; align-items: center; gap: 6px; min-inline-size: 0; }
+/* ⚠️ عنوانٌ طويلٌ يُقَصّ ولا يدفع الصفَّ (بند ٦٦) — والكاملُ في `title`. */
+.pl-row-t {
+  flex: 1; min-inline-size: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: .86rem; font-weight: 600; color: var(--ink);
+}
+.pl-row.is-on .pl-row-t { font-weight: 700; }
+.pl-star { flex: 0 0 auto; color: var(--accent); font-size: .8rem; }
+
+.pl-row-p {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: .76rem; color: var(--ink-soft);
+}
+
+.pl-row-meta { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+.pl-row-cat {
+  font-size: .68rem; padding: 1px 7px; border-radius: 999px;
+  background: var(--surface-tint); color: var(--ink-soft);
+}
+.pl-row-meta i { font-style: normal; font-size: .68rem; color: var(--ink-faint); }
+
+.pl-empty { padding: 26px 16px; text-align: center; color: var(--ink-soft); }
+.pl-empty p { margin: 0 0 8px; font-size: .85rem; }
+.pl-hint { font-size: .74rem; color: var(--ink-faint); }
+
+/* ------------------------------------------------------------------ *
+ * العارض — البطل (بنود ٤ و٢٥ و٥٩)
+ * ------------------------------------------------------------------ */
+
+/* ⚠️ زرُّ الرجوع لا يظهر إلّا حين تختفي القائمة — راجع الاستعلام تحت. */
+.pl-back { display: none; }
+
+.pl-head {
+  position: sticky; inset-block-start: 0; z-index: 2;
+  padding: 14px 20px 10px;
+  background: var(--surface-soft);
+  border-block-end: 1px solid var(--line);
+}
+
+.pl-head-top { display: flex; align-items: flex-start; gap: 10px; }
+
+/* ⚠️ العنوانُ الطويلُ يلفّ ولا يدفع النجمةَ خارج الشاشة (بند ٦٦). */
+.pl-title {
+  flex: 1; min-inline-size: 0;
+  margin: 0; font-size: 1.05rem; font-weight: 700; line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.pl-fav {
+  flex: 0 0 auto;
+  min-inline-size: 44px; min-block-size: 44px;
+  font-size: 1.05rem; cursor: pointer;
+  color: var(--ink-faint); background: transparent;
+  border: 0; border-radius: var(--radius-sm);
+}
+.pl-fav.is-on { color: var(--accent); }
+
+.pl-purpose { margin: 4px 0 0; font-size: .84rem; color: var(--ink-soft); line-height: 1.7; }
+
+.pl-facts {
+  display: flex; flex-wrap: wrap; gap: 8px; align-items: center;
+  margin-block-start: 6px;
+  font-size: .72rem; color: var(--ink-faint);
+}
+.pl-facts i { font-style: normal; }
+
+.pl-acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-block-start: 12px; }
+/* ⚠️ ٤٤px لكلّ فعلٍ في الترويسة — تابلتٌ لا فأرة (بند ٤٣). */
+.pl-acts .btn { min-block-size: 44px; }
+.pl-more { min-inline-size: 44px; min-block-size: 44px; margin-inline-start: auto; }
+
+.pl-save { font-size: .74rem; padding: 3px 9px; border-radius: 999px; }
+.pl-save.is-dirty { color: var(--amber, #B4790B); background: var(--amber-bg, #FDF3DC); }
+.pl-save.is-saving { color: var(--ink-soft); background: var(--surface-tint); }
+.pl-save.is-saved { color: var(--green, #1F9D62); background: var(--green-bg, #E6F6EE); }
+.pl-save.is-failed { color: var(--red, #D6414B); background: var(--red-bg, #FCEAEB); }
+
+.pl-body { display: flex; align-items: flex-start; gap: 14px; padding: 16px 20px; }
+.pl-main { flex: 1; min-inline-size: 0; }
+
+/*
+ * سطحُ القراءة.
+ *
+ * ⚠️ **`pre` لا `div`**: البرومبتُ نصٌّ محفوظُ الشكل — مسافاتُه البادئةُ
+ *    وأسطرُه الفارغةُ جزءٌ منه. و`white-space: pre-wrap` تحفظهما وتلفّ.
+ *
+ * ⚠️ **ولا خطَّ أحاديَّ العرض على العربيّة** (بند ٢٥): الخطُّ الأحاديُّ
+ *    يجعل النصَّ العربيَّ مؤلمًا للقراءة. فالخطُّ عاديٌّ، والحفاظُ على
+ *    الشكل من `pre-wrap` لا من الخطّ.
+ */
+.pl-doc { max-inline-size: 82ch; min-inline-size: 0; }
+
+.pl-block {
+  margin: 0 0 14px;
+  min-inline-size: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  font-size: .92rem;
+  line-height: 1.95;
+  color: var(--ink);
+}
+.pl-block:last-child { margin-block-end: 0; }
+
+.pl-preview-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin-block-end: 12px; padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-wash); color: var(--accent);
+  font-size: .78rem; font-weight: 600;
+}
+
+.pl-blank { padding: 60px 20px; text-align: center; color: var(--ink-soft); }
+.pl-blank p { margin: 0 0 12px; }
+
+/* ------------------------------------------------------------------ *
+ * المتغيّرات (بنود ١٩ و٢١ و٥٣)
+ * ------------------------------------------------------------------ */
+
+.pl-vars {
+  flex: 0 0 260px;
+  position: sticky; inset-block-start: 12px;
+  padding: 12px;
+  border-radius: var(--radius-md, 12px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.pl-vars-head { display: flex; align-items: baseline; gap: 8px; margin-block-end: 10px; }
+.pl-vars-head h3 { margin: 0; font-size: .8rem; font-weight: 700; }
+.pl-vars-head span { color: var(--ink-faint); font-size: .72rem; }
+
+.pl-var { display: grid; gap: 4px; margin-block-end: 10px; }
+.pl-var > span { font-size: .74rem; color: var(--ink-soft); overflow-wrap: anywhere; }
+.pl-var-in { min-block-size: 56px; font-size: .82rem; }
+
+.pl-vars-acts { display: grid; gap: 6px; margin-block-start: 10px; }
+.pl-vars-acts .btn { min-block-size: 40px; }
+
+/* ------------------------------------------------------------------ *
+ * المخطَّط (بند ٢٤)
+ * ------------------------------------------------------------------ */
+
+.pl-outline {
+  flex: 0 0 190px;
+  position: sticky; inset-block-start: 12px;
+  max-block-size: 60dvh; overflow-y: auto;
+  padding: 8px;
+  border-radius: var(--radius-md, 12px);
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.pl-outline-toggle {
+  inline-size: 100%; min-block-size: 36px;
+  font: inherit; font-size: .76rem; font-weight: 700; text-align: start; cursor: pointer;
+  background: transparent; border: 0; color: var(--ink-soft);
+}
+.pl-outline-toggle b { color: var(--accent); }
+.pl-outline-list { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 1px; }
+.pl-outline-list button {
+  inline-size: 100%; min-block-size: 34px; padding: 0 8px;
+  font: inherit; font-size: .74rem; text-align: start; cursor: pointer;
+  color: var(--ink-soft); background: transparent; border: 0;
+  border-radius: var(--radius-sm);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.pl-outline-list button:hover { background: var(--accent-wash); color: var(--accent); }
+
+/* ------------------------------------------------------------------ *
+ * المحرّر (بندا ٥ و٢٩)
+ * ------------------------------------------------------------------ */
+
+.pl-edit { display: grid; gap: 12px; max-inline-size: 82ch; }
+.pl-fld { display: grid; gap: 5px; }
+.pl-fld > span { font-size: .74rem; font-weight: 600; color: var(--ink-soft); }
+.pl-fld-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.pl-area { min-block-size: 46dvh; font-size: .9rem; line-height: 1.85; }
+
+.pl-mine {
+  padding: 10px 12px; margin-block-end: 12px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-wash);
+  font-size: .82rem; line-height: 1.8;
+}
+
+/* ------------------------------------------------------------------ *
+ * التكيّف — العارضُ يكسب دائمًا (بند ٤١)
+ * ------------------------------------------------------------------ */
+
+/*
+ * ⚠️ **الترتيبُ مقصود**: يختفي اللوحُ الجانبيُّ أوّلًا لأنّه أقلُّها
+ *    عملًا (أوجهٌ وتصنيفات، وكلُّها متاحةٌ من القائمة بالبحث). ثمّ
+ *    تصير القائمةُ والعارضُ شاشتين متبادلتين — لا عمودين ضيّقين.
+ */
+@media (max-width: 1180px) {
+  .pl { grid-template-columns: minmax(240px, 300px) minmax(430px, 1fr); }
+  .pl-side { display: none; }
+  .pl-list { grid-column: 1; }
+  .pl-viewer { grid-column: 2; }
+}
+
+@media (max-width: 900px) {
+  .pl { grid-template-columns: 1fr; }
+  .pl-list, .pl-viewer { grid-column: 1; grid-row: 1; }
+
+  /* القائمةُ ظاهرةٌ: هي الشاشة. */
+  .pl[data-pl-list="open"] .pl-viewer { display: none; }
+  /* برومبتٌ مفتوح: العارضُ يأخذ الشاشةَ كلَّها ومعه بابُ الرجوع. */
+  .pl[data-pl-list="shut"] .pl-list { display: none; }
+  .pl[data-pl-list="shut"] .pl-back {
+    display: inline-flex; align-items: center;
+    min-block-size: 44px; padding: 0 14px; margin: 10px 20px 0;
+    font: inherit; font-size: .82rem; font-weight: 600; cursor: pointer;
+    color: var(--accent); background: var(--surface);
+    border: 1px solid var(--accent-line); border-radius: var(--radius-sm);
+  }
+
+  /* ⚠️ والمتغيّراتُ والمخطَّطُ ينزلان تحت النصّ — لا يزاحمانه عرضًا. */
+  .pl-body { flex-direction: column; }
+  .pl-vars, .pl-outline { position: static; flex: 1 1 auto; inline-size: 100%; }
+  .pl-fld-row { grid-template-columns: 1fr; }
+}

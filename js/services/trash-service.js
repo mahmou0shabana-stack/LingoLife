@@ -38,6 +38,7 @@ import {
   expressionOccurrences,
   savedItems,
   studyDrafts,
+  promptVersions,
   sceneMediaLinks,
   devIssues,
   devBriefs,
@@ -363,6 +364,29 @@ export const TRASHABLE = Object.freeze([
       };
     },
   },
+
+  {
+    /*
+     * برومبتاتُك (WS-PL · بند ٦٧).
+     *
+     * ⚠️ **وكان هذا المخزنُ في `NOT_TRASHABLE` بحجّة «إعدادات لا
+     *    محتوى»** — وكانت صحيحةً حين كُتبت: لم يكن يُكتَب فيه شيء.
+     *    فلمّا صار يحمل برومبتاتٍ تكتبها في ساعات، صارت الحجّةُ خطأً
+     *    خطيرًا: حذفٌ بلا رجعةٍ لنصٍّ لا نسخةَ له في مكان.
+     */
+    store: 'promptVersions',
+    repo: promptVersions,
+    label: 'برومبتات',
+    icon: 'note',
+    order: 14,
+    async row(record) {
+      return {
+        title: record.title || 'برومبت بلا اسم',
+        subtitle: record.purpose ? clip(record.purpose) : clip(record.body || ''),
+        sceneId: null,
+      };
+    },
+  },
 ]);
 
 /**
@@ -427,7 +451,6 @@ export const NOT_TRASHABLE = Object.freeze({
   nativeAudio: 'ذاكرة تسجيلات خارجية — تُمسح كلها من الإعدادات لا واحدًا واحدًا',
   generatedAudio: 'ذاكرة صوتٍ مولَّد آليًّا — تُمسح كلها من الإعدادات لا واحدًا واحدًا',
   projectContext: 'إعدادات لا محتوى',
-  promptVersions: 'إعدادات لا محتوى',
   backupHistory: 'سجلّ النسخ — لا يُحذف',
   devEvents: 'الخطّ الزمني للملاحظة — حذف حدثٍ منه تزويرٌ للتاريخ، وهو الدليل تحت كل رقم في المختبر',
 });
