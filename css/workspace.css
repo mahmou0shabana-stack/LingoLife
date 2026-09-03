@@ -62,12 +62,10 @@ body.workspace-open #app-main {
   --ws-insp: 320px;
   --ws-row: 46px;
   /*
-   * ⚠️ **ارتفاعُ المشغّل مقيسٌ لا مقدَّر** (WS-P2 · بند ٢٣): قاس التحقّقُ
-   *    الحيُّ الشريطَ فوجده أعلى من ٥٨، فكان آخِرُ سطرٍ في المستند يقع
-   *    تحته — يُرى ولا يُقرأ. والحشوُ السفليُّ في الألواح الثلاثة يساوي
-   *    هذا الرقم، فرفعُه يرفعها معًا.
+   * ⚠️ **ولا `--ws-dock` بعد اليوم** (WS-P4-C · بند ٦): كان يحجز ٧٦px
+   *    في الألواح الثلاثة لمشغّلٍ حُذف. والحشوُ السفليُّ صار عاديًّا —
+   *    يكفي أن يُقرأ آخِرُ سطرٍ بلا شريطٍ يقف تحته.
    */
-  --ws-dock: 76px;
   display: flex;
   flex-direction: column;
   flex: 1;
@@ -260,7 +258,7 @@ body.workspace-open #app-main {
   overscroll-behavior: contain;
   /* ⚠️ يمنع المتصفّحَ أن «يثبّت» موضعًا فيقاوم ما نستعيده يدويًّا. */
   overflow-anchor: none;
-  padding-block-end: var(--ws-dock);
+  padding-block-end: 14px;
   background: var(--bg-alt);
   border-inline-end: 1px solid var(--line);
 }
@@ -622,7 +620,7 @@ body.workspace-open #app-main {
   overscroll-behavior: contain;
   display: grid;
   place-items: center;
-  padding: 10px 10px var(--ws-dock);
+  padding: 10px;
 }
 
 /* ⚠️ صورةُ المعاينة تفتح اللايت‑بوكس المشترك — لا عارضَ ثانٍ (بند ١٢). */
@@ -772,11 +770,26 @@ body.workspace-open #app-main {
  * ------------------------------------------------------------------ */
 
 .ws-modes,
+.ws-modes-tabs,
 .ws-seg {
   display: inline-flex;
   padding: 3px;
   border-radius: var(--radius-pill);
   background: var(--bg-alt);
+}
+
+/*
+ * ⚠️ **«ربط» داخل نفس الشريط بصريًّا، خارجَ التبويبات دلاليًّا**
+ *    (WS-P4-C · بندا ١ و٣). فالعينُ ترى «قراءة | تحرير | ربط» شريطًا
+ *    واحدًا، وقارئُ الشاشة يسمع تبويبَين وزرَّ ضغطٍ — وهو الصدق.
+ */
+.ws-modes-tabs { padding: 0; background: transparent; }
+
+.ws-mode-link { color: var(--ink-soft); }
+.ws-mode-link.is-on {
+  background: var(--accent-wash);
+  color: var(--accent);
+  box-shadow: none;
 }
 
 /*
@@ -853,7 +866,7 @@ body.workspace-open #app-main {
   overflow: auto;
   overscroll-behavior: contain;
   overflow-anchor: none;
-  padding: 14px 20px var(--ws-dock);
+  padding: 14px 20px 18px;
 }
 
 .ws-doc-tools {
@@ -1057,7 +1070,35 @@ body.workspace-open #app-main {
   line-height: 1;
 }
 
-.ws-item.is-sel .ws-item-tick { border-color: var(--accent); background: var(--accent-wash); }
+.ws-item.is-sel .ws-item-tick,
+.ws-thumb.is-sel .ws-item-tick { border-color: var(--accent); background: var(--accent-wash); }
+
+/*
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **تحديدُ الوسيط ثانويٌّ — والعقدةُ تبقى الأقوى** (بند ١١)
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * `state.node` (صفُّ المُتصفِّح) و`state.mediaSel` (صفُّ الوسيط)
+ * حالتان تعيشان معًا على الشاشة. ولو تساوى وزنُهما البصريُّ لَما
+ * عرفتَ أيُّهما «مكانُك» وأيُّهما «ما في يدك».
+ *
+ * فالوسيطُ يأخذ **خلفيّةً وحافّةً بادئة** بلا حبرٍ أقوى ولا ظلّ —
+ * واضحٌ ولا ينازع.
+ */
+.ws-thumb.is-sel {
+  background: var(--accent-wash);
+  border-inline-start: 3px solid var(--accent);
+}
+
+/* ⚠️ والصفُّ المفتوحُ في المساحة له علامتُه القائمةُ — لا تُلغى. */
+.ws-thumb.is-on.is-sel { border-inline-start-color: var(--accent); }
+
+/* رأسُ لوح الوسائط: مدخلُ «تحديد» وحدَه — بند ١٢. */
+.ws-media-tools {
+  display: flex;
+  justify-content: flex-end;
+  margin-block-end: 8px;
+}
 
 /* شريطُ الدفعة — عددٌ حقيقيٌّ وفعلان لا أكثر (بندا ٢١ و٢٢). */
 .ws-pickbar {
@@ -1127,7 +1168,7 @@ body.workspace-open #app-main {
   overflow-x: hidden;
   overscroll-behavior: contain;
   overflow-anchor: none;
-  padding-block-end: var(--ws-dock);
+  padding-block-end: 14px;
   background: var(--surface-soft);
   border-inline-start: 1px solid var(--line);
 }
@@ -1216,6 +1257,8 @@ body.workspace-open #app-main {
 .ws-thumb.is-on { border-inline-start-color: var(--accent); }
 
 .ws-thumb-face {
+  /* ⚠️ لعلامة ✓ في وضع التحديد — وإلّا خرجت من الصفّ (بند ١٣). */
+  position: relative;
   flex: 0 0 auto;
   inline-size: 44px;
   block-size: 44px;
@@ -1520,84 +1563,32 @@ body.workspace-open.has-mini-player .app-main { padding-bottom: 0; }
 
 
 /* ------------------------------------------------------------------ *
- * شريطُ السماع — مشتركٌ لا مالك (بند ٣٥)
+ * شريطُ السماع — **حُذف** (WS-P4-C · بنود ٥ و٦ و٩)
  * ------------------------------------------------------------------ */
 
 /*
  * ═══════════════════════════════════════════════════════════════
- * ⚠️ **مشغّلٌ نحيفٌ — لا شريطٌ عريضٌ يقطع الشاشة** (بنود ٢٧ و٢٨ و٣١)
+ * ⚠️ **ما كان هنا، ولماذا لم يبقَ منه شيء**
  * ═══════════════════════════════════════════════════════════════
  *
- * كان ثلاثةَ أسطرٍ متراكمةٍ في `ws-now-mid` بارتفاعٍ قِيس فوق ٧٦px.
- * وصار سطرًا واحدًا: تشغيل · اسم · شريطُ موضعٍ رفيع · وقت · ربط.
+ * كان `.ws-now` شريطًا مثبَّتًا أسفلَ الورشة كلِّها. مرّ بجولتين:
+ * كبيرًا في WS-P، ثمّ نحيفًا في WS-P4 (٤٤px بسطرٍ واحد). والبلاغُ
+ * من الجهاز الحقيقيّ كان في المرّتين واحدًا: **لا أريد شريطًا أسفلَ
+ * الشاشة أصلًا** — لا كبيرًا ولا صغيرًا.
  *
- * ⚠️ **ولا يظهر أصلًا بلا مقطع** (بند ٣١): `hidden` عليه، و`--ws-dock`
- *    يُضبَط من ارتفاعه المقيس — فالمساحةُ تُحجَز لشيءٍ موجودٍ فقط.
+ * فحُذف: القاعدةُ وكلُّ أبنائها (`ws-now-play` و`ws-now-t` و
+ * `ws-now-time` و`ws-now-more` و`ws-now-mid`)، ومعها `--ws-dock`
+ * وحشواتُه الأربع في المُتصفِّح والمستند واللوح والمعاينة.
  *
- * ⚠️ **ولا شريطَ حالةٍ زخرفيّ** (بند ٣٢): البندُ يسمح به «إن كان مفيدًا»
- *    ويشترط أرقامًا حقيقيّةً وحدَها. والورشةُ تعرض حالةَ الحفظ في
- *    ترويستها بالفعل، وعددَ الوسائط في «مربوط هنا» بالفعل — فشريطٌ
- *    ثالثٌ يكرّرهما هو الضجيجُ الذي جاء البندُ ٣٢ ليمنعه. فاخترنا
- *    الاحتمال (أ): **يختفي المشغّلُ تمامًا**، ولا يُستبدَل بشيء.
+ * ⚠️ **ولم يُستبدَل بشيء** (بند ٩): لا تذييلَ حالةٍ ولا شريطَ بيانات.
+ *    المساحةُ رجعت للمستند، وهو ما طُلب حرفيًّا.
+ *
+ * ⚠️ **و`.ws-seek` باقيةٌ عمدًا** — تستعملها شاشةُ الظلّ. وحذفُ صنفٍ
+ *    مشتركٍ لأنّ أحدَ مستعمليه رحل عطبٌ يظهر في شاشةٍ أخرى.
  */
-.ws-now {
-  position: absolute;
-  inset-inline: 0;
-  inset-block-end: 0;
-  /* وفوق أيّ شيءٍ داخل الشاشة — الشريطُ آخرُ ما يُحجَب. */
-  z-index: 20;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-block-size: 44px;
-  padding: 3px 10px;
-  border-block-start: 1px solid var(--line);
-  background: var(--surface);
-  box-shadow: var(--shadow-sm);
-}
 
+/* ⚠️ باقيةٌ لأنّ الدرجَ والحجابَ يُوضَعان بالنسبة إليها. */
 .ws { position: relative; }
-
-/* ⚠️ `[hidden]` لا تغلب `display:flex` بلا هذا — فكان يبقى مرئيًّا. */
-.ws-now[hidden] { display: none; }
-
-.ws-now-t {
-  flex: 0 1 auto;
-  min-inline-size: 0;
-  max-inline-size: 34%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: .78rem;
-}
-
-.ws-now .ws-seek { flex: 1; min-inline-size: 60px; }
-.ws-now-more { flex: 0 0 auto; }
-
-.ws-now-play {
-  flex: 0 0 auto;
-  min-inline-size: 40px;
-  min-block-size: 40px;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--surface);
-  color: var(--ink);
-  cursor: pointer;
-}
-
-.ws-now-mid { flex: 1; min-inline-size: 0; display: grid; gap: 2px; }
-
-.ws-now-t {
-  min-inline-size: 0;
-  color: var(--ink-soft);
-  font-size: .72rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 
 /*
  * ⚠️ **يُرى رفيعًا ويُلمَس ٤٤** (بند ٥٥). أوّلُ صياغةٍ كتبت الحشوَ
@@ -1627,8 +1618,6 @@ body.workspace-open.has-mini-player .app-main { padding-bottom: 0; }
   border-radius: 999px;
   background: var(--accent, var(--ink));
 }
-
-.ws-now-time { color: var(--ink-soft); font-size: .68rem; font-variant-numeric: tabular-nums; }
 
 
 /* ------------------------------------------------------------------ *

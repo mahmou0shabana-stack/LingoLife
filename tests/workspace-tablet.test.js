@@ -669,19 +669,23 @@ describe('WS-P4 · الربطُ الجماعيُّ يقول الحقيقةَ (ب
 });
 
 /* ================================================================== */
-describe('WS-P4 · وضعُ «ربط» سقط والمسارات باقية (بندا ٢٤ و٥٢)', () => {
-  it('٤٨ · لا زرَّ وضعٍ اسمُه «ربط»', async () => {
-    const { host, w } = await mountDeep();
-    const modes = $$('.ws-mode', host).map((e) => e.textContent.trim());
-    expect(modes.includes('ربط')).toBeFalsy();
-    unmount(host);
-  });
-
-  it('٤٩ · والأوضاعُ الباقيةُ قراءةٌ وتحرير', async () => {
-    const { host, w } = await mountDeep();
-    expect($$('.ws-mode', host)).toHaveLength(2);
-    unmount(host);
-  });
+describe('WS-P4 · مساراتُ الربط الأربعة باقية (بندا ٢٤ و٥٢)', () => {
+  /*
+   * ═══════════════════════════════════════════════════════════════
+   * ⚠️ **حارسان انقلبا بقرارٍ صريحٍ من مالك المنتَج — لا بانحدار**
+   * ═══════════════════════════════════════════════════════════════
+   *
+   * كان هنا: «لا زرَّ وضعٍ اسمُه ربط» و«الأوضاعُ اثنان». وقد كتبهما
+   * WS-P4 بعد تدقيقٍ خلص إلى أنّ «ربط» بلا **عمليّةٍ** فريدة.
+   *
+   * والتدقيقُ كان صحيحًا وناقصًا معًا: صحيحٌ في العمليّات، ناقصٌ في
+   * الوظيفة — فقد كان الزرُّ **بابَ اللوح الأيسر**، وبإسقاطه اختفى
+   * اللوحُ عن مستعمله (WS-P4-C · بند ١).
+   *
+   * ⚠️ **والمقصودُ الأصليُّ لهذه المجموعة لم يتبدّل**: أن تبقى مساراتُ
+   *    الربط الأربعةُ قائمةً مهما تحرّك الزرّ. وهي محروسةٌ كما كانت
+   *    أدناه. وحالةُ الزرِّ نفسِه لها ملفُّها: `workspace-link-panel`.
+   */
 
   it('٥٠ · ومسارُ الربط من العقدة باقٍ', async () => {
     const { host, w } = await mountDeep();
@@ -705,69 +709,83 @@ describe('WS-P4 · وضعُ «ربط» سقط والمسارات باقية (ب�
 });
 
 /* ================================================================== */
-describe('WS-P4 · المشغّلُ المصغَّر (بنود ٢٧ إلى ٣٣ و٥٣)', () => {
-  it('٥٣ · بلا مقطعٍ لا يظهر شريطٌ أصلًا', async () => {
-    /*
-     * ⚠️ **والحالةُ تُصفَّر صراحةً — لا تُفترَض.** الصوتُ خدمةٌ **عامّة**
-     *    تعيش عبر الشاشات، وهذا هو المقصودُ منها. فاختباراتُ الصوت
-     *    السابقةُ في الجولة نفسِها تترك مقطعًا محمّلًا، فيظهر الشريطُ
-     *    بحقّ. وسقط هذان الاختباران في الجولة الكاملة ونجحا منفردَين —
-     *    وكانا هما المخطئَين لا الشاشة.
-     */
+describe('WS-P4-C · لا شريطَ صوتٍ أسفلَ الورشة (بنود ٥ و٦ و٩ و٢٣)', () => {
+  /*
+   * ═══════════════════════════════════════════════════════════════
+   * ⚠️ **هذه المجموعةُ انقلبت — وذلك هو الصواب**
+   * ═══════════════════════════════════════════════════════════════
+   *
+   * كانت تحرس **المشغّلَ المصغَّر**: أن يكون نحيفًا، وأن يختفي بلا
+   * مقطع، وألّا يحجز مساحةً وهو غائب. وكلُّها شروطٌ صحيحةٌ لشيءٍ
+   * قرّر مالكُ المنتَج بعد تجربةٍ على الجهاز الحقيقيّ أنّه **لا يريده
+   * أصلًا** — لا كبيرًا ولا نحيفًا.
+   *
+   * فالحرّاسُ الآن يحرسون الغياب: لا عنصرَ، ولا مساحةَ محجوزة، ولا
+   * شريطَ يعود متسلّلًا في تمريرةٍ قادمة.
+   */
+  it('٥٣ · لا عنصرَ شريطٍ في الورشة أصلًا — ولا حتى مخفيًّا', async () => {
     audio.clear();
     await wait(60);
     const { host } = await mount();
-    const now = $('[data-ws-now]', host);
-    expect(now.hidden).toBe(true);
-    expect(now.getBoundingClientRect().height).toBe(0);
+    expect($('[data-ws-now]', host)).toBe(null);
+    expect($('.ws-now', host)).toBe(null);
     unmount(host);
   });
 
-  it('٥٤ · ولا تُحجَز مساحةٌ سفليّةٌ لشريطٍ غائب', async () => {
+  it('٥٤ · ولا مساحةَ محجوزةَ له في أيّ لوح', async () => {
     /*
-     * ⚠️ **هذا هو «الشريطُ الكبيرُ بلا داعٍ» الذي بلّغتَ عنه.** لم يكن
-     *    الشريطُ نفسُه ظاهرًا — كان `--ws-dock: 76px` محجوزًا في الألواح
-     *    الثلاثة على الدوام. فالقياسُ على الحشو لا على العنصر.
+     * ⚠️ **هذا هو «الشريطُ الكبيرُ بلا داعٍ» الذي بلّغتَ عنه مرّتين.**
+     *    والقياسُ على الحشو لا على العنصر: `--ws-dock` كان يقضم من
+     *    الألواح الثلاثة حتى والشريطُ غائب. والآن لا وجودَ للمتغيّر.
      */
-    audio.clear();
-    await wait(60);
     const { host } = await mount();
-    const dock = getComputedStyle($('.ws', host)).getPropertyValue('--ws-dock').trim();
-    expect(Number(dock.replace('px', '')) <= 16).toBeTruthy();
+    const root = $('.ws', host);
+    expect(getComputedStyle(root).getPropertyValue('--ws-dock').trim()).toBe('');
+    const pad = (sel) => Number(
+      getComputedStyle($(sel, host)).paddingBlockEnd.replace('px', '')
+    ) || 0;
+    expect(pad('.ws-nav') <= 24).toBeTruthy();
+    expect(pad('.ws-doc') <= 24).toBeTruthy();
     unmount(host);
   });
 
-  it('٥٥ · والمشغّلُ يشترك في نفس خدمة الصوت — لا عنصرَ ثانٍ', async () => {
+  it('٥٥ · والصوتُ ما زال على نفس الخدمة العامّة — لا عنصرَ ثانٍ', async () => {
     /*
-     * ⚠️ **حارسٌ بنيويّ**: لو أنشأت هذه الشاشةُ `<audio>` خاصًّا بها لَمات
-     *    الصوتُ مع أوّلِ عقدةٍ تفتحها — وهو العطبُ الذي حسمه WS-P بند ٣٥.
+     * ⚠️ **حارسٌ بنيويّ** (بند ٧): حذفُ الواجهة لا يجوز أن يُغري أحدًا
+     *    ببناء مشغّلٍ محلّيٍّ بدلها. لو أنشأت هذه الشاشةُ `<audio>`
+     *    خاصًّا لَمات الصوتُ مع أوّلِ عقدةٍ تفتحها.
      */
     const src = await (await fetch('../js/views/workspace-view.js')).text();
     const code = src.split('\n')
       .filter((line) => !/^\s*(\*|\/\*|\/\/)/.test(line)).join('\n');
     expect(/new Audio\(|createElement\(['"]audio/.test(code)).toBeFalsy();
+    /* والاشتراكُ في الخدمة باقٍ — الحقيقةُ لا تزال تصل للصفوف. */
+    expect(code.includes('subscribeAudio')).toBeTruthy();
   });
 
-  it('٥٦ · وارتفاعُه نحيفٌ حين يظهر', async () => {
-    const { host } = await mount();
-    const now = $('[data-ws-now]', host);
-    now.hidden = false;
-    now.innerHTML = '<button class="ws-now-play">▶</button><span class="ws-now-t">x</span>';
-    await wait(40);
-    const h = now.getBoundingClientRect().height;
-    expect(h > 0 && h <= 56).toBeTruthy();
-    unmount(host);
+  it('٥٦ · ولا يعود المشغّلُ متسلّلًا في تمريرةٍ قادمة', async () => {
+    /*
+     * ⚠️ **حارسُ عودةٍ لا حارسُ حالة** (بند ٢٣): يقيس أنّ رسمَ الشاشة
+     *    لا يحوي أثرًا للمشغّل — لا صنفًا ولا سِمةً ولا دالّةَ رسم.
+     */
+    const src = await (await fetch('../js/views/workspace-view.js')).text();
+    const code = src.split('\n')
+      .filter((line) => !/^\s*(\*|\/\/)/.test(line) && !/^\s*⚠️|^\s*\*/.test(line))
+      .join('\n');
+    for (const dead of ['function nowHtml', 'data-ws-now', 'ws-now-play', "case 'toggle'"]) {
+      expect(code.includes(dead)).toBeFalsy();
+    }
   });
 
-  it('٥٧ · وآخِرُ سطرٍ في المستند يبقى قابلًا للوصول', async () => {
+  it('٥٧ · وآخِرُ سطرٍ في المستند يُقرأ كاملًا', async () => {
     const { host, w } = await mountDeep();
     const doc = $('.ws-doc', host);
     doc.scrollTop = doc.scrollHeight;
     await wait(40);
-    const now = $('[data-ws-now]', host);
-    const nowTop = now.hidden ? Infinity : now.getBoundingClientRect().top;
+    const box = doc.getBoundingClientRect();
     const last = doc.lastElementChild?.getBoundingClientRect();
-    if (last) expect(last.bottom <= nowTop + 1).toBeTruthy();
+    /* ⚠️ لا شيءَ يقف تحته الآن، فالشرطُ أن يقع داخل اللوح نفسِه. */
+    if (last) expect(last.bottom <= box.bottom + 1).toBeTruthy();
     unmount(host);
   });
 });

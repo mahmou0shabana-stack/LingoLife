@@ -647,41 +647,64 @@ function crumbHtml() {
 }
 
 /**
- * أوضاعُ المستند — **قراءةٌ وتحريرٌ فقط** (WS-P4 · بندا ٢٣ و٢٤).
+ * شريطُ الأوضاع — **قراءة · تحرير · ربط** (WS-P4-C · بنود ١ إلى ٣).
  *
  * ═══════════════════════════════════════════════════════════════
- * ⚠️ **نتيجةُ التدقيق: «ربط» لم يبقَ له عملٌ فريد**
+ * ⚠️ **تدقيقُ WS-P4 كان صحيحًا تقنيًّا وناقصًا تجربةً — وهذا هو الدرس**
  * ═══════════════════════════════════════════════════════════════
  *
- * فُحص `MODE.LINK` في الكودّ كلّه فلم يظهر إلّا في موضعين: هذه القائمة،
- * و`setMode` حيث كان كلُّ أثره سطرين — `inspector = true` و
- * `tab = TAB.LINKS`. **ولا سطرَ واحدًا في رسم المستند.** أي أنّه لم
- * يكن وضعًا للوثيقة أصلًا؛ كان زرًّا يفتح لوحَ التفاصيل على تبويبٍ
- * بعينه — وهو ما يفعله زرُّ «تفاصيل» القائمُ حرفيًّا.
+ * فُحص `MODE.LINK` فلم يُوجَد له **عملٌ على البيانات** لا يفعله غيرُه،
+ * فأُسقط. والفحصُ صحيحٌ حرفًا بحرف. لكنّه سأل سؤالًا واحدًا: «ما
+ * العمليّةُ التي يملكها؟» ونسي السؤالَ الثاني: **«ما البابُ الذي
+ * يفتحه؟»**
  *
- * وبعد WS-P3 صار الربطُ فعلًا مباشرًا بجوار العنصر، فلم يبقَ للوضع
- * حتّى مبرِّرُه القديم. والبندُ ٢٤ يسمّي القاعدةَ: **القراءةُ والتحريرُ
- * يغيّران حالةَ الوثيقة، والربطُ يقع على كائن**. فمدخلان لشيءٍ واحدٍ
- * بغرضٍ غامضٍ هو ما ينهى عنه البندُ ٥٢ صراحةً.
+ * وكان يفتح **اللوحَ الجانبيَّ الأيسر**. وبإسقاطه لم يبقَ للوح مدخلٌ
+ * يُرى: صار وراء زرٍّ اسمُه «تفاصيل» — وهي كلمةٌ لا تَعِد أحدًا بلوحِ
+ * ربطٍ ووسائط. فاختفى اللوحُ عمليًّا وإن بقي في الكود.
  *
- * ⚠️ **ولا يُفقَد شيء** — وهذا ما أثبتَته اختباراتُ ٥٢:
- *    · ربطُ وسيطٍ بعقدة    ← `link-item` من صفّ الوسيط
- *    · ربطُ دفعةٍ          ← وضعُ «تحديد» ثمّ «اربط المحدد»
- *    · ربطُ الصوتِ المفتوح ← زرُّ الربط في المشغّل المصغَّر
- *    · ربطُ شيءٍ بالعقدة   ← «اربط كمان» في «مربوط هنا»
- *    · عرضُ الروابط وفكُّها ← «الروابط» أدناه، وتبويبُ الربط كما هو
+ * ⚠️ **والدرسُ يستحقّ الكتابةَ**: «لا عمليّةَ فريدة» ليست «لا وظيفةَ
+ *    فريدة». التنقّلُ وظيفة، والاكتشافُ وظيفة. وحذفُ عنصرٍ لأنّه لا
+ *    يكتب في القاعدة يحذف معه الطريقَ إلى ما يكتب.
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **و«ربط» هنا ليست «ربط» التي على الصفّ — ولا واحدةَ منهما تُلغي
+ *    الأخرى** (بند ٤)
+ * ═══════════════════════════════════════════════════════════════
+ *
+ *   · `link-item` بجوار الوسيط  ← **عمليّةٌ مباشرة**: اربط هذا الآن.
+ *   · «ربط» هنا                  ← **بابٌ**: افتح لوحَ الربط والوسائط.
+ *
+ * وهما في نظر المستخدم شيئان، وإن التقيا في المعنى اللغويّ.
+ *
+ * ⚠️ **وحالتُها تُقرأ من `state.inspector` لا من `state.mode`** (بند ٣).
+ *    ولو جُعلت وضعًا (`MODE.LINK`) لَبقيت مضاءةً بعد أن تُغلق اللوحَ
+ *    بـ ✕ — فتقول الشاشةُ «أنت في الربط» ولا لوحَ مفتوح. والزرُّ يصف
+ *    شيئًا واحدًا: **هل اللوحُ مفتوح؟**
+ *
+ * ⚠️ **ولذلك هي زرُّ ضغطٍ لا تبويب**: `aria-pressed` لا `aria-selected`،
+ *    وخارجَ `role="tablist"`. الأوضاعُ تُنتقى واحدًا من اثنين، واللوحُ
+ *    يُفتَح ويُغلَق. ووضعُها في التبويبات كان سيَعِد قارئَ الشاشة بما
+ *    لا يحدث.
  */
 function modeSwitchHtml() {
   /* ⚠️ والمسودّةُ تُقرأ ولا تُحرَّر — مادّةٌ مشتقّةٌ لا مصدر (بند ١٨). */
   const kinds = state.open?.kind === 'text'
     ? [MODE.READ, MODE.EDIT]
     : [MODE.READ];
+  const on = state.inspector;
   return html`
-    <div class="ws-modes" role="tablist" aria-label="وضع الشغل">
-      ${raw(kinds.map((one) => html`
-        <button type="button" class="ws-mode ${state.mode === one ? 'is-on' : ''}"
-                role="tab" aria-selected="${state.mode === one ? 'true' : 'false'}"
-                data-ws="mode" data-v="${one}">${MODE_LABEL[one]}</button>`).join(''))}
+    <div class="ws-modes">
+      <div class="ws-modes-tabs" role="tablist" aria-label="وضع الشغل">
+        ${raw(kinds.map((one) => html`
+          <button type="button" class="ws-mode ${state.mode === one ? 'is-on' : ''}"
+                  role="tab" aria-selected="${state.mode === one ? 'true' : 'false'}"
+                  data-ws="mode" data-v="${one}">${MODE_LABEL[one]}</button>`).join(''))}
+      </div>
+      <button type="button" class="ws-mode ws-mode-link ${on ? 'is-on' : ''}"
+              data-ws="link-panel" data-ws-link-btn
+              aria-pressed="${on ? 'true' : 'false'}" aria-controls="ws-inspector"
+              title="${on ? 'اقفل لوح الربط' : 'افتح لوح الربط والوسائط'}"
+        >${MODE_LABEL[MODE.LINK]}</button>
     </div>`;
 }
 
@@ -1299,10 +1322,43 @@ function closeSide() {
  *    قد يكون آلافَ الأسطر، وتغييرُ حالةِ صفٍّ لا يبرّر هدمَه وبناءَه —
  *    ولا يبرّر خصوصًا خطرَ ضياع موضع التمرير الذي كلّفنا WS-F2 قياسًا.
  */
+/**
+ * يعيد رسمَ السطحين اللذين يعرضان التحديد — **الاثنين معًا**.
+ *
+ * ⚠️ **حالةُ التحديد واحدة، وسطحاها اثنان** (WS-P4-C · بند ١٠):
+ *    «مربوط هنا» في المستند، ولوحُ الوسائط على اليسار. وهما يقرآن
+ *    `state.picked` و`state.mediaSel` نفسَيهما — فلو رُسم أحدُهما
+ *    وحدَه لَرأيتَ صحًّا في مكانٍ ولا شيءَ في الآخر، وهو تناقضٌ
+ *    يجعلك تشكّ في العدد الذي تقرؤه.
+ */
 function paintItems() {
   const host = $('[data-ws-attached]');
-  if (!host || !state.node) return;
-  host.outerHTML = attachedHtml(state.node);
+  if (host && state.node) host.outerHTML = attachedHtml(state.node);
+  if (state.inspector) paintInsp();
+}
+
+/**
+ * ينظّف تحديدًا صار بلا معنًى — **لا يُترَك معرِّفٌ ميّتٌ في المجموعة**
+ * (بند ١٦).
+ *
+ * ⚠️ **وثلاثةُ أبوابٍ تُبطل التحديد**: تبديلُ ما تقرؤه (فالهدفُ تغيّر)،
+ *    وإغلاقُ اللوح (فالأداةُ التي تجمع بها اختفت)، وحذفُ وسيطٍ (فالمعرِّفُ
+ *    لم يعُد يشير إلى شيء). وثلاثتُها تمرّ من هنا.
+ *
+ * ⚠️ **ولا يُحذَف ما بقي صالحًا**: الفاشلُ بعد ربطٍ جزئيٍّ يبقى محدَّدًا
+ *    عمدًا (بند ١٥) — وتنظيفٌ عامٌّ يمسحه كان سيقتل «إعادة محاولة
+ *    الفاشل» قبل أن تضغطها.
+ */
+function resetPicks() {
+  state.pickMode = false;
+  state.picked.clear();
+}
+
+/** يُسقط من التحديد ما لم يعُد موجودًا في اللوحة (حذفٌ أو مزامنة). */
+function reconcilePicks() {
+  if (!board || !state.picked.size) return;
+  for (const one of [...state.picked]) if (!mediaById(one)) state.picked.delete(one);
+  if (state.mediaSel && !mediaById(state.mediaSel)) state.mediaSel = null;
 }
 
 /**
@@ -1446,12 +1502,50 @@ function propsTabHtml() {
     </div>`;
 }
 
+/**
+ * شريطُ التحديد داخل لوح الوسائط — **هنا لا أسفلَ الشاشة** (بندا ١٢ و١٣).
+ *
+ * ⚠️ **ويُدخَل صراحةً**: لا مربّعاتِ اختيارٍ دائمةً في كلّ صفّ. الحالةُ
+ *    العاديّةُ بسيطةٌ — تلمس فتختار وتفتح — والدفعةُ طلبٌ تطلبه.
+ *
+ * ⚠️ **والعددُ حقيقيٌّ من `state.picked`** (بند ١٣): لا رقمٌ يُعرَض ولا
+ *    تقديرٌ. وإن كان صفرًا فالزرُّ معطَّلٌ ويقول ذلك.
+ *
+ * ⚠️ **وشريطُ الأفعال داخل اللوح** — البندُ ١٣ صريح: لا شريطَ أفعالٍ
+ *    أسفلَ الشاشة كلِّها. والفعلُ يقع حيث تنظر.
+ */
+function mediaPickBarHtml() {
+  if (!state.pickMode) return '';
+  const n = state.picked.size;
+  return html`
+    <div class="ws-pickbar" data-ws-media-pickbar role="status">
+      <b>${n ? `${n} محدّدين` : 'مفيش حاجة متحدّدة'}</b>
+      <button type="button" class="ws-btn ws-btn-primary ws-btn-tiny"
+              data-ws="pick-link" ${n ? '' : 'disabled'}>اربط المحدد</button>
+      <button type="button" class="ws-btn ws-btn-soft ws-btn-tiny"
+              data-ws="pick-cancel">إلغاء التحديد</button>
+    </div>`;
+}
+
 function mediaTabHtml() {
   const items = mediaLibrary(board, { filter: state.mediaFilter, query: state.mediaQuery });
   const here = state.open?.kind === 'text' ? mediaOf(board, state.open.id) : null;
 
   return html`
     <div class="ws-insp-body">
+      <!--
+        ⚠️ **مدخلُ التحديد في رأس اللوح** (بند ١٢): أوّلُ ما تراه حين
+           تفتح «الوسائط»، لا مخبوءًا تحت القائمة.
+      -->
+      <div class="ws-media-tools">
+        <button type="button" class="ws-btn ws-btn-soft ws-btn-tiny"
+                data-ws="pick-mode" data-ws-media-pick
+                aria-pressed="${state.pickMode ? 'true' : 'false'}">
+          ${state.pickMode ? 'خلاص' : 'تحديد'}
+        </button>
+      </div>
+      ${raw(mediaPickBarHtml())}
+
       ${raw(here && (here.audio.length || here.images.length) ? html`
         <h4 class="ws-insp-h">على العقدة دي</h4>
         <ul class="ws-thumbs">
@@ -1484,30 +1578,65 @@ function mediaTabHtml() {
     </div>`;
 }
 
+/**
+ * صفُّ وسيطٍ في اللوح الأيسر — **يُحدَّد هنا، ويُربَط هنا** (بنود ١٠ إلى ١٧).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **حالتان لا حالة** — وهي أهمُّ ما في هذا الصفّ
+ * ═══════════════════════════════════════════════════════════════
+ *
+ *   · `state.node`     ← العقدةُ التي تقرؤها. تحديدٌ **أوّليٌّ** يملك
+ *     المُتصفِّحَ والمسار، ولونُه هو الأقوى في الشاشة.
+ *   · `state.mediaSel` ← الوسيطُ الذي في يدك. تحديدٌ **محلّيٌّ ثانويّ**
+ *     بلونٍ أهدأ (بند ١١).
+ *
+ * ولمسُ صورةٍ هنا **لا يزحزح مكانَك في الشجرة** (بند ١٠) — ولا سطرَ
+ * واحدًا يكتب `state.node` في هذا المسار.
+ *
+ * ⚠️ **وفي وضع التحديد لا يُفتَح شيء** (بند ١٣): اللمسُ يقلب العضويّةَ
+ *    وحدَها. ولو فتحت الصورةَ وأنت تجمع خمسًا لَخرجتَ من عملك خمسَ
+ *    مرّات.
+ *
+ * ⚠️ **والقلمُ نزل تحت ⋯** (بند ١٧): كان أيقونةً دائمةً في كلّ صفّ،
+ *    وإعادةُ التسمية فعلٌ نادر. ومَن يأخذ مساحةً دائمةً يجب أن
+ *    يستحقّها — والمساحةُ هنا لزرّ التشغيل والربط.
+ */
 function thumbHtml(row) {
   const at = board.linkedTo.get(row.id) || [];
   const cloud = isCloudOnly(row);
+  const name = itemTitle(row);
+  const sel = state.pickMode ? state.picked.has(row.id) : state.mediaSel === row.id;
+
   return html`
-    <li class="ws-thumb ${state.open?.id === row.id ? 'is-on' : ''}">
-      <button type="button" class="ws-thumb-face" data-ws="open-media"
+    <li class="ws-thumb ${state.open?.id === row.id ? 'is-on' : ''} ${sel ? 'is-sel' : ''}"
+        data-ws-thumb="${row.id}">
+      <button type="button" class="ws-thumb-face" data-ws="pick-media"
               data-id="${row.id}" data-kind="${row.kind}"
-              aria-label="افتح ${itemTitle(row)}">
+              aria-pressed="${sel ? 'true' : 'false'}"
+              aria-label="${state.pickMode ? 'حدّد' : 'اختار'} ${name}">
         ${raw(row.kind === 'image' && !cloud
           ? html`<img src="${urlFor(row, { thumb: true })}" alt="" loading="lazy" decoding="async">`
           : html`<span class="ws-thumb-icon">${raw(icon(row.kind === 'audio' ? 'mic' : 'image', 18))}</span>`)}
+        ${raw(state.pickMode
+          ? html`<span class="ws-item-tick" aria-hidden="true">${sel ? '✓' : ''}</span>` : '')}
       </button>
       <div class="ws-thumb-body">
-        <b dir="auto">${itemTitle(row)}</b>
+        <b dir="auto">${name}</b>
         <span>${raw(at.length
           ? html`✓ ${pathOf(at[0]) || ''}${at.length > 1 ? ` +${at.length - 1}` : ''}`
           : 'غير مربوط')}${raw(cloud ? ' <i class="ws-tagline">Drive</i>' : '')}</span>
       </div>
-      ${raw(row.kind === 'audio' ? audioButtonHtml({
-        mediaId: row.id, snapshot: audio.state, loading: state.fetching.has(row.id),
-        name: itemTitle(row), size: 16, className: 'ws-icon-btn',
-      }) : '')}
-      <button type="button" class="ws-icon-btn" data-ws="rename-media" data-id="${row.id}"
-              aria-label="إعادة تسمية ${itemTitle(row)}">${raw(icon('edit', 15))}</button>
+      ${raw(state.pickMode ? '' : html`
+        ${raw(row.kind === 'audio' ? audioButtonHtml({
+          mediaId: row.id, snapshot: audio.state, loading: state.fetching.has(row.id),
+          name, size: 16, className: 'ws-icon-btn',
+        }) : '')}
+        <button type="button" class="ws-icon-btn ws-item-link" data-ws="link-item"
+                data-id="${row.id}" aria-label="اربط ${name}">
+          ${raw(icon('link', 15))}${raw(at.length > 1 ? html`<b>${at.length}</b>` : '')}
+        </button>
+        <button type="button" class="ws-icon-btn" data-ws="item-menu" data-id="${row.id}"
+                aria-label="خيارات ${name}">⋯</button>`)}
     </li>`;
 }
 
@@ -1537,51 +1666,6 @@ function inspectorHtml() {
     </div>
     ${raw(state.tab === TAB.LINKS ? linksTabHtml()
       : (state.tab === TAB.PROPS ? propsTabHtml() : mediaTabHtml()))}`;
-}
-
-/* ================================================================== *
- * د · شريطُ السماع — مشتركٌ لا مالك (بند ٣٥)
- * ================================================================== */
-
-/**
- * المشغّلُ المصغَّر — **نحيفٌ ومشتركٌ لا مالك** (WS-P4 · بنود ٢٧ إلى ٣٠).
- *
- * ═══════════════════════════════════════════════════════════════
- * ⚠️ **ما الذي تغيّر، ولماذا لا يُعَدّ مشغّلًا ثانيًا**
- * ═══════════════════════════════════════════════════════════════
- *
- * بلاغُك: شريطٌ عريضٌ يقطع أسفلَ الورشة كلَّها بلا داعٍ. والتغييرُ
- * **بصريٌّ محضٌ**: نفسُ `subscribeAudio`، ونفسُ `audio.state`، ونفسُ
- * زرّ `toggle`، ونفسُ شريط `seek` القائم. **ولا `<audio>` ثانٍ، ولا
- * `currentTime` محسوبٌ هنا، ولا `playing` منطقيٌّ محلّيّ** (بند ٢٩):
- * كلُّ ما يُرسَم مقروءٌ من اللقطة التي تبثّها الخدمة.
- *
- * والاسمُ والوقتُ صارا في سطرٍ واحدٍ مع الشريط بدل ثلاثة أسطر، ونزل
- * زرُّ «اربطه بالمفتوح» تحت `⋯` المشغّل — فالربطُ المباشرُ من صفّ
- * الوسيط صار هو الطريق (بند ١٨).
- */
-function nowHtml(snapshot) {
-  if (!snapshot?.hasTrack) return '';
-  const ratio = snapshot.duration ? (snapshot.currentTime / snapshot.duration) : 0;
-  const clock = (s) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
-
-  return html`
-    <button type="button" class="ws-now-play" data-ws="toggle"
-            aria-label="${snapshot.playing ? 'وقّف' : 'شغّل'}">
-      ${raw(icon(snapshot.playing ? 'pause' : 'play', 17))}
-    </button>
-    <span class="ws-now-t" dir="auto" title="${snapshot.title || 'تسجيل'}"
-      >${snapshot.title || 'تسجيل'}</span>
-    <!-- ⚠️ الشريطُ هو ws-seek القائم بعينه — القفزُ يعمل كما كان (بند ٣٠). -->
-    <div class="ws-seek" data-ws="seek" role="slider" tabindex="0"
-         aria-label="موضع التشغيل" aria-valuemin="0" aria-valuemax="100"
-         aria-valuenow="${Math.round(ratio * 100)}">
-      <div class="ws-seek-fill" style="inline-size:${(ratio * 100).toFixed(1)}%"></div>
-    </div>
-    <span class="ws-now-time">${clock(snapshot.currentTime)} / ${clock(snapshot.duration)}</span>
-    <button type="button" class="ws-icon-btn ws-now-more" data-ws="link-current"
-            ${state.open?.kind === 'text' ? '' : 'disabled'}
-            aria-label="اربطه بالمفتوح">${raw(icon('link', 15))}</button>`;
 }
 
 /* ================================================================== *
@@ -1661,40 +1745,43 @@ function paintSave() {
   el.outerHTML = saveBadgeHtml();
 }
 
+/**
+ * بثُّ الصوت — **يصل إلى الصفوف وحدَها، فلا شريطَ سفليَّ يستقبله**
+ * (WS-P4-C · بنود ٥ إلى ٩).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **ما الذي حُذف — وما الذي لم يُمَسّ**
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * حُذف: `nowHtml` كلُّها، وعنصرُ `[data-ws-now]`، والمتغيّرُ
+ * `--ws-dock` وحشواتُه الأربع في الألواح.
+ *
+ * **ولم تُمَسّ العمارةُ الصوتيّة أصلًا** (بند ٧): نفسُ `audio-service`
+ * العامّة، ونفسُ `<audio>` الواحد، ونفسُ المالك الواحد، ونفسُ
+ * `subscribeAudio` التي تنادي هذه الدالّة. الذي زال **واجهةٌ** لا
+ * محرّك — ولذلك بقي هذا المشترِكُ قائمًا: الحقيقةُ لا تزال تصل، لكنّها
+ * تصل الآن إلى المكان الذي بدأت منه الصوتَ (بند ٨).
+ *
+ * ⚠️ **ولا يُستبدَل بشريطِ حالةٍ آخر** (بند ٩): لا تذييلَ صوتٍ ولا
+ *    تذييلَ بيانات. المساحةُ ترجع للمستند، وهذا هو المطلوب حرفيًّا.
+ *
+ * ⚠️ **وثمنٌ مُعلَنٌ لا مسكوتٌ عنه**: شريطُ القفز (`seek`) كان يعيش في
+ *    المشغّل وحدَه، فذهب معه. التشغيلُ والإيقافُ باقيان على الصفّ،
+ *    والقفزُ داخل المقطع لم يعُد في الورشة. وإخفاءُ ذلك في تقريرٍ
+ *    يقول «حُذف الشريطُ فقط» كان سيكون كذبًا صغيرًا.
+ */
 const paintNow = (snapshot) => {
-  const el = $('[data-ws-now]');
-  if (!el) return;
-  const on = Boolean(snapshot?.hasTrack);
-  el.innerHTML = nowHtml(snapshot);
-  el.hidden = !on;
-
-  /*
-   * ═══════════════════════════════════════════════════════════════
-   * ⚠️ **الحشوُ السفليُّ يتبع الواقعَ لا الاحتمال** (بندا ٣١ و٣٣)
-   * ═══════════════════════════════════════════════════════════════
-   *
-   * كان `--ws-dock: 76px` محجوزًا في الألواح الثلاثة **دائمًا** — حتى
-   * والمشغّلُ مخفيٌّ ولا مقطعَ في الخدمة أصلًا. أي شريطٌ فارغٌ بعرض
-   * الشاشة يقضم ٧٦px من كلّ لوحٍ طولَ الوقت، وهو بعينه ما وصفتَه
-   * بـ«شريطٌ كبيرٌ لا داعيَ له».
-   *
-   * ⚠️ **ولا يُحَلّ بحذف الحشو**: بند ٣٣ صريحٌ في أنّ آخِرَ سطرٍ يجب أن
-   *    يبقى قابلًا للوصول. فالحشوُ يُحجَز **حين يكون هناك ما يُحجَز له**
-   *    — والرقمُ مقيسٌ من الشريط نفسِه بعد رسمه، لا مقدَّرٌ في CSS.
-   */
-  const root = $('.ws');
-  if (root) {
-    const h = on ? Math.round(el.getBoundingClientRect().height) : 0;
-    root.style.setProperty('--ws-dock', `${h ? h + 8 : 12}px`);
-  }
-
   /*
    * ⚠️ **كلُّ أزرار التشغيل تُصحَّح، لا زرُّ السطح وحدَه** (بند ٨): صفُّ
-   *    الوسائط في المُفتِّش وزرُّ المستند ومُلتقِطُ الربط — ثلاثتُها قد
-   *    تعرض نفسَ المقطع في اللحظة نفسِها، وواحدٌ فقط يجوز أن يقول ❚❚.
+   *    الوسائط في اللوح الأيسر وزرُّ المستند ومُلتقِطُ الربط — ثلاثتُها
+   *    قد تعرض نفسَ المقطع في اللحظة نفسِها، وواحدٌ فقط يجوز أن يقول ❚❚.
    *
    * ⚠️ **وتصحيحٌ في المكان لا إعادةُ رسم** (بند ٢٩): الخدمةُ تبثّ عدّةَ
    *    مرّاتٍ في الثانية، وإعادةُ رسم القائمة مع كلّ بثٍّ تحرق الإطارات.
+   *
+   * ⚠️ **وهو أيضًا إعادةُ الترطيب المطلوبة في بند ٨**: أيُّ إعادةِ رسمٍ
+   *    للوح تُخرج أزرارًا بحالةٍ مأخوذةٍ من `audio.state` وقتَ الرسم،
+   *    ثمّ يصحّحها أوّلُ بثٍّ بعدها. فلا حالةَ محلّيّةٌ تُخزَّن ولا تكذب.
    */
   refreshAudioButtons(document, snapshot, { loading: state.fetching });
 };
@@ -1753,6 +1840,25 @@ function applyShell() {
 
   const toggle = $('.ws-insp-toggle');
   if (toggle) toggle.setAttribute('aria-expanded', state.inspector ? 'true' : 'false');
+
+  /*
+   * ⚠️ **وزرُّ «ربط» يتزامن هنا — لا في مكان الفتح وحدَه** (بند ٣).
+   *
+   *    اللوحُ يُغلَق من ثلاثة أبواب: الزرُّ نفسُه، و ✕ في رأس اللوح،
+   *    والنقرُ على الحجاب في العرض الضيّق. وثلاثتُها تمرّ من هنا.
+   *    فلو صُحّحت الحالةُ عند الفتح فقط لَبقي الزرُّ مضيئًا بعد ✕ —
+   *    وهو بالضبط ما ينهى عنه البند: «لا تترك الواجهةَ تدّعي أنّ
+   *    الربطَ فعّالٌ واللوحُ مغلق».
+   *
+   * ⚠️ **وسِمةٌ في المكان لا إعادةُ رسم**: `paintHead()` هنا كانت
+   *    ستُعيد بناءَ الترويسة مع كلّ تغيّرِ قياسٍ أو دوران.
+   */
+  const linkBtn = $('[data-ws-link-btn]');
+  if (linkBtn) {
+    linkBtn.setAttribute('aria-pressed', state.inspector ? 'true' : 'false');
+    linkBtn.classList.toggle('is-on', state.inspector);
+    linkBtn.title = state.inspector ? 'اقفل لوح الربط' : 'افتح لوح الربط والوسائط';
+  }
 }
 
 /* ================================================================== *
@@ -1776,6 +1882,8 @@ async function refresh({ doc = true } = {}) {
   }
   if (!board) return;
   buildIndex();
+  /* ⚠️ وسيطٌ حُذف لا يبقى معرِّفُه في التحديد يُعَدّ ولا وجودَ له (بند ١٦). */
+  reconcilePicks();
 
   /*
    * ⚠️ عنصرٌ اختفى لا يبقى مفتوحًا يشير إلى معرّفٍ ميّت (بند ٢٦) —
@@ -1820,6 +1928,8 @@ function selectNode(id) {
   state.open = { kind: 'text', id };
   state.docQuery = '';
   state.docScroll = { text: 0, chat: 0 };
+  /* ⚠️ تبدَّل الهدفُ فبطل التحديدُ الذي كان يقصده (بند ١٦). */
+  resetPicks();
   if (state.mode === MODE.EDIT) state.draft = makeDraft(nodeById(id));
   for (const one of ancestorsOf(board, id)) state.expanded.add(one);
   closeDrawer();
@@ -2273,12 +2383,18 @@ async function linkPicked() {
     }
   }
 
-  /* ⚠️ الفاشلُ وحدَه يبقى محدَّدًا — فزرُّ «اربط المحدد» يصير إعادةَ محاولة. */
-  state.picked = new Set(failed.map((one) => one.id));
-  if (!failed.length) state.pickMode = false;
-
+  /*
+   * ⚠️ الفاشلُ وحدَه يبقى محدَّدًا — فزرُّ «اربط المحدد» يصير إعادةَ محاولة.
+   *
+   * ⚠️ **ويُكتَب بعد `refresh` لا قبله** (بند ١٥): `reconcilePicks` تجري
+   *    داخل `refresh` وتُسقط ما لم يعُد موجودًا. ولو كُتب التحديدُ قبلها
+   *    لَبقي كما هو — لكنّ الترتيبَ هنا يجعل الفاشلَ يمرّ بالتنقية أيضًا،
+   *    فلا يُعرَض عليك «أعِد المحاولة» على وسيطٍ حُذف فعلًا.
+   */
   await refresh({ doc: true });
-  if (state.inspector) paintInsp();
+  state.picked = new Set(failed.map((one) => one.id).filter((one) => mediaById(one)));
+  if (!state.picked.size) state.pickMode = false;
+  paintItems();
 
   const where = pathOf(target);
   if (!failed.length) return toastOk(`اترّبط ${ok} — ${where}`);
@@ -2312,6 +2428,12 @@ async function openItemMenu(mediaId) {
       <div class="ws-menu">
         <button type="button" data-m="open">افتحه في المساحة</button>
         <button type="button" data-m="link">اربطه بمكان تاني</button>
+        <!--
+          ⚠️ **والتسميةُ هنا لا في الصفّ** (WS-P4-C · بند ١٧): كانت
+             قلمًا دائمًا في كلّ صفٍّ من لوح الوسائط. وهي فعلٌ نادرٌ
+             يأخذ مساحةً دائمة، والمساحةُ لزرّ التشغيل والربط.
+        -->
+        <button type="button" data-m="rename">سمّيه من جديد</button>
         ${raw(at.map((one, i) => html`
           <button type="button" data-m="drop:${i}">فُكّ من: ${pathOf(one) || '—'}</button>`).join(''))}
       </div>`,
@@ -2326,6 +2448,7 @@ async function openItemMenu(mediaId) {
   if (!pick) return undefined;
   if (pick === 'open') return openMedia(mediaId, item.kind);
   if (pick === 'link') return pickTargetFor(mediaId);
+  if (pick === 'rename') return renameMedia(mediaId);
   if (pick.startsWith('drop:')) return dropLink(mediaId, at[Number(pick.slice(5))] || null);
   return undefined;
 }
@@ -3085,9 +3208,19 @@ export async function renderWorkspace(main, sceneId) {
         <aside class="ws-insp" id="ws-inspector" data-ws-insp aria-label="تفاصيل العنصر"></aside>
       </div>
 
+      <!--
+        ⚠️ **ولا شريطَ صوتٍ هنا** (WS-P4-C · بنود ٥ و٦ و٩): كان
+           المشغّلُ المصغَّرُ آخِرَ عنصرٍ في الورشة، وحُذف هو ومساحتُه
+           المحجوزة. والحقيقةُ الصوتيّةُ انتقلت إلى صفّ الوسيط الذي
+           بدأتَ منه الصوت.
+
+           ⚠️ ولا تُذكَر هنا أسماءُ سِماته الحرفيّة: الحارسُ ٥٦ يقيس
+              خلوَّ الملفّ منها، وذِكرُها ولو في شرحٍ يُسقطه — وهو
+              نفسُ درسِ WS-SC1 حيث حرس اختبارٌ حكايةَ الإصلاح بدل
+              الإصلاح.
+      -->
       <button type="button" class="ws-scrim" data-ws-scrim data-ws="drawer" data-v=""
               aria-label="اقفل الدرج" hidden></button>
-      <div class="ws-now" data-ws-now hidden></div>
     </div>`;
 
   /* رسمُ حالة التحميل قبل انتظار القاعدة — الانتظارُ يشرح نفسَه (بند ١٤). */
@@ -3172,6 +3305,20 @@ export async function renderWorkspace(main, sceneId) {
         applyShell();
         return undefined;
       }
+      /*
+       * ⚠️ **«ربط» بابٌ لا وضع** (WS-P4-C · بندا ٢ و٣).
+       *
+       *    ولا تلمس `state.mode`: لو جعلناها وضعًا لَبقيت مضاءةً بعد
+       *    أن تُغلق اللوحَ بـ ✕، فتقول الشاشةُ «أنت في الربط» ولا لوحَ.
+       *
+       * ⚠️ **والتبويبُ الأخيرُ يعود** (بند ٢): `state.tab` حيّةٌ في
+       *    الوحدة، فلا حاجةَ لحفظٍ إضافيّ — تفتح على ما تركتَه.
+       *
+       * ⚠️ **ولا يُمَسّ ما تقرؤه**: لا `state.node` ولا `state.open` ولا
+       *    `state.mediaSel` ولا موضعُ التمرير. `applyShell` تكتب
+       *    السِّماتِ على الجذر ولا تُعيد رسمَ المستند.
+       */
+      case 'link-panel':
       case 'insp': {
         state.inspector = !state.inspector;
         if (state.inspector) {
@@ -3188,6 +3335,8 @@ export async function renderWorkspace(main, sceneId) {
       case 'insp-close': {
         state.inspector = false;
         state.drawer = null;
+        /* ⚠️ اختفت الأداةُ التي تجمع بها، فلا يبقى جمعٌ معلَّق (بند ١٦). */
+        resetPicks();
         applyShell();
         return undefined;
       }
@@ -3272,7 +3421,12 @@ export async function renderWorkspace(main, sceneId) {
         return undefined;
       }
       case 'play': return playItem(id);
-      case 'toggle': return audio.state.playing ? audio.pause() : audio.play();
+      /*
+       * ⚠️ **وذهب `toggle` مع الشريط الذي كان يملكه** (بند ٥): كان
+       *    زرَّ التشغيل في المشغّل المصغَّر وحدَه. والتشغيلُ والإيقافُ
+       *    الآن على صفّ الوسيط عبر `playItem`/`audioButtonHtml` — وهو
+       *    نفسُ الطريق إلى نفس الخدمة، لا طريقٌ ثانٍ.
+       */
       case 'zoom': return openLightbox(id, state.sceneId);
       case 'fetch': {
         state.fetching.add(id);
@@ -3311,13 +3465,12 @@ export async function renderWorkspace(main, sceneId) {
       case 'link-into': return pickMediaFor(id);
       case 'item-menu': return openItemMenu(id);
       case 'unlink': return dropLink(id, btn.dataset.at || null);
-      case 'link-current': {
-        const now = audio.state.mediaId;
-        if (!now) return toastError('مفيش صوت شغّال');
-        if (state.open?.kind !== 'text') return toastError('افتح المكان الأول');
-        return commitLink([now], state.open.id);
-      }
-
+      /*
+       * ⚠️ **و`link-current` ذهبت مع الشريط الذي كانت تسكنه** (بند ٤):
+       *    كانت «اربط الصوتَ الشغّال بالمفتوح» في `⋯` المشغّل. وربطُ
+       *    المقطع صار على صفّه بـ`link-item` — وهو أقربُ إلى يدك وأصدقُ
+       *    في المعنى: تربط **هذا** الصوتَ لا «الشغّالَ الآن» أيًّا كان.
+       */
       case 'media-filter': state.mediaFilter = btn.dataset.v; return paintInsp();
       case 'retry-load': {
         state.loading = true; state.error = null;
@@ -3432,16 +3585,12 @@ export async function renderWorkspace(main, sceneId) {
 
     const grip = event.target.closest('[data-ws-side-grip]');
     if (grip) { startSideResize(event, grip); return; }
-
-    const track = event.target.closest('[data-ws="seek"]');
-    if (!track) return;
-    const box = track.getBoundingClientRect();
-    /* ⚠️ في RTL يبدأ الشريطُ من اليمين — والنسبةُ تُحسَب من `right`. */
-    const rtl = getComputedStyle(track).direction === 'rtl';
-    const ratio = rtl
-      ? (box.right - event.clientX) / box.width
-      : (event.clientX - box.left) / box.width;
-    audio.seekRatio(Math.max(0, Math.min(1, ratio)));
+    /*
+     * ⚠️ **ولا مُلتقِطَ لشريط القفز هنا** (WS-P4-C · بند ٥): كان
+     *    `[data-ws="seek"]` يعيش في المشغّل المصغَّر وحدَه، فذهب معه.
+     *    و`audio.seekRatio` باقيةٌ في الخدمة لمن يحتاجها — شاشةُ الظلّ
+     *    تستعملها. الذي زال مُلتقِطُ الورشة لا القدرة.
+     */
   }, wired());
 
   /*
