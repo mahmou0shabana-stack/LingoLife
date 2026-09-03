@@ -759,6 +759,63 @@
 
 .sh-line.has-draft:not(.current) { border-inline-end: 3px solid var(--sh-accent-2); }
 
+/*
+ * ▤ — «الجملة دي ليها قصّة / مشهد نقل» (WS-SC · التمريرة الثانية).
+ *
+ * ⚠️ **أختُ شارةِ المسودّة لا صنفٌ عليها**: نفسُ الصندوق ونفسُ هدفِ
+ *    اللمس ونفسُ الهامشِ السالب — لأنّ الشيئين متجاوران على الصفّ
+ *    نفسِه، وأيُّ فرقِ ارتفاعٍ بينهما يُميل الصفَّ ويُرى.
+ *
+ * ⚠️ **ولونٌ آخر**: المسودّةُ تحليلٌ والقصّةُ موقف. ولو تشابه اللونان
+ *    لَما فرّقت العينُ بينهما في لمحةٍ — وهو كلُّ الغرض من شارتين.
+ *
+ * ⚠️ **و`is-on` مرئيّةٌ بلا بوّابةٍ ثانية**: لا تُرسَم أصلًا إلّا حين
+ *    توجد قصّة (الخريطةُ تحكم)، فحجبُها بصنفٍ على الصفّ كان سيكون
+ *    شرطًا مكرَّرًا يسهل أن يفترق نصفاه بعد شهر.
+ */
+.sh-line-story {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  inline-size: 30px;
+  min-block-size: 44px;
+  margin-block: -12px;
+  margin-inline-end: 2px;
+  vertical-align: middle;
+  border-radius: 9px;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--sh-accent);
+  cursor: pointer;
+}
+
+/* عددُ القصص حين تزيد على واحدة (بند ١٢) — رقمٌ صغيرٌ لا شارةٌ ثانية. */
+.sh-line-story b {
+  font-size: 9px;
+  font-weight: 700;
+  opacity: .75;
+}
+
+/*
+ * ＋▤ — بابُ اللصق: على **الجملة الجارية وحدَها**، بـ CSS لا بجافاسكربت
+ * (نفسُ قاعدة ＋ المسودّة، ونفسُ سببها: أربعمئةُ سطرٍ لا تحمل أربعمئةَ
+ * دعوة). والصندوقُ أوسع قليلًا لأنّ العلامةَ حرفان لا حرف.
+ */
+.sh-line-story.is-add {
+  visibility: hidden;
+  inline-size: 38px;
+  color: rgba(255, 255, 255, .55);
+  font-size: 13px;
+}
+.sh-line.current .sh-line-story.is-add { visibility: visible; }
+
+.sh-line-story:focus-visible {
+  outline: 2px solid var(--sh-accent);
+  outline-offset: 1px;
+  visibility: visible;
+}
+
 /* ترجمة تحت الجملة في صفحة المصدر */
 .sh-line .tr {
   display: block;
@@ -3946,6 +4003,88 @@ body.shadow-open { overflow: hidden; }
 .sh-draft-count, .sh-draft-empty {
   margin: 10px 2px 0; font-size: 11.5px; line-height: 1.7;
   color: rgba(239, 231, 216, .38);
+}
+
+/* ================================================================== *
+ * لوحُ قصّةِ الجملة (WS-SC · التمريرة الثانية)
+ *
+ * ⚠️ **ويستعير أزرارَ المسودّة وصندوقَها** (`.sh-draft-row`،
+ *    `.sh-draft-box`): اللوحان أخوان في المكان والوظيفة، ولوحُ أزرارٍ
+ *    ثانٍ بمقاساتٍ تختلف بضعةَ بكسلاتٍ كان سيُرى فرقًا لا سببَ له.
+ * ================================================================== */
+
+/*
+ * نسبُ القصّة — **ظاهرٌ فوقها دائمًا** (بند ١١): تقرأ نصَّ الجملة الأمّ
+ * وأنت تتدرّب على قصّتها، فتعرف لِمَ هذا النصُّ هنا. وبلا هذا السطر
+ * تصير القصّةُ نصًّا سائبًا وتضيع الفائدةُ كلُّها — وهي في **النقل**.
+ */
+.sh-story-from {
+  display: flex; flex-direction: column; gap: 3px;
+  margin-bottom: 10px; padding: 8px 10px;
+  border-inline-start: 2px solid rgba(217, 182, 114, .45);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, .18);
+  font-size: 12px; line-height: 1.75;
+  color: rgba(239, 231, 216, .78);
+}
+.sh-story-from-k {
+  font-family: var(--sh-mono); font-size: 9px; letter-spacing: .16em;
+  color: rgba(239, 231, 216, .34);
+}
+
+.sh-story-hint {
+  margin: 0 2px 8px; font-size: 11.5px; line-height: 1.75;
+  color: rgba(239, 231, 216, .42);
+}
+
+/*
+ * مُنتقي القصص — يظهر حين تزيد على واحدة وحدَها (بند ١٢). أرقامٌ
+ * بهدفِ لمسٍ كامل، لا قائمةٌ منسدلةٌ لعنصرين.
+ */
+.sh-story-pick { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+.sh-story-pick button {
+  min-inline-size: 44px; min-block-size: 36px; cursor: pointer;
+  font-family: var(--sh-mono); font-size: 11px;
+  border: 1px solid rgba(239, 231, 216, .12); border-radius: 3px;
+  background: transparent; color: rgba(239, 231, 216, .5);
+}
+.sh-story-pick button.on {
+  border-color: rgba(217, 182, 114, .5); color: rgba(240, 220, 176, .95);
+  background: rgba(217, 182, 114, .08);
+}
+
+.sh-story-head {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  margin-bottom: 6px;
+}
+.sh-story-head b { font-size: 12.5px; color: rgba(239, 231, 216, .88); }
+/* شكلُ القصّة **مقروءٌ من نصّها** لا مُعلَنٌ منك — فيُقال لا يُسأل. */
+.sh-story-kind {
+  font-family: var(--sh-mono); font-size: 9px; letter-spacing: .14em;
+  color: rgba(239, 231, 216, .32);
+}
+
+.sh-story-body {
+  max-block-size: 42vh; overflow-y: auto;
+  padding: 10px; border-radius: 3px;
+  border: 1px solid rgba(239, 231, 216, .1);
+  background: rgba(0, 0, 0, .2);
+  font-size: 13px; line-height: 1.9;
+  color: rgba(239, 231, 216, .9);
+}
+.sh-story-body p { margin: 0 0 8px; }
+.sh-story-body p:last-child { margin-bottom: 0; }
+
+/*
+ * الحوارُ يبقى حوارًا: **مَن قال ماذا** نصفُ معناه (نفسُ درسِ لوحة
+ * الأصل في بند ١٣). والاسمُ سطرٌ فوق دورِه لا سابقةٌ في نصِّه.
+ */
+.sh-story-turn { padding-inline-start: 2px; }
+.sh-story-who {
+  display: block;
+  font-family: var(--sh-mono); font-size: 9px; letter-spacing: .14em;
+  font-weight: 700;
+  color: rgba(217, 182, 114, .72);
 }
 
 .sh-draft-imgs {

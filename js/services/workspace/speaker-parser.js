@@ -62,10 +62,46 @@ const NUM = { '١': '1', '٢': '2', '٣': '3', '٤': '4', A: '1', a: '1', B: '2'
 const normNumber = (raw) => NUM[raw] || String(raw).replace(/[٠-٩]/g, (d) => String(d.codePointAt(0) - 0x0660));
 
 /**
+ * **اسمُ متحدّثٍ صريحٌ** — `Продавец:` و`Клиент:` و`Аня:`.
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **ولمَ هي اختياريّةٌ لا افتراضيّة**
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * الافتراضُ هنا متحفّظٌ لسببٍ قائم: في نصٍّ ملصوقٍ من تفريغٍ أو من
+ * مستندٍ، سطرٌ يبدأ بكلمةٍ ثم نقطتين قد يكون **عنوانًا** لا دورًا
+ * (`Упаковка: ...`). فجعلُ هذه الصيغة افتراضًا كان سيحوّل قوائمَ
+ * وعناوينَ إلى «محادثات» — وهو زخرفةٌ فوق معنًى غير موجود.
+ *
+ * ولكنّ **القصّةَ سياقٌ آخر**: نصٌّ طلبتَه حوارًا وعُدت به لتتدرّب
+ * عليه، وكاتبُه يسمّي أدوارَه بأسماءٍ لا بأرقام. فتُفتَح الصيغةُ
+ * هناك صراحةً (`{ named: true }`)، ويبقى الافتراضُ كما هو في كلّ
+ * مسارٍ آخر. بابٌ يُفتَح عند الحاجة لا حائطٌ يُهدَم.
+ *
+ * ⚠️ **والشروطُ تُضيّق ما يُقبَل**: كلمةٌ إلى ثلاثٍ، حروفٌ فقط بلا
+ *    أرقامٍ ولا علاماتِ نهايةٍ، وطولٌ محدود. ثمّ — وهو الأهمّ —
+ *    `parseDialogue` لا تُعلِن حوارًا إلّا باسمَين مختلفَين، فسطرٌ
+ *    واحدٌ من هذا الشكل يبقى نصًّا.
+ */
+const NAMED_RE = new RegExp(
+  '^[ \\t>*_-]*'
+  + '([\\p{L}][\\p{L}\\u0640\'’-]*(?:[ \\t][\\p{L}][\\p{L}\\u0640\'’-]*){0,2})'
+  + '[ \\t]*:[ \\t]+(\\S.*)$',
+  'u'
+);
+
+/** أطولُ اسمِ متحدّثٍ نقبله — بعده الأرجحُ أنّه جملةٌ فيها نقطتان. */
+const NAME_MAX = 24;
+
+/**
  * هل يفتح هذا السطرُ دورَ متحدّث؟
+ *
+ * @param {string} line
+ * @param {{named?: boolean}} [options] `named` تقبل الأسماءَ الصريحة
+ *        (`Продавец:`) — مغلقةٌ افتراضًا، راجع `NAMED_RE`.
  * @returns {{ speaker: string, rest: string }|null}
  */
-export function speakerAt(line) {
+export function speakerAt(line, options = {}) {
   const hit = SPEAKER_RE.exec(line);
   if (hit) return { speaker: normNumber(hit[1]), rest: hit[2] };
 
@@ -76,7 +112,13 @@ export function speakerAt(line) {
    */
   const short = SHORT_RE.exec(line);
   if (short) return { speaker: normNumber(short[1] || short[2]), rest: short[3] };
-  return null;
+
+  if (!options.named) return null;
+  const named = NAMED_RE.exec(line);
+  if (!named) return null;
+  const name = named[1].trim();
+  if (!name || name.length > NAME_MAX) return null;
+  return { speaker: name, rest: named[2] };
 }
 
 /**
@@ -98,13 +140,13 @@ export function looksLikeDialogue(text) {
  * @returns {{ speaker: string|null, lines: string[], text: string }[]}
  *          `speaker: null` للتمهيد الذي يسبق أوّلَ علامة.
  */
-export function parseDialogue(text) {
+export function parseDialogue(text, options = {}) {
   const lines = String(text ?? '').replace(/\r\n?/g, '\n').split('\n');
   const turns = [];
   let current = null;
 
   for (const line of lines) {
-    const hit = speakerAt(line);
+    const hit = speakerAt(line, options);
     if (hit) {
       current = { speaker: hit.speaker, lines: [] };
       if (hit.rest.trim()) current.lines.push(hit.rest);
@@ -180,8 +222,8 @@ export function conversationModel(text) {
  * ⚠️ والهُويّةُ بالرقم لا بالترتيب: «المتحدث ٢» يأخذ لونَه هو حتى لو
  *    كان أوّلَ من تكلّم في هذه العقدة.
  */
-export function speakersIn(text) {
-  return [...new Set(parseDialogue(text).map((t) => t.speaker).filter(Boolean))].sort();
+export function speakersIn(text, options = {}) {
+  return [...new Set(parseDialogue(text, options).map((t) => t.speaker).filter(Boolean))].sort();
 }
 
 /**

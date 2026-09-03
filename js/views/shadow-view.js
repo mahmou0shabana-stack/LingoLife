@@ -18,8 +18,12 @@ import { showModal, confirmAction, closeOverlayOf } from '../components/modal.js
 import { navigate } from '../router.js';
 import { splitWords, splitSentences } from '../services/shadow/segmenter.js';
 import {
-  materialForSegments, attachDraftForSegment, ATTACH,
+  materialForSegments, attachDraftForSegment, alignSegmentRows, ATTACH,
 } from '../services/shadow/sentence-material.js';
+import {
+  storiesForSegments, createStory, parentSentenceOf, isStoryNode,
+  storyShape, storySegments, STORY_SHAPE, STORY_BACK,
+} from '../services/shadow/sentence-story.js';
 import { SCOPE, SCOPE_LABEL, resolveTarget } from '../services/shadow/practice-target.js';
 import { openVoiceAttempts } from '../modals/voice-attempts.js';
 import { openLightbox } from '../components/lightbox.js';
@@ -87,6 +91,8 @@ import {
   saveSessionSettings,
   describeSource,
   SOURCE_TYPE,
+  createSession,
+  sessionsForSource,
 } from '../services/shadow/shadow-session-service.js';
 import {
   markSentence, markPlain, loadUserDictionary, rememberStress, stressOf,
@@ -614,11 +620,39 @@ async function resolveSource(session, segments) {
   let origin = null;
   /** طريقُ العودة إلى ما جئتَ منه — إن كان غيرَ الذكرى. */
   let backTo = null;
+  /**
+   * الجملةُ الأمُّ لقصّةٍ نتدرّب عليها — تُقرأ في البطاقة (بندا ٧ و١١).
+   *
+   * تبقى `null` في كلّ جلسةٍ أخرى، فلا تدفع القصّةُ ثمنًا على غيرها.
+   */
+  let storyOrigin = null;
 
   try {
     if (session.sourceType === SOURCE_TYPE.SCRIPT || session.sourceType === SOURCE_TYPE.SELECTION) {
       const script = await scripts.get(session.sourceId);
       resolved = script ? { title: script.title } : { missing: true };
+      /*
+       * ⚠️ **وجلسةُ القصّة لها طريقُ رجوعٍ إلى جملتها** (بندا ٧ و١١).
+       *
+       *    وهو نفسُ الميكانيزم الذي بُني للمسودّة في WS-A: `backTo`
+       *    تسبق «افتح الأصل» العامّ. فلا مسارَ جديدٌ ولا زرٌّ ثالث.
+       *
+       * ⚠️ **والجملةُ من العلاقة لا من الأب**: علاقةُ الجزئيّة تقول
+       *    أيُّ سكريبتٍ، وعلاقةُ القصّة وحدَها تقول أيُّ جملة.
+       *
+       * ⚠️ **والفحصُ هنا لا في فرعٍ خاصٍّ بعده**: القصّةُ عُقدةٌ في
+       *    `scripts`، فنوعُ مصدرِها هو نفسُه نوعُ السكريبت. وكتبتُ أوّلَ
+       *    مرّةٍ فرعًا رابعًا `else if (… === SCRIPT)` — ولا يُدخَل أبدًا،
+       *    لأن الفرعَ الأوّلَ التقطه. الفرعُ الميّت لا يُخطئ، وهو أسوأ:
+       *    يبدو كأن الميزةَ موجودة.
+       */
+      if (isStoryNode(script)) {
+        const parent = await parentSentenceOf(session.sourceId);
+        if (parent) {
+          storyOrigin = parent;
+          backTo = { href: STORY_BACK, label: '← الجملة الأصليّة' };
+        }
+      }
       if (script?.text) {
         const all = splitSentences(script.text);
         const inSession = new Set(segments.map((s) => (s.sourceTextSnapshot || '').trim()));
@@ -689,6 +723,21 @@ async function resolveSource(session, segments) {
   }
 
   const described = describeSource(session, segments, resolved);
+  /*
+   * ⚠️ **والقصّةُ تقول من أين جاءت في البطاقة نفسِها** (بند ١١): لا
+   *    يكفي زرُّ رجوعٍ — يجب أن يُقرأ **نصُّ** الجملة الأمّ وأنت تتدرّب
+   *    على قصّتها، وإلّا صارت نصًّا سائبًا لا تعرف لِمَ هو هنا.
+   */
+  if (storyOrigin) {
+    return {
+      ...described,
+      kind: 'قصّة من جملة',
+      note: storyOrigin.text,
+      origin,
+      href: backTo.href,
+      hrefLabel: backTo.label,
+    };
+  }
   /* طريقُ العودة يسبق «افتح الأصل» العامّ حين يوجد — هو الأدقّ. */
   if (backTo) return { ...described, origin, href: backTo.href, hrefLabel: backTo.label };
   return { ...described, origin };
@@ -994,7 +1043,24 @@ export async function renderShadow(main, sessionId) {
     canceler: ttsSpeaker.cancel,
   });
 
-  player.goTo(session.currentSegmentIndex || 0);
+  /*
+   * ⚠️ **والقفزةُ المعلَّقة تُستهلَك هنا** (بند ٧): الرجوعُ من قصّةٍ
+   *    إلى جملتها يفتح جلسةً أخرى، ورقمُ الجملة يعبر في وحدةِ الشاشة
+   *    لا في المسار — لأنّ مُطابِقَ `#/shadow/<id>` يقسّم على `/`
+   *    فاستعلامٌ داخله كان سيصير جزءًا من المعرّف ويكسر الفتح.
+   *
+   * ⚠️ **ويُمحى بمجرّد قراءته** — ولو بقي لَقفزت بك كلُّ فتحةٍ تاليةٍ
+   *    لهذه الجلسة إلى جملةٍ اخترتَها مرّةً وانتهى أمرُها. ويُمحى
+   *    أيضًا إن كان لجلسةٍ غيرِ هذه، فلا يتربّص بفتحةٍ لاحقة.
+   */
+  const jump = pendingJump;
+  pendingJump = null;
+  const startAt = jump?.sessionId === session.id
+    && jump.index >= 0 && jump.index < segments.length
+    ? jump.index
+    : (session.currentSegmentIndex || 0);
+
+  player.goTo(startAt);
   syncSegment();
   /*
    * ⚠️ الرقائق تُرسَم عند الإقلاع لا عند الطلب (WS24): صارت جزءًا من
@@ -1893,10 +1959,45 @@ function lineHtml(segment, index, isCurrent) {
     <span class="meta">
       ${raw(done ? html`<span class="reps">×${segment.repetitionsCompleted}</span>` : '')}
       ${raw(draftBadgeHtml(index))}
+      ${raw(storyBadgeHtml(index))}
       <span class="ts">${stamp(index)}</span>
       <span class="spk">🔊</span>
     </span>
   </button>`;
+}
+
+/**
+ * شارةُ القصّة — **أختُ شارةِ المسودّة على السطر نفسِه** (بندا ٤ و١١).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **لماذا شارتان لا واحدةٌ تجمعهما**
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * المسودّةُ **تحليلٌ** للجملة: قطعُها ومعانيها. والقصّةُ **موقفٌ
+ * جديد** مبنيٌّ عليها تتدرّب فيه. وهما فعلان مختلفان تمامًا:
+ * تفتح المسودّةَ لتفهم، وتفتح القصّةَ لتتكلّم.
+ *
+ * فشارةٌ واحدةٌ تقول «فيه مادّة» كانت ستجعلك تفتح لتعرف أيَّها —
+ * وهو بالضبط ما ألغيناه في WS-SC1 حين صارت العلامةُ بابًا.
+ *
+ * ⚠️ **و`＋` هنا أيضًا على الجملة الجارية وحدَها** (بند ٤): طريقٌ
+ *    مرئيٌّ للصقِ قصّةٍ من ChatGPT، بلا أربعمئة زرِّ إضافةٍ في نصٍّ
+ *    فيه أربعمئة جملة.
+ *
+ * ⚠️ **والعددُ يُقال حين يزيد** (بند ١٢): نموذجُ العلاقات يسمح بقصصٍ
+ *    عدّةٍ للجملة، فإن وُجدت ثانيةٌ ظهر رقمُها على الشارة. ولا مُنتقٍ
+ *    يُبنى قبل أن يوجد ما يُنتقى.
+ */
+function storyBadgeHtml(index) {
+  const list = stories.get(index) || [];
+  const has = list.length > 0;
+  const label = has
+    ? `افتح قصّة الجملة ${index + 1}${list.length > 1 ? ` (${list.length} قصص)` : ''}`
+    : `الصق قصّة للجملة ${index + 1}`;
+  const cls = ['sh-line-story', has ? 'is-on' : 'is-add'].join(' ');
+  return html`<span class="${cls}" role="button" tabindex="0"
+        data-sh-story="${index}" aria-label="${label}" title="${label}"
+      >${has ? '▤' : '＋▤'}${raw(list.length > 1 ? html`<b>${list.length}</b>` : '')}</span>`;
 }
 
 /**
@@ -2306,6 +2407,7 @@ function syncSegment() {
   if (analysis.on && ctx.segments[index]?.id !== analysis.segmentId) closeAnalysis();
   renderRail();
   if (rail.open && rail.tool === 'draft') renderDraft().catch(() => {});
+  if (rail.open && rail.tool === 'story') renderStory().catch(() => {});
   savePosition(ctx.session.id, index).catch(() => {});
   // الترجمة الناقصة تُجلب في الخلفية إن فعّل المستخدم ذلك.
   fetchMissingTranslation(segment).catch(() => {});
@@ -3155,6 +3257,16 @@ const TOOLS = [
    */
   { id: 'draft', glyph: '✎', label: 'مسودّة مذاكرة',
     value: () => (hasDraftedText(currentSentenceText()) ? 'فيها' : '') },
+  /*
+   * ⚠️ **والقصّةُ أختُها على السكّة أيضًا** (بند ٢): أداتان متجاورتان
+   *    لمادّتين متجاورتين. والقيمةُ تقول العددَ حين يزيد (بند ١٢).
+   */
+  { id: 'story', glyph: '▤', label: 'قصّة الجملة',
+    value: () => {
+      const list = stories.get(player?.state?.index ?? 0) || [];
+      if (!list.length) return '';
+      return list.length > 1 ? String(list.length) : 'فيها';
+    } },
   { id: 'sky', glyph: '✧', label: 'الخلفيّة' },
 ];
 
@@ -3474,6 +3586,20 @@ function panelFor(id) {
       foot: subject.kind === SUBJECT.WORD ? 'مسودّة الكلمة دي' : 'مسودّة الجملة دي',
       groups: [],
       after: '<div class="sh-draft" data-draft>بنجيبها…</div>',
+    };
+  }
+  if (id === 'story') {
+    /*
+     * ⚠️ **قشرةٌ الآن ومحتوًى بعد قراءة** — بنفس قاعدة لوح المسودّة:
+     *    `panelFor` متزامنة، والقصّةُ في القاعدة.
+     */
+    const at = player?.state?.index ?? 0;
+    const list = stories.get(at) || [];
+    return {
+      title: 'قصّة الجملة',
+      foot: list.length ? 'مادّة تدريب مشتقّة من الجملة دي' : 'الصق قصّة من ChatGPT',
+      groups: [],
+      after: '<div class="sh-story" data-story>بنجيبها…</div>',
     };
   }
   if (id === 'meaning') {
@@ -4424,6 +4550,7 @@ function renderRail() {
   /* ⚠️ محتوًى من القاعدة يأتي بعد القشرة — ولا يُنتظَر هنا، فالرسمُ
         متزامنٌ ولا يجوز أن تتأخّر السكّةُ كلُّها على قراءة. */
   if (rail.tool === 'draft') renderDraft().catch(() => {});
+  if (rail.tool === 'story') renderStory().catch(() => {});
 }
 
 /**
@@ -4872,6 +4999,20 @@ let drafted = new Set();
 let material = new Map();
 
 /**
+ * قصصُ الجمل — **أختُ `material` لا بديلُها** (WS-SC · التمريرة الثانية).
+ *
+ * ⚠️ **خريطتان لأنّهما مادّتان**: المسودّةُ تحليلٌ للجملة، والقصّةُ
+ *    موقفٌ جديدٌ مبنيٌّ عليها. ودمجُهما في خريطةٍ واحدةٍ كان سيجعل
+ *    الشارتين تتنازعان مكانًا واحدًا على السطر.
+ *
+ * ⚠️ **والقيمةُ مصفوفةٌ لا عنصر** (بند ١٢): نموذجُ العلاقات يسمح
+ *    بقصصٍ عدّةٍ للجملة الواحدة بلا تغييرٍ فيه. والواجهةُ تعرض
+ *    الأولى وتقول العددَ إن زاد — بلا مُنتقٍ يعقّد الشاشة قبل أن
+ *    يوجد ما يُنتقى.
+ */
+let stories = new Map();
+
+/**
  * يقرأ «مَن له مسودّة» — **بلا لمس الشاشة**.
  *
  * ⚠️ منفصلةٌ عن الرسم عمدًا: تُنادى مرّةً **قبل** أن تُرسَم السطور
@@ -4893,6 +5034,7 @@ async function readDrafted() {
    *    توائم في الذاكرة. ونصٌّ فيه أربعمئة جملةٍ لا يفتح أربعمئة استعلام.
    */
   material = new Map();
+  stories = new Map();
   const sourceId = ctx.session?.sourceId;
   if (!sourceId) return;
   try {
@@ -4901,6 +5043,7 @@ async function readDrafted() {
     material = await materialForSegments(record, texts, {
       sceneId: ctx.session?.sceneId || null,
     });
+    stories = await storiesForSegments(record, texts);
   } catch {
     /* مصدرٌ محذوفٌ أو غيرُ سكريبت — الشارةُ تغيب ولا تكذب (بند ٤٧). */
   }
@@ -4924,8 +5067,20 @@ async function refreshDrafted() {
     const next = draftBadgeHtml(i);
     if (old) old.outerHTML = next;
     else if (next) meta.querySelector('.ts')?.insertAdjacentHTML('beforebegin', next);
+
+    /*
+     * ⚠️ **وشارةُ القصّة تُنعَش هنا أيضًا** (WS-SC · التمريرة الثانية):
+     *    نسيتُها أوّلَ مرّة، فكان الحفظُ يكتب القصّةَ في القاعدة و
+     *    `＋▤` تبقى `＋▤` حتى تُعاد الشاشةُ كلُّها. والحفظُ الذي لا
+     *    يُرى أثرُه = حفظٌ لا تصدّقه.
+     */
+    const oldTale = meta.querySelector('[data-sh-story]');
+    const tale = storyBadgeHtml(i);
+    if (oldTale) oldTale.outerHTML = tale;
+    else if (tale) meta.querySelector('.ts')?.insertAdjacentHTML('beforebegin', tale);
   }
   paintToolValue('draft');
+  paintToolValue('story');
 }
 
 /**
@@ -4982,6 +5137,299 @@ async function openDraftForSentence(index) {
   rail.tool = 'draft';
   renderRail();
   try { await renderDraft(); } catch { /* اللوحُ يعرض خطأه بنفسه */ }
+}
+
+/* ================================================================== *
+ * قصّةُ الجملة / مشهدُ النقل (WS-SC · التمريرة الثانية)
+ * ================================================================== */
+
+/**
+ * يفتح قصّةَ جملةٍ بعينها — **بنفس طريق المسودّة حرفًا بحرف** (بند ٧).
+ *
+ * ⚠️ **الجملةُ تُختار أوّلًا**: اللوحُ يقرأ موضوعَه من الجملة الجارية،
+ *    فلمسُ شارةِ الجملة ١٦ قبل اختيارها كان سيفتح قصّةَ ١٥.
+ *
+ * ⚠️ **ولا حالةَ ثالثةً تُخترَع**: `player.state.index` و`rail.tool` —
+ *    نفسُ الحاكمَين اللذين تضبطهما `openDraftForSentence`.
+ */
+async function openStoryForSentence(index) {
+  if (!Number.isInteger(index) || !ctx?.segments?.[index]) return;
+  if (player?.state?.index !== index) goSegment(index);
+  /* جملةٌ جديدةٌ ⇒ اختيارٌ جديدٌ وصندوقٌ مقفول — لا تُوَرَّث حالةُ سابقتها. */
+  storyPick = 0;
+  storyAdding = false;
+  rail.open = true;
+  rail.tool = 'story';
+  renderRail();
+  try { await renderStory(); } catch { /* اللوحُ يعرض خطأه بنفسه */ }
+}
+
+/**
+ * يرسم لوحَ القصّة — **والجملةُ الأمُّ فوقها دائمًا** (بند ١١).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **«القصّةُ دي جاية من الجملة دي» ليست زينة**
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * القصّةُ موقفٌ مُختلَقٌ يشبه موقفَك. وبلا الجملة الأصليّة فوقها تصير
+ * نصًّا سائبًا لا تعرف لِمَ هو هنا — وتضيع الفائدةُ كلُّها، لأنّ
+ * الفائدةَ في **النقل**: من جملةٍ قلتَها إلى موقفٍ تقولها فيه ثانيةً.
+ *
+ * ⚠️ **ولا مولِّدَ هنا** (بند ٣): صندوقُ لصقٍ وحدَه. أنت تذهب إلى
+ *    ChatGPT وتعود بالنصّ، والتطبيق يخزّن ويربط ويعرض ويُدرِّب.
+ */
+async function renderStory() {
+  const host = $('[data-story]');
+  if (!host) return;
+
+  const at = player?.state?.index ?? 0;
+  const source = ctx?.segments?.[at]?.sourceTextSnapshot || '';
+  if (!source) {
+    host.innerHTML = '<p class="sh-draft-empty">مفيش جملة مختارة دلوقتي.</p>';
+    return;
+  }
+
+  /*
+   * ⚠️ نسبٌ ظاهرٌ في أعلى اللوح — لا في تلميحٍ يختفي.
+   *
+   * ⚠️ **والرقمُ رقمُ المقطع لا رقمُ الجملة في السجلّ** — عن قصد: هو
+   *    العددُ المكتوبُ على السطر أمامك في الصفحة اليسرى. ولو قلنا
+   *    رقمَ الجملة في المصدر لَقال اللوحُ «من الجملة ٤» وأنت تنظر إلى
+   *    سطرٍ مكتوبٍ عليه «٢» في جلسةٍ على مختارات. والنصُّ تحته هو
+   *    الحاسم على أيّ حال.
+   */
+  const head = html`
+    <div class="sh-story-from">
+      <span class="sh-story-from-k">من الجملة ${at + 1}</span>
+      <span dir="ltr" lang="ru">${source}</span>
+    </div>`;
+
+  const list = stories.get(at) || [];
+  /*
+   * ⚠️ **وصندوقُ اللصق يُفتَح صراحةً حين توجد قصّةٌ بالفعل** (بند ١٢):
+   *    شارةُ السطر تفتح ما هو موجود، فلو كان اللصقُ معلَّقًا عليها
+   *    وحدَها لَما وُجد طريقٌ إلى قصّةٍ ثانية أبدًا — والنموذجُ يسمح
+   *    بها. فزرٌّ واحدٌ في ذيل اللوح، لا مُنشئُ قصصٍ ثانٍ.
+   */
+  if (!list.length || storyAdding) {
+    host.innerHTML = `${head}
+      <div class="sh-story-new">
+        <p class="sh-story-hint">
+          اطلب من ChatGPT مشهد نقل أو قصّة قصيرة على الجملة دي، والصقها هنا.
+        </p>
+        <textarea class="sh-draft-box" data-story-box dir="auto" rows="8"
+          placeholder="الصق القصّة أو مشهد النقل…"></textarea>
+        <div class="sh-draft-row">
+          <button data-sh="story-save">احفظ القصّة</button>
+          ${list.length ? '<button data-sh="story-cancel">إلغاء</button>' : ''}
+        </div>
+      </div>`;
+    return;
+  }
+
+  /*
+   * ⚠️ **الأولى تُعرَض والعددُ يُقال** (بند ١٢): نموذجُ العلاقات يسمح
+   *    بأكثرَ من قصّة، ومُنتقٍ كاملٌ قبل أن توجد ثانيةٌ تعقيدٌ سابقٌ
+   *    لأوانه. فإن وُجدت أخرى ظهر شريطُ انتقاءٍ مضغوطٌ لا أكثر.
+   */
+  const pickAt = Math.min(storyPick, list.length - 1);
+  const node = list[pickAt];
+  const shape = storyShape(node.text || '');
+  const turns = shape === STORY_SHAPE.DIALOGUE ? storySegments(node.text || '') : null;
+
+  host.innerHTML = `${head}
+    ${list.length > 1 ? html`
+      <div class="sh-story-pick" role="tablist" aria-label="قصص الجملة">
+        ${raw(list.map((one, i) => html`
+          <button role="tab" data-sh="story-pick" data-v="${i}"
+                  aria-selected="${i === pickAt ? 'true' : 'false'}"
+                  class="${i === pickAt ? 'on' : ''}">${i + 1}</button>`).join(''))}
+      </div>` : ''}
+    <div class="sh-story-head">
+      ${html`<b dir="auto">${node.title || 'قصّة'}</b>`}
+      <span class="sh-story-kind">${shape === STORY_SHAPE.DIALOGUE
+        ? `حوار · ${turns?.length || 0} دور` : 'سرد'}</span>
+    </div>
+    <div class="sh-story-body" dir="ltr" lang="ru">${
+      turns
+        /*
+         * ⚠️ **ولا عنصرَ ثالثًا للقول.** ظننتُ الاسمَ والقولَ ملتصقَين
+         *    لأنّ `textContent` يعطي «ПродавецЗдравствуйте» — ثمّ قِستُ
+         *    ما يقرؤه النسخُ وشجرةُ الوصول فعلًا (`innerText`)، فوجدتُه
+         *    مفصولًا بسطرٍ في الحالتين: `display:block` على الاسم يكفي.
+         *    `textContent` أعمى عن التخطيط بحكم تعريفه، فقياسٌ به
+         *    يخترع عطبًا ثم يُصلحه.
+         */
+        ? turns.map((one) => html`<p class="sh-story-turn">${raw(one.speaker
+            ? html`<b class="sh-story-who">${one.speaker}</b>` : '')}${one.text}</p>`).join('')
+        : html`<p>${node.text || ''}</p>`
+    }</div>
+    <div class="sh-draft-row">
+      <button data-sh="story-practice" data-v="${node.id}">اتدرب على القصّة</button>
+      <button data-sh="story-copy" data-v="${node.id}">نسخ</button>
+      <button data-sh="story-new">قصّة تانية</button>
+    </div>`;
+}
+
+/** أيُّ قصّةٍ معروضةٌ حين تتعدّد — حالةُ عرضٍ لا تُحفَظ (بند ١٢). */
+let storyPick = 0;
+
+/** هل صندوقُ اللصق مفتوحٌ فوق قصّةٍ قائمة؟ — حالةُ عرضٍ لا تُحفَظ. */
+let storyAdding = false;
+
+/** جملةٌ نقفز إليها عند أوّل تركيبٍ للجلسة — تُستهلَك مرّةً (بند ٧). */
+let pendingJump = null;
+
+/**
+ * يحفظ قصّةً ملصوقةً — **ويربطها بمعرّف الجملة لا بنصّها** (بند ١٤).
+ *
+ * ⚠️ **ورقمُ المقطع يُترجَم إلى رقم الجملة** قبل الكتابة: الجلسةُ
+ *    الجزئيّةُ تكسر التساوي بينهما، فتُكتَب القصّةُ على جملةٍ غيرِ التي
+ *    تنظر إليها. و`alignSegmentRows` هي المترجِم — ومَن التبس عليها
+ *    لا يُربَط أصلًا.
+ */
+async function saveStoryHere() {
+  const box = $('[data-story-box]');
+  const text = String(box?.value ?? '').trim();
+  if (!text) return toastError('الصق القصّة الأول');
+
+  const sourceId = ctx.session?.sourceId;
+  if (!sourceId) return toastError('القصّة محتاجة نصًّا أصليًّا — النصّ المؤقّت مالوش');
+
+  const at = player?.state?.index ?? 0;
+  try {
+    const record = await scripts.get(sourceId);
+    if (!record) return toastError('المصدر ده مابقاش موجود');
+
+    const texts = ctx.segments.map((one) => one.sourceTextSnapshot || '');
+    const row = alignSegmentRows(record, texts)[at];
+    if (row === undefined || row < 0) {
+      return toastError('مش عارفين الجملة دي فين في الأصل — ما ينفعش نربط القصّة بالحدس');
+    }
+
+    const made = await createStory(record, row, { text }, {
+      updateRecord: (id, patch) => scripts.update(id, patch),
+    });
+    await refreshDrafted();
+    /*
+     * ⚠️ **والمعروضُ هو ما حفظتَه الآن، لا الأولى.** كنتُ أكتب
+     *    `storyPick = 0`، فبعد حفظ القصّة الثانية يُعرَض عليك الأوّلُ
+     *    وشريطُ الانتقاء على «١» — أي: حفظٌ سليمٌ لا ترى أثرَه.
+     *    أمسكه المِجَسُّ الحيّ لا الاختبار، لأنّ القاعدةَ كانت صحيحةً
+     *    والشاشةُ وحدَها هي التي كذبت.
+     */
+    const list = stories.get(at) || [];
+    const where = list.findIndex((one) => one.id === made.node.id);
+    storyPick = where >= 0 ? where : 0;
+    /* الصندوقُ يُقفَل بعد الحفظ — وإلّا بقي فوق القصّة التي كتبتَها. */
+    storyAdding = false;
+    await renderStory();
+    paintToolValue('story');
+    return toastOk('اتحفظت القصّة واترّبطت بالجملة');
+  } catch (error) {
+    console.error(error);
+    return toastError(`مقدرناش نحفظ القصّة: ${error?.message || 'مش معروف'}`);
+  }
+}
+
+/**
+ * يفتح تدريبَ القصّة — **بنفس محرّك الظلّ لا بمحرّكٍ ثانٍ** (بند ٨).
+ *
+ * ⚠️ **والحوارُ يحتفظ بمتحدّثيه** (بند ٩): `createSession` تقبل مقاطعَ
+ *    جاهزةً منذ مدخل المحادثة، فتُمرَّر الأدوارُ كما هي. والسردُ يُترَك
+ *    لمُقسِّم الجمل القائم — فلا مُقسِّمَ ثانٍ ولا مسارَ ثانٍ.
+ *
+ * ⚠️ **والأدلّةُ تخصّ القصّةَ لا الأصل** (بند ١٠): مصدرُ الجلسة هو
+ *    عقدةُ القصّة، فتسجيلاتُك عليها تُنسَب إليها. والنسبُ إلى الجملة
+ *    الأصليّة محفوظٌ في العلاقة `sentence:story` — أثرٌ لا خلط.
+ */
+async function practiceStory(storyId) {
+  const node = await scripts.get(storyId);
+  if (!node?.text?.trim()) return toastError('القصّة دي فاضية');
+
+  /*
+   * ⚠️ **واللوحُ يُقفَل قبل المغادرة.** أمسكه المِجَسُّ الحيّ: `rail.open`
+   *    حالةُ وحدةٍ تعيش بعد التوجيه، فكنتَ تهبط في جلسة القصّة و
+   *    اللوحُ فوقها وحاجبُه (`sh-scrim`) يمنع لمسَ أيّ شيءٍ تحته —
+   *    ومحتواه صندوقُ لصقٍ فارغٌ لأنّ الجلسةَ الجديدةَ مصدرُها القصّةُ
+   *    نفسُها لا سكريبتٌ فيه جمل. أي: نافذةٌ فارغةٌ تحجب ما فتحتَه.
+   *
+   *    ولم يظهر في أيّ اختبارٍ منطقيّ — لأنّه سلوكُ شاشةٍ بعد تنقّل،
+   *    وهو بعينُه ما لا تراه إلّا بفتحِ الشاشة فعلًا.
+   */
+  rail.open = false;
+
+  const prepared = storySegments(node.text);
+  const existing = await sessionsForSource(SOURCE_TYPE.SCRIPT, storyId);
+  if (existing.length) {
+    const resume = existing.sort(
+      (a, b) => (b.lastPracticedAt || b.createdAt) - (a.lastPracticedAt || a.createdAt)
+    )[0];
+    return navigate(`/shadow/${resume.id}`);
+  }
+
+  try {
+    const { session } = await createSession({
+      title: node.title || 'قصّة',
+      sourceType: SOURCE_TYPE.SCRIPT,
+      sourceId: storyId,
+      sourceVersion: node.rev ?? null,
+      sceneId: ctx.session?.sceneId || null,
+      ...(prepared ? { segments: prepared } : { text: node.text }),
+    });
+    return navigate(`/shadow/${session.id}`);
+  } catch (error) {
+    console.error(error);
+    return toastError(error.message);
+  }
+}
+
+/**
+ * يرجع من قصّةٍ إلى جملتها الأصليّة — **الحلقةُ تُغلَق** (بند ٧).
+ *
+ * ⚠️ **والجملةُ من العلاقة لا من `derivedFromScriptId`**: الأخيرُ يقول
+ *    أيُّ سكريبتٍ، ولا يقول أيُّ جملة. والفرقُ بينهما هو كلُّ ما بنيناه
+ *    في التمريرة الأولى.
+ */
+async function backToOriginSentence() {
+  const storyId = ctx.session?.sourceId;
+  if (!storyId) return undefined;
+  const parent = await parentSentenceOf(storyId);
+  if (!parent) return toastError('مش لاقيين الجملة الأصليّة');
+
+  const sessions = await sessionsForSource(SOURCE_TYPE.SCRIPT, parent.record.id);
+  if (!sessions.length) return toastError('مفيش جلسة على النصّ الأصليّ');
+  const back = sessions.sort(
+    (a, b) => (b.lastPracticedAt || b.createdAt) - (a.lastPracticedAt || a.createdAt)
+  )[0];
+  /*
+   * ⚠️ **ورقمُ الجملة في السجلّ ليس رقمَها في الجلسة**: الجلسةُ قد
+   *    تكون على مختاراتٍ من النصّ، فالجملةُ الخامسةُ في السكريبت هي
+   *    الثانيةُ في الجلسة. فتُقرأ مقاطعُ الجلسة الهدف وتُواءَم بنفس
+   *    `alignSegmentRows` التي تحكم المسودّات والقصص — لا بحسابٍ ثانٍ
+   *    يختلف عنها.
+   *
+   * ⚠️ **وإن لم تكن الجملةُ في تلك الجلسة أصلًا** (اخترتَ غيرَها) فلا
+   *    قفزةَ ولا كذبة: تُفتَح الجلسةُ في موضعها المحفوظ، ولا نقفز إلى
+   *    جملةٍ نتوهّم أنها هي.
+   */
+  const backSegments = (await loadSession(back.id))?.segments || [];
+  const at = alignSegmentRows(
+    parent.record, backSegments.map((one) => one.sourceTextSnapshot || ''),
+  ).indexOf(parent.index);
+
+  /*
+   * ⚠️ **ورقمُ الجملة يُمرَّر في الوحدة لا في المسار**: التوجيهُ هنا
+   *    بالمقطع (`#/shadow/<id>`)، ومُطابِقُه يقسّم على `/` — فـ`?at=3`
+   *    كان سيصير جزءًا من المعرّف ويكسر الفتح. والوحدةُ نفسُها تُعاد
+   *    تركيبًا، فمتغيّرٌ فيها يعبر بأمان.
+   *
+   * ⚠️ **ويُستهلَك مرّةً واحدة** — والاستهلاكُ في `open()` نفسِها: لو
+   *    بقي لَقفزت بك كلُّ فتحةٍ تاليةٍ لهذه الجلسة إلى جملةٍ اخترتَها
+   *    مرّةً وانتهى أمرُها.
+   */
+  pendingJump = at >= 0 ? { sessionId: back.id, index: at } : null;
+  return navigate(`/shadow/${back.id}`);
 }
 
 /** هل لهذا النصّ مسودّةٌ محفوظة؟ — سؤالٌ على المجموعة لا على القاعدة. */
@@ -8796,10 +9244,17 @@ function wireInteractions(main) {
   main.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'Spacebar') return;
     const badge = event.target.closest?.('[data-sh-draft]');
-    if (!badge) return;
+    if (badge) {
+      event.preventDefault();
+      event.stopPropagation();
+      openDraftForSentence(Number(badge.dataset.shDraft));
+      return;
+    }
+    const tale = event.target.closest?.('[data-sh-story]');
+    if (!tale) return;
     event.preventDefault();
     event.stopPropagation();
-    openDraftForSentence(Number(badge.dataset.shDraft));
+    openStoryForSentence(Number(tale.dataset.shStory));
   }, wired());
 
   main.addEventListener('click', async (event) => {
@@ -8818,6 +9273,14 @@ function wireInteractions(main) {
       event.preventDefault();
       event.stopPropagation();
       return openDraftForSentence(Number(badge.dataset.shDraft));
+    }
+
+    /* ⚠️ وشارةُ القصّة تُلتقَط قبل الصفّ لنفس السبب (بند ٤). */
+    const tale = event.target.closest('[data-sh-story]');
+    if (tale) {
+      event.preventDefault();
+      event.stopPropagation();
+      return openStoryForSentence(Number(tale.dataset.shStory));
     }
 
     const line = event.target.closest('[data-line]');
@@ -8893,6 +9356,13 @@ function wireInteractions(main) {
       // التدريب طبقةٌ فوق المحتوى لا بديلٌ عنه: طريق العودة للأصل
       // يبقى ظاهرًا داخل الجلسة نفسها (بند 13).
       case 'open-source':
+        /*
+         * ⚠️ **ورجوعُ القصّة عَلَمٌ لا مسار** (بندا ٧ و١١): الجلسةُ
+         *    الهدفُ تُختار وقتَ الضغط — أحدثُ جلسةٍ على النصّ الأصليّ —
+         *    ولا تُعرَف وقتَ الرسم. فيُعالَج هنا، ويعمل الزرّان معًا:
+         *    زرُّ البطاقة وزرُّ رأس الصفحة اليمنى.
+         */
+        if (btn.dataset.to === STORY_BACK) return backToOriginSentence();
         return navigate(btn.dataset.to);
 
       case 'tips':
@@ -9224,6 +9694,38 @@ function wireInteractions(main) {
         toastOk(mode === PRACTICE_MODE.WORD ? 'بيقرا كلمة كلمة' : mode === PRACTICE_MODE.CONTINUOUS ? 'بيقرا متّصل' : 'بيقرا الجملة كاملة');
         renderModes();
         return renderRail();
+      }
+
+      /* ---- قصّةُ الجملة / مشهدُ النقل (WS-SC · التمريرة الثانية) ---- */
+
+      case 'story-save': return saveStoryHere();
+      case 'story-practice': return practiceStory(btn.dataset.v);
+      case 'story-back': return backToOriginSentence();
+      case 'story-pick': {
+        storyPick = Number(btn.dataset.v) || 0;
+        await renderStory();
+        return undefined;
+      }
+      case 'story-new': {
+        storyAdding = true;
+        await renderStory();
+        return undefined;
+      }
+      case 'story-cancel': {
+        storyAdding = false;
+        await renderStory();
+        return undefined;
+      }
+      case 'story-copy': {
+        const node = await scripts.get(btn.dataset.v);
+        if (!node?.text) return toastError('مفيش نصّ ننسخه');
+        try {
+          await navigator.clipboard.writeText(node.text);
+          toastOk('اتنسخت القصّة');
+        } catch {
+          toastError('المتصفّح مارضاش ينسخ — حدّد النصّ وانسخه بإيدك');
+        }
+        return undefined;
       }
 
       /* ---- مسودّة المذاكرة (WS25) ---- */
