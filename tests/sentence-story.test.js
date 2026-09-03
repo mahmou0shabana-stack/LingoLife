@@ -508,22 +508,27 @@ describe('WS-SC2 · حرّاسٌ بنيويّون', () => {
     expect(/subjectKey\s*\(/.test(src)).toBe(false);
   });
 
-  it('٣٣ · وشارةُ القصّة بابٌ له اسمٌ يُقرأ ولوحةُ مفاتيح', async () => {
+  it('٣٣ · وبابُ القصّة له اسمٌ يُقرأ ولوحةُ مفاتيح', async () => {
+    /*
+     * ⚠️ **والبابُ صار واحدًا (WS-SL)**: `storyBadgeHtml` اندمجت في
+     *    `learnBadgeHtml` حين وُحِّد المدخل. والمطلوبُ لم يتغيّر،
+     *    فانتقل الحارسُ إلى البابِ الباقي بدل أن يُحذَف.
+     */
     const src = await sourceOf('../js/views/shadow-view.js');
-    const at = src.indexOf('function storyBadgeHtml');
+    const at = src.indexOf('function learnBadgeHtml');
     expect(at > 0).toBe(true);
-    const body = src.slice(at, at + 900);
+    const body = src.slice(at, at + 1600);
     expect(body.includes('role="button"')).toBe(true);
     expect(body.includes('tabindex="0"')).toBe(true);
     expect(body.includes('aria-label=')).toBe(true);
-    expect(body.includes('data-sh-story=')).toBe(true);
+    expect(body.includes('data-sh-learn=')).toBe(true);
   });
 
   it('٣٤ · والشارةُ تُحسَب من الخريطة لا من نصّ الجملة', async () => {
     const src = await sourceOf('../js/views/shadow-view.js');
-    const at = src.indexOf('function storyBadgeHtml');
-    const body = bare(src.slice(at, at + 900));
-    expect(body.includes('stories.get(index)')).toBe(true);
+    const at = src.indexOf('function learnBadgeHtml');
+    const body = bare(src.slice(at, at + 1600));
+    expect(body.includes('learning.get(index)')).toBe(true);
     expect(/hasDraftedText|subjectKey/.test(body)).toBe(false);
   });
 
@@ -542,19 +547,26 @@ describe('WS-SC2 · حرّاسٌ بنيويّون', () => {
     expect(/shadow\/\$\{[^}]*\}\?at=/.test(src)).toBe(false);
   });
 
-  it('٣٧ · ولا شارةَ قصّةٍ تُستنسَخ من شارةِ المسودّة بصنفٍ واحد', async () => {
+  it('٣٧ · وشارةٌ واحدةٌ على السطر لا شارتان', async () => {
     /*
-     * ⚠️ شارتان لمادّتين: المسودّةُ تحليلٌ والقصّةُ موقف. وصنفٌ واحدٌ
-     *    يجمعهما كان سيجعلك تفتح لتعرف أيَّها — وهو ما أُلغي في
-     *    التمريرة الأولى حين صارت العلامةُ بابًا.
+     * ⚠️ **انقلب هذا الحارسُ بقرارِ منتَجٍ لا بانحدار** (WS-SL · بند ١٥).
+     *
+     *    كان يفحص وجودَ `.sh-line-story` بجوار `.sh-line-draft` —
+     *    وكتبتُ وقتها أنّ «شارتين لمادّتين» هو الصواب. وهو صوابٌ عن
+     *    **المحتوى**، خطأٌ عن **الباب**: السطرُ صار مزدحمًا، والمتعلّمُ
+     *    لا يقف ليقرّر من أيّ بابٍ يدخل.
+     *
+     *    فصار الحارسُ يمنع عودةَ الشارتين: لا صنفَ لواحدةٍ منهما في
+     *    الأنماط، وواحدةٌ باقيةٌ بهدفِ لمسٍ حقيقيّ.
      */
     const css = await sourceOf('../css/shadow.css');
-    expect(css.includes('.sh-line-story')).toBe(true);
-    expect(css.includes('.sh-line-story.is-add')).toBe(true);
-    expect(css.includes('.sh-line.current .sh-line-story.is-add')).toBe(true);
+    expect(css.includes('.sh-line-story')).toBe(false);
+    expect(css.includes('.sh-line-draft')).toBe(false);
+    expect(css.includes('.sh-line-learn.is-add')).toBe(true);
+    expect(css.includes('.sh-line.current .sh-line-learn.is-add')).toBe(true);
     /* هدفُ لمسٍ حقيقيٌّ — لا حرفٌ في ١١px على تابلت. */
-    const at = css.indexOf('.sh-line-story {');
-    expect(css.slice(at, at + 400).includes('min-block-size: 44px')).toBe(true);
+    const at = css.indexOf('.sh-line-learn {');
+    expect(css.slice(at, at + 500).includes('min-block-size: 44px')).toBe(true);
   });
 
   it('٣٧ب · والحفظُ يُظهِر ما حفظتَه لا أوّلَ ما في القائمة', async () => {
@@ -572,12 +584,13 @@ describe('WS-SC2 · حرّاسٌ بنيويّون', () => {
   });
 
   it('٣٨ · والنسبُ مقروءٌ في اللوح لا في تلميحٍ يختفي', async () => {
+    /* ⚠️ الرأسُ انتقل إلى لوح التعلّم الموحَّد (WS-SL) — والمطلوبُ باقٍ. */
     const src = await sourceOf('../js/views/shadow-view.js');
-    const at = src.indexOf('async function renderStory');
+    const at = src.indexOf('function learnHeadHtml');
     expect(at > 0).toBe(true);
-    const body = src.slice(at, at + 3000);
-    expect(body.includes('sh-story-from')).toBe(true);
-    expect(body.includes('من الجملة')).toBe(true);
+    const body = src.slice(at, at + 1200);
+    expect(body.includes('sh-learn-src')).toBe(true);
+    expect(body.includes('الجملة ${index + 1}')).toBe(true);
   });
 });
 

@@ -698,29 +698,30 @@
 .sh-line.difficult:not(.current) { border-inline-start: 3px solid #FBBF24; }
 
 /*
- * ✎ — «الجملة دي ليها مسودّة مذاكرة» (WS34)، وصارت **بابًا** (WS-SC1).
+ * ✦ — «الجملة دي فيها مادّة تعلّم» (WS-SL).
+ *
+ * ⚠️ **شارةٌ واحدةٌ بدل اثنتين.** كانت هنا `✎` للمسودّة و`▤` للقصّة،
+ *    وكلتاهما تعمل — لكنّ السطرَ صار مزدحمًا، وبلاغُك سمّاه: «لا
+ *    تُحسِّن بإضافة أزرارٍ أكثر». وزرّان أنيقان أسوأُ من زرٍّ واحد.
  *
  * ⚠️ **مخفيّةٌ بحجزِ مكانها لا بحذفه**: `display:none` كان يجعل السطرَ
  *    يزحف بضعةَ بكسلات لحظةَ ظهور العلامة، فيهتزّ العمودُ كلُّه وأنت
  *    تكتب. `visibility` تُبقي المكانَ محجوزًا فلا يتحرّك شيء.
  *
- * ⚠️ **وهدفُ اللمس ٤٤px ارتفاعًا بلا أن يعلوَ السطر** (بند ٦٠): العلامةُ
- *    كانت حرفًا في ١١px — إصبعٌ على تابلت لا يصيبها، ويصيب السطرَ من
- *    تحتها فيقفز بك إلى جملةٍ لم تُردها. فالصندوقُ كبيرٌ والهامشُ
- *    الكتليُّ سالبٌ يبتلع الزيادة، فارتفاعُ الصفّ كما هو.
- *
- * ⚠️ **ولا تتمدّد خارج صفّها**: السطرُ نفسُه ≈٤٨px، فالـ ٤٤ تسع داخله.
- *    مدُّ منطقةِ اللمس بـ `::before` سالبِ الحواف كان سيسرق لمساتِ
- *    الصفِّ المجاور — وهو عطبٌ لا يُرى إلّا على الجهاز.
+ * ⚠️ **وهدفُ اللمس ٤٤px ارتفاعًا بلا أن يعلوَ السطر** (بند ٦٠): الهامشُ
+ *    الكتليُّ السالبُ يبتلع الزيادة، فارتفاعُ الصفّ كما هو. ولا تتمدّد
+ *    خارج صفّها — مدُّ المنطقة بـ`::before` كان سيسرق لمساتِ المجاور.
  */
-.sh-line-draft {
+.sh-line-learn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  inline-size: 30px;
+  gap: 3px;
+  min-inline-size: 30px;
   min-block-size: 44px;
   margin-block: -12px;
   margin-inline-end: 2px;
+  padding-inline: 3px;
   vertical-align: middle;
   border-radius: 9px;
   font-size: 13px;
@@ -729,92 +730,33 @@
   cursor: pointer;
 }
 
-/* الشارةُ الموجودة: تُرى متى وُجدت مسودّة. */
-.sh-line-draft.is-on { visibility: hidden; }
-.sh-line.has-draft .sh-line-draft.is-on { visibility: visible; }
+/* العدّادُ يُقرأ في نظرة: «٣/٨» تقول ما عندك وأين وصلت. */
+.sh-line-learn b {
+  font-family: var(--sh-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: .04em;
+}
 
 /*
- * ظنٌّ لا يقين — نصٌّ مكرَّرٌ ومسودّةٌ قديمةٌ لا نعرف أيَّ تكرارٍ تخصّ
- * (بند ٥). لونٌ آخرُ لأنّ «افتحها» و«افتحها وراجِعها» ليسا شيئًا واحدًا.
+ * ＋ — بابُ الإنشاء: على **الجملة الجارية وحدَها**، بـ CSS لا
+ * بجافاسكربت (`.current` يتبدّل مع كلّ قفزةٍ أصلًا، فربطُ الظهور به
+ * يعني صفرَ إعادةِ رسمٍ إضافيّة عند التنقّل).
  */
-.sh-line-draft.is-unsure { color: #FBBF24; }
-
-/*
- * ＋ — بابُ الإنشاء (بنود ١٨ و٥١): على **الجملة الجارية وحدَها**.
- * ⚠️ بـ CSS لا بجافاسكربت: `.current` يتبدّل مع كلّ قفزةٍ أصلًا، فربطُ
- *    الظهور به يعني صفرَ إعادةِ رسمٍ إضافيّة عند التنقّل.
- */
-.sh-line-draft.is-add {
+.sh-line-learn.is-add {
   visibility: hidden;
   color: rgba(255, 255, 255, .55);
   font-size: 15px;
 }
-.sh-line.current .sh-line-draft.is-add { visibility: visible; }
+.sh-line.current .sh-line-learn.is-add { visibility: visible; }
 
-.sh-line-draft:focus-visible {
+.sh-line-learn:focus-visible {
   outline: 2px solid var(--sh-accent-2);
   outline-offset: 1px;
   visibility: visible;
 }
 
 .sh-line.has-draft:not(.current) { border-inline-end: 3px solid var(--sh-accent-2); }
-
-/*
- * ▤ — «الجملة دي ليها قصّة / مشهد نقل» (WS-SC · التمريرة الثانية).
- *
- * ⚠️ **أختُ شارةِ المسودّة لا صنفٌ عليها**: نفسُ الصندوق ونفسُ هدفِ
- *    اللمس ونفسُ الهامشِ السالب — لأنّ الشيئين متجاوران على الصفّ
- *    نفسِه، وأيُّ فرقِ ارتفاعٍ بينهما يُميل الصفَّ ويُرى.
- *
- * ⚠️ **ولونٌ آخر**: المسودّةُ تحليلٌ والقصّةُ موقف. ولو تشابه اللونان
- *    لَما فرّقت العينُ بينهما في لمحةٍ — وهو كلُّ الغرض من شارتين.
- *
- * ⚠️ **و`is-on` مرئيّةٌ بلا بوّابةٍ ثانية**: لا تُرسَم أصلًا إلّا حين
- *    توجد قصّة (الخريطةُ تحكم)، فحجبُها بصنفٍ على الصفّ كان سيكون
- *    شرطًا مكرَّرًا يسهل أن يفترق نصفاه بعد شهر.
- */
-.sh-line-story {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  inline-size: 30px;
-  min-block-size: 44px;
-  margin-block: -12px;
-  margin-inline-end: 2px;
-  vertical-align: middle;
-  border-radius: 9px;
-  font-size: 13px;
-  line-height: 1;
-  color: var(--sh-accent);
-  cursor: pointer;
-}
-
-/* عددُ القصص حين تزيد على واحدة (بند ١٢) — رقمٌ صغيرٌ لا شارةٌ ثانية. */
-.sh-line-story b {
-  font-size: 9px;
-  font-weight: 700;
-  opacity: .75;
-}
-
-/*
- * ＋▤ — بابُ اللصق: على **الجملة الجارية وحدَها**، بـ CSS لا بجافاسكربت
- * (نفسُ قاعدة ＋ المسودّة، ونفسُ سببها: أربعمئةُ سطرٍ لا تحمل أربعمئةَ
- * دعوة). والصندوقُ أوسع قليلًا لأنّ العلامةَ حرفان لا حرف.
- */
-.sh-line-story.is-add {
-  visibility: hidden;
-  inline-size: 38px;
-  color: rgba(255, 255, 255, .55);
-  font-size: 13px;
-}
-.sh-line.current .sh-line-story.is-add { visibility: visible; }
-
-.sh-line-story:focus-visible {
-  outline: 2px solid var(--sh-accent);
-  outline-offset: 1px;
-  visibility: visible;
-}
 
 /* ترجمة تحت الجملة في صفحة المصدر */
 .sh-line .tr {
@@ -4003,6 +3945,159 @@ body.shadow-open { overflow: hidden; }
 .sh-draft-count, .sh-draft-empty {
   margin: 10px 2px 0; font-size: 11.5px; line-height: 1.7;
   color: rgba(239, 231, 216, .38);
+}
+
+/* ================================================================== *
+ * لوحُ تعلّمِ الجملة (WS-SL)
+ *
+ * ⚠️ **ويستعير أزرارَ المسودّة وصندوقَها** (`.sh-draft-row`،
+ *    `.sh-draft-box`): اللوحُ خليفتُهما في المكان والوظيفة، ولوحُ
+ *    أزرارٍ ثانٍ بمقاساتٍ تختلف بضعةَ بكسلاتٍ كان سيُرى فرقًا لا سببَ له.
+ * ================================================================== */
+
+/*
+ * رأسُ اللوح — **الجملةُ الأصليّةُ ظاهرةٌ دائمًا** (بندا ٢ و١٣). تقرأ
+ * ما تتعلّمه وأنت ترى ما جاء منه، فلا تصير القطعُ مفرداتٍ سائبة.
+ */
+.sh-learn-head {
+  margin-bottom: 10px; padding: 9px 10px;
+  border-inline-start: 2px solid rgba(217, 182, 114, .45);
+  border-radius: 3px;
+  background: rgba(0, 0, 0, .18);
+}
+.sh-learn-from {
+  font-family: var(--sh-mono); font-size: 9px; letter-spacing: .16em;
+  color: rgba(239, 231, 216, .34);
+}
+.sh-learn-src {
+  margin: 3px 0 8px; font-size: 13px; line-height: 1.8;
+  color: rgba(239, 231, 216, .9);
+}
+.sh-learn-acts { display: flex; flex-wrap: wrap; gap: 6px; }
+.sh-learn-acts button {
+  flex: 1 1 auto; min-height: 44px; padding: 0 10px; cursor: pointer;
+  font-family: var(--sh-mono); font-size: 10px; letter-spacing: .1em;
+  border: 1px solid rgba(239, 231, 216, .12); border-radius: 3px;
+  background: transparent; color: rgba(239, 231, 216, .6);
+  transition: all .25s ease;
+}
+.sh-learn-acts button:hover {
+  border-color: rgba(217, 182, 114, .45); color: rgba(240, 220, 176, .95);
+}
+
+/*
+ * شريطُ التقدّم — حكمُك وشهادتُك جنبًا إلى جنبٍ **وكلٌّ مسمًّى باسمه**
+ * (بند ٩). فلا يصير «إتقانٌ» رقمًا واحدًا لا مصدرَ له.
+ */
+.sh-learn-progress, .sh-learn-none {
+  margin: 0 2px 10px; font-size: 11.5px; line-height: 1.7;
+  color: rgba(239, 231, 216, .5);
+}
+.sh-learn-progress b { color: rgba(240, 220, 176, .95); font-family: var(--sh-mono); }
+
+/* التبويبات — ثلاثةٌ ظاهرةٌ دائمًا، والفارغُ يقول ما ينقص (بند ١٥). */
+.sh-learn-tabs { display: flex; gap: 4px; margin-bottom: 10px; }
+.sh-learn-tabs button {
+  flex: 1 1 0; min-height: 44px; padding: 0 4px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  font-size: 11px;
+  border: 1px solid rgba(239, 231, 216, .12); border-radius: 3px;
+  background: transparent; color: rgba(239, 231, 216, .5);
+  transition: all .25s ease;
+}
+.sh-learn-tabs button.on {
+  border-color: rgba(217, 182, 114, .5); color: rgba(240, 220, 176, .95);
+  background: rgba(217, 182, 114, .08);
+}
+.sh-learn-tabs button i {
+  font-style: normal; font-family: var(--sh-mono); font-size: 9px;
+  opacity: .7;
+}
+
+.sh-learn-hint {
+  margin: 0 2px 8px; font-size: 11.5px; line-height: 1.75;
+  color: rgba(239, 231, 216, .42);
+}
+.sh-learn-note {
+  margin: 12px 2px 0; padding-top: 8px; font-size: 11.5px;
+  border-top: 1px solid rgba(239, 231, 216, .08);
+  color: rgba(239, 231, 216, .38);
+}
+
+/* أدواتُ البرومبت — بطاقتان، لكلٍّ اسمُه وما يفعله. */
+.sh-learn-tools { display: flex; flex-direction: column; gap: 6px; }
+.sh-learn-tools button {
+  display: flex; flex-direction: column; gap: 3px; align-items: flex-start;
+  min-height: 44px; padding: 9px 10px; cursor: pointer; text-align: start;
+  border: 1px solid rgba(239, 231, 216, .12); border-radius: 3px;
+  background: transparent; color: rgba(239, 231, 216, .8);
+  transition: all .25s ease;
+}
+.sh-learn-tools button:hover { border-color: rgba(217, 182, 114, .45); }
+.sh-learn-tools b { font-size: 12px; }
+.sh-learn-tools small { font-size: 10.5px; color: rgba(239, 231, 216, .42); line-height: 1.6; }
+
+/* ---- القطعُ الأساسيّة: مطويّةٌ حتى تُفتَح (بند ٤) ---- */
+
+.sh-chunks { display: flex; flex-direction: column; gap: 6px; }
+.sh-chunk {
+  border: 1px solid rgba(239, 231, 216, .1); border-radius: 3px;
+  background: rgba(0, 0, 0, .16);
+}
+.sh-chunk.is-open { border-color: rgba(217, 182, 114, .35); }
+.sh-chunk.is-done { border-inline-start: 2px solid rgba(31, 157, 98, .6); }
+.sh-chunk.is-doing { border-inline-start: 2px solid rgba(251, 191, 36, .6); }
+
+.sh-chunk-head {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  inline-size: 100%; min-height: 44px; padding: 6px 10px; cursor: pointer;
+  border: 0; background: transparent; text-align: start;
+  color: rgba(239, 231, 216, .9);
+}
+.sh-chunk-mark { font-size: 12px; opacity: .7; }
+.sh-chunk-ru { font-size: 13.5px; }
+.sh-chunk-ar { font-size: 11.5px; color: rgba(239, 231, 216, .5); }
+
+.sh-chunk-body {
+  padding: 0 10px 10px;
+  border-top: 1px solid rgba(239, 231, 216, .07);
+}
+.sh-chunk-sense {
+  margin: 8px 0; font-size: 11.5px; line-height: 1.8;
+  color: rgba(239, 231, 216, .62);
+}
+.sh-chunk-ex { list-style: none; margin: 8px 0; padding: 0; }
+.sh-chunk-ex li {
+  display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap;
+  margin-bottom: 6px; font-size: 12.5px; line-height: 1.7;
+}
+.sh-chunk-ex i {
+  font-style: normal; font-size: 11px; color: rgba(239, 231, 216, .45);
+}
+/* ⚠️ زرُّ سماعِ المثال ٤٤px كأيّ هدفِ لمسٍ — بهامشٍ سالبٍ يبتلع الزيادة. */
+.sh-chunk-say {
+  min-inline-size: 30px; min-block-size: 44px; margin-block: -13px;
+  cursor: pointer; border: 0; background: transparent;
+  color: var(--sh-accent-2); font-size: 11px;
+}
+.sh-chunk-pat {
+  margin: 8px 0 0; padding: 6px 8px; border-radius: 3px;
+  background: rgba(0, 0, 0, .22);
+  font-family: var(--sh-mono); font-size: 11px;
+  color: rgba(239, 231, 216, .55);
+}
+
+.sh-chunk-acts { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+.sh-chunk-acts button {
+  flex: 1 1 auto; min-height: 44px; padding: 0 9px; cursor: pointer;
+  font-family: var(--sh-mono); font-size: 9.5px; letter-spacing: .1em;
+  border: 1px solid rgba(239, 231, 216, .12); border-radius: 3px;
+  background: transparent; color: rgba(239, 231, 216, .55);
+  transition: all .25s ease;
+}
+.sh-chunk-acts button.on {
+  border-color: rgba(217, 182, 114, .5); color: rgba(240, 220, 176, .95);
+  background: rgba(217, 182, 114, .08);
 }
 
 /* ================================================================== *

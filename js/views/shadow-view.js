@@ -24,6 +24,10 @@ import {
   storiesForSegments, createStory, parentSentenceOf, isStoryNode,
   storyShape, storySegments, STORY_SHAPE, STORY_BACK,
 } from '../services/shadow/sentence-story.js';
+import {
+  coreChunks, chunkStates, chunkProgress, setChunkState, hasLearning,
+  evidenceCount, CHUNK_STATE,
+} from '../services/shadow/sentence-learning.js';
 import { SCOPE, SCOPE_LABEL, resolveTarget } from '../services/shadow/practice-target.js';
 import { openVoiceAttempts } from '../modals/voice-attempts.js';
 import { openLightbox } from '../components/lightbox.js';
@@ -1958,8 +1962,7 @@ function lineHtml(segment, index, isCurrent) {
     )}</span>
     <span class="meta">
       ${raw(done ? html`<span class="reps">×${segment.repetitionsCompleted}</span>` : '')}
-      ${raw(draftBadgeHtml(index))}
-      ${raw(storyBadgeHtml(index))}
+      ${raw(learnBadgeHtml(index))}
       <span class="ts">${stamp(index)}</span>
       <span class="spk">🔊</span>
     </span>
@@ -1967,92 +1970,62 @@ function lineHtml(segment, index, isCurrent) {
 }
 
 /**
- * شارةُ القصّة — **أختُ شارةِ المسودّة على السطر نفسِه** (بندا ٤ و١١).
+ * شارةُ التعلّم — **بابٌ واحدٌ إلى عالَم الجملة** (WS-SL · بنود ١ و٣ و١٥).
  *
  * ═══════════════════════════════════════════════════════════════
- * ⚠️ **لماذا شارتان لا واحدةٌ تجمعهما**
+ * ⚠️ **ما كان، ولماذا لم يكن كافيًا رغم أنّه اشتغل**
  * ═══════════════════════════════════════════════════════════════
  *
- * المسودّةُ **تحليلٌ** للجملة: قطعُها ومعانيها. والقصّةُ **موقفٌ
- * جديد** مبنيٌّ عليها تتدرّب فيه. وهما فعلان مختلفان تمامًا:
- * تفتح المسودّةَ لتفهم، وتفتح القصّةَ لتتكلّم.
+ * كان هنا شارتان: `✎` للمسودّة و`▤` للقصّة. وكلتاهما تعمل، وكلتاهما
+ * مربوطةٌ بالجملة الصحيحة، وكلتاهما مُختبَرة. ومع ذلك كانتا خطأً —
+ * ووصفتُ الخطأَ بنفسي في تعليقٍ سابقٍ وأنا أكتبه:
  *
- * فشارةٌ واحدةٌ تقول «فيه مادّة» كانت ستجعلك تفتح لتعرف أيَّها —
- * وهو بالضبط ما ألغيناه في WS-SC1 حين صارت العلامةُ بابًا.
+ *     «المسودّةُ تحليلٌ والقصّةُ موقف، وشارةٌ واحدةٌ تجمعهما كانت
+ *      ستجعلك تفتح لتعرف أيَّها.»
  *
- * ⚠️ **و`＋` هنا أيضًا على الجملة الجارية وحدَها** (بند ٤): طريقٌ
- *    مرئيٌّ للصقِ قصّةٍ من ChatGPT، بلا أربعمئة زرِّ إضافةٍ في نصٍّ
- *    فيه أربعمئة جملة.
+ * وهو صحيحٌ عن **المحتوى**، وخاطئٌ عن **الباب**. المتعلّمُ لا يقف أمام
+ * الجملة ليقرّر «أدخل من باب التحليل أم من باب الموقف؟» — بل يقرّر
+ * «أتعلّم من هذه الجملة الآن». والتقسيمُ يخصُّ ما بالداخل.
  *
- * ⚠️ **والعددُ يُقال حين يزيد** (بند ١٢): نموذجُ العلاقات يسمح بقصصٍ
- *    عدّةٍ للجملة، فإن وُجدت ثانيةٌ ظهر رقمُها على الشارة. ولا مُنتقٍ
- *    يُبنى قبل أن يوجد ما يُنتقى.
+ * ⚠️ **والدرسُ المتكرّر**: حين يشتكي البلاغُ بعد تحسينٍ، فالمشكلةُ في
+ *    **وجود** الشيء لا في **حجمه**. صغّرتُ الشارتين وأتقنتُ هدفَ
+ *    اللمس فيهما — والشكوى كانت أنّ السطرَ صار مزدحمًا. زرّان أنيقان
+ *    أسوأُ من زرٍّ واحد.
+ *
+ * ⚠️ **ولا تُحذَف بياناتٌ ولا خدمة**: المسودّةُ والقصّةُ تبقيان كما
+ *    هما في القاعدة وفي خدمتيهما، وتُقرآن معًا في خريطةٍ واحدة. هذا
+ *    توحيدُ **مدخلٍ** لا دمجُ **نموذجَين**.
+ *
+ * ⚠️ **والحالةُ تُقال بالعدد لا بالتلوين**: `٣/٨` تقول ما عندك وأين
+ *    وصلت في نظرةٍ واحدة. ولونٌ وحدَه يجعلك تفتح لتعرف.
  */
-function storyBadgeHtml(index) {
-  const list = stories.get(index) || [];
-  const has = list.length > 0;
-  const label = has
-    ? `افتح قصّة الجملة ${index + 1}${list.length > 1 ? ` (${list.length} قصص)` : ''}`
-    : `الصق قصّة للجملة ${index + 1}`;
-  const cls = ['sh-line-story', has ? 'is-on' : 'is-add'].join(' ');
-  return html`<span class="${cls}" role="button" tabindex="0"
-        data-sh-story="${index}" aria-label="${label}" title="${label}"
-      >${has ? '▤' : '＋▤'}${raw(list.length > 1 ? html`<b>${list.length}</b>` : '')}</span>`;
-}
-
-/**
- * شارةُ المسودّة — **بابٌ لا علامة** (WS-SC1 · بنود ٢ و٨ و١٩ و٦٠).
- *
- * ═══════════════════════════════════════════════════════════════
- * ⚠️ **ما الذي كان، ولماذا لم يكن كافيًا**
- * ═══════════════════════════════════════════════════════════════
- *
- * كانت هنا `<span class="sh-line-draft">✎</span>` تظهر بصنفٍ على
- * الصفّ. وثلاثةُ أشياءَ نقصتها:
- *
- *   ١) **كانت تخصّ النصَّ لا الجملة**: `Хорошо.` في السطر ١٦ و١٨ نصٌّ
- *      واحد، فتُضاء الشارتان معًا وإحداهما بلا مسودّة (بند ٣).
- *   ٢) **ولم تكن بابًا**: علامةٌ تقول «فيه» ثمّ تتركك تبحث في السكّة
- *      عن الأداة. والبندُ ٨ يطلب العكس: لمسةٌ واحدةٌ تفتح مسودّةَ هذه
- *      الجملة بعينها.
- *   ٣) **ولم يكن لها اسمٌ يُقرأ**: `<span>` لا يصله قارئُ الشاشة ولا
- *      لوحةُ المفاتيح (بند ٦٠).
- *
- * ⚠️ **ولا تُرسَم شارةٌ لما لا يوجد** (بند ٤٧): الخريطةُ مبنيّةٌ من
- *    علاقاتٍ محفوظةٍ ومسودّاتٍ حيّة. ومسودّةٌ حُذفت تختفي شارتُها.
- *
- * ⚠️ **والظنُّ يُعلَن ظنًّا** (بند ٥): مسودّةٌ قديمةٌ على نصٍّ مكرَّرٍ
- *    تُعرَض بعلامة استفهامٍ ونصٍّ يقول «محتاجة مراجعة» — لأنّ التطبيق
- *    لا يعرف أيَّ تكرارٍ تخصّ، وادّعاءُ المعرفة يفتح مسودّةَ غيرها.
- */
-function draftBadgeHtml(index) {
-  const hit = material.get(index);
-  const unsure = hit?.how === ATTACH.AMBIGUOUS;
+function learnBadgeHtml(index) {
+  const at = learning.get(index);
+  const has = hasLearning(at);
 
   /*
-   * ⚠️ **وللجملةِ الخاليةِ بابٌ أيضًا** (بنود ١٨ و٥١ و٥٣): «＋» بدل «✎».
-   *    قبلها كان الطريقُ الوحيدُ لبدءِ مسودّةٍ أن تعرفَ أنّ في السكّة
-   *    أداةً اسمُها ✎ — وهي معرفةٌ لا تُكتشَف بالنظر. و«＋» تظهر على
-   *    **الجملة الجارية وحدَها** (بـ CSS لا بجافاسكربت): أربعمئةُ سطرٍ
-   *    عليها أربعمئةُ زرِّ إضافةٍ ضوضاءُ لا دعوة.
-   *
-   * ⚠️ **والمكانُ محجوزٌ في الحالتين** — عرضٌ ثابتٌ للشارة. لأنّ
-   *    `display:none` كان يُزحزح السطرَ لحظةَ ظهور العلامة، فيهتزّ
-   *    العمودُ كلُّه وأنت تكتب (درسُ WS34).
+   * ⚠️ **و«＋» على الجملة الجارية وحدَها** (بند ١٥) — بـ CSS لا
+   *    بجافاسكربت، بنفس قاعدة الشارتين السابقتين وبنفس سببها:
+   *    أربعمئةُ سطرٍ عليها أربعمئةُ دعوةٍ ضوضاءُ لا دعوة.
    */
-  const label = !hit
-    ? `اعمل مسودّة للجملة ${index + 1}`
-    : unsure
-      ? `مسودّة الجملة ${index + 1} — محتاجة مراجعة`
-      : `افتح المسودّة المرتبطة بالجملة ${index + 1}`;
-  const mark = !hit ? '＋' : unsure ? '✎؟' : '✎';
-  const cls = ['sh-line-draft', hit ? 'is-on' : 'is-add', unsure ? 'is-unsure' : '']
-    .filter(Boolean)
-    .join(' ');
-  return html`<span class="${cls}" role="button" tabindex="0"
-        data-sh-draft="${index}" aria-label="${label}" title="${label}">${mark}</span>`;
-}
+  if (!has) {
+    const add = `ابدأ تعلّم الجملة ${index + 1}`;
+    return html`<span class="sh-line-learn is-add" role="button" tabindex="0"
+          data-sh-learn="${index}" aria-label="${add}" title="${add}">＋</span>`;
+  }
 
+  /* عَدَدٌ يُقرأ: القطعُ الخالصةُ من كلّها، ثمّ القصصُ إن وُجدت. */
+  const bits = [];
+  if (at.chunks) bits.push(`${at.done}/${at.chunks}`);
+  if (at.stories) bits.push(at.stories > 1 ? `▤${at.stories}` : '▤');
+  const label = `افتح تعلّم الجملة ${index + 1}${
+    at.chunks ? ` — ${at.done} من ${at.chunks} قطعة` : ''}${
+    at.stories ? ` · ${at.stories} قصّة` : ''}`;
+
+  return html`<span class="sh-line-learn is-on" role="button" tabindex="0"
+        data-sh-learn="${index}" aria-label="${label}" title="${label}"
+      >${raw(bits.map((one) => html`<b>${one}</b>`).join(''))}</span>`;
+}
 /**
  * طابع زمني تقديري لبداية الجملة.
  *
@@ -2406,8 +2379,7 @@ function syncSegment() {
    */
   if (analysis.on && ctx.segments[index]?.id !== analysis.segmentId) closeAnalysis();
   renderRail();
-  if (rail.open && rail.tool === 'draft') renderDraft().catch(() => {});
-  if (rail.open && rail.tool === 'story') renderStory().catch(() => {});
+  if (rail.open && rail.tool === 'learn') renderLearn().catch(() => {});
   savePosition(ctx.session.id, index).catch(() => {});
   // الترجمة الناقصة تُجلب في الخلفية إن فعّل المستخدم ذلك.
   fetchMissingTranslation(segment).catch(() => {});
@@ -3255,17 +3227,21 @@ const TOOLS = [
    *    وعلى **الجملة** وحدها: `drafted` مجموعةُ جملٍ، وسؤالُها عن كلمةٍ
    *    مختارةٍ يعطي «لا» دائمًا فيبدو كأن مسودّةَ الكلمة ضاعت.
    */
-  { id: 'draft', glyph: '✎', label: 'مسودّة مذاكرة',
-    value: () => (hasDraftedText(currentSentenceText()) ? 'فيها' : '') },
   /*
-   * ⚠️ **والقصّةُ أختُها على السكّة أيضًا** (بند ٢): أداتان متجاورتان
-   *    لمادّتين متجاورتين. والقيمةُ تقول العددَ حين يزيد (بند ١٢).
+   * ⚠️ **أداةٌ واحدةٌ لطبقةٍ واحدة** (WS-SL · بندا ٣ و١٥). كانت هنا
+   *    أداتان — «مسودّة مذاكرة» و«قصّة الجملة» — ووصفتُهما وقتَها
+   *    بأنّهما «أداتان متجاورتان لمادّتين متجاورتين». والوصفُ صحيح،
+   *    والاستنتاجُ منه خطأ: تجاورُ المادّتين سببٌ لجمعهما في مكانٍ
+   *    واحد، لا لفتح بابين إليه.
+   *
+   *    والقيمةُ تقول التقدّمَ لا مجرّدَ الوجود: «٣/٨» تُقرأ في نظرة.
    */
-  { id: 'story', glyph: '▤', label: 'قصّة الجملة',
+  { id: 'learn', glyph: '✦', label: 'تعلّم من الجملة',
     value: () => {
-      const list = stories.get(player?.state?.index ?? 0) || [];
-      if (!list.length) return '';
-      return list.length > 1 ? String(list.length) : 'فيها';
+      const at = learning.get(player?.state?.index ?? 0);
+      if (!hasLearning(at)) return '';
+      if (at.chunks) return `${at.done}/${at.chunks}`;
+      return at.stories > 1 ? `▤${at.stories}` : '▤';
     } },
   { id: 'sky', glyph: '✧', label: 'الخلفيّة' },
 ];
@@ -3573,33 +3549,25 @@ function panelFor(id) {
       ],
     };
   }
-  if (id === 'draft') {
-    /*
-     * ⚠️ **قشرةٌ الآن، ومحتوًى بعد قراءة.** `panelFor` متزامنة —
-     *    وكلُّ أدواتها تقرأ من `ctx` الحاضر. والمسودّة في القاعدة.
-     *    فتُرسَم القشرةُ فورًا (فلا تفتح اللوحةُ على بياض) ويملؤها
-     *    `renderDraft()` حين تصل. راجعه تحت.
-     */
-    const subject = draftSubject();
+  /*
+   * ⚠️ **لوحٌ واحدٌ لطبقة التعلّم** (WS-SL · بند ٣): كان لوحان —
+   *    «مسودّة مذاكرة» و«قصّة الجملة» — لكلٍّ قشرتُه ورسمُه. وهما
+   *    مادّتان حول جملةٍ واحدة، فصارتا تبويبين في لوحٍ واحدٍ رأسُه
+   *    الجملةُ نفسُها (بندا ٢ و١٣).
+   *
+   * ⚠️ **وقشرةٌ الآن، ومحتوًى بعد قراءة**: `panelFor` متزامنة وكلُّ
+   *    أدواتها تقرأ من `ctx` الحاضر، والمادّةُ في القاعدة. فتُرسَم
+   *    القشرةُ فورًا (فلا يفتح اللوحُ على بياض) ويملؤها `renderLearn()`.
+   */
+  if (id === 'learn') {
+    const at = learning.get(player?.state?.index ?? 0);
     return {
-      title: 'مسودّة مذاكرة',
-      foot: subject.kind === SUBJECT.WORD ? 'مسودّة الكلمة دي' : 'مسودّة الجملة دي',
+      title: 'تعلّم من الجملة',
+      foot: hasLearning(at)
+        ? 'القطع · مشهد النقل · التدريب — كلُّها حول الجملة دي'
+        : 'ابدأ: انسخ برومبت، حلّل برّه، والصق هنا',
       groups: [],
-      after: '<div class="sh-draft" data-draft>بنجيبها…</div>',
-    };
-  }
-  if (id === 'story') {
-    /*
-     * ⚠️ **قشرةٌ الآن ومحتوًى بعد قراءة** — بنفس قاعدة لوح المسودّة:
-     *    `panelFor` متزامنة، والقصّةُ في القاعدة.
-     */
-    const at = player?.state?.index ?? 0;
-    const list = stories.get(at) || [];
-    return {
-      title: 'قصّة الجملة',
-      foot: list.length ? 'مادّة تدريب مشتقّة من الجملة دي' : 'الصق قصّة من ChatGPT',
-      groups: [],
-      after: '<div class="sh-story" data-story>بنجيبها…</div>',
+      after: '<div class="sh-learn" data-learn>بنجيبها…</div>',
     };
   }
   if (id === 'meaning') {
@@ -4549,8 +4517,7 @@ function renderRail() {
 
   /* ⚠️ محتوًى من القاعدة يأتي بعد القشرة — ولا يُنتظَر هنا، فالرسمُ
         متزامنٌ ولا يجوز أن تتأخّر السكّةُ كلُّها على قراءة. */
-  if (rail.tool === 'draft') renderDraft().catch(() => {});
-  if (rail.tool === 'story') renderStory().catch(() => {});
+  if (rail.tool === 'learn') renderLearn().catch(() => {});
 }
 
 /**
@@ -4960,7 +4927,7 @@ async function claimDraftHere() {
       { updateRecord: (id, patch) => scripts.update(id, patch) }
     );
     await refreshDrafted();
-    await renderDraft();
+    await renderLearn();
     toastOk('تمام — المسودّة دي بقت بتاعة الجملة دي');
   } catch (error) {
     console.error(error);
@@ -5013,6 +4980,16 @@ let material = new Map();
 let stories = new Map();
 
 /**
+ * ملخّصُ طبقةِ التعلّم لكلّ مقطع — **ما تقرؤه الشارةُ الواحدة** (WS-SL).
+ *
+ * ⚠️ **ولا تُلغي `material` و`stories`**: اللوحُ يحتاج المسودّةَ نفسَها
+ *    ودرجةَ ثقتها، ويحتاج عُقَدَ القصص. وهذه ملخّصٌ للسطر وحدَه —
+ *    عددُ القطع وما خلص منها وعددُ القصص. ثلاثُ قيمٍ لا ثلاثةُ مصادر:
+ *    كلُّها تُشتقّ من الخريطتين نفسِهما في نفس القراءة.
+ */
+let learning = new Map();
+
+/**
  * يقرأ «مَن له مسودّة» — **بلا لمس الشاشة**.
  *
  * ⚠️ منفصلةٌ عن الرسم عمدًا: تُنادى مرّةً **قبل** أن تُرسَم السطور
@@ -5035,6 +5012,7 @@ async function readDrafted() {
    */
   material = new Map();
   stories = new Map();
+  learning = new Map();
   const sourceId = ctx.session?.sourceId;
   if (!sourceId) return;
   try {
@@ -5044,9 +5022,35 @@ async function readDrafted() {
       sceneId: ctx.session?.sceneId || null,
     });
     stories = await storiesForSegments(record, texts);
+    /*
+     * ⚠️ **والملخّصُ يُبنى من الخريطتين لا من قراءةٍ ثالثة**: كلُّ ما
+     *    تحتاجه الشارةُ حاضرٌ الآن في الذاكرة — نصُّ المسودّة وحالاتُ
+     *    قطعها وعددُ القصص. فاستعلامٌ ثالثٌ هنا كان سيدفع ثمنًا بلا
+     *    مقابل، وهو الدرسُ نفسُه الذي أعطى `materialForSegments` شكلَها.
+     */
+    learning = summariseLearning();
   } catch {
     /* مصدرٌ محذوفٌ أو غيرُ سكريبت — الشارةُ تغيب ولا تكذب (بند ٤٧). */
   }
+}
+
+/** يبني ملخّصَ السطر من `material` و`stories` الحاضرتين — بلا قاعدة. */
+function summariseLearning() {
+  const out = new Map();
+  const seen = new Set([...material.keys(), ...stories.keys()]);
+  for (const i of seen) {
+    const hit = material.get(i) || null;
+    const chunks = hit?.draft ? coreChunks(hit.draft) : [];
+    const at = chunkProgress(chunks, chunkStates(hit?.draft));
+    out.set(i, {
+      draft: hit?.draft || null,
+      how: hit?.how || null,
+      chunks: at.total,
+      done: at.done,
+      stories: (stories.get(i) || []).length,
+    });
+  }
+  return out;
 }
 
 /** يعيد القراءة ثم يُنعش السطور — بلا إعادة رسم اللوحة. */
@@ -5062,25 +5066,19 @@ async function refreshDrafted() {
      *    وحدَه كان يترك الاسمَ القديم على جملةٍ صار لها معنًى جديد.
      */
     const meta = el.querySelector('.meta');
-    const old = meta?.querySelector('[data-sh-draft], .sh-line-draft');
     if (!meta) continue;
-    const next = draftBadgeHtml(i);
+    /*
+     * ⚠️ **وشارةٌ واحدةٌ تُنعَش لا شارتان** (WS-SL): كنتُ أُنعش `✎` ثمّ
+     *    نسيتُ `▤` فبقيت `＋▤` بعد حفظٍ نجح — والحفظُ الذي لا يُرى
+     *    أثرُه = حفظٌ لا تصدّقه. وبابٌ واحدٌ يُنهي هذا الصنفَ من السهو
+     *    بالبنية: لا يوجد ثانٍ يُنسى.
+     */
+    const old = meta.querySelector('[data-sh-learn]');
+    const next = learnBadgeHtml(i);
     if (old) old.outerHTML = next;
     else if (next) meta.querySelector('.ts')?.insertAdjacentHTML('beforebegin', next);
-
-    /*
-     * ⚠️ **وشارةُ القصّة تُنعَش هنا أيضًا** (WS-SC · التمريرة الثانية):
-     *    نسيتُها أوّلَ مرّة، فكان الحفظُ يكتب القصّةَ في القاعدة و
-     *    `＋▤` تبقى `＋▤` حتى تُعاد الشاشةُ كلُّها. والحفظُ الذي لا
-     *    يُرى أثرُه = حفظٌ لا تصدّقه.
-     */
-    const oldTale = meta.querySelector('[data-sh-story]');
-    const tale = storyBadgeHtml(i);
-    if (oldTale) oldTale.outerHTML = tale;
-    else if (tale) meta.querySelector('.ts')?.insertAdjacentHTML('beforebegin', tale);
   }
-  paintToolValue('draft');
-  paintToolValue('story');
+  paintToolValue('learn');
 }
 
 /**
@@ -5103,83 +5101,58 @@ function paintToolValue(id) {
   btn.setAttribute('aria-label', `${tool.label}${value ? ` — ${value}` : ''}`);
 }
 
-/**
- * يفتح مسودّةَ جملةٍ بعينها من شارتها — **بلا مغادرة الشادوينج**.
- *
- * ═══════════════════════════════════════════════════════════════
- * ⚠️ **الجملةُ تُختار أوّلًا، ثمّ تُفتَح مسودّتُها**
- * ═══════════════════════════════════════════════════════════════
- *
- * والترتيبُ ليس تفصيلًا (بندا ٢٧ و٤٢): لوحُ المسودّة يقرأ موضوعَه من
- * **الجملة الجارية**. فلو فُتح قبل الاختيار لعرض مسودّةَ الجملة التي
- * كنتَ فيها — أي أن تلمس شارةَ الجملة ١٦ فتُفتَح مسودّةُ ١٥.
- *
- * ⚠️ **ولا حالةَ جديدةً تُخترَع** (بند ٤٢): لا `showDraft` ولا
- *    `isOriginal`. السياقُ الحاكمُ واحدٌ وقائم: أيُّ جملةٍ جاريةٌ
- *    (`player.state.index`) وأيُّ أداةٍ مفتوحةٌ في السكّة (`rail.tool`).
- *    وهذه الدالّةُ تضبط الاثنين ولا تضيف ثالثًا.
- *
- * ⚠️ **ولا مسارَ عبر صفحة النصوص** (بند ٣٠): المدخلُ من الجملة نفسِها،
- *    والمدخلُ القديمُ من صفحة النصوص باقٍ كما هو (بند ٣١).
- */
-async function openDraftForSentence(index) {
-  if (!Number.isInteger(index) || !ctx?.segments?.[index]) return;
-
-  /*
-   * (١) الجملةُ تصير الجارية — بنفسِ الطريقِ الذي يسلكه النقرُ على السطر.
-   * ⚠️ لا تنادِ player.goTo مباشرةً هنا: هي تنقُل المؤشِّرَ وحدَه، فتبقى
-   *    الشُّرَطُ والكلماتُ على الجملةِ القديمة. goSegment هي الجامعة.
-   */
-  if (player?.state?.index !== index) goSegment(index);
-
-  /* (٢) ثمّ تُفتَح أداةُ المسودّة القائمة — لا لوحٌ ثانٍ لها. */
-  rail.open = true;
-  rail.tool = 'draft';
-  renderRail();
-  try { await renderDraft(); } catch { /* اللوحُ يعرض خطأه بنفسه */ }
-}
-
 /* ================================================================== *
- * قصّةُ الجملة / مشهدُ النقل (WS-SC · التمريرة الثانية)
+ * طبقةُ تعلّم الجملة — عالَمٌ واحدٌ حول جملةٍ واحدة (WS-SL)
  * ================================================================== */
 
 /**
- * يفتح قصّةَ جملةٍ بعينها — **بنفس طريق المسودّة حرفًا بحرف** (بند ٧).
+ * التبويبُ المفتوحُ داخل اللوح — **حالةُ عرضٍ لا تُحفَظ**.
  *
- * ⚠️ **الجملةُ تُختار أوّلًا**: اللوحُ يقرأ موضوعَه من الجملة الجارية،
- *    فلمسُ شارةِ الجملة ١٦ قبل اختيارها كان سيفتح قصّةَ ١٥.
- *
- * ⚠️ **ولا حالةَ ثالثةً تُخترَع**: `player.state.index` و`rail.tool` —
- *    نفسُ الحاكمَين اللذين تضبطهما `openDraftForSentence`.
+ * ⚠️ ولا تُخلَط بـ`rail.tool`: تلك تقول «أيُّ لوحٍ مفتوح»، وهذه تقول
+ *    «أين أنت داخله». وحالةٌ واحدةٌ تحمل المعنيين تنكسر أوّلَ ما
+ *    يُضاف تبويبٌ ثالث.
  */
-async function openStoryForSentence(index) {
+const LEARN_TAB = Object.freeze({ CHUNKS: 'chunks', STORY: 'story', TOOLS: 'tools' });
+let learnTab = LEARN_TAB.CHUNKS;
+
+/** القطعةُ المفرودةُ الآن — مفتاحُها، أو `null` حين تكون كلُّها مطويّة. */
+let openChunk = null;
+
+/**
+ * يفتح طبقةَ تعلّم جملةٍ بعينها — **بابٌ واحدٌ بدل بابين** (بند ١٥).
+ *
+ * ⚠️ **الجملةُ تُختار أوّلًا ثمّ يُفتَح اللوح**: اللوحُ يقرأ موضوعَه من
+ *    الجملة الجارية، فلمسُ شارةِ الجملة ١٦ قبل اختيارها كان سيفتح
+ *    عالَمَ الجملة ١٥. وهو نفسُ ترتيبِ `openDraftForSentence` القديمة.
+ *
+ * ⚠️ **ولا حالةَ حاكمةً ثالثة**: `player.state.index` و`rail.tool` —
+ *    نفسُ الاثنين. و`learnTab` عرضٌ داخل اللوح لا سياقُ الشاشة.
+ */
+async function openLearnForSentence(index, tab = null) {
   if (!Number.isInteger(index) || !ctx?.segments?.[index]) return;
   if (player?.state?.index !== index) goSegment(index);
-  /* جملةٌ جديدةٌ ⇒ اختيارٌ جديدٌ وصندوقٌ مقفول — لا تُوَرَّث حالةُ سابقتها. */
+
+  /* جملةٌ جديدةٌ ⇒ لوحٌ من أوّله: لا يُوَرَّث تبويبُ سابقتها ولا مفرودُها. */
+  learnTab = tab || LEARN_TAB.CHUNKS;
+  openChunk = null;
   storyPick = 0;
   storyAdding = false;
+
   rail.open = true;
-  rail.tool = 'story';
+  rail.tool = 'learn';
   renderRail();
-  try { await renderStory(); } catch { /* اللوحُ يعرض خطأه بنفسه */ }
+  try { await renderLearn(); } catch { /* اللوحُ يعرض خطأه بنفسه */ }
 }
 
 /**
- * يرسم لوحَ القصّة — **والجملةُ الأمُّ فوقها دائمًا** (بند ١١).
+ * يرسم اللوحَ كلَّه: الجملةُ الأمُّ ثمّ التقدّمُ ثمّ التبويب.
  *
- * ═══════════════════════════════════════════════════════════════
- * ⚠️ **«القصّةُ دي جاية من الجملة دي» ليست زينة**
- * ═══════════════════════════════════════════════════════════════
- *
- * القصّةُ موقفٌ مُختلَقٌ يشبه موقفَك. وبلا الجملة الأصليّة فوقها تصير
- * نصًّا سائبًا لا تعرف لِمَ هو هنا — وتضيع الفائدةُ كلُّها، لأنّ
- * الفائدةَ في **النقل**: من جملةٍ قلتَها إلى موقفٍ تقولها فيه ثانيةً.
- *
- * ⚠️ **ولا مولِّدَ هنا** (بند ٣): صندوقُ لصقٍ وحدَه. أنت تذهب إلى
- *    ChatGPT وتعود بالنصّ، والتطبيق يخزّن ويربط ويعرض ويُدرِّب.
+ * ⚠️ **والجملةُ الأصليّةُ في رأسه دائمًا** (بندا ٢ و١٣): تقرأ ما تتعلّمه
+ *    وأنت ترى ما جاء منه. وبلا هذا السطر تصير القطعُ مفرداتٍ سائبةً لا
+ *    تعرف لِمَ هي هنا — وهي نفسُ العلّة التي عولجت في لوح القصّة.
  */
-async function renderStory() {
-  const host = $('[data-story]');
+async function renderLearn() {
+  const host = $('[data-learn]');
   if (!host) return;
 
   const at = player?.state?.index ?? 0;
@@ -5189,87 +5162,329 @@ async function renderStory() {
     return;
   }
 
-  /*
-   * ⚠️ نسبٌ ظاهرٌ في أعلى اللوح — لا في تلميحٍ يختفي.
-   *
-   * ⚠️ **والرقمُ رقمُ المقطع لا رقمُ الجملة في السجلّ** — عن قصد: هو
-   *    العددُ المكتوبُ على السطر أمامك في الصفحة اليسرى. ولو قلنا
-   *    رقمَ الجملة في المصدر لَقال اللوحُ «من الجملة ٤» وأنت تنظر إلى
-   *    سطرٍ مكتوبٍ عليه «٢» في جلسةٍ على مختارات. والنصُّ تحته هو
-   *    الحاسم على أيّ حال.
-   */
-  const head = html`
-    <div class="sh-story-from">
-      <span class="sh-story-from-k">من الجملة ${at + 1}</span>
-      <span dir="ltr" lang="ru">${source}</span>
-    </div>`;
+  const summary = learning.get(at) || null;
+  const found = await resolveDraft({ kind: SUBJECT.SENTENCE, text: source });
+  const draft = found.draft;
+  openDraftId = draft?.id || null;
 
-  const list = stories.get(at) || [];
+  const chunks = draft ? coreChunks(draft) : [];
+  const states = chunkStates(draft);
+  const progress = chunkProgress(chunks, states);
+  const tales = stories.get(at) || [];
+
   /*
-   * ⚠️ **وصندوقُ اللصق يُفتَح صراحةً حين توجد قصّةٌ بالفعل** (بند ١٢):
-   *    شارةُ السطر تفتح ما هو موجود، فلو كان اللصقُ معلَّقًا عليها
-   *    وحدَها لَما وُجد طريقٌ إلى قصّةٍ ثانية أبدًا — والنموذجُ يسمح
-   *    بها. فزرٌّ واحدٌ في ذيل اللوح، لا مُنشئُ قصصٍ ثانٍ.
+   * ⚠️ **ولا يُخفى تبويبٌ لأنّه فارغ.** أوّلُ تصميمٍ أخفى «مشهد النقل»
+   *    حتى توجد قصّة — فلا يبقى طريقٌ إلى إنشاء الأولى. والتبويبُ
+   *    الفارغُ يقول ما ينقص وكيف يُملأ، وهو أنفعُ من غيابه.
    */
-  if (!list.length || storyAdding) {
-    host.innerHTML = `${head}
-      <div class="sh-story-new">
-        <p class="sh-story-hint">
-          اطلب من ChatGPT مشهد نقل أو قصّة قصيرة على الجملة دي، والصقها هنا.
-        </p>
-        <textarea class="sh-draft-box" data-story-box dir="auto" rows="8"
-          placeholder="الصق القصّة أو مشهد النقل…"></textarea>
-        <div class="sh-draft-row">
-          <button data-sh="story-save">احفظ القصّة</button>
-          ${list.length ? '<button data-sh="story-cancel">إلغاء</button>' : ''}
-        </div>
+  const tabs = [
+    { id: LEARN_TAB.CHUNKS, label: '🧩 القطع', note: chunks.length ? `${progress.done}/${chunks.length}` : '' },
+    { id: LEARN_TAB.STORY, label: '📖 مشهد النقل', note: tales.length ? String(tales.length) : '' },
+    { id: LEARN_TAB.TOOLS, label: '🧰 أدوات', note: '' },
+  ];
+
+  host.innerHTML = `
+    ${learnHeadHtml(at, source, found)}
+    ${learnProgressHtml(progress, tales, summary)}
+    <!--
+      ⚠️ **ولا raw() هنا**: الغلافُ قالبٌ عاديٌّ لا موسومٌ بـhtml،
+         و raw() لا معنى لها إلّا داخل الموسوم. كتبتُها فخرجت
+         التبويباتُ فارغةً — أمسكه المِجَسُّ الحيُّ لا الاختبار، لأنّ
+         الرسمَ لا يُخطئ بل يصمت.
+    -->
+    <div class="sh-learn-tabs" role="tablist" aria-label="مواد تعلّم الجملة">
+      ${tabs.map((one) => html`
+        <button role="tab" class="${learnTab === one.id ? 'on' : ''}"
+                aria-selected="${learnTab === one.id ? 'true' : 'false'}"
+                data-sh="learn-tab" data-v="${one.id}"
+          >${one.label}${raw(one.note ? html`<i>${one.note}</i>` : '')}</button>`).join('')}
+    </div>
+    <div class="sh-learn-body" data-learn-body></div>`;
+
+  await paintLearnBody({ at, source, draft, chunks, states, tales });
+}
+
+/**
+ * رأسُ اللوح: الجملةُ الأصليّةُ وأفعالُها المباشرة (بند ٢).
+ *
+ * ⚠️ **و«اسمع» و«سجّل» هنا هما القائمان نفسُهما** (بند ٨): يُنادَيان
+ *    بنفس مُعالِجَي الشاشة، فلا مشغّلَ ثانٍ ولا مسجّلَ ثانٍ — زرّان
+ *    في مكانٍ جديدٍ لا آلتان جديدتان.
+ */
+function learnHeadHtml(index, source, found) {
+  return html`
+    <div class="sh-learn-head">
+      <span class="sh-learn-from">الجملة ${index + 1}</span>
+      <p class="sh-learn-src" dir="ltr" lang="ru">${source}</p>
+      <div class="sh-learn-acts">
+        <button data-sh="play" title="اسمع الجملة">🔊 اسمع</button>
+        <!--
+          ⚠️ **«سجّل» تمرّ بمُوزِّع الأدوات لا باسمِ فعلٍ خاصّ.**
+
+             كتبتُها أوّلَ مرّة باسم الأداة نفسِه — وهو **معرّفُ أداةٍ**
+             في السكّة لا اسمُ فعلٍ في المُوزِّع، فكان الزرُّ ميتًا: يُضغَط
+             فلا يقع شيء. أمسكه الحارسُ القائم («كل اسم فعل يُصدره الرسم
+             له معالِج») قبل أن يصل إلى الجهاز.
+
+             ⚠️ **ولا يُهجّى الاسمُ حرفيًّا في تعليقٍ داخل قالبٍ يُرسَم**:
+                التعليقُ هنا يخرج إلى الصفحة، فالحارسُ يقرؤه ويحسبه
+                إصدارًا. وهذا ثالثُ مرّةٍ يقع فيها هذا الصنفُ من الالتباس.
+        -->
+        <button data-sh="tool" data-v="myvoice" title="سجّل صوتك عليها">🎙 سجّل</button>
+        <button data-sh="draft-copy" title="انسخها عشان تحلّلها برّه">⧉ نسخ</button>
+      </div>
+      ${raw(found?.how === ATTACH.AMBIGUOUS ? unsureBannerHtml() : '')}
+    </div>`;
+}
+
+/**
+ * شريطُ التقدّم — **حكمُك وشهادتُك جنبًا إلى جنبٍ ولا يختلطان** (بند ٩).
+ *
+ * ⚠️ «٣/٨ قطعة» حكمُك أنت (تعلّمها بيدك)، و«٢ تسجيل» شهادةٌ ممّا وقع.
+ *    وعرضُهما في سطرٍ واحدٍ لا يخلطهما ما دام كلٌّ مسمًّى باسمه — أمّا
+ *    جمعُهما في رقمٍ واحدٍ فكان سيصنع «إتقانًا» لا مصدرَ له.
+ */
+function learnProgressHtml(progress, tales, summary) {
+  const bits = [];
+  if (progress.total) bits.push(html`<b>${progress.done}/${progress.total}</b> قطعة خلصت`);
+  if (progress.practicing) bits.push(html`<b>${progress.practicing}</b> تحت التمرين`);
+  if (tales.length) bits.push(html`<b>${tales.length}</b> مشهد نقل`);
+  if (summary?.reps) bits.push(html`<b>${summary.reps}</b> مرّة تدريب`);
+  if (!bits.length) return '<p class="sh-learn-none">لسّه مفيش مادّة على الجملة دي.</p>';
+  return `<p class="sh-learn-progress">${bits.join(' · ')}</p>`;
+}
+
+/** يرسم جسمَ التبويب المفتوح وحدَه — بلا إعادة رسمِ الرأس والتقدّم. */
+async function paintLearnBody(ctxIn) {
+  const body = $('[data-learn-body]');
+  if (!body) return;
+  if (learnTab === LEARN_TAB.STORY) return paintLearnStory(body, ctxIn);
+  if (learnTab === LEARN_TAB.TOOLS) return paintLearnTools(body, ctxIn);
+  return paintLearnChunks(body, ctxIn);
+}
+
+/**
+ * تبويبُ القطع — **كلُّ قطعةٍ وحدةُ تعلّمٍ لا سطرُ نصّ** (بند ٤).
+ *
+ * ⚠️ **ومطويّةٌ حتى تُفتَح**: مسودّةٌ فيها اثنتا عشرة قطعةً بأمثلتها
+ *    تملأ اللوحَ بما لا تقرؤه الآن. فالعنوانُ ومعناه ظاهران، والباقي
+ *    يُفرَد بلمسة — وهو ما يجعل «٨/١٢» قابلةً للقراءة أصلًا.
+ */
+function paintLearnChunks(body, { chunks, states, draft }) {
+  if (!draft) {
+    body.innerHTML = `
+      <p class="sh-learn-hint">
+        محتاج تحليل للجملة دي: انسخ البرومبت من تبويب «أدوات»، حلّلها في
+        ChatGPT، وارجع الصقها هنا.
+      </p>
+      <textarea class="sh-draft-box" data-draft-box dir="auto" rows="8"
+        placeholder="الصق تحليل الجملة…"></textarea>
+      <div class="sh-draft-state" data-draft-state></div>`;
+    return;
+  }
+
+  if (!chunks.length) {
+    body.innerHTML = `
+      <p class="sh-learn-hint">
+        فيه تحليل محفوظ بس مالقيناش فيه قطعًا (مفردة + معناها). عدّله هنا:
+      </p>
+      <textarea class="sh-draft-box" data-draft-box dir="auto" rows="8"
+        placeholder="الصق تحليل الجملة…">${esc(draft.text || '')}</textarea>
+      <div class="sh-draft-state" data-draft-state></div>`;
+    return;
+  }
+
+  body.innerHTML = `
+    <div class="sh-chunks">
+      ${chunks.map((one) => chunkCardHtml(one, states[one.key])).join('')}
+    </div>
+    <div class="sh-draft-row">
+      <button data-sh="learn-edit">عدّل التحليل</button>
+      <button data-sh="draft-shadow">تدرّب على جزء منه</button>
+    </div>`;
+}
+
+/** بطاقةُ قطعةٍ واحدة — مطويّةٌ إلّا المفرودة. */
+function chunkCardHtml(chunk, state) {
+  const open = openChunk === chunk.key;
+  const done = state === CHUNK_STATE.DONE;
+  const doing = state === CHUNK_STATE.PRACTICING;
+  const mark = done ? '✓' : doing ? '◔' : '○';
+  const cls = ['sh-chunk', open ? 'is-open' : '', done ? 'is-done' : '', doing ? 'is-doing' : '']
+    .filter(Boolean).join(' ');
+
+  return html`
+    <div class="${cls}">
+      <button class="sh-chunk-head" data-sh="chunk-open" data-v="${chunk.key}"
+              aria-expanded="${open ? 'true' : 'false'}">
+        <span class="sh-chunk-mark" aria-hidden="true">${mark}</span>
+        <span class="sh-chunk-ru" dir="ltr" lang="ru">${chunk.ru}</span>
+        <span class="sh-chunk-ar">${chunk.ar}</span>
+      </button>
+      ${raw(open ? chunkBodyHtml(chunk, state) : '')}
+    </div>`;
+}
+
+/** جسمُ القطعة المفرودة: الإحساسُ والأمثلةُ والقالبُ وأزرارُ الحالة. */
+function chunkBodyHtml(chunk, state) {
+  const sense = chunk.sense.length
+    ? html`<p class="sh-chunk-sense">${chunk.sense.join(' ')}</p>` : '';
+
+  /*
+   * ⚠️ **والمثالُ يُنطَق بالمحرّك القائم** (بند ٨): `data-sh="say"` هو
+   *    نفسُ المُعالِج الذي ينطق أيَّ نصٍّ في هذه الشاشة. فلا مسارَ نطقٍ
+   *    ثانٍ — وهو الدرسُ الذي كلّف WS-M زرًّا كاملًا حين وُجد مساران.
+   */
+  const examples = chunk.examples.length ? html`
+    <ul class="sh-chunk-ex">
+      ${raw(chunk.examples.map((one) => html`
+        <li>
+          <button class="sh-chunk-say" data-sh="say" data-v="${one.ru}"
+                  title="اسمعها">▶</button>
+          <span dir="ltr" lang="ru">${one.ru}</span>
+          ${raw(one.ar ? html`<i>${one.ar}</i>` : '')}
+        </li>`).join(''))}
+    </ul>` : '';
+
+  const patterns = chunk.patterns.length ? html`
+    <p class="sh-chunk-pat" dir="ltr">${chunk.patterns.join(' · ')}</p>` : '';
+
+  return html`
+    <div class="sh-chunk-body">
+      ${raw(sense)}${raw(examples)}${raw(patterns)}
+      <div class="sh-chunk-acts">
+        <button data-sh="chunk-state" data-v="${chunk.key}" data-to="${CHUNK_STATE.PRACTICING}"
+                class="${state === CHUNK_STATE.PRACTICING ? 'on' : ''}">بتمرّن عليها</button>
+        <button data-sh="chunk-state" data-v="${chunk.key}" data-to="${CHUNK_STATE.DONE}"
+                class="${state === CHUNK_STATE.DONE ? 'on' : ''}">خلصت</button>
+        ${raw(state ? html`
+          <button data-sh="chunk-state" data-v="${chunk.key}"
+                  data-to="${CHUNK_STATE.NEW}">شيل العلامة</button>` : '')}
+        ${raw(chunk.examples.length ? html`
+          <button data-sh="chunk-shadow" data-v="${chunk.key}">اتدرب على أمثلتها</button>` : '')}
+      </div>
+    </div>`;
+}
+
+/**
+ * يتدرّب على أمثلةِ قطعةٍ — **بمحرّك الظلّ نفسِه** (بندا ٧ و٨).
+ *
+ * ⚠️ **ولا محرّكَ تدريبٍ ثانٍ للقطع**: الأمثلةُ تدخل مصدرًا مؤقّتًا
+ *    بنفس الطريق الذي تدخل به جملُ المسودّة (`enterTempSource`)،
+ *    فالسرعةُ والتكرارُ والصوتُ والتسجيلُ كلُّها كما هي.
+ *
+ * ⚠️ **وتصير القطعةُ «تحت التمرين» تلقائيًّا**: بدأتَ فعلًا، فالحالةُ
+ *    تقول ذلك بلا أن تضغط زرًّا ثانيًا. و«خلصت» تبقى حكمَك وحدَك —
+ *    فلا يُدّعى إتقانٌ من مجرّد فتحِ التدريب.
+ */
+async function shadowChunk(key) {
+  if (!openDraftId) return toastError('مفيش تحليل محفوظ للجملة دي');
+  const draft = await studyDrafts.get(openDraftId);
+  const chunk = coreChunks(draft).find((one) => one.key === key);
+  if (!chunk) return toastError('القطعة دي مابقتش موجودة');
+
+  /* الأمثلةُ أوّلًا، وإلّا فالمفردةُ نفسُها — أفضلُ من رسالةِ عجز. */
+  const rows = chunk.examples.length ? chunk.examples : [{ ru: chunk.ru, ar: chunk.ar }];
+
+  if (chunkStates(draft)[key] !== CHUNK_STATE.DONE) {
+    await setChunkState(openDraftId, key, CHUNK_STATE.PRACTICING);
+    await refreshDrafted();
+  }
+
+  /* واللوحُ يُقفَل قبل التدريب — درسُ WS-SC2: حاجبٌ فوق ما فتحتَه. */
+  rail.open = false;
+  renderRail();
+  return enterTempSource(`chunk:${openDraftId}:${key}`, rows, { label: chunk.ru });
+}
+
+/**
+ * تبويبُ مشهد النقل — **نفسُ عرضِ القصّة، داخل عالَم الجملة** (بند ٥).
+ *
+ * ⚠️ **ولا نسخةَ ثانيةً من منطق القصّة**: الشكلُ يُقرأ بـ`storyShape`
+ *    والأدوارُ بـ`storySegments` والتدريبُ بـ`practiceStory` — كلُّها
+ *    كما هي منذ التمريرة الثانية. ما تغيّر مكانُها لا آلتُها.
+ */
+function paintLearnStory(body, { at, tales }) {
+  if (!tales.length || storyAdding) {
+    body.innerHTML = `
+      <p class="sh-learn-hint">
+        اطلب من ChatGPT مشهد نقل أو قصّة قصيرة على الجملة دي، والصقها هنا.
+        البرومبت جاهز في تبويب «أدوات».
+      </p>
+      <textarea class="sh-draft-box" data-story-box dir="auto" rows="7"
+        placeholder="الصق القصّة أو مشهد النقل…"></textarea>
+      <div class="sh-draft-row">
+        <button data-sh="story-save">احفظ المشهد</button>
+        ${tales.length ? '<button data-sh="story-cancel">إلغاء</button>' : ''}
       </div>`;
     return;
   }
 
-  /*
-   * ⚠️ **الأولى تُعرَض والعددُ يُقال** (بند ١٢): نموذجُ العلاقات يسمح
-   *    بأكثرَ من قصّة، ومُنتقٍ كاملٌ قبل أن توجد ثانيةٌ تعقيدٌ سابقٌ
-   *    لأوانه. فإن وُجدت أخرى ظهر شريطُ انتقاءٍ مضغوطٌ لا أكثر.
-   */
-  const pickAt = Math.min(storyPick, list.length - 1);
-  const node = list[pickAt];
+  const pickAt = Math.min(storyPick, tales.length - 1);
+  const node = tales[pickAt];
   const shape = storyShape(node.text || '');
   const turns = shape === STORY_SHAPE.DIALOGUE ? storySegments(node.text || '') : null;
 
-  host.innerHTML = `${head}
-    ${list.length > 1 ? html`
-      <div class="sh-story-pick" role="tablist" aria-label="قصص الجملة">
-        ${raw(list.map((one, i) => html`
+  body.innerHTML = `
+    ${tales.length > 1 ? html`
+      <div class="sh-story-pick" role="tablist" aria-label="مشاهد الجملة">
+        ${tales.map((one, i) => html`
           <button role="tab" data-sh="story-pick" data-v="${i}"
                   aria-selected="${i === pickAt ? 'true' : 'false'}"
-                  class="${i === pickAt ? 'on' : ''}">${i + 1}</button>`).join(''))}
+                  class="${i === pickAt ? 'on' : ''}">${i + 1}</button>`).join('')}
       </div>` : ''}
     <div class="sh-story-head">
-      ${html`<b dir="auto">${node.title || 'قصّة'}</b>`}
+      ${html`<b dir="auto">${node.title || 'مشهد نقل'}</b>`}
       <span class="sh-story-kind">${shape === STORY_SHAPE.DIALOGUE
         ? `حوار · ${turns?.length || 0} دور` : 'سرد'}</span>
     </div>
     <div class="sh-story-body" dir="ltr" lang="ru">${
       turns
-        /*
-         * ⚠️ **ولا عنصرَ ثالثًا للقول.** ظننتُ الاسمَ والقولَ ملتصقَين
-         *    لأنّ `textContent` يعطي «ПродавецЗдравствуйте» — ثمّ قِستُ
-         *    ما يقرؤه النسخُ وشجرةُ الوصول فعلًا (`innerText`)، فوجدتُه
-         *    مفصولًا بسطرٍ في الحالتين: `display:block` على الاسم يكفي.
-         *    `textContent` أعمى عن التخطيط بحكم تعريفه، فقياسٌ به
-         *    يخترع عطبًا ثم يُصلحه.
-         */
         ? turns.map((one) => html`<p class="sh-story-turn">${raw(one.speaker
             ? html`<b class="sh-story-who">${one.speaker}</b>` : '')}${one.text}</p>`).join('')
         : html`<p>${node.text || ''}</p>`
     }</div>
     <div class="sh-draft-row">
-      <button data-sh="story-practice" data-v="${node.id}">اتدرب على القصّة</button>
+      <button data-sh="story-practice" data-v="${node.id}">اتدرب على المشهد</button>
       <button data-sh="story-copy" data-v="${node.id}">نسخ</button>
-      <button data-sh="story-new">قصّة تانية</button>
+      <button data-sh="story-new">مشهد تاني</button>
     </div>`;
 }
+
+/**
+ * تبويبُ الأدوات — **برومبتاتٌ من المكتبة لا نصوصٌ مكتوبةٌ هنا** (بند ١٠).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **ولمَ لا تُكتَب البرومبتاتُ في هذا الملفّ**
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * لأنّ لها مكتبةً منذ WS-PL: قوالبُ تُحرَّر وتُنسَخ ولها متغيّراتُها،
+ * ومنها ما كتبتَه أنت. ونصٌّ ثابتٌ هنا كان سيصير **برومبتًا ثانيًا**
+ * يفترق عن أخيه بعد أوّل تحسين، ولا تعرف أيَّهما استعملت.
+ *
+ * ⚠️ **والقالبُ يُملأ بالجملة الحاضرة قبل النسخ**: تنسخ فتلصق مباشرةً
+ *    في ChatGPT بلا أن تعود لتضع الجملةَ بيدك.
+ */
+async function paintLearnTools(body, { source }) {
+  const { LEARN_PROMPTS } = await import('../services/prompts/library.js');
+
+  body.innerHTML = `
+    <p class="sh-learn-hint">
+      انسخ البرومبت، حلّل الجملة في ChatGPT، وارجع الصق الناتج في تبويبه.
+    </p>
+    <div class="sh-learn-tools">
+      ${LEARN_PROMPTS.map((one) => html`
+        <button data-sh="learn-prompt" data-v="${one.id}">
+          <b>📋 ${one.label}</b>
+          <small>${one.purpose}</small>
+        </button>`).join('')}
+    </div>
+    <p class="sh-learn-note" dir="ltr" lang="ru">${source}</p>`;
+}
+
+/* ================================================================== *
+ * قصّةُ الجملة / مشهدُ النقل (WS-SC · التمريرة الثانية)
+ * ================================================================== */
 
 /** أيُّ قصّةٍ معروضةٌ حين تتعدّد — حالةُ عرضٍ لا تُحفَظ (بند ١٢). */
 let storyPick = 0;
@@ -5323,7 +5538,7 @@ async function saveStoryHere() {
     storyPick = where >= 0 ? where : 0;
     /* الصندوقُ يُقفَل بعد الحفظ — وإلّا بقي فوق القصّة التي كتبتَها. */
     storyAdding = false;
-    await renderStory();
+    await renderLearn();
     paintToolValue('story');
     return toastOk('اتحفظت القصّة واترّبطت بالجملة');
   } catch (error) {
@@ -5498,60 +5713,6 @@ function unsureBannerHtml() {
         <button data-sh="draft-fresh">ابدأ مسودّة جديدة</button>
       </div>
     </div>`;
-}
-
-/**
- * يرسم جسمَ لوحة المسودّة.
- *
- * ⚠️ **ولا تُنشأ مسودّةٌ بمجرّد النظر.** `readDraft` تقرأ ولا تكتب،
- *    فمرورُك على عشرين جملةً لا يترك عشرين صفًّا فارغًا في القاعدة.
- *    الصفُّ يُكتَب عند أوّل حرفٍ تكتبه أو أوّل صورةٍ تضيفها — وهو
- *    نفسُ درسِ `readBlock`/`getBlock` الذي كلّفنا صفوفًا في WS15.
- */
-async function renderDraft() {
-  const host = $('[data-draft]');
-  if (!host) return;
-
-  const subject = draftSubject();
-  if (!subject.text) {
-    openDraftId = null;
-    host.innerHTML = '<p class="sh-draft-empty">مفيش جملة ولا كلمة مختارة دلوقتي.</p>';
-    return;
-  }
-
-  const found = await resolveDraft(subject);
-  const draft = found.draft;
-  openDraftId = draft?.id || null;
-
-  const images = draft ? await draftImages(draft.id) : [];
-
-  host.innerHTML = `
-    <div class="sh-draft-subject">
-      <span class="${subject.kind === SUBJECT.WORD ? '' : 'sh-draft-sent'}"
-            dir="ltr" lang="ru">${esc(subject.text)}</span>
-      <button data-sh="draft-copy" title="انسخها عشان تحلّلها برّه">نسخ</button>
-    </div>
-    ${found.how === ATTACH.AMBIGUOUS ? unsureBannerHtml() : ''}
-
-    <textarea class="sh-draft-box" data-draft-box dir="auto" rows="7"
-      placeholder="الصق هنا تحليل الجملة أو الكلمة…">${esc(draft?.text || '')}</textarea>
-    <div class="sh-draft-state" data-draft-state></div>
-
-    <div class="sh-draft-row">
-      <button data-sh="draft-img">أضف صورة</button>
-      <span data-draft-derived></span>
-    </div>
-    <p class="sh-draft-count" data-draft-count></p>
-
-    ${images.length ? `<div class="sh-draft-imgs">${images.map((row) => `
-      <figure>
-        <button data-sh="draft-open" data-v="${row.id}">
-          <img src="${urlFor(row, { thumb: true })}" alt="" loading="lazy" />
-        </button>
-        <button data-sh="draft-ocr" data-v="${row.id}">استخرج نصّها</button>
-      </figure>`).join('')}</div>` : ''}`;
-
-  drawDerived(draft?.text || '');
 }
 
 /**
@@ -8241,6 +8402,38 @@ async function enterDraftSource(draftId) {
   if (!reviewed) return;
 
   const { draft, picked } = reviewed;
+  return enterTempSource(`draft:${draftId}`, picked, {
+    label: draft.subjectText || 'المسودّة',
+    stamp: (seg) => ({ ...seg, draftId }),
+  });
+}
+
+/**
+ * يدخل مصدرًا مؤقّتًا داخل الجلسة — **مقاطعُ تُضاف ولا شاشةَ تُغادَر**.
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **استُخرجت من `enterDraftSource` لا كُتبت من جديد** (WS-SL)
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * احتاجت طبقةُ التعلّم أن تُدخل **أمثلةَ قطعةٍ** بنفس الطريقة التي
+ * تُدخل بها المسودّةُ جملَها: مقاطعُ مؤقّتةٌ تُدفَع إلى المحرّك، ونافذةُ
+ * مصدرٍ تحصر التنقّل، وحفظُ موضع الرجوع.
+ *
+ * وكان أمامي أن أنسخ الخمسةَ والعشرين سطرًا. والنسخُ هنا خطرٌ معروف:
+ * كلُّ إصلاحٍ لاحقٍ في أحدهما لا يصل إلى الآخر، فيفترق سلوكُ «تدرّب
+ * على المسودّة» عن «تدرّب على القطعة» بعد شهرين بلا أن ينكسر شيءٌ
+ * ظاهر. فاستُخرج الجسمُ ودخل عليه البابان.
+ *
+ * ⚠️ **والفرقُ بينهما بيانٌ لا منطق**: `stamp` تضع على المقطع ما يخصّ
+ *    بابَه (`draftId` مثلًا)، والباقي واحد.
+ *
+ * @param {string} sourceId هُويّةُ المصدر المؤقّت — يُقرأ في الرجوع
+ * @param {{ru: string, ar?: string}[]} rows الجملُ الداخلة
+ * @param {{label: string, stamp?: Function}} how
+ */
+async function enterTempSource(sourceId, rows, { label, stamp } = {}) {
+  const picked = (rows || []).filter((one) => one?.ru?.trim());
+  if (!picked.length) return toastError('مفيش جمل صالحة للتدريب');
 
   /* الحالةُ تُلتقَط قبل أيّ تبديل — وإلّا التقطنا حالةَ المصدر الجديد. */
   captureSource();
@@ -8248,33 +8441,34 @@ async function enterDraftSource(draftId) {
 
   /*
    * ⚠️ أوّلُ دخولٍ فقط يحفظ موضعَ الرجوع — كما في النصّ المؤقّت
-   *    بالضبط (WS-A، بند ١٨). واستبدالُ مسودّةٍ بأخرى ليس خروجًا.
+   *    بالضبط (WS-A، بند ١٨). واستبدالُ مصدرٍ بآخر ليس خروجًا.
    */
   const resume = ctx.returnIndex ?? player.state.index;
   if (externalRange()) dropExternalSource();
   ctx.returnIndex = resume;
 
   const from = ctx.segments.length;
-  const made = picked.map((one, i) => ({
-    id: `draft-${draftId}-${i}`,
-    sessionId: ctx.session.id,
-    sourceObjectId: null,
-    sourceTextSnapshot: one.ru,
-    /* ⚠️ **والترجمةُ تصحب جملتَها** — هذا هو عقدُ WS-D بحرفه (بند ٦٢). */
-    translationSnapshot: one.ar || null,
-    speaker: null,
-    isMine: 0,
-    order: from + i,
-    difficulty: 0,
-    repetitionsCompleted: 0,
-    lastPracticedAt: null,
-    practiceStatus: 'pending',
-    notes: '',
-    temporary: true,
-    /** ⚠️ الشارةُ التي تجعله «مسودّةً» لا «نصًّا مؤقّتًا». */
-    draftId,
-    sourceId: `draft:${draftId}`,
-  }));
+  const made = picked.map((one, i) => {
+    const seg = {
+      id: `${sourceId}-${i}`,
+      sessionId: ctx.session.id,
+      sourceObjectId: null,
+      sourceTextSnapshot: one.ru,
+      /* ⚠️ **والترجمةُ تصحب جملتَها** — هذا هو عقدُ WS-D بحرفه (بند ٦٢). */
+      translationSnapshot: one.ar || null,
+      speaker: null,
+      isMine: 0,
+      order: from + i,
+      difficulty: 0,
+      repetitionsCompleted: 0,
+      lastPracticedAt: null,
+      practiceStatus: 'pending',
+      notes: '',
+      temporary: true,
+      sourceId,
+    };
+    return stamp ? stamp(seg) : seg;
+  });
 
   ctx.segments.push(...made);
   for (const seg of made) {
@@ -8294,12 +8488,12 @@ async function enterDraftSource(draftId) {
   }
 
   await shiftView(async () => {
-    await restoreSource(`draft:${draftId}`, { from, to: ctx.segments.length - 1 });
+    await restoreSource(sourceId, { from, to: ctx.segments.length - 1 });
   });
 
   renderModes();
   paintSourceChip();
-  toastOk(`${made.length} جملة من «${draft.subjectText || 'المسودّة'}»`);
+  return toastOk(`${made.length} جملة من «${label}»`);
 }
 
 /* ══════════════════════════════════════════════════════════════════
@@ -9243,18 +9437,11 @@ function wireInteractions(main) {
    */
   main.addEventListener('keydown', (event) => {
     if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'Spacebar') return;
-    const badge = event.target.closest?.('[data-sh-draft]');
-    if (badge) {
-      event.preventDefault();
-      event.stopPropagation();
-      openDraftForSentence(Number(badge.dataset.shDraft));
-      return;
-    }
-    const tale = event.target.closest?.('[data-sh-story]');
-    if (!tale) return;
+    const badge = event.target.closest?.('[data-sh-learn]');
+    if (!badge) return;
     event.preventDefault();
     event.stopPropagation();
-    openStoryForSentence(Number(tale.dataset.shStory));
+    openLearnForSentence(Number(badge.dataset.shLearn));
   }, wired());
 
   main.addEventListener('click', async (event) => {
@@ -9268,19 +9455,11 @@ function wireInteractions(main) {
      *    من الجملة الجارية، ولأنّ البندَ ٢٧ يشترط أن يبقى واضحًا أيُّ
      *    جملةٍ أصليّةٍ أنت فيها.
      */
-    const badge = event.target.closest('[data-sh-draft]');
+    const badge = event.target.closest('[data-sh-learn]');
     if (badge) {
       event.preventDefault();
       event.stopPropagation();
-      return openDraftForSentence(Number(badge.dataset.shDraft));
-    }
-
-    /* ⚠️ وشارةُ القصّة تُلتقَط قبل الصفّ لنفس السبب (بند ٤). */
-    const tale = event.target.closest('[data-sh-story]');
-    if (tale) {
-      event.preventDefault();
-      event.stopPropagation();
-      return openStoryForSentence(Number(tale.dataset.shStory));
+      return openLearnForSentence(Number(badge.dataset.shLearn));
     }
 
     const line = event.target.closest('[data-line]');
@@ -9696,6 +9875,73 @@ function wireInteractions(main) {
         return renderRail();
       }
 
+      /* ---- طبقةُ تعلّم الجملة (WS-SL) ---- */
+
+      case 'learn-tab': {
+        learnTab = btn.dataset.v || LEARN_TAB.CHUNKS;
+        /*
+         * ⚠️ **والتبويبُ يُعيد رسمَ اللوح كلَّه لا جسمَه وحدَه**: أزرارُ
+         *    التبويب نفسُها تحمل حالةَ «المفتوح»، وعدّادُها يتغيّر بعد
+         *    حفظٍ في تبويبٍ آخر. ورسمُ الجسم وحدَه كان يترك الشريطَ
+         *    يقول إنّك في مكانٍ غادرتَه.
+         */
+        return renderLearn();
+      }
+
+      case 'chunk-open': {
+        /* لمسةٌ ثانيةٌ على المفرودة تطويها — فلا زرَّ إغلاقٍ ثالث. */
+        openChunk = openChunk === btn.dataset.v ? null : btn.dataset.v;
+        return renderLearn();
+      }
+
+      case 'chunk-state': {
+        if (!openDraftId) return toastError('مفيش تحليل محفوظ للجملة دي');
+        await setChunkState(openDraftId, btn.dataset.v, btn.dataset.to);
+        /*
+         * ⚠️ **والسطرُ يعرف فورًا**: `refreshDrafted` تُعيد قراءةَ
+         *    الخريطة وتُنعش الشارة، فيتغيّر «٣/٨» أمامك في اللحظة.
+         *    وبلا ذلك كان الحكمُ يُحفَظ ولا يُرى — وهو حفظٌ لا تصدّقه.
+         */
+        await refreshDrafted();
+        return renderLearn();
+      }
+
+      case 'chunk-shadow': return shadowChunk(btn.dataset.v);
+
+      case 'learn-edit': {
+        /* يفتح صندوقَ التحرير داخل التبويب نفسِه — لا شاشةَ تحرير. */
+        const box = $('[data-learn-body]');
+        if (!box) return undefined;
+        const draft = openDraftId ? await studyDrafts.get(openDraftId) : null;
+        box.innerHTML = `
+          <textarea class="sh-draft-box" data-draft-box dir="auto" rows="10"
+            placeholder="الصق تحليل الجملة…">${esc(draft?.text || '')}</textarea>
+          <div class="sh-draft-state" data-draft-state></div>
+          <div class="sh-draft-row"><button data-sh="learn-tab" data-v="chunks">خلصت</button></div>`;
+        return undefined;
+      }
+
+      case 'learn-prompt': {
+        const { learnPromptById } = await import('../services/prompts/library.js');
+        const one = learnPromptById(btn.dataset.v);
+        const text = currentSentenceText();
+        if (!one || !text) return toastError('مفيش جملة مختارة');
+        try {
+          await navigator.clipboard.writeText(one.build(text));
+          toastOk('اتنسخ البرومبت — روح ChatGPT وارجع الصق الناتج');
+        } catch {
+          toastError('المتصفّح مارضاش ينسخ');
+        }
+        return undefined;
+      }
+
+      /*
+       * ⚠️ **ونطقُ المثال بمسار النطق الوحيد** (بند ٨): `speakScope` هي
+       *    التي توحّد الكلمةَ والمقطعَ والجملة منذ WS-M، وتمرّ بذاكرة
+       *    التوليد. فمسارٌ ثانٍ هنا كان سيفترق عنها في السرعة والصوت.
+       */
+      case 'say': return speakScope(btn.dataset.v);
+
       /* ---- قصّةُ الجملة / مشهدُ النقل (WS-SC · التمريرة الثانية) ---- */
 
       case 'story-save': return saveStoryHere();
@@ -9703,17 +9949,17 @@ function wireInteractions(main) {
       case 'story-back': return backToOriginSentence();
       case 'story-pick': {
         storyPick = Number(btn.dataset.v) || 0;
-        await renderStory();
+        await renderLearn();
         return undefined;
       }
       case 'story-new': {
         storyAdding = true;
-        await renderStory();
+        await renderLearn();
         return undefined;
       }
       case 'story-cancel': {
         storyAdding = false;
-        await renderStory();
+        await renderLearn();
         return undefined;
       }
       case 'story-copy': {
@@ -9758,7 +10004,7 @@ function wireInteractions(main) {
         if (!subject.text) return undefined;
         await birthDraft(subject, { fresh: true });
         await refreshDrafted();
-        await renderDraft();
+        await renderLearn();
         return undefined;
       }
 
@@ -9769,7 +10015,7 @@ function wireInteractions(main) {
         if (!openDraftId) await birthDraft(subject);
         await addDraftImage(openDraftId, file);
         toastOk('الصورة اتضافت للمسودّة');
-        return renderDraft();
+        return renderLearn();
       }
 
       case 'draft-open':
@@ -9791,7 +10037,7 @@ function wireInteractions(main) {
           dismiss();
           toastError(error.message);
         }
-        return renderDraft();
+        return renderLearn();
       }
 
       /*

@@ -294,21 +294,28 @@ describe('WS-SC1 · حرّاسُ الشاشة (بنود ٢ و٨ و١٨ و٦٠)',
   }
 
   it('١٦ · الشارةُ بابٌ له اسمٌ يُقرأ ودورٌ منطوق', async () => {
+    /*
+     * ⚠️ **والبابُ صار واحدًا (WS-SL)**: كان هذا الحارسُ يفحص
+     *    `draftBadgeHtml`، وهي اندمجت في `learnBadgeHtml` حين وُحِّد
+     *    مدخلُ المسودّة والقصّة في «تعلّم». والمطلوبُ لم يتغيّر —
+     *    بابٌ له اسمٌ يُقرأ ودورٌ منطوق — بل تغيّر مكانُه، فانتقل
+     *    الحارسُ معه بدل أن يُحذَف.
+     */
     const s = await code();
-    const at = s.indexOf('function draftBadgeHtml');
+    const at = s.indexOf('function learnBadgeHtml');
     expect(at > 0).toBeTruthy();
     const body = s.slice(at, at + 1600);
     expect(body).toContain('role="button"');
     expect(body).toContain('aria-label');
-    expect(body).toContain('data-sh-draft');
+    expect(body).toContain('data-sh-learn');
   });
 
   it('١٧ · وللجملة الخالية بابُ إنشاءٍ لا فراغ', async () => {
     /* ⚠️ بند ١٨: طريقٌ مرئيٌّ لبدء المسودّة، لا معرفةٌ سابقةٌ بأداةٍ في السكّة. */
     const s = await code();
-    const at = s.indexOf('function draftBadgeHtml');
+    const at = s.indexOf('function learnBadgeHtml');
     expect(s.slice(at, at + 1600)).toContain('is-add');
-    expect(css).toContain('.sh-line.current .sh-line-draft.is-add');
+    expect(css).toContain('.sh-line.current .sh-line-learn.is-add');
   });
 
   it('١٨ · وتُفتَح بلوحة المفاتيح كما تُفتَح بالإصبع', async () => {
@@ -319,7 +326,7 @@ describe('WS-SC1 · حرّاسُ الشاشة (بنود ٢ و٨ و١٨ و٦٠)',
     const s = await code();
     const at = s.indexOf("main.addEventListener('keydown'");
     expect(at > 0).toBeTruthy();
-    expect(s.slice(at, at + 500)).toContain('data-sh-draft');
+    expect(s.slice(at, at + 500)).toContain('data-sh-learn');
   });
 
   it('١٩ · وصفُّ «ليها مسودّة» يُحسَب من الخريطة لا من النصّ', async () => {
@@ -344,8 +351,15 @@ describe('WS-SC1 · حرّاسُ الشاشة (بنود ٢ و٨ و١٨ و٦٠)',
     const at = s.indexOf('async function resolveDraft');
     expect(at > 0).toBeTruthy();
     expect(s.slice(at, at + 900)).toContain('material.get(index)');
-    const draw = s.indexOf('async function renderDraft');
-    expect(s.slice(draw, draw + 700)).toContain('resolveDraft(subject)');
+    /*
+     * ⚠️ **واللوحُ صار `renderLearn` (WS-SL)** — والشرطُ لم يتغيّر:
+     *    ما يفتحه اللوحُ يُحَلّ بـ`resolveDraft` (هُويّةٌ ثمّ نصّ) لا
+     *    بـ`readDraft(text)` وحدَه. فانتقل الحارسُ إلى اللوح الباقي.
+     */
+    const draw = s.indexOf('async function renderLearn');
+    expect(draw > 0).toBeTruthy();
+    expect(s.slice(draw, draw + 1400)).toContain('resolveDraft(');
+    expect(s.slice(draw, draw + 1400).includes('readDraft(')).toBeFalsy();
   });
 
   it('٢١ · وللالتباس مخرجان معلنان لا صمت', async () => {
@@ -357,7 +371,7 @@ describe('WS-SC1 · حرّاسُ الشاشة (بنود ٢ و٨ و١٨ و٦٠)',
 
   it('٢٢ · وهدفُ لمس الشارة ٤٤px على الأقلّ', async () => {
     await code();
-    const at = css.indexOf('.sh-line-draft {');
+    const at = css.indexOf('.sh-line-learn {');
     expect(at > 0).toBeTruthy();
     const rule = css.slice(at, css.indexOf('}', at));
     expect(rule).toContain('min-block-size: 44px');

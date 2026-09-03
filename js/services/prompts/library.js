@@ -357,3 +357,88 @@ export function promptCard(prompt) {
     omitted: Object.entries(prompt.omit || {}).map(([kind, why]) => ({ kind: kindName(kind), why })),
   };
 }
+
+/* ================================================================== *
+ * برومبتاتُ الجملة الواحدة (WS-SL · بند ١٠)
+ * ================================================================== */
+
+/**
+ * ⚠️ **ولمَ هنا لا في شاشة الشادوينج؟**
+ *
+ * لأنّ هذا الملفَّ هو **مكانُ البرومبتات** في التطبيق. وكتابةُ نصٍّ
+ * ثابتٍ داخل الواجهة كان سيصنع برومبتًا ثانيًا يفترق عن أخيه بعد
+ * أوّل تحسين، ولا تعرف أيَّهما استعملتَ حين يأتيك ناتجٌ غريب.
+ *
+ * ⚠️ **وشكلُها غيرُ شكل `PROMPTS` أعلاه — عن قصد.** تلك تُبنى من
+ *    **ذكرى** كاملةٍ وتعود بحزمةٍ تُستورَد بالتحقّق. وهذه تُبنى من
+ *    **جملةٍ واحدة** وتعود بنصٍّ تلصقه بيدك. حاجتان مختلفتان،
+ *    فقالبان مختلفان في مكانٍ واحد — لا قالبٌ واحدٌ يتمطّط لهما.
+ *
+ * ⚠️ **والقالبُ يُملأ بالجملة قبل النسخ** (بند ١٠): تنسخ فتلصق
+ *    مباشرةً، بلا أن تعود لتضع الجملةَ بيدك في المحادثة.
+ */
+export const LEARN_PROMPTS = Object.freeze([
+  {
+    id: 'sentence-chunks',
+    label: 'نسخ برومبت بناء القطع',
+    purpose: 'يطلع لك المفردات ومعانيها وإحساسها وأمثلتها من الجملة دي.',
+    build: (sentence) => [
+      'You are helping an Arabic speaker learn Russian from a sentence they',
+      'met in real life. Break the sentence into its CORE CHUNKS.',
+      '',
+      'For each chunk output EXACTLY this shape, and separate chunks with a',
+      'line of ━ characters:',
+      '',
+      '<the Russian word or phrase, with stress marks>',
+      '<its meaning in Egyptian Arabic>',
+      '',
+      'الإحساس:',
+      '<one or two lines in Egyptian Arabic: register, when it is used>',
+      '',
+      'أمثلة:',
+      '<a short Russian example>',
+      '<its Arabic translation>',
+      '',
+      'القالب:',
+      '<the grammatical pattern, e.g. что + verb + чем>',
+      '',
+      '⚠️ Rules:',
+      '- Keep the section headings in Arabic EXACTLY as written above.',
+      '- Separate every chunk with ━━━━━━━━━━ on its own line.',
+      '- Only chunks that are actually worth learning. Three good ones beat ten.',
+      '- Do not invent usages you are not sure about.',
+      '',
+      'الجملة الأساسية:',
+      sentence,
+    ].join('\n'),
+  },
+  {
+    id: 'sentence-scene',
+    label: 'نسخ برومبت مشهد النقل',
+    purpose: 'يطلع لك موقف جديد تستعمل فيه نفس اللغة — حوار أو سرد قصير.',
+    build: (sentence) => [
+      'You are helping an Arabic speaker learn Russian. Below is ONE sentence',
+      'they met in real life.',
+      '',
+      'Write a SHORT transfer scene: a new, realistic situation where they',
+      'would use the same language. Russian only, natural spoken register.',
+      '',
+      'If it is a dialogue, mark every turn with the speaker name followed by',
+      'a colon, like:',
+      '',
+      'Продавец: ...',
+      'Клиент: ...',
+      '',
+      '⚠️ Rules:',
+      '- 4 to 8 turns, or a short paragraph if narration fits better.',
+      '- Reuse the language of the original sentence, do not just paraphrase it.',
+      '- No Arabic translation, no explanation, no title. The scene only.',
+      '',
+      'الجملة الأصلية:',
+      sentence,
+    ].join('\n'),
+  },
+]);
+
+/** برومبتُ جملةٍ بمعرّفه — أو `null`. */
+export const learnPromptById = (id) => LEARN_PROMPTS.find((one) => one.id === id) || null;
