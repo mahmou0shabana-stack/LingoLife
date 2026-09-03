@@ -17,12 +17,15 @@ import { toast, toastOk, toastError } from '../components/toast.js';
 import { showModal, confirmAction, closeOverlayOf } from '../components/modal.js';
 import { navigate } from '../router.js';
 import { splitWords, splitSentences } from '../services/shadow/segmenter.js';
+import {
+  materialForSegments, attachDraftForSegment, ATTACH,
+} from '../services/shadow/sentence-material.js';
 import { SCOPE, SCOPE_LABEL, resolveTarget } from '../services/shadow/practice-target.js';
 import { openVoiceAttempts } from '../modals/voice-attempts.js';
 import { openLightbox } from '../components/lightbox.js';
 import { openShadowForScript } from '../services/shadow/shadow-entry.js';
 import {
-  SUBJECT, readDraft, openDraft, saveDraftText,
+  SUBJECT, readDraft, openDraft, createDraft, saveDraftText,
   addDraftImage, draftImages, ocrIntoDraft, draftSentences, draftedKeys, subjectKey,
 } from '../services/study-draft.js';
 import { toEgyptian } from '../services/shadow/dialect.js';
@@ -1859,8 +1862,17 @@ function lineHtml(segment, index, isCurrent) {
     isCurrent ? 'current' : '',
     done ? 'practiced' : '',
     segment.practiceStatus === 'difficult' ? 'difficult' : '',
-    /* ✎ — الجملةُ دي ليها مسودّة مذاكرة (WS34) */
-    hasDraftedText(segment.sourceTextSnapshot) ? 'has-draft' : '',
+    /*
+     * ✎ — الجملةُ دي ليها مسودّة مذاكرة (WS34).
+     *
+     * ⚠️ **بالمعرّف لا بالنصّ** (WS-SC1 · بند ٣): كانت هنا
+     *    `hasDraftedText(segment.sourceTextSnapshot)`، وهي تسأل «هل
+     *    لهذا **النصّ** مسودّةٌ في أيّ مكانٍ من التطبيق؟». فكان
+     *    `Хорошо.` في السطر ١٦ يُضيء السطرَ ١٨ معه، وكلاهما يزعم
+     *    مسودّةً واحدةٌ منهما فقط تملكها. والخريطةُ تعرف الجملةَ
+     *    بعينها، فالحاشيةُ الذهبيّةُ صارت صادقة.
+     */
+    material.has(index) ? 'has-draft' : '',
   ]
     .filter(Boolean)
     .join(' ');
@@ -1880,11 +1892,64 @@ function lineHtml(segment, index, isCurrent) {
     )}</span>
     <span class="meta">
       ${raw(done ? html`<span class="reps">×${segment.repetitionsCompleted}</span>` : '')}
-      <span class="sh-line-draft" title="ليها مسودّة مذاكرة">✎</span>
+      ${raw(draftBadgeHtml(index))}
       <span class="ts">${stamp(index)}</span>
       <span class="spk">🔊</span>
     </span>
   </button>`;
+}
+
+/**
+ * شارةُ المسودّة — **بابٌ لا علامة** (WS-SC1 · بنود ٢ و٨ و١٩ و٦٠).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **ما الذي كان، ولماذا لم يكن كافيًا**
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * كانت هنا `<span class="sh-line-draft">✎</span>` تظهر بصنفٍ على
+ * الصفّ. وثلاثةُ أشياءَ نقصتها:
+ *
+ *   ١) **كانت تخصّ النصَّ لا الجملة**: `Хорошо.` في السطر ١٦ و١٨ نصٌّ
+ *      واحد، فتُضاء الشارتان معًا وإحداهما بلا مسودّة (بند ٣).
+ *   ٢) **ولم تكن بابًا**: علامةٌ تقول «فيه» ثمّ تتركك تبحث في السكّة
+ *      عن الأداة. والبندُ ٨ يطلب العكس: لمسةٌ واحدةٌ تفتح مسودّةَ هذه
+ *      الجملة بعينها.
+ *   ٣) **ولم يكن لها اسمٌ يُقرأ**: `<span>` لا يصله قارئُ الشاشة ولا
+ *      لوحةُ المفاتيح (بند ٦٠).
+ *
+ * ⚠️ **ولا تُرسَم شارةٌ لما لا يوجد** (بند ٤٧): الخريطةُ مبنيّةٌ من
+ *    علاقاتٍ محفوظةٍ ومسودّاتٍ حيّة. ومسودّةٌ حُذفت تختفي شارتُها.
+ *
+ * ⚠️ **والظنُّ يُعلَن ظنًّا** (بند ٥): مسودّةٌ قديمةٌ على نصٍّ مكرَّرٍ
+ *    تُعرَض بعلامة استفهامٍ ونصٍّ يقول «محتاجة مراجعة» — لأنّ التطبيق
+ *    لا يعرف أيَّ تكرارٍ تخصّ، وادّعاءُ المعرفة يفتح مسودّةَ غيرها.
+ */
+function draftBadgeHtml(index) {
+  const hit = material.get(index);
+  const unsure = hit?.how === ATTACH.AMBIGUOUS;
+
+  /*
+   * ⚠️ **وللجملةِ الخاليةِ بابٌ أيضًا** (بنود ١٨ و٥١ و٥٣): «＋» بدل «✎».
+   *    قبلها كان الطريقُ الوحيدُ لبدءِ مسودّةٍ أن تعرفَ أنّ في السكّة
+   *    أداةً اسمُها ✎ — وهي معرفةٌ لا تُكتشَف بالنظر. و«＋» تظهر على
+   *    **الجملة الجارية وحدَها** (بـ CSS لا بجافاسكربت): أربعمئةُ سطرٍ
+   *    عليها أربعمئةُ زرِّ إضافةٍ ضوضاءُ لا دعوة.
+   *
+   * ⚠️ **والمكانُ محجوزٌ في الحالتين** — عرضٌ ثابتٌ للشارة. لأنّ
+   *    `display:none` كان يُزحزح السطرَ لحظةَ ظهور العلامة، فيهتزّ
+   *    العمودُ كلُّه وأنت تكتب (درسُ WS34).
+   */
+  const label = !hit
+    ? `اعمل مسودّة للجملة ${index + 1}`
+    : unsure
+      ? `مسودّة الجملة ${index + 1} — محتاجة مراجعة`
+      : `افتح المسودّة المرتبطة بالجملة ${index + 1}`;
+  const mark = !hit ? '＋' : unsure ? '✎؟' : '✎';
+  const cls = ['sh-line-draft', hit ? 'is-on' : 'is-add', unsure ? 'is-unsure' : '']
+    .filter(Boolean)
+    .join(' ');
+  return html`<span class="${cls}" role="button" tabindex="0"
+        data-sh-draft="${index}" aria-label="${label}" title="${label}">${mark}</span>`;
 }
 
 /**
@@ -4688,6 +4753,95 @@ function draftSubject() {
 let openDraftId = null;
 
 /**
+ * يُنشئ مسودّةَ الموضوع الحاليّ — **ويربطها بالجملة بمعرّفها** (WS-SC1).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **لحظةُ الميلاد هي لحظةُ الربط — ولا لحظةَ غيرُها**
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * `openDraft` كانت تُنادى من موضعَين (أوّلُ حرفٍ تكتبه، وأوّلُ صورةٍ
+ * تضيفها)، وكلاهما يحفظ المسودّةَ بـ**نصّها المطبَّع** وحدَه. فكانت
+ * الهُويّةُ الثابتةُ التي بنيناها في `sentence-identity.js` مبنيّةً
+ * ولا يكتبها أحد: كلُّ مسودّةٍ جديدةٍ تولد «قديمةً» تُعثَر بالنصّ.
+ *
+ * فصارت الولادةُ بابًا واحدًا يفعل الاثنين معًا.
+ *
+ * ⚠️ **والربطُ لا يُسقِط المسودّة إن فشل** (بند ٤٧): المسودّةُ مُلكُك
+ *    وقد كُتبت فعلًا. فإن تعذّر الربطُ — مصدرٌ محذوفٌ، نصٌّ مؤقّت،
+ *    جملةٌ حُرِّرت بعد بناء الجلسة — تبقى المسودّةُ وتُعثَر بالنصّ كما
+ *    كانت تُعثَر قبل هذا كلِّه. الأسوأُ أن يضيع ما كتبتَه لأنّ ربطًا
+ *    تزيينيًّا فشل.
+ *
+ * ⚠️ **والكلمةُ لا تُربَط بجملة**: `SUBJECT.WORD` موضوعُه كلمةٌ لا
+ *    جملة، ونسبتُه إلى جملةٍ تجعل شارةَ الجملة تُضيء لمسودّةِ كلمة.
+ */
+async function birthDraft(subject, { fresh = false } = {}) {
+  const where = { sessionId: ctx.session?.id || null, sceneId: ctx.scene?.id || null };
+  const index = player?.state?.index ?? 0;
+  const sourceId = ctx.session?.sourceId;
+
+  /*
+   * ⚠️ **ومتى تُصنَع نسخةٌ جديدةٌ بدل استعادة القديمة؟**
+   *
+   *    حين تكون الخريطةُ هي الحَكَم (جملةٌ في مصدرٍ معلوم) **وتقول
+   *    لا شيء**. عندها اللوحُ نفسُه معروضٌ فارغًا — فلو استعادت
+   *    `openDraft` مسودّةَ جملةٍ أخرى بنفس النصّ لَظهر ما كتبتَه
+   *    مضافًا إلى نصٍّ لم تكن تراه. وهو أسوأُ ما في الباب.
+   */
+  const identityRules =
+    subject.kind === SUBJECT.SENTENCE
+    && Boolean(sourceId)
+    && ctx?.segments?.[index]?.sourceTextSnapshot === subject.text;
+
+  const born = (fresh || identityRules)
+    ? await createDraft(subject.kind, subject.text, where)
+    : await openDraft(subject.kind, subject.text, where);
+  openDraftId = born.id;
+
+  if (subject.kind !== SUBJECT.SENTENCE || !sourceId) return born;
+  try {
+    const record = await scripts.get(sourceId);
+    if (!record) return born;
+    await attachDraftForSegment(
+      record,
+      ctx.segments.map((s) => s.sourceTextSnapshot || ''),
+      index,
+      born.id,
+      { updateRecord: (id, patch) => scripts.update(id, patch) }
+    );
+  } catch (error) {
+    /* الربطُ زينةُ الدقّة لا شرطُ الحفظ — يُسجَّل ولا يُرفَع. */
+    console.warn('WS-SC1 · تعذّر ربطُ المسودّة بالجملة', error);
+  }
+  return born;
+}
+
+/** يحسم نسبةَ مسودّةٍ ملتبسةٍ إلى الجملة الجارية — بضغطةٍ منك لا بالحظّ. */
+async function claimDraftHere() {
+  const index = player?.state?.index ?? 0;
+  const hit = material.get(index);
+  const sourceId = ctx.session?.sourceId;
+  if (!hit?.draft || !sourceId) return;
+  try {
+    const record = await scripts.get(sourceId);
+    if (!record) return;
+    await attachDraftForSegment(
+      record,
+      ctx.segments.map((s) => s.sourceTextSnapshot || ''),
+      index,
+      hit.draft.id,
+      { updateRecord: (id, patch) => scripts.update(id, patch) }
+    );
+    await refreshDrafted();
+    await renderDraft();
+    toastOk('تمام — المسودّة دي بقت بتاعة الجملة دي');
+  } catch (error) {
+    console.error(error);
+    toastError('مقدرناش نثبّت الربط — جرّب تاني');
+  }
+}
+
+/**
  * مفاتيحُ الجمل التي لها مسودّة — أثرُ عملك ظاهرًا على السطر (WS34).
  *
  * ⚠️ **تُقرأ مرّةً عند الفتح وتُحدَّث عند الكتابة** لا عند كل رسم:
@@ -4695,6 +4849,27 @@ let openDraftId = null;
  *    ثقيلًا بلا سبب.
  */
 let drafted = new Set();
+
+/**
+ * ما اشتُقّ من كلّ مقطعٍ — **بمعرّف الجملة لا بنصّها** (WS-SC1).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **لماذا خريطةٌ ثانيةٌ بجوار `drafted`؟**
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * `drafted` مجموعةُ **نصوصٍ مُطبَّعة**، وهي كلُّ ما كان يملكه التطبيق
+ * قبل هذه التمريرة. وعطبُها أنّ `Хорошо.` في الجملة ١٦ و`Хорошо.` في
+ * الجملة ١٨ نصٌّ واحد — فتُضاء الشارةُ على الاثنتين وإحداهما بلا
+ * مسودّة، أو تُفتَح مسودّةُ إحداهما على الأخرى.
+ *
+ * وهذه الخريطةُ مفتاحُها **رقمُ المقطع** وقيمتُها المسودّةُ نفسُها
+ * ودرجةُ الثقة (`stable` أو `legacy` أو `ambiguous`). فالشارةُ تعرف
+ * أيَّ مسودّةٍ تفتح، وتعرف متى لا تعرف.
+ *
+ * ⚠️ **و`drafted` تبقى** — لا تُحذَف: قيمةُ أداة السكّة تقرؤها، وهي
+ *    سؤالٌ عن «هل لهذا النصّ مسودّة» لا عن «أيّ جملةٍ بعينها».
+ */
+let material = new Map();
 
 /**
  * يقرأ «مَن له مسودّة» — **بلا لمس الشاشة**.
@@ -4705,13 +4880,29 @@ let drafted = new Set();
  */
 async function readDrafted() {
   if (!ctx?.segments) return;
+  const texts = ctx.segments.map((s) => s.sourceTextSnapshot || '');
   try {
-    drafted = await draftedKeys(
-      SUBJECT.SENTENCE,
-      ctx.segments.map((s) => s.sourceTextSnapshot || '')
-    );
+    drafted = await draftedKeys(SUBJECT.SENTENCE, texts);
   } catch {
     /* غيابُ العلامة أهونُ من سقوط الشاشة */
+  }
+
+  /*
+   * ⚠️ **والخريطةُ بمعرّف الجملة — قراءتان لا واحدةٌ لكلّ سطر** (بند ٦١).
+   *    `materialForSegments` تقرأ السكريبتَ مرّةً والعلاقاتِ مرّةً ثمّ
+   *    توائم في الذاكرة. ونصٌّ فيه أربعمئة جملةٍ لا يفتح أربعمئة استعلام.
+   */
+  material = new Map();
+  const sourceId = ctx.session?.sourceId;
+  if (!sourceId) return;
+  try {
+    const record = await scripts.get(sourceId);
+    if (!record) return;
+    material = await materialForSegments(record, texts, {
+      sceneId: ctx.session?.sceneId || null,
+    });
+  } catch {
+    /* مصدرٌ محذوفٌ أو غيرُ سكريبت — الشارةُ تغيب ولا تكذب (بند ٤٧). */
   }
 }
 
@@ -4720,8 +4911,19 @@ async function refreshDrafted() {
   if (!ctx?.segments) return;
   await readDrafted();
   for (const el of document.querySelectorAll('[data-line]')) {
-    const seg = ctx.segments[Number(el.dataset.line)];
-    el.classList.toggle('has-draft', hasDraftedText(seg?.sourceTextSnapshot));
+    const i = Number(el.dataset.line);
+    el.classList.toggle('has-draft', material.has(i));
+    /*
+     * ⚠️ **والشارةُ تُعاد بناؤها لا تُبدَّل بصنف** — لأنّها صارت بابًا
+     *    يحمل `data-sh-draft` واسمًا يقرؤه قارئُ الشاشة. وتبديلُ صنفٍ
+     *    وحدَه كان يترك الاسمَ القديم على جملةٍ صار لها معنًى جديد.
+     */
+    const meta = el.querySelector('.meta');
+    const old = meta?.querySelector('[data-sh-draft], .sh-line-draft');
+    if (!meta) continue;
+    const next = draftBadgeHtml(i);
+    if (old) old.outerHTML = next;
+    else if (next) meta.querySelector('.ts')?.insertAdjacentHTML('beforebegin', next);
   }
   paintToolValue('draft');
 }
@@ -4746,6 +4948,42 @@ function paintToolValue(id) {
   btn.setAttribute('aria-label', `${tool.label}${value ? ` — ${value}` : ''}`);
 }
 
+/**
+ * يفتح مسودّةَ جملةٍ بعينها من شارتها — **بلا مغادرة الشادوينج**.
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **الجملةُ تُختار أوّلًا، ثمّ تُفتَح مسودّتُها**
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * والترتيبُ ليس تفصيلًا (بندا ٢٧ و٤٢): لوحُ المسودّة يقرأ موضوعَه من
+ * **الجملة الجارية**. فلو فُتح قبل الاختيار لعرض مسودّةَ الجملة التي
+ * كنتَ فيها — أي أن تلمس شارةَ الجملة ١٦ فتُفتَح مسودّةُ ١٥.
+ *
+ * ⚠️ **ولا حالةَ جديدةً تُخترَع** (بند ٤٢): لا `showDraft` ولا
+ *    `isOriginal`. السياقُ الحاكمُ واحدٌ وقائم: أيُّ جملةٍ جاريةٌ
+ *    (`player.state.index`) وأيُّ أداةٍ مفتوحةٌ في السكّة (`rail.tool`).
+ *    وهذه الدالّةُ تضبط الاثنين ولا تضيف ثالثًا.
+ *
+ * ⚠️ **ولا مسارَ عبر صفحة النصوص** (بند ٣٠): المدخلُ من الجملة نفسِها،
+ *    والمدخلُ القديمُ من صفحة النصوص باقٍ كما هو (بند ٣١).
+ */
+async function openDraftForSentence(index) {
+  if (!Number.isInteger(index) || !ctx?.segments?.[index]) return;
+
+  /*
+   * (١) الجملةُ تصير الجارية — بنفسِ الطريقِ الذي يسلكه النقرُ على السطر.
+   * ⚠️ لا تنادِ player.goTo مباشرةً هنا: هي تنقُل المؤشِّرَ وحدَه، فتبقى
+   *    الشُّرَطُ والكلماتُ على الجملةِ القديمة. goSegment هي الجامعة.
+   */
+  if (player?.state?.index !== index) goSegment(index);
+
+  /* (٢) ثمّ تُفتَح أداةُ المسودّة القائمة — لا لوحٌ ثانٍ لها. */
+  rail.open = true;
+  rail.tool = 'draft';
+  renderRail();
+  try { await renderDraft(); } catch { /* اللوحُ يعرض خطأه بنفسه */ }
+}
+
 /** هل لهذا النصّ مسودّةٌ محفوظة؟ — سؤالٌ على المجموعة لا على القاعدة. */
 function hasDraftedText(text) {
   const key = subjectKey(text || '');
@@ -4755,6 +4993,63 @@ function hasDraftedText(text) {
 /** نصُّ الجملة الجارية — بلا الكلمة المختارة، وبلا سقوطٍ إن غاب السياق. */
 function currentSentenceText() {
   return ctx?.segments?.[player?.state?.index ?? 0]?.sourceTextSnapshot || '';
+}
+
+/**
+ * مسودّةُ الموضوع الحاليّ — **بالمعرّف أوّلًا ثمّ بالنصّ** (WS-SC1 · بند ٨).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **الشارةُ واللوحُ كانا يختلفان على نفس الجملة**
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * بنينا الشارةَ على الهُويّة الثابتة، وتركنا اللوحَ على `readDraft`
+ * وحدَها — أي على **النصّ المطبَّع**. وفي نصٍّ فيه «Хорошо́.» مرّتين
+ * كان ذلك يعني: شارةُ الجملة ٤ تقول «لك مسودّة» بحقّ، ثمّ تقف على
+ * الجملة ٢ **بلا شارة** فيفتح لك اللوحُ **نفسَ تلك المسودّة** لأنّ
+ * نصَّهما واحد. فتكتب في مذاكرةِ جملةٍ أخرى وأنت لا تدري.
+ *
+ * وهذا هو البندُ ٧ حرفيًّا: لا تخمينَ حين يجعل تكرارُ النصّ النسبةَ
+ * ملتبسة. فالترتيب:
+ *
+ *   ١) خريطةُ الهُويّة (`material`) — وهي الحَكَم متى وُجد مصدرٌ.
+ *   ٢) وإن لم يكن مصدرٌ أصلًا (نصٌّ مؤقّت، كلمةٌ مختارة) فالنصُّ
+ *      كما كان قبل هذا كلِّه — لا انحدار.
+ *
+ * ⚠️ **وغيابُ المسودّة في الخريطة جوابٌ لا سؤال**: جملةٌ لا شيءَ لها
+ *    في الخريطة تُفتَح **فارغةً**، ولا يُبحَث لها بالنصّ. لأنّ البحثَ
+ *    بالنصّ هنا هو بعينه العطبُ الذي نُصلحه.
+ */
+async function resolveDraft(subject) {
+  const index = player?.state?.index ?? 0;
+  const identityRules =
+    subject.kind === SUBJECT.SENTENCE
+    && Boolean(ctx?.session?.sourceId)
+    && ctx?.segments?.[index]?.sourceTextSnapshot === subject.text;
+
+  if (identityRules) {
+    const hit = material.get(index);
+    return { draft: hit?.draft || null, how: hit?.how || null };
+  }
+  return { draft: await readDraft(subject.kind, subject.text), how: null };
+}
+
+/**
+ * لافتةُ الشكّ — تُعرَض ولا تُخفى (بندا ٥ و٤٧).
+ *
+ * ⚠️ **ولها زرّان لا واحد**: «قول إنّها بتاعتها» يحسم النسبةَ ربطًا
+ *    ثابتًا، و«ابدأ واحدة جديدة» يفتح صفحةً بيضاءَ لهذه الجملة وحدَها.
+ *    ولافتةٌ بلا مخرجٍ تُخبرك بالمشكلة وتتركك فيها.
+ */
+function unsureBannerHtml() {
+  return `
+    <div class="sh-draft-unsure" data-draft-unsure>
+      <p>المسودّة دي اتكتبت على جملة نصّها زيّ دي بالظبط — والتطبيق
+         مش عارف هي بتاعة أنهي واحدة فيهم.</p>
+      <div class="sh-draft-unsure-do">
+        <button data-sh="draft-claim">دي بتاعة الجملة دي</button>
+        <button data-sh="draft-fresh">ابدأ مسودّة جديدة</button>
+      </div>
+    </div>`;
 }
 
 /**
@@ -4776,7 +5071,8 @@ async function renderDraft() {
     return;
   }
 
-  const draft = await readDraft(subject.kind, subject.text);
+  const found = await resolveDraft(subject);
+  const draft = found.draft;
   openDraftId = draft?.id || null;
 
   const images = draft ? await draftImages(draft.id) : [];
@@ -4787,6 +5083,7 @@ async function renderDraft() {
             dir="ltr" lang="ru">${esc(subject.text)}</span>
       <button data-sh="draft-copy" title="انسخها عشان تحلّلها برّه">نسخ</button>
     </div>
+    ${found.how === ATTACH.AMBIGUOUS ? unsureBannerHtml() : ''}
 
     <textarea class="sh-draft-box" data-draft-box dir="auto" rows="7"
       placeholder="الصق هنا تحليل الجملة أو الكلمة…">${esc(draft?.text || '')}</textarea>
@@ -4859,13 +5156,7 @@ function scheduleDraftSave(value) {
   const subject = draftSubject();
   draftTimer = setTimeout(async () => {
     try {
-      if (!openDraftId) {
-        const born = await openDraft(subject.kind, subject.text, {
-          sessionId: ctx.session?.id || null,
-          sceneId: ctx.scene?.id || null,
-        });
-        openDraftId = born.id;
-      }
+      if (!openDraftId) await birthDraft(subject);
       await saveDraftText(openDraftId, value);
       const now = $('[data-draft-state]');
       if (now) now.textContent = 'اتحفظت';
@@ -8491,9 +8782,43 @@ function wireInteractions(main) {
     enterExternalText(new FormData(event.target).get('scratch'));
   }, wired());
 
+  /*
+   * ⚠️ **شارةُ المسودّة تُفتَح بالمفتاح أيضًا** (بند ٦٠).
+   *
+   *    هي `<span role="button">` **داخل** `<button>` السطر — والمتصفّح
+   *    لا يُطلق `click` على عنصرٍ بدورٍ منطوقٍ عند Enter/Space كما يفعل
+   *    مع الزرّ الحقيقيّ. فبلا هذا المعالِج تكون الشارةُ بابًا للإصبع
+   *    وحائطًا للوحة المفاتيح.
+   *
+   *    ولمَ لم تُجعَل `<button>`؟ لأنّ زرًّا داخل زرٍّ HTML باطل، والسطرُ
+   *    نفسُه زرٌّ منذ WS24 ولا يُعاد بناؤه في تمريرةٍ عن المسودّات.
+   */
+  main.addEventListener('keydown', (event) => {
+    if (event.key !== 'Enter' && event.key !== ' ' && event.key !== 'Spacebar') return;
+    const badge = event.target.closest?.('[data-sh-draft]');
+    if (!badge) return;
+    event.preventDefault();
+    event.stopPropagation();
+    openDraftForSentence(Number(badge.dataset.shDraft));
+  }, wired());
+
   main.addEventListener('click', async (event) => {
     // النقر خارج الدرج يغلقه — كأيّ ورقة منزلقة.
     if (event.target.hasAttribute('data-drawer-veil')) return toggleDrawer(false);
+
+    /*
+     * ⚠️ **شارةُ المسودّة تُلتقَط قبل الصفّ** (بند ٨): هي داخل زرّ
+     *    السطر، فلو تُركت للصفّ لَقفزت الجلسةُ ولم تُفتَح المسودّة.
+     *    فتُوقَف هنا، **وتُختار الجملةُ أوّلًا** — لأنّ المسودّةَ تُقرأ
+     *    من الجملة الجارية، ولأنّ البندَ ٢٧ يشترط أن يبقى واضحًا أيُّ
+     *    جملةٍ أصليّةٍ أنت فيها.
+     */
+    const badge = event.target.closest('[data-sh-draft]');
+    if (badge) {
+      event.preventDefault();
+      event.stopPropagation();
+      return openDraftForSentence(Number(badge.dataset.shDraft));
+    }
 
     const line = event.target.closest('[data-line]');
     if (line) {
@@ -8917,17 +9242,29 @@ function wireInteractions(main) {
         return undefined;
       }
 
+      /*
+       * ⚠️ **مخرجا اللافتة الملتبسة** (بند ٥): إمّا تحسم النسبةَ لهذه
+       *    الجملة، أو تبدأ صفحةً بيضاءَ لها. وكلاهما **قرارُك أنت** —
+       *    والتطبيق لم يختر عنك، وهو كلُّ الفرق.
+       */
+      case 'draft-claim':
+        await claimDraftHere();
+        return undefined;
+
+      case 'draft-fresh': {
+        const subject = draftSubject();
+        if (!subject.text) return undefined;
+        await birthDraft(subject, { fresh: true });
+        await refreshDrafted();
+        await renderDraft();
+        return undefined;
+      }
+
       case 'draft-img': {
         const [file] = await pickFiles({ accept: 'image/*', multiple: false });
         if (!file) return undefined;
         const subject = draftSubject();
-        if (!openDraftId) {
-          const born = await openDraft(subject.kind, subject.text, {
-            sessionId: ctx.session?.id || null,
-            sceneId: ctx.scene?.id || null,
-          });
-          openDraftId = born.id;
-        }
+        if (!openDraftId) await birthDraft(subject);
         await addDraftImage(openDraftId, file);
         toastOk('الصورة اتضافت للمسودّة');
         return renderDraft();

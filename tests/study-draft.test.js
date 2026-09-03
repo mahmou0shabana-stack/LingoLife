@@ -974,7 +974,22 @@ describe('المسودّة · متلينكة بالجملة وبتبان علي�
     code = codeOnly(await (await fetch('/js/views/shadow-view.js')).text());
     const at = code.indexOf('function lineHtml');
     const block = code.slice(at, code.indexOf('\n}', at));
-    expect(block.includes('hasDraftedText')).toBe(true);
+    /*
+     * ⚠️ **المقصودُ هنا لم يتبدّل، والمِصداقُ تبدّل** (WS-SC1):
+     *
+     *    كان الحارسُ يشترط `hasDraftedText` بالاسم. وهي تقرأ مجموعةً
+     *    مبنيّةً سلفًا — وهذا هو المطلوب. لكنّ WS-SC1 استبدلت بها
+     *    `material.has(index)` لأنّ المجموعةَ القديمة مفتاحُها **نصٌّ
+     *    مطبَّعٌ عالميّ**، فتُضيء جملتين متطابقتين إحداهما بلا مسودّة.
+     *    والخريطةُ الجديدةُ مبنيّةٌ سلفًا كذلك — قراءتان لا واحدةٌ لكلّ
+     *    سطر.
+     *
+     *    فالشرطُ صار: **أيُّ** قراءةٍ من بنيةٍ جاهزة. والمنعُ كما هو
+     *    ولم يُخفَّف: `hasDraft(` — وهي التي تسافر إلى القاعدة — تبقى
+     *    ممنوعةً في الحلقة، وهي كلُّ ما كان الحارسُ يحميه.
+     */
+    const prebuilt = block.includes('hasDraftedText') || block.includes('material.has(');
+    expect(prebuilt).toBe(true);
     expect(block.includes('hasDraft(')).toBe(false);
   });
 

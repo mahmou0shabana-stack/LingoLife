@@ -698,18 +698,65 @@
 .sh-line.difficult:not(.current) { border-inline-start: 3px solid #FBBF24; }
 
 /*
- * ✎ — «الجملة دي ليها مسودّة مذاكرة» (WS34)
+ * ✎ — «الجملة دي ليها مسودّة مذاكرة» (WS34)، وصارت **بابًا** (WS-SC1).
  *
  * ⚠️ **مخفيّةٌ بحجزِ مكانها لا بحذفه**: `display:none` كان يجعل السطرَ
  *    يزحف بضعةَ بكسلات لحظةَ ظهور العلامة، فيهتزّ العمودُ كلُّه وأنت
  *    تكتب. `visibility` تُبقي المكانَ محجوزًا فلا يتحرّك شيء.
+ *
+ * ⚠️ **وهدفُ اللمس ٤٤px ارتفاعًا بلا أن يعلوَ السطر** (بند ٦٠): العلامةُ
+ *    كانت حرفًا في ١١px — إصبعٌ على تابلت لا يصيبها، ويصيب السطرَ من
+ *    تحتها فيقفز بك إلى جملةٍ لم تُردها. فالصندوقُ كبيرٌ والهامشُ
+ *    الكتليُّ سالبٌ يبتلع الزيادة، فارتفاعُ الصفّ كما هو.
+ *
+ * ⚠️ **ولا تتمدّد خارج صفّها**: السطرُ نفسُه ≈٤٨px، فالـ ٤٤ تسع داخله.
+ *    مدُّ منطقةِ اللمس بـ `::before` سالبِ الحواف كان سيسرق لمساتِ
+ *    الصفِّ المجاور — وهو عطبٌ لا يُرى إلّا على الجهاز.
  */
 .sh-line-draft {
-  visibility: hidden;
-  margin-inline-end: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 30px;
+  min-block-size: 44px;
+  margin-block: -12px;
+  margin-inline-end: 2px;
+  vertical-align: middle;
+  border-radius: 9px;
+  font-size: 13px;
+  line-height: 1;
   color: var(--sh-accent-2);
+  cursor: pointer;
 }
-.sh-line.has-draft .sh-line-draft { visibility: visible; }
+
+/* الشارةُ الموجودة: تُرى متى وُجدت مسودّة. */
+.sh-line-draft.is-on { visibility: hidden; }
+.sh-line.has-draft .sh-line-draft.is-on { visibility: visible; }
+
+/*
+ * ظنٌّ لا يقين — نصٌّ مكرَّرٌ ومسودّةٌ قديمةٌ لا نعرف أيَّ تكرارٍ تخصّ
+ * (بند ٥). لونٌ آخرُ لأنّ «افتحها» و«افتحها وراجِعها» ليسا شيئًا واحدًا.
+ */
+.sh-line-draft.is-unsure { color: #FBBF24; }
+
+/*
+ * ＋ — بابُ الإنشاء (بنود ١٨ و٥١): على **الجملة الجارية وحدَها**.
+ * ⚠️ بـ CSS لا بجافاسكربت: `.current` يتبدّل مع كلّ قفزةٍ أصلًا، فربطُ
+ *    الظهور به يعني صفرَ إعادةِ رسمٍ إضافيّة عند التنقّل.
+ */
+.sh-line-draft.is-add {
+  visibility: hidden;
+  color: rgba(255, 255, 255, .55);
+  font-size: 15px;
+}
+.sh-line.current .sh-line-draft.is-add { visibility: visible; }
+
+.sh-line-draft:focus-visible {
+  outline: 2px solid var(--sh-accent-2);
+  outline-offset: 1px;
+  visibility: visible;
+}
+
 .sh-line.has-draft:not(.current) { border-inline-end: 3px solid var(--sh-accent-2); }
 
 /* ترجمة تحت الجملة في صفحة المصدر */
@@ -3836,6 +3883,34 @@ body.shadow-open { overflow: hidden; }
   background: transparent; color: rgba(239, 231, 216, .55);
 }
 .sh-draft-subject button:hover { color: var(--sh-ivory, #efe7d8); }
+
+/*
+ * لافتةُ الشكّ في نسبة المسودّة (WS-SC1 · بند ٥).
+ *
+ * ⚠️ **لونُ تنبيهٍ لا لونُ خطأ**: لا شيءَ عُطب — التطبيق يقول ما لا
+ *    يعرفه، وهذا سلوكٌ صحيحٌ لا عطل. والأحمرُ كان سيجعلك تظنّ أنّك
+ *    فقدتَ شيئًا.
+ */
+.sh-draft-unsure {
+  margin-bottom: 10px; padding: 10px 11px;
+  border: 1px solid rgba(251, 191, 36, .3); border-radius: 4px;
+  background: rgba(251, 191, 36, .07);
+}
+.sh-draft-unsure p {
+  margin: 0 0 8px; font-size: 11.5px; line-height: 1.75;
+  color: rgba(251, 191, 36, .88);
+}
+.sh-draft-unsure-do { display: flex; flex-wrap: wrap; gap: 6px; }
+.sh-draft-unsure-do button {
+  flex: 1 1 auto; min-height: 44px; padding: 0 12px; cursor: pointer;
+  font-family: var(--sh-mono); font-size: 10px; letter-spacing: .14em;
+  border: 1px solid rgba(251, 191, 36, .3); border-radius: 3px;
+  background: transparent; color: rgba(251, 191, 36, .8);
+  transition: all .25s ease;
+}
+.sh-draft-unsure-do button:hover {
+  border-color: rgba(251, 191, 36, .6); color: rgba(255, 214, 120, .98);
+}
 
 .sh-draft-box {
   display: block; inline-size: 100%; box-sizing: border-box;

@@ -16,6 +16,7 @@ import {
 } from '../db/repositories.js';
 import { STATE } from '../db/schema.js';
 import { normalize } from '../utils/normalization.js';
+import { idsAfterEdit, SENTENCE_IDS } from './shadow/sentence-identity.js';
 
 /* ============================================================
    السكريبتات
@@ -76,10 +77,30 @@ export async function updateScript(scriptId, { title, text, sceneType }) {
   if (!current) throw new Error('السكريبت غير موجود');
 
   const version = (current.version || 1) + 1;
+  const nextText = text ?? current.text;
+
+  /*
+   * ═══════════════════════════════════════════════════════════════
+   * ⚠️ **هُويّةُ الجملة تنجو من التعديل** (WS-SC1 · بندا ٣٥ و٣٧)
+   * ═══════════════════════════════════════════════════════════════
+   *
+   * هذه هي **نقطةُ العبور الوحيدة** لكلّ كتابةِ نصّ في التطبيق:
+   * السكريبتُ من هنا، والعقدةُ من `setNodeText` التي تنادي هذه، وشاشةُ
+   * الورشة من `writeNodeText` التي تنادي هذه أيضًا. فمصانةُ المعرّفات
+   * في مكانٍ واحدٍ تعني أنّه لا مسارَ يفلت منها.
+   *
+   * ⚠️ **ولا تُولَد هُويّةٌ لنصٍّ لا هُويّةَ له** (بند ٦): `idsAfterEdit`
+   *    تعيد `null` إن لم يكن للسجلّ معرّفاتٌ أصلًا، فلا يُكتَب حقلٌ ولا
+   *    يتّسخ سجلٌّ لم يطلب أحدٌ منه شيئًا. الهُويّةُ تُولَد عند أوّل
+   *    ارتباطٍ فعليّ — لا عند تحرير نصٍّ عابر.
+   */
+  const nextIds = idsAfterEdit(current, nextText);
+
   const updated = await scripts.update(scriptId, {
     title: title ?? current.title,
-    text: text ?? current.text,
+    text: nextText,
     sceneType: sceneType ?? current.sceneType ?? null,
+    ...(nextIds ? { [SENTENCE_IDS]: nextIds } : {}),
     version,
   });
 
