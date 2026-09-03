@@ -215,12 +215,25 @@ export async function storyMap(record) {
   const ids = rows.map((one) => one.id).filter(Boolean);
   if (!ids.length) return out;
 
-  const found = await Promise.all(
-    ids.map((id) => relationships.byIndex('from_kind', [id, SENTENCE_STORY])),
-  );
+  /*
+   * ⚠️ **استعلامٌ واحدٌ لا واحدٌ لكلّ جملة** — والسببُ قياسٌ لا ذوق.
+   *
+   *    كانت هنا `Promise.all` على `from_kind` بعددِ الجملِ الموسومة:
+   *    مئتا استعلامٍ لنصٍّ فيه مئتا جملة. ومرّ ذلك في قاعدةٍ فارغةٍ
+   *    (٣٠٥ms) وسقط في المجموعة الكاملة: **٣٨٩٦ms** — لأنّ كلفةَ
+   *    الاستعلام الواحد تكبر مع حجم المخزن، فتُضرَب في مئتين.
+   *
+   *    والفهرسُ `kind` قائمٌ منذ WS1، فقراءةُ نوعِ العلاقة كلِّه مرّةً
+   *    ثمّ التصفيةُ في الذاكرة تُبدّل ٢٠٠×O(سجلّ) بـ١×O(نوع). وهو
+   *    نفسُ الإصلاح الذي أعطى `materialForSegments` شكلَها في التمريرة
+   *    الأولى — أعِدْ قراءةَ ترويستها.
+   */
+  const mine = new Set(ids);
+  const links = await relationships.byIndex('kind', SENTENCE_STORY);
   const wanted = new Map();
-  found.flat().forEach((rel) => {
+  (links || []).forEach((rel) => {
     if (!rel || rel.state === STATE.TRASHED) return;
+    if (!mine.has(rel.fromId)) return;
     if (!wanted.has(rel.fromId)) wanted.set(rel.fromId, []);
     wanted.get(rel.fromId).push(rel.toId);
   });

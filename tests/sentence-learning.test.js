@@ -537,7 +537,18 @@ describe('WS-SL · بابٌ واحدٌ لا بابان', () => {
     expect(draft.includes('enterTempSource(')).toBe(true);
     const chunk = src.slice(src.indexOf('async function shadowChunk'), src.indexOf('async function shadowChunk') + 1200);
     expect(chunk.includes('enterTempSource(')).toBe(true);
-    /* ولا `pushSegment` إلّا في الجسم الواحد. */
-    expect([...src.matchAll(/player\.pushSegment\(/g)]).toHaveLength(1);
+    /*
+     * ⚠️ **والحارسُ يقيس البابين لا الملفَّ كلَّه.**
+     *
+     *    كتبتُه أوّلًا يشترط `pushSegment` **مرّةً واحدةً في الملفّ**،
+     *    فسقط: للنصّ المؤقّت ولتدريب الغلطة بابان قديمان لكلٍّ بناؤه —
+     *    وهما خارجَ دعوى هذا الحارس. أي أنّني كتبتُ شرطًا لم يكن صحيحًا
+     *    قبل تغييري أصلًا، فكان يقيس الملفَّ لا ما أدّعيه.
+     *
+     *    والدعوى الحقيقيّة: **بابا المسودّة والقطعة** لا يبنيان مقاطعَ
+     *    بأنفسهما بل يمرّان بالجسم المُستخرَج.
+     */
+    expect(draft.includes('player.pushSegment(')).toBe(false);
+    expect(chunk.includes('player.pushSegment(')).toBe(false);
   });
 });

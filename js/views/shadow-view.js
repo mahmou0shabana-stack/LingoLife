@@ -5428,10 +5428,10 @@ function paintLearnStory(body, { at, tales }) {
   body.innerHTML = `
     ${tales.length > 1 ? html`
       <div class="sh-story-pick" role="tablist" aria-label="مشاهد الجملة">
-        ${tales.map((one, i) => html`
+        ${raw(tales.map((one, i) => html`
           <button role="tab" data-sh="story-pick" data-v="${i}"
                   aria-selected="${i === pickAt ? 'true' : 'false'}"
-                  class="${i === pickAt ? 'on' : ''}">${i + 1}</button>`).join('')}
+                  class="${i === pickAt ? 'on' : ''}">${i + 1}</button>`).join(''))}
       </div>` : ''}
     <div class="sh-story-head">
       ${html`<b dir="auto">${node.title || 'مشهد نقل'}</b>`}
