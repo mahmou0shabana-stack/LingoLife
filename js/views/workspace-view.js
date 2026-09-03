@@ -1096,9 +1096,21 @@ function itemRowHtml(row) {
   const name = itemTitle(row);
   const sel = state.pickMode ? state.picked.has(row.id) : state.mediaSel === row.id;
   const inSide = state.side === row.id;
+  /*
+   * ⚠️ **والمشغّلُ يسكن الصفَّ في السطحين** (بند ١٥): «مربوط هنا» في
+   *    المستند، ولوحُ الوسائط على اليسار. ولو حُصر في أحدهما لَضغطتَ
+   *    «شغّل» في الآخر فلا ترى موضعَك — وقاعدةُ البند ٣٤ أنّ أدواتِ
+   *    الصوت تسكن حيث يسكن الصوت.
+   *
+   * ⚠️ **وهما عرضان لصفٍّ واحدٍ لا لمقطعَين** (بند ٢): الحيُّ يُشتقّ
+   *    من `audio.state.mediaId`، فلا يمكن أن يدّعي مقطعان أنّهما
+   *    الجاري. والذي قد يتكرّر هو **نفسُ** المقطع في قائمتين.
+   */
+  const live = row.kind === 'audio' && !state.pickMode && isLiveRow(row.id);
 
   return html`
-    <li class="ws-item ${sel ? 'is-sel' : ''} ${inSide ? 'is-side' : ''}"
+    <li class="ws-item ${sel ? 'is-sel' : ''} ${inSide ? 'is-side' : ''}
+        ${live ? 'is-live' : ''}"
         data-ws-item="${row.id}">
       <!--
         ⚠️ **لمسُ الصفّ يحدّده — ولا يزحزح مكانَك في الشجرة** (بند ١٦):
@@ -1149,6 +1161,7 @@ function itemRowHtml(row) {
           <button type="button" class="ws-icon-btn" data-ws="item-menu" data-id="${row.id}"
                   aria-label="خيارات ${name}">⋯</button>`)}
       </span>
+      ${raw(live ? audioLiveHtml(row.id) : '')}
     </li>`;
 }
 
@@ -1502,6 +1515,98 @@ function propsTabHtml() {
     </div>`;
 }
 
+/* ================================================================== *
+ * المشغّلُ داخل الصفّ — لا شريطَ في الأسفل (WS-AR)
+ * ================================================================== */
+
+/**
+ * ⚠️ **`--:--` لا صفرٌ مخترَع**: مقطعٌ لم يُفكَّ ترميزُه بعد مدّتُه
+ *    **غيرُ معروفة**، و`00:00` تدّعي معرفةً لا وجودَ لها (بند ١٠).
+ */
+function clock(seconds) {
+  if (!Number.isFinite(seconds) || seconds < 0) return '--:--';
+  const s = Math.floor(seconds);
+  /* ⚠️ خانتان للدقيقة أيضًا: `0:09` و`0:12` يختلفان عرضًا فيرقص الشريط. */
+  return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+}
+
+/**
+ * هل هذا الصفُّ هو **صفُّ المقطع الجاري**؟ (بندا ٢ و١٢)
+ *
+ * ⚠️ **الجوابُ من الخدمة وحدَها** — لا `row.isPlaying` ولا أيُّ منطقيٍّ
+ *    محلّيٍّ يمكن أن ينحرف عن الواقع. والجلبُ من Drive يجعل الصفَّ
+ *    حيًّا أيضًا (بند ٤): أنت ضغطتَه، فهو صاحبُ الانتظار.
+ */
+function isLiveRow(mediaId, snapshot = audio.state) {
+  if (!mediaId) return false;
+  return state.fetching.has(mediaId) || snapshot?.mediaId === mediaId;
+}
+
+/**
+ * سطرُ التشغيل داخل الصفّ — **يظهر للجاري وحدَه** (بنود ١ إلى ٧).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **لماذا داخل الصفّ لا في شريطٍ أسفلَ الشاشة**
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * حُذف الشريطُ السفليُّ في WS-P4-C بقرارٍ صحيح، وذهب معه القفزُ الذي
+ * كان يسكنه. والجوابُ ليس إعادتَه: **أدواتُ الصوت تخصّ الصوتَ نفسَه**،
+ * فتسكن الصفَّ الذي ضغطتَ فيه «شغّل».
+ *
+ * ⚠️ **ولا يُرسَم شريطٌ فارغٌ لكلّ ملفّ** (بند ٣): قائمةٌ فيها عشرون
+ *    تسجيلًا وعشرون شريطَ تقدّمٍ ساكنٍ ضجيجٌ لا معلومة. السطرُ يظهر
+ *    **بالسياق** — حين يصير هذا المقطعُ هو الجاري.
+ *
+ * ⚠️ **والحالاتُ الخمسُ كلُّها مقروءةٌ من اللقطة** (بند ١٢): لا مؤقّتَ
+ *    يولّد تقدّمًا، ولا نسبةَ مخترَعةٌ أثناء التحميل (بند ٤).
+ *
+ * ⚠️ **ولا يُطوى عند الانتهاء** (بند ٧): الخدمةُ **لا تُصفّر**
+ *    `currentTime` عند النهاية (راجع مستمعَ `ended` في `audio-service`)
+ *    — تبقى عند المدّة، و`playStateOf` تُرجع «جاهز» لأنّ الضغطةَ
+ *    التالية تبدأ من الأوّل. فنعرض الحقيقةَ كما هي: ▶ وشريطٌ ممتلئ.
+ *    وطيُّ الصفِّ هنا كان سينزع القفزَ في اللحظة التي تريد فيها
+ *    الرجوعَ لتسمع مرّةً أخرى — وهي لحظةُ الشادوينج بعينها.
+ */
+function audioLiveHtml(mediaId, snap = audio.state) {
+  const loading = state.fetching.has(mediaId);
+
+  if (loading) {
+    return html`
+      <div class="ws-live is-loading" data-ws-live="${mediaId}" role="status">
+        <!-- ⚠️ بلا نسبةٍ مئويّة: التقدّمُ هنا غيرُ مقيسٍ فعلًا (بند ٤). -->
+        <span class="ws-live-wait">بيحمّل من Drive…</span>
+      </div>`;
+  }
+
+  const known = Number.isFinite(snap.duration) && snap.duration > 0;
+  const ratio = known ? Math.max(0, Math.min(1, snap.currentTime / snap.duration)) : 0;
+  const pct = (ratio * 100).toFixed(2);
+
+  return html`
+    <div class="ws-live" data-ws-live="${mediaId}">
+      <span class="ws-live-t" data-ws-live-now>${clock(snap.currentTime)}</span>
+      <!--
+        ⚠️ **الخطُّ رفيعٌ والهدفُ كبير** (بند ٩): المرئيُّ ٤px والملموسُ
+           ٤٤. وإصبعٌ على تابلت لا يصيب خطًّا بسمك ٢px، فيصيب الصفَّ
+           من تحته — ويبدأ تشغيلًا لم تطلبه.
+
+        ⚠️ **وtouch-action: none في CSS** (بند ٨): بلاها يسحب
+           الإصبعُ اللوحَ كلَّه بدل المؤشّر، فيصير القفزُ مستحيلًا
+           باللمس وممكنًا بالفأرة — وهو عطبٌ لا يظهر إلّا على الجهاز.
+      -->
+      <div class="ws-live-bar" data-ws-seek="${mediaId}"
+           role="slider" tabindex="0" aria-label="موضع التشغيل"
+           aria-valuemin="0" aria-valuemax="100"
+           aria-valuenow="${Math.round(ratio * 100)}"
+           aria-disabled="${known ? 'false' : 'true'}">
+        <div class="ws-live-fill" data-ws-live-fill data-at="${pct}"
+             style="inline-size:${pct}%"></div>
+      </div>
+      <span class="ws-live-t" data-ws-live-end
+        >${known ? clock(snap.duration) : '--:--'}</span>
+    </div>`;
+}
+
 /**
  * شريطُ التحديد داخل لوح الوسائط — **هنا لا أسفلَ الشاشة** (بندا ١٢ و١٣).
  *
@@ -1606,9 +1711,16 @@ function thumbHtml(row) {
   const cloud = isCloudOnly(row);
   const name = itemTitle(row);
   const sel = state.pickMode ? state.picked.has(row.id) : state.mediaSel === row.id;
+  /*
+   * ⚠️ **ولا مشغّلَ في وضع التحديد** (بند ١٨): اللمسةُ هناك تعني
+   *    «ضُمَّ هذا إلى الدفعة»، ووجودُ شريطِ قفزٍ تحتها يخلط الفعلين.
+   *    والصوتُ يكمل في الخدمة — الذي غاب واجهتُه لا هو.
+   */
+  const live = row.kind === 'audio' && !state.pickMode && isLiveRow(row.id);
 
   return html`
-    <li class="ws-thumb ${state.open?.id === row.id ? 'is-on' : ''} ${sel ? 'is-sel' : ''}"
+    <li class="ws-thumb ${state.open?.id === row.id ? 'is-on' : ''} ${sel ? 'is-sel' : ''}
+        ${live ? 'is-live' : ''}"
         data-ws-thumb="${row.id}">
       <button type="button" class="ws-thumb-face" data-ws="pick-media"
               data-id="${row.id}" data-kind="${row.kind}"
@@ -1637,6 +1749,7 @@ function thumbHtml(row) {
         </button>
         <button type="button" class="ws-icon-btn" data-ws="item-menu" data-id="${row.id}"
                 aria-label="خيارات ${name}">⋯</button>`)}
+      ${raw(live ? audioLiveHtml(row.id) : '')}
     </li>`;
 }
 
@@ -1784,7 +1897,122 @@ const paintNow = (snapshot) => {
    *    ثمّ يصحّحها أوّلُ بثٍّ بعدها. فلا حالةَ محلّيّةٌ تُخزَّن ولا تكذب.
    */
   refreshAudioButtons(document, snapshot, { loading: state.fetching });
+  paintLive(snapshot);
 };
+
+/** آخِرُ مقطعٍ رُسم له سطرُ تشغيل — لتمييز «تبدّل» عن «تقدّم». */
+let liveDrawn = null;
+
+/**
+ * يُحدِّث سطرَ التشغيل — **موضعيًّا، وبقدر ما تبدّل فقط** (بندا ١٣ و٢٢).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **`tick` تبثّ كلَّ إطارٍ — ستّون مرّةً في الثانية**
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * راجع `audio-service.js`: `tick()` تنادي `emit()` ثمّ
+ * `requestAnimationFrame(tick)`. أي أنّ هذه الدالّة تُنادى ~٦٠ مرّةً
+ * في الثانية أثناء التشغيل.
+ *
+ * فإعادةُ رسم لوح الوسائط هنا — ولو مرّةً كلَّ إطارَين — تعني إعادةَ
+ * بناء عشرات الصفوف وصورِها المصغَّرة ستّين مرّةً في الثانية. وذلك
+ * يحرق الإطارات، **ويقطع أيَّ تمريرٍ جارٍ**، ويُفقد التركيزَ من أيّ
+ * حقلٍ مفتوح.
+ *
+ * فالمسارُ الرخيصُ هنا يكتب **ثلاثةَ أشياءَ فقط** — وبفحصٍ قبل كلّ
+ * كتابةٍ حتى لا تُتعِب المتصفّحَ بإعادة تخطيطٍ بلا تبدّل:
+ *
+ *   · نصُّ الوقت الجاري
+ *   · عرضُ شريط التقدّم و`aria-valuenow`
+ *   · نصُّ المدّة (حين تُعرَف بعد فكّ الترميز)
+ *
+ * ⚠️ **والبناءُ الهيكليُّ يقع عند التبدّل وحدَه**: حين يصير الجاري
+ *    مقطعًا آخرَ — أو يظهر لأوّل مرّة — تُعاد صياغةُ الصفوف المعنيّة
+ *    وحدَها. ولا يُلمَس بقيّةُ اللوح.
+ */
+function paintLive(snapshot) {
+  const liveId = state.pickMode
+    ? null
+    : ([...state.fetching][0] || (snapshot?.hasTrack ? snapshot.mediaId : null));
+
+  const shown = $$('[data-ws-live]');
+  const stale = shown.some((el) => el.dataset.wsLive !== liveId);
+  /*
+   * ═══════════════════════════════════════════════════════════════
+   * ⚠️ **الغيابُ سببٌ للبناء كالتبدّل — عطبٌ أمسكه الاختبارُ ٢٠**
+   * ═══════════════════════════════════════════════════════════════
+   *
+   * أوّلُ صياغةٍ اكتفت بـ«هل تبدّل الجاري؟». وأيُّ إعادةِ رسمٍ للوح
+   * تمسح المشغّلَ من الـ DOM بلا أن يتبدّل الجاري — فتظنّ الدالّةُ أنّ
+   * لا شيءَ تغيّر ولا تبنيه ثانيةً. **والمشغّلُ يختفي إلى الأبد** حتى
+   * تبدّل المقطع.
+   *
+   * وهو بالضبط ما يمنعه البندُ ١٣: «لا تفقد المشغّلَ لأنّ الـ DOM
+   * أُعيد طلاؤه». فالسؤالُ صار: هل هو موجودٌ حيث يجب؟
+   */
+  const missing = Boolean(liveId) && !shown.some((el) => el.dataset.wsLive === liveId);
+
+  /* ---------- (١) تبدّل الجاري أو غاب مشغّلُه: بناءٌ هيكليٌّ موضعيّ ---------- */
+  if (stale || missing || liveId !== liveDrawn) {
+    /*
+     * ⚠️ **الصفُّ القديمُ يعود مضغوطًا فورًا** (بند ٢): شريطُ تقدّمٍ
+     *    باقٍ على مقطعٍ لم يعُد يُشغَّل كذبٌ بصريٌّ صريح.
+     */
+    for (const el of shown) {
+      if (el.dataset.wsLive === liveId) continue;
+      el.closest('[data-ws-thumb], [data-ws-item]')?.classList.remove('is-live');
+      el.remove();
+    }
+    if (liveId) {
+      for (const row of $$(`[data-ws-thumb="${liveId}"], [data-ws-item="${liveId}"]`)) {
+        if (row.querySelector('[data-ws-live]')) continue;
+        /* ⚠️ ولا مشغّلَ في وضع التحديد — أفعالُ الصفّ مخفيّةٌ أصلًا. */
+        if (!row.querySelector('[data-ws="item-menu"]')) continue;
+        row.classList.add('is-live');
+        /*
+         * ⚠️ **واللقطةُ تُمرَّر ولا تُقرأ من جديد**: البناءُ والتحديثُ
+         *    يقعان في نفس النداء، فقراءةُ `audio.state` هنا و`snapshot`
+         *    هناك تفتحان بابَ اختلافٍ بينهما — ولو للحظة.
+         */
+        row.insertAdjacentHTML('beforeend', audioLiveHtml(liveId, snapshot || audio.state));
+      }
+    }
+    liveDrawn = liveId;
+  }
+
+  if (!liveId || state.fetching.has(liveId)) return;
+
+  /* ---------- (٢) تقدّمٌ عاديّ: ثلاثُ كتاباتٍ بفحص ---------- */
+  const known = Number.isFinite(snapshot?.duration) && snapshot.duration > 0;
+  const ratio = known ? Math.max(0, Math.min(1, snapshot.currentTime / snapshot.duration)) : 0;
+  const now = clock(snapshot?.currentTime);
+  const end = known ? clock(snapshot.duration) : '--:--';
+  const pct = `${(ratio * 100).toFixed(2)}%`;
+  const aria = String(Math.round(ratio * 100));
+
+  for (const el of $$(`[data-ws-live="${liveId}"]`)) {
+    const nowEl = el.querySelector('[data-ws-live-now]');
+    if (nowEl && nowEl.textContent !== now) nowEl.textContent = now;
+    const endEl = el.querySelector('[data-ws-live-end]');
+    if (endEl && endEl.textContent !== end) endEl.textContent = end;
+    /*
+     * ⚠️ **الفحصُ على قيمةٍ نكتبها لا على قيمةٍ يعيدها المتصفّح** —
+     *    عطبٌ أمسكه الاختبارُ ٣: نكتب `20.00%` فيعيدها CSS `20%`،
+     *    فتختلف المقارنةُ **دائمًا** وتقع كتابةٌ في كلّ إطار. والقياسُ
+     *    كان سيمرّ لأنّ النتيجةَ صحيحةٌ — والكلفةُ وحدَها هي الخاسرة.
+     */
+    const fill = el.querySelector('[data-ws-live-fill]');
+    if (fill && fill.dataset.at !== pct) {
+      fill.dataset.at = pct;
+      fill.style.inlineSize = pct;
+    }
+    const bar = el.querySelector('[data-ws-seek]');
+    if (bar && bar.getAttribute('aria-valuenow') !== aria) bar.setAttribute('aria-valuenow', aria);
+    /* ⚠️ ومدّةٌ صارت معروفةً بعد فكّ الترميز تفتح القفزَ — بلا إعادة رسم. */
+    const off = known ? 'false' : 'true';
+    if (bar && bar.getAttribute('aria-disabled') !== off) bar.setAttribute('aria-disabled', off);
+  }
+}
 
 /**
  * يكتب تفضيلاتِ قشرةِ الورشة على `body` — والـCSS تتولّى الباقي.
@@ -3088,6 +3316,77 @@ function startSideResize(event, grip) {
   window.addEventListener('pointercancel', up, wired({ once: true }));
 }
 
+/**
+ * القفزُ داخل الصفّ — **بالخدمة القائمة لا بمحرّكٍ ثانٍ** (بندا ٨ و٩).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **`audio.seekRatio` موجودةٌ منذ WS-P — والمطلوبُ سطحٌ لها**
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * ذهب القفزُ مع الشريط السفليّ في WS-P4-C لأنّ **مُلتقِطَه** كان يسكنه،
+ * لا لأنّ القدرةَ زالت. فالقدرةُ في الخدمة كما هي، وهذه يدٌ جديدةٌ
+ * عليها. ولا حسابَ للثواني هنا: النسبةُ تُمرَّر و`seekRatio` تضربها في
+ * المدّة وتحرس الحدود بنفسها.
+ *
+ * ⚠️ **والتقاطُ المؤشّر شرطٌ لا تحسين** (بند ٨): بلا
+ *    `setPointerCapture` يفلت السحبُ من الشريط أوّلَ ما يخرج الإصبعُ
+ *    عن حدوده — وحدودُه ٤٤px. فتسحب فيتوقّف القفزُ في منتصفه.
+ *
+ * ⚠️ **والسحبُ يبدأ من الضغطة نفسِها**: لمسةٌ واحدةٌ تقفز، وسحبٌ بعدها
+ *    يتابع. ولو انتظرنا `pointermove` لَكانت النقرةُ المفردةُ بلا أثر.
+ *
+ * ⚠️ **ولا يلمس التحديد** (بند ١٨): وضعُ التحديد يُخفي المشغّلَ أصلًا،
+ *    فلا شريطَ يُسحَب فيه. والحارسُ يقيس ذلك.
+ */
+function startSeek(event, bar) {
+  if (bar.getAttribute('aria-disabled') === 'true') return;
+  /* ⚠️ يمنع اللمسةَ من أن تصير تمريرًا للوح — وهو بند ٨ حرفيًّا. */
+  event.preventDefault();
+
+  const rtl = getComputedStyle(bar).direction === 'rtl';
+  /*
+   * ⚠️ **والالتقاطُ محاولةٌ لا شرط**: يرمي المتصفّحُ حين لا يكون
+   *    المؤشّرُ نشطًا (حدثٌ مُصطنَع، أو إصبعٌ رُفع قبل أن نصل). ورميةٌ
+   *    هنا كانت تُسقط القفزةَ كلَّها قبل أن تقع.
+   */
+  try { bar.setPointerCapture?.(event.pointerId); } catch { /* لا التقاط — والسحبُ يعمل */ }
+  bar.classList.add('is-dragging');
+
+  const at = (ev) => {
+    const rect = bar.getBoundingClientRect();
+    if (!rect.width) return;
+    /* ⚠️ في RTL يبدأ الشريطُ من اليمين — والنسبةُ تُقاس من `right`. */
+    const from = rtl ? (rect.right - ev.clientX) : (ev.clientX - rect.left);
+    audio.seekRatio(Math.max(0, Math.min(1, from / rect.width)));
+  };
+
+  at(event);
+  const up = () => {
+    window.removeEventListener('pointermove', at);
+    window.removeEventListener('pointerup', up);
+    bar.classList.remove('is-dragging');
+  };
+  window.addEventListener('pointermove', at, wired());
+  window.addEventListener('pointerup', up, wired({ once: true }));
+  window.addEventListener('pointercancel', up, wired({ once: true }));
+}
+
+/** أسهمٌ تقفز خمسَ نقاطٍ مئويّة — القفزُ ليس للإصبع وحدَه (بند ٩). */
+function seekKey(event, bar) {
+  const back = event.key === 'ArrowLeft';
+  const fwd = event.key === 'ArrowRight';
+  if (!back && !fwd) return false;
+  if (bar.getAttribute('aria-disabled') === 'true') return false;
+
+  const rtl = getComputedStyle(bar).direction === 'rtl';
+  /* في RTL السهمُ الأيسر يتقدّم — لأنّ الزمنَ يمشي مع اتّجاه القراءة. */
+  const step = (back ? -1 : 1) * (rtl ? -1 : 1) * 0.05;
+  const snap = audio.state;
+  if (!snap.duration) return false;
+  audio.seekRatio((snap.currentTime / snap.duration) + step);
+  return true;
+}
+
 /** مفاتيحُ المقبض: أسهمٌ تحرّك، وHome تستعيد الافتراضيّ (بند ٤). */
 function resizeKey(event, which) {
   const step = event.shiftKey ? 48 : 12;
@@ -3574,6 +3873,11 @@ export async function renderWorkspace(main, sceneId) {
    *    محاكاةِ إصبع.
    */
   main.addEventListener('keydown', (event) => {
+    const bar = event.target.closest?.('[data-ws-seek]');
+    if (bar) {
+      if (seekKey(event, bar)) event.preventDefault();
+      return;
+    }
     const split = event.target.closest?.('[data-ws-split]');
     if (!split) return;
     if (resizeKey(event, split.dataset.wsSplit)) event.preventDefault();
@@ -3585,12 +3889,9 @@ export async function renderWorkspace(main, sceneId) {
 
     const grip = event.target.closest('[data-ws-side-grip]');
     if (grip) { startSideResize(event, grip); return; }
-    /*
-     * ⚠️ **ولا مُلتقِطَ لشريط القفز هنا** (WS-P4-C · بند ٥): كان
-     *    `[data-ws="seek"]` يعيش في المشغّل المصغَّر وحدَه، فذهب معه.
-     *    و`audio.seekRatio` باقيةٌ في الخدمة لمن يحتاجها — شاشةُ الظلّ
-     *    تستعملها. الذي زال مُلتقِطُ الورشة لا القدرة.
-     */
+
+    const bar = event.target.closest('[data-ws-seek]');
+    if (bar) startSeek(event, bar);
   }, wired());
 
   /*
@@ -3646,4 +3947,6 @@ export const __wsp = {
   /* ⚠️ منافذُ WS-P4: التحجيمُ والمعاينةُ الجانبيّةُ والربطُ الجزئيّ. */
   resetPane, resizeKey, openSide, closeSide, paintSide, paintItems, linkPicked, PANE,
   paintInsp,
+  /* ⚠️ منافذُ WS-AR: المشغّلُ داخل الصفّ والقفزُ فيه. */
+  paintLive, isLiveRow, clock, seekKey,
 };
