@@ -33,8 +33,15 @@ const stack = [];
  * (منتقي المتحدّث مثلًا) يحتاج أن يربط مستمعيه، ولا يمكنه ذلك قبل
  * وجود عناصره في الـDOM.
  */
+/*
+ * ⚠️ **و`compact` لمهمّةِ حقلٍ واحد** (WS-P4 · بند ٤١): «إعادة تسمية»
+ *    حقلٌ نصّيٌّ واحدٌ وزرّان، وكانت تأخذ ٥٦٠px من عرض التابلت مع
+ *    فراغٍ رأسيٍّ واسع. والحجمُ رسالةٌ: نافذةٌ بحجم النموذج الكامل
+ *    تقول «مهمّةٌ كبيرة» عن مهمّةٍ صغيرة.
+ */
 export function showModal({
-  title, body, actions, onSubmit, submitLabel = 'حفظ', onMount, wide = false,
+  title, body, actions, onSubmit, submitLabel = 'حفظ', onMount,
+  wide = false, compact = false,
 }) {
   return new Promise((resolve) => {
     const overlay = document.createElement('div');
@@ -46,7 +53,7 @@ export function showModal({
     ];
 
     overlay.innerHTML = `
-      <div class="modal${wide ? ' is-wide' : ''}" role="dialog" aria-modal="true" aria-label="${title}">
+      <div class="modal${wide ? ' is-wide' : ''}${compact ? ' is-compact' : ''}" role="dialog" aria-modal="true" aria-label="${title}">
         <h2>${title}</h2>
         <form data-modal-form>
           ${body}

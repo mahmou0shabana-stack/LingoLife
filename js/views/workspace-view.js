@@ -141,6 +141,28 @@ const state = {
   mediaQuery: '',
   /** تحديدُ مُلتقِط الربط — دفعةٌ واحدةٌ تُربَط معًا (بند ١٨). */
   picked: new Set(),
+  /*
+   * ═══════════════════════════════════════════════════════════════
+   * ⚠️ **حالتان لا حالةٌ واحدة** (WS-P4 · بندا ١٦ و٦)
+   * ═══════════════════════════════════════════════════════════════
+   *
+   * `state.node` هي **العقدةُ التي تقرؤها** — تحديدٌ أوّليٌّ يملك
+   * المُتصفِّحَ والمسار. و`state.mediaSel` هو **الوسيطُ الذي في يدك
+   * داخلها** — تحديدٌ محلّيٌّ ثانويّ.
+   *
+   * ودمجُهما في حالةٍ واحدةٍ هو العطبُ الذي ينهى عنه البندُ ١٦ حرفيًّا:
+   * لمسُ صورةٍ في لوح الوسائط يجب ألّا يزحزح مكانَك في الشجرة.
+   */
+  mediaSel: null,
+  /*
+   * ⚠️ **المعاينةُ الجانبيّةُ تعيش داخل مساحة العمل** (بندا ٨ و٣٤):
+   *    معرِّفُ صورةٍ واحدةٍ لا أكثر — «One Side Preview slot only»
+   *    (بند ١٤). ونسبةُ الانقسام حالةُ جلسةٍ لا تُحفَظ (بند ١١).
+   */
+  side: null,
+  sideRatio: 0.64,
+  /** وضعُ التحديد المتعدّد في لوح الوسائط — يُدخَل صراحةً (بند ٢٢). */
+  pickMode: false,
   scroll: { nav: 0, doc: 0, insp: 0 },
   docScroll: { text: 0, chat: 0 },
   panes: { nav: PANE.NAV_DEFAULT, insp: PANE.INSP_DEFAULT },
@@ -333,7 +355,7 @@ function navRowHtml(row) {
       <li class="ws-nav-limit">
         <span role="status">بيتعرض ${row.shown} من ${row.shown + row.hidden}</span>
         <!--
-          ⚠️ **«فيه ١٧١٠ مخفيّة» بلا بابٍ إليها ليس إعلامًا — هو حائط**
+          ⚠️ **فيه ١٧١٠ مخفيّة» بلا بابٍ إليها ليس إعلامًا — هو حائط**
              (WS-P2 · بند ٢٩). فالعددُ يبقى صادقًا، ويصير معه طريقٌ:
              تُوسِّع البحثَ صفحةً صفحة، أو تضيّقه بكلمةٍ أدقّ. والاثنان
              يصلان إلى العنصر بعينه — والرسالةُ وحدَها لا تصل.
@@ -391,15 +413,15 @@ function navRowHtml(row) {
         <span class="ws-nav-t" dir="auto">${row.title}</span>
         <span class="ws-nav-meta">
           <!--
-            ⚠️ **ولا كلمةُ «جزء» بجوار أيقونة الجزء** (بند ١٠): إشارتان
+            ⚠️ **ولا كلمةُ جزء» بجوار أيقونة الجزء** (بند ١٠): إشارتان
                تقولان الشيءَ نفسَه، والثمنُ مقيس — على مُتصفِّحٍ عرضُه
-               ٢٨٠px كانت «PART 1 — المفردات الأساسية» تُقَصّ إلى
-               «PART 1 — ...ساسية». والنوعُ مكتوبٌ كاملًا في رأس المستند
-               وفي «الخصائص»، فمكانُه هناك لا هنا.
+               ٢٨٠px كانت PART 1 — المفردات الأساسية» تُقَصّ إلى
+               PART 1 — ...ساسية». والنوعُ مكتوبٌ كاملًا في رأس المستند
+               وفي الخصائص»، فمكانُه هناك لا هنا.
           -->
           <!--
-            ⚠️ **العدُّ المباشرُ والتراكميُّ لا يُخلَطان** (بند ٢٣): «٢ عليها»
-               ما عُلِّق على العقدة نفسِها، و«+٧ تحتها» ما في أبنائها.
+            ⚠️ **العدُّ المباشرُ والتراكميُّ لا يُخلَطان** (بند ٢٣): ٢ عليها»
+               ما عُلِّق على العقدة نفسِها، و+٧ تحتها» ما في أبنائها.
                ورقمٌ واحدٌ يجمعهما لا يقول أيَّهما.
           -->
           ${raw(media ? html`<b title="مربوط بالعقدة دي">${media}</b>` : '')}
@@ -624,17 +646,36 @@ function crumbHtml() {
     </nav>`;
 }
 
+/**
+ * أوضاعُ المستند — **قراءةٌ وتحريرٌ فقط** (WS-P4 · بندا ٢٣ و٢٤).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **نتيجةُ التدقيق: «ربط» لم يبقَ له عملٌ فريد**
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * فُحص `MODE.LINK` في الكودّ كلّه فلم يظهر إلّا في موضعين: هذه القائمة،
+ * و`setMode` حيث كان كلُّ أثره سطرين — `inspector = true` و
+ * `tab = TAB.LINKS`. **ولا سطرَ واحدًا في رسم المستند.** أي أنّه لم
+ * يكن وضعًا للوثيقة أصلًا؛ كان زرًّا يفتح لوحَ التفاصيل على تبويبٍ
+ * بعينه — وهو ما يفعله زرُّ «تفاصيل» القائمُ حرفيًّا.
+ *
+ * وبعد WS-P3 صار الربطُ فعلًا مباشرًا بجوار العنصر، فلم يبقَ للوضع
+ * حتّى مبرِّرُه القديم. والبندُ ٢٤ يسمّي القاعدةَ: **القراءةُ والتحريرُ
+ * يغيّران حالةَ الوثيقة، والربطُ يقع على كائن**. فمدخلان لشيءٍ واحدٍ
+ * بغرضٍ غامضٍ هو ما ينهى عنه البندُ ٥٢ صراحةً.
+ *
+ * ⚠️ **ولا يُفقَد شيء** — وهذا ما أثبتَته اختباراتُ ٥٢:
+ *    · ربطُ وسيطٍ بعقدة    ← `link-item` من صفّ الوسيط
+ *    · ربطُ دفعةٍ          ← وضعُ «تحديد» ثمّ «اربط المحدد»
+ *    · ربطُ الصوتِ المفتوح ← زرُّ الربط في المشغّل المصغَّر
+ *    · ربطُ شيءٍ بالعقدة   ← «اربط كمان» في «مربوط هنا»
+ *    · عرضُ الروابط وفكُّها ← «الروابط» أدناه، وتبويبُ الربط كما هو
+ */
 function modeSwitchHtml() {
-  /*
-   * ⚠️ **والمسودّةُ تُقرأ ولا تُربَط من هنا** (بند ١٨): «ربط» وضعٌ
-   *    يعلّق وسائطَ بعقدة، ولا معنى له على مادّةٍ مشتقّة. وعرضُ زرٍّ
-   *    لا يفعل شيئًا أسوأُ من غيابه.
-   */
-  const kinds = state.open?.kind === 'draft'
-    ? [MODE.READ]
-    : (state.open?.kind === 'text'
-      ? [MODE.READ, MODE.EDIT, MODE.LINK]
-      : [MODE.READ, MODE.LINK]);
+  /* ⚠️ والمسودّةُ تُقرأ ولا تُحرَّر — مادّةٌ مشتقّةٌ لا مصدر (بند ١٨). */
+  const kinds = state.open?.kind === 'text'
+    ? [MODE.READ, MODE.EDIT]
+    : [MODE.READ];
   return html`
     <div class="ws-modes" role="tablist" aria-label="وضع الشغل">
       ${raw(kinds.map((one) => html`
@@ -700,8 +741,8 @@ function docHeadHtml() {
             <button type="button" class="ws-btn ws-btn-primary" data-ws="save">احفظ</button>` : '')}
           <!--
             ⚠️ **والربطُ فعلٌ من الصفّ الأوّل** (بند ٦): كان مخبوءًا خلف
-               «المُفتِّش ← تبويب الربط ← + إضافة رابط». وهو هنا بجانب
-               «تدرّب» — أي حيث تنظر وأنت في العقدة نفسِها.
+               المُفتِّش ← تبويب الربط ← + إضافة رابط». وهو هنا بجانب
+               تدرّب» — أي حيث تنظر وأنت في العقدة نفسِها.
           -->
           ${raw(isText && state.mode !== MODE.EDIT ? html`
             <button type="button" class="ws-btn ws-btn-soft" data-ws="link-into"
@@ -709,11 +750,11 @@ function docHeadHtml() {
             <button type="button" class="ws-btn ws-btn-soft" data-ws="shadow"
                     data-id="${state.open.id}">تدرّب</button>` : '')}
           <!--
-            ⚠️ **«اتدرب على المسودة» هو الزرُّ القائم منذ WS25** (بند ٢١):
+            ⚠️ **اتدرب على المسودة» هو الزرُّ القائم منذ WS25** (بند ٢١):
                لم يُبنَ وضعُ تدريبٍ جديد. هذا مدخلٌ إليه من مكانٍ لم يكن
                له فيه مدخل — سطحُ قراءة المسودّة في صفحة النصوص.
 
-            ⚠️ **و«الأصل» بجانبه** (بند ١٩): طريقُ العودة خفيفٌ ومرئيّ،
+            ⚠️ **والأصل» بجانبه** (بند ١٩): طريقُ العودة خفيفٌ ومرئيّ،
                ولا عمودَ تنقّلٍ ثالثٌ يُضاف لأجله.
           -->
           ${raw(isDraft ? html`
@@ -724,7 +765,18 @@ function docHeadHtml() {
           ${raw(!isText && !isDraft ? html`
             <button type="button" class="ws-btn ws-btn-soft" data-ws="link-item"
                     data-id="${record.id}">${raw(icon('link', 15))} ربط</button>` : '')}
+          <!--
+            ⚠️ **عرض جنب النص» مدخلٌ ثانٍ من العارض نفسِه** (بند ٩):
+               وأنت داخل الصورة قد تقرّر أنّك تريدها بجوار نصّها. وحالتُه
+               مُعلَنةٌ في نصّه فلا يترك سؤالًا عمّا حدث.
+          -->
           ${raw(!isText && record.kind === 'image' ? html`
+            <button type="button" class="ws-btn ws-btn-soft" data-ws="side-open"
+                    data-id="${record.id}"
+                    aria-pressed="${state.side === record.id ? 'true' : 'false'}">
+              ${raw(icon('compare', 15))}
+              ${state.side === record.id ? 'اقفل المعاينة' : 'عرض جنب النص'}
+            </button>
             <button type="button" class="ws-btn ws-btn-soft" data-ws="zoom"
                     data-id="${record.id}">كبّر</button>` : '')}
           ${raw(!isText && !isDraft ? html`
@@ -732,17 +784,17 @@ function docHeadHtml() {
                     data-id="${record.id}">سمّيه</button>` : '')}
           <!--
             ═══════════════════════════════════════════════════════
-            ⚠️ **«المُفتِّش» اسمٌ برمجيٌّ لا اسمُ شيءٍ تعرفه** (بندا ١١ و١٢)
+            ⚠️ **المُفتِّش» اسمٌ برمجيٌّ لا اسمُ شيءٍ تعرفه** (بندا ١١ و١٢)
             ═══════════════════════════════════════════════════════
 
             المكوّنُ في الكود اسمُه Inspector، وذلك شأنُ الكود. أمّا
             الزرُّ فيقول **ما وراءه**: تفاصيلُ العنصر — روابطُه وخصائصُه
-            ومكتبةُ وسائط الذكرى. و«المُفتِّش» لا تقول شيئًا من ذلك.
+            ومكتبةُ وسائط الذكرى. والمُفتِّش» لا تقول شيئًا من ذلك.
 
             ⚠️ **ولم يعُد بابَ الربط** (بند ١١): الربطُ صار على العنصر
-               نفسِه، فهبط هذا الزرُّ من «أداةٍ لا بدّ منها» إلى «تفاصيلُ
+               نفسِه، فهبط هذا الزرُّ من أداةٍ لا بدّ منها» إلى تفاصيلُ
                إن أردت». ولذلك أيقونتُه لم تعُد سلسلةً — السلسلةُ الآن
-               تعني «اربط» في كلّ مكانٍ من الشاشة، ومعنًى واحدٌ لرمزٍ
+               تعني اربط» في كلّ مكانٍ من الشاشة، ومعنًى واحدٌ لرمزٍ
                واحد.
           -->
           <button type="button" class="ws-btn ws-btn-soft ws-insp-toggle" data-ws="insp"
@@ -977,14 +1029,37 @@ function attachedHtml(nodeId) {
   }
 
   return html`
-    <section class="ws-attached" aria-label="المربوط بالعقدة دي">
+    <section class="ws-attached ${state.pickMode ? 'is-picking' : ''}"
+             data-ws-attached aria-label="المربوط بالعقدة دي">
       <div class="ws-attached-head">
         <h3>مربوط هنا</h3>
+        <!--
+          ⚠️ **وضعُ التحديد يُدخَل صراحةً** (بند ٢٢): لا مربّعاتِ اختيارٍ
+             دائمةً في كلّ صفّ. الحالةُ العاديّةُ بسيطةٌ، والدفعةُ طلبٌ.
+        -->
         <button type="button" class="ws-btn ws-btn-soft ws-btn-tiny"
-                data-ws="link-into" data-id="${nodeId}">
-          ${raw(icon('link', 14))} اربط كمان
+                data-ws="pick-mode" aria-pressed="${state.pickMode ? 'true' : 'false'}">
+          ${state.pickMode ? 'خلاص' : 'تحديد'}
         </button>
+        ${raw(state.pickMode ? '' : html`
+          <button type="button" class="ws-btn ws-btn-soft ws-btn-tiny"
+                  data-ws="link-into" data-id="${nodeId}">
+            ${raw(icon('link', 14))} اربط كمان
+          </button>`)}
       </div>
+
+      ${raw(state.pickMode ? html`
+        <!-- ⚠️ العددُ حقيقيٌّ من state.picked لا رقمٌ يُعرَض (بند ٢١). -->
+        <div class="ws-pickbar" role="status">
+          <b>${state.picked.size ? `${state.picked.size} متحدِّد` : 'مفيش حاجة متحدِّدة'}</b>
+          <button type="button" class="ws-btn ws-btn-primary ws-btn-tiny"
+                  data-ws="pick-link" ${state.picked.size ? '' : 'disabled'}>
+            اربط المحدد
+          </button>
+          <button type="button" class="ws-btn ws-btn-soft ws-btn-tiny"
+                  data-ws="pick-cancel">إلغاء</button>
+        </div>` : '')}
+
       <ul class="ws-items">
         ${raw(rows.map(itemRowHtml).join(''))}
       </ul>
@@ -996,35 +1071,60 @@ function itemRowHtml(row) {
   const at = board.linkedTo.get(row.id) || [];
   const cloud = isCloudOnly(row);
   const name = itemTitle(row);
+  const sel = state.pickMode ? state.picked.has(row.id) : state.mediaSel === row.id;
+  const inSide = state.side === row.id;
+
   return html`
-    <li class="ws-item" data-ws-item="${row.id}">
-      <button type="button" class="ws-item-face" data-ws="open-media"
-              data-id="${row.id}" data-kind="${row.kind}" aria-label="افتح ${name}">
+    <li class="ws-item ${sel ? 'is-sel' : ''} ${inSide ? 'is-side' : ''}"
+        data-ws-item="${row.id}">
+      <!--
+        ⚠️ **لمسُ الصفّ يحدّده — ولا يزحزح مكانَك في الشجرة** (بند ١٦):
+           pick-media تكتب state.mediaSel وحدَها. وstate.node — أي
+           أنا داخل المرحلة ٣ب» — لا تُمَسّ. حالتان لا حالةٌ واحدة.
+      -->
+      <button type="button" class="ws-item-face" data-ws="pick-media"
+              data-id="${row.id}" data-kind="${row.kind}"
+              aria-pressed="${sel ? 'true' : 'false'}"
+              aria-label="${state.pickMode ? 'حدّد' : 'اختار'} ${name}">
         ${raw(row.kind === 'image' && !cloud
           ? html`<img src="${urlFor(row, { thumb: true })}" alt="" loading="lazy" decoding="async">`
           : html`<span class="ws-item-icon">${raw(icon(row.kind === 'audio' ? 'mic' : 'image', 17))}</span>`)}
+        ${raw(state.pickMode
+          ? html`<span class="ws-item-tick" aria-hidden="true">${sel ? '✓' : ''}</span>` : '')}
       </button>
       <span class="ws-item-t" dir="auto">${name}</span>
       <span class="ws-item-acts">
-        ${raw(row.kind === 'audio' ? audioButtonHtml({
-          mediaId: row.id, snapshot: audio.state, loading: state.fetching.has(row.id),
-          name, size: 16, className: 'ws-icon-btn',
-        }) : html`
-          <button type="button" class="ws-icon-btn" data-ws="zoom" data-id="${row.id}"
-                  aria-label="معاينة ${name}">${raw(icon('search', 15))}</button>`)}
-        <!--
-          ⚠️ **الرقمُ من علاقاتٍ حقيقيّةٍ لا زخرفة** (بند ١٣): وجهاتُ
-             الرابط المخزَّنة فعلًا. وصفرٌ لا يُرسَم أصلًا — شارةٌ تقول
-             «٠» أسوأُ من لا شيء.
-        -->
-        <button type="button" class="ws-icon-btn ws-item-link" data-ws="link-item"
-                data-id="${row.id}" aria-label="اربط ${name}">
-          ${raw(icon('link', 15))}${raw(at.length > 1 ? html`<b>${at.length}</b>` : '')}
-        </button>
-        <button type="button" class="ws-icon-btn" data-ws="rename-media" data-id="${row.id}"
-                aria-label="إعادة تسمية ${name}">${raw(icon('edit', 15))}</button>
-        <button type="button" class="ws-icon-btn" data-ws="item-menu" data-id="${row.id}"
-                aria-label="خيارات ${name}">⋯</button>
+        ${raw(state.pickMode ? '' : html`
+          ${raw(row.kind === 'audio' ? audioButtonHtml({
+            mediaId: row.id, snapshot: audio.state, loading: state.fetching.has(row.id),
+            name, size: 16, className: 'ws-icon-btn',
+          }) : html`
+            <!--
+              ⚠️ **عرض جنب النص» هو الفعلُ الأوّلُ للصورة** (بندا ٩ و١٩):
+                 وهو ما طلبتَه — أن تقرأ النصَّ والصورةُ أمامك. وحالتُه
+                 مُعلَنةٌ في الزرّ نفسِه فلا تضغطه مرّتين بلا أثرٍ ظاهر.
+            -->
+            <button type="button" class="ws-icon-btn ws-item-side ${inSide ? 'is-on' : ''}"
+                    data-ws="side-open" data-id="${row.id}"
+                    aria-pressed="${inSide ? 'true' : 'false'}"
+                    aria-label="${inSide ? 'اقفل معاينة' : 'اعرض جنب النصّ'} ${name}"
+                    title="عرض جنب النص">${raw(icon('compare', 15))}</button>`)}
+          <!--
+            ⚠️ **الرقمُ من علاقاتٍ حقيقيّةٍ لا زخرفة** (بند ١٣): وجهاتُ
+               الرابط المخزَّنة فعلًا. وصفرٌ لا يُرسَم أصلًا — شارةٌ تقول
+               ٠» أسوأُ من لا شيء.
+          -->
+          <button type="button" class="ws-icon-btn ws-item-link" data-ws="link-item"
+                  data-id="${row.id}" aria-label="اربط ${name}">
+            ${raw(icon('link', 15))}${raw(at.length > 1 ? html`<b>${at.length}</b>` : '')}
+          </button>
+          <!--
+            ⚠️ **وإعادةُ التسمية نزلت تحت ⋯** (بند ١٩): كانت قلمًا دائمًا
+               في كلّ صفّ. وهي فعلٌ نادر، والربطُ هو الفعلُ المركزيُّ في
+               هذا المسار — فمن يأخذ مساحةً دائمةً يجب أن يستحقّها.
+          -->
+          <button type="button" class="ws-icon-btn" data-ws="item-menu" data-id="${row.id}"
+                  aria-label="خيارات ${name}">⋯</button>`)}
       </span>
     </li>`;
 }
@@ -1117,6 +1217,120 @@ function imageDocHtml(item) {
         </button>
       </div>
     </div>`;
+}
+
+/* ================================================================== *
+ * ب٢ · المعاينةُ جنب النصّ (WS-P4 · بنود ٨ إلى ١٥)
+ * ================================================================== */
+
+/**
+ * ⚠️ **صورةٌ واحدةٌ في الخانة** (بند ١٤): اختيارُ صورةٍ أخرى **يحدّث**
+ *    المعاينةَ القائمةَ ولا يفتح ثانيةً. ولوحُ الصور المتعدّدةُ هو
+ *    نفسُه العطبُ الذي جاءت هذه التمريرةُ لتمنعه.
+ */
+function sideHtml() {
+  const item = state.side ? mediaById(state.side) : null;
+  if (!item) return '';
+  const name = itemTitle(item);
+
+  if (isCloudOnly(item)) {
+    return html`
+      <div class="ws-side-head">
+        <span class="ws-side-t" dir="auto">${name}</span>
+        <button type="button" class="ws-icon-btn" data-ws="side-close"
+                aria-label="اقفل المعاينة">${raw(icon('close', 15))}</button>
+      </div>
+      <div class="ws-side-body">
+        <p class="ws-hint">الصورة دي على Drive بس — مش متنزّلة على الجهاز ده.</p>
+        <button type="button" class="ws-btn" data-ws="fetch" data-id="${item.id}"
+                ${state.fetching.has(item.id) ? 'disabled' : ''}>نزّلها</button>
+      </div>`;
+  }
+
+  return html`
+    <div class="ws-side-head">
+      <!-- ⚠️ اسمُ الصورة dir="auto"، والنصُّ الروسيُّ لا يُمَسّ (بند ٣٩). -->
+      <span class="ws-side-t" dir="auto" title="${name}">${name}</span>
+      <button type="button" class="ws-icon-btn" data-ws="side-close"
+              aria-label="اقفل المعاينة">${raw(icon('close', 15))}</button>
+    </div>
+    <div class="ws-side-body">
+      <!--
+        ⚠️ **واللمسُ يفتح اللايت‑بوكس المشترك نفسَه** (بندا ١٢ و٤٣): لا
+           عارضَ صورٍ ثانٍ ولا نسخةَ منطقٍ. zoom هو المدخلُ القائم منذ
+           WS-P2، وسلوكُه أثبتَّه على الجهاز — فلا يُمَسّ.
+      -->
+      <button type="button" class="ws-side-shot" data-ws="zoom" data-id="${item.id}"
+              aria-label="كبّر ${name}">
+        <img src="${urlFor(item, { thumb: false })}" alt="${name}" decoding="async">
+      </button>
+    </div>`;
+}
+
+/** يفتح صورةً في المعاينة الجانبيّة أو يحدّثها بها (بندا ٩ و١٤). */
+function openSide(mediaId) {
+  const row = mediaById(mediaId);
+  if (!row || row.kind !== 'image') return;
+  state.side = mediaId;
+  state.mediaSel = mediaId;
+  paintSide();
+  paintDoc({ force: true });
+  paintItems();
+}
+
+/**
+ * يُغلق المعاينة — **والمستندُ يستردّ عرضَه فورًا** (بند ١٣).
+ *
+ * ⚠️ **ولا يُعاد رسمُ المستند هنا**: البندُ ١٣ يشترط بقاءَ موضع التمرير
+ *    كما هو. وإخفاءُ اللوح تغييرُ تخطيطٍ لا تغييرُ محتوًى، فيتمدّد
+ *    `.ws-doc` بلا أن يفقد `scrollTop`.
+ */
+function closeSide() {
+  state.side = null;
+  paintSide();
+  paintHead();
+  paintItems();
+}
+
+/**
+ * يعيد رسمَ قائمة الوسائط وحدَها (بند ٤٥).
+ *
+ * ⚠️ **ولا يُعاد رسمُ المستند لأجل صفٍّ تغيّر تحديدُه**: النصُّ الروسيُّ
+ *    قد يكون آلافَ الأسطر، وتغييرُ حالةِ صفٍّ لا يبرّر هدمَه وبناءَه —
+ *    ولا يبرّر خصوصًا خطرَ ضياع موضع التمرير الذي كلّفنا WS-F2 قياسًا.
+ */
+function paintItems() {
+  const host = $('[data-ws-attached]');
+  if (!host || !state.node) return;
+  host.outerHTML = attachedHtml(state.node);
+}
+
+/**
+ * ⚠️ **حالةُ الانقسام `data-ws-open` لا `data-ws-side`** — عطبٌ حقيقيٌّ
+ *    كشفه الاختبارُ ٢٩، ويستحقّ أن يُكتَب لأنّه صنفٌ من الأخطاء يتكرّر.
+ *
+ *    كانت هذه الدالّةُ تكتب `split.dataset.wsSide` لتقول «مفتوحة». وذلك
+ *    **ينشئ على عنصر الانقسام سِمةَ `data-ws-side` نفسَها** التي يُمسَك
+ *    بها لوحُ المعاينة. وترتيبُ المستند يضع الانقسامَ قبل اللوح، فصار
+ *    `$('[data-ws-side]')` في النداء التالي يعيد **الانقسام**، فتُنفَّذ
+ *    عليه `innerHTML = ''` — فيُمحى المستندُ والمقبضُ واللوحُ معًا.
+ *
+ *    والعَرَضُ كان مُضلِّلًا تمامًا: «المستندُ يختفي عند إغلاق المعاينة»
+ *    بينما السببُ سِمةٌ تشترك في اسمها مع مِقبَض.
+ *
+ *    ⚠️ **والقاعدة**: سِمةُ الحالة وسِمةُ الإمساك لا تتشاركان اسمًا.
+ */
+function paintSide() {
+  const pane = $('[data-ws-side]');
+  const grip = $('[data-ws-side-grip]');
+  const split = $('[data-ws-main-split]');
+  if (!pane || !split) return;
+  const on = Boolean(state.side && mediaById(state.side));
+  pane.innerHTML = on ? sideHtml() : '';
+  pane.hidden = !on;
+  if (grip) grip.hidden = !on;
+  split.dataset.wsOpen = on ? 'on' : 'off';
+  split.style.setProperty('--ws-side-ratio', String(state.sideRatio));
 }
 
 /* ================================================================== *
@@ -1329,6 +1543,23 @@ function inspectorHtml() {
  * د · شريطُ السماع — مشتركٌ لا مالك (بند ٣٥)
  * ================================================================== */
 
+/**
+ * المشغّلُ المصغَّر — **نحيفٌ ومشتركٌ لا مالك** (WS-P4 · بنود ٢٧ إلى ٣٠).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **ما الذي تغيّر، ولماذا لا يُعَدّ مشغّلًا ثانيًا**
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * بلاغُك: شريطٌ عريضٌ يقطع أسفلَ الورشة كلَّها بلا داعٍ. والتغييرُ
+ * **بصريٌّ محضٌ**: نفسُ `subscribeAudio`، ونفسُ `audio.state`، ونفسُ
+ * زرّ `toggle`، ونفسُ شريط `seek` القائم. **ولا `<audio>` ثانٍ، ولا
+ * `currentTime` محسوبٌ هنا، ولا `playing` منطقيٌّ محلّيّ** (بند ٢٩):
+ * كلُّ ما يُرسَم مقروءٌ من اللقطة التي تبثّها الخدمة.
+ *
+ * والاسمُ والوقتُ صارا في سطرٍ واحدٍ مع الشريط بدل ثلاثة أسطر، ونزل
+ * زرُّ «اربطه بالمفتوح» تحت `⋯` المشغّل — فالربطُ المباشرُ من صفّ
+ * الوسيط صار هو الطريق (بند ١٨).
+ */
 function nowHtml(snapshot) {
   if (!snapshot?.hasTrack) return '';
   const ratio = snapshot.duration ? (snapshot.currentTime / snapshot.duration) : 0;
@@ -1337,19 +1568,20 @@ function nowHtml(snapshot) {
   return html`
     <button type="button" class="ws-now-play" data-ws="toggle"
             aria-label="${snapshot.playing ? 'وقّف' : 'شغّل'}">
-      ${raw(icon(snapshot.playing ? 'pause' : 'play', 18))}
+      ${raw(icon(snapshot.playing ? 'pause' : 'play', 17))}
     </button>
-    <div class="ws-now-mid">
-      <span class="ws-now-t" dir="auto">بتسمع: ${snapshot.title || 'تسجيل'}</span>
-      <div class="ws-seek" data-ws="seek" role="slider" tabindex="0"
-           aria-label="موضع التشغيل" aria-valuemin="0" aria-valuemax="100"
-           aria-valuenow="${Math.round(ratio * 100)}">
-        <div class="ws-seek-fill" style="inline-size:${(ratio * 100).toFixed(1)}%"></div>
-      </div>
-      <span class="ws-now-time">${clock(snapshot.currentTime)} / ${clock(snapshot.duration)}</span>
+    <span class="ws-now-t" dir="auto" title="${snapshot.title || 'تسجيل'}"
+      >${snapshot.title || 'تسجيل'}</span>
+    <!-- ⚠️ الشريطُ هو ws-seek القائم بعينه — القفزُ يعمل كما كان (بند ٣٠). -->
+    <div class="ws-seek" data-ws="seek" role="slider" tabindex="0"
+         aria-label="موضع التشغيل" aria-valuemin="0" aria-valuemax="100"
+         aria-valuenow="${Math.round(ratio * 100)}">
+      <div class="ws-seek-fill" style="inline-size:${(ratio * 100).toFixed(1)}%"></div>
     </div>
-    <button type="button" class="ws-btn ws-btn-soft" data-ws="link-current"
-            ${state.open?.kind === 'text' ? '' : 'disabled'}>اربطه بالمفتوح</button>`;
+    <span class="ws-now-time">${clock(snapshot.currentTime)} / ${clock(snapshot.duration)}</span>
+    <button type="button" class="ws-icon-btn ws-now-more" data-ws="link-current"
+            ${state.open?.kind === 'text' ? '' : 'disabled'}
+            aria-label="اربطه بالمفتوح">${raw(icon('link', 15))}</button>`;
 }
 
 /* ================================================================== *
@@ -1432,8 +1664,29 @@ function paintSave() {
 const paintNow = (snapshot) => {
   const el = $('[data-ws-now]');
   if (!el) return;
+  const on = Boolean(snapshot?.hasTrack);
   el.innerHTML = nowHtml(snapshot);
-  el.hidden = !snapshot?.hasTrack;
+  el.hidden = !on;
+
+  /*
+   * ═══════════════════════════════════════════════════════════════
+   * ⚠️ **الحشوُ السفليُّ يتبع الواقعَ لا الاحتمال** (بندا ٣١ و٣٣)
+   * ═══════════════════════════════════════════════════════════════
+   *
+   * كان `--ws-dock: 76px` محجوزًا في الألواح الثلاثة **دائمًا** — حتى
+   * والمشغّلُ مخفيٌّ ولا مقطعَ في الخدمة أصلًا. أي شريطٌ فارغٌ بعرض
+   * الشاشة يقضم ٧٦px من كلّ لوحٍ طولَ الوقت، وهو بعينه ما وصفتَه
+   * بـ«شريطٌ كبيرٌ لا داعيَ له».
+   *
+   * ⚠️ **ولا يُحَلّ بحذف الحشو**: بند ٣٣ صريحٌ في أنّ آخِرَ سطرٍ يجب أن
+   *    يبقى قابلًا للوصول. فالحشوُ يُحجَز **حين يكون هناك ما يُحجَز له**
+   *    — والرقمُ مقيسٌ من الشريط نفسِه بعد رسمه، لا مقدَّرٌ في CSS.
+   */
+  const root = $('.ws');
+  if (root) {
+    const h = on ? Math.round(el.getBoundingClientRect().height) : 0;
+    root.style.setProperty('--ws-dock', `${h ? h + 8 : 12}px`);
+  }
 
   /*
    * ⚠️ **كلُّ أزرار التشغيل تُصحَّح، لا زرُّ السطح وحدَه** (بند ٨): صفُّ
@@ -1662,10 +1915,12 @@ function setMode(next) {
     const node = nodeById(state.open.id);
     if (!state.draft || state.draft.id !== state.open.id) state.draft = makeDraft(node);
   }
-  if (next === MODE.LINK) {
-    state.inspector = true;
-    state.tab = TAB.LINKS;
-  }
+  /*
+   * ⚠️ **ولم يعُد لـ`MODE.LINK` فرعٌ هنا** (بندا ٢٣ و٢٤): كان كلُّ عمله
+   *    فتحَ لوح التفاصيل على تبويب الربط — وهو فعلٌ لا وضع. والثابتُ
+   *    نفسُه باقٍ في `MODE` كي لا تنكسر حالةٌ محفوظةٌ تحمله، وإن وصل
+   *    فهو الآن قراءةٌ عاديّة.
+   */
   applyShell();
   paintDoc({ force: true });
   if (state.inspector) paintInsp();
@@ -1981,6 +2236,61 @@ async function commitLink(mediaIds, targetId) {
 }
 
 /**
+ * يربط المحدَّدَ دفعةً — **ويقول الحقيقةَ حين تنجح بعضُها** (بند ٢١).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **هذه العمليّةُ ليست ذرّيّة — ولا يجوز أن تدّعي أنّها كذلك**
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * `link(fromId, toId, kind)` تربط **مصدرًا واحدًا** بهدفٍ واحد، و
+ * `linkItemsTo` تدور عليها. أي أنّ ربطَ خمسةِ عناصرَ خمسُ كتاباتٍ
+ * متتابعةٌ لا معاملةٌ واحدة. ولو رمت الثالثةُ لَخرجت الدالّةُ ومعها
+ * اثنان مربوطان **فعلًا** في القاعدة ورسالةٌ تقول «الربط فشل».
+ *
+ * فالحلقةُ هنا **لكلّ عنصرٍ على حدة**، وتُمسَك أخطاؤه:
+ *
+ *   · العددُ الناجحُ حقيقيّ — مقروءٌ من الكتابات التي تمّت.
+ *   · والفاشلُ يُسمَّى بالاسم لا بالعدد وحدَه.
+ *   · والفاشلُ **يبقى محدَّدًا** فتعيد المحاولةَ عليه وحدَه.
+ *   · ولا يُلغى ما نجح — التراجعُ الصامتُ عن روابطَ صحيحةٍ أسوأُ من
+ *     الفشل الجزئيّ، لأنّه يمحو عملًا وقع بلا أن تطلبه.
+ */
+async function linkPicked() {
+  const ids = [...state.picked];
+  if (!ids.length) return toastError('اختار حاجة الأول');
+  if (!state.node) return toastError('اختار مكان في الشجرة الأول');
+
+  const target = state.node;
+  const failed = [];
+  let ok = 0;
+
+  for (const one of ids) {
+    try {
+      const { linked } = await linkSelection([one], target, board, { mode: 'attach' });
+      ok += linked;
+    } catch (error) {
+      failed.push({ id: one, why: error?.message || 'مش معروف' });
+    }
+  }
+
+  /* ⚠️ الفاشلُ وحدَه يبقى محدَّدًا — فزرُّ «اربط المحدد» يصير إعادةَ محاولة. */
+  state.picked = new Set(failed.map((one) => one.id));
+  if (!failed.length) state.pickMode = false;
+
+  await refresh({ doc: true });
+  if (state.inspector) paintInsp();
+
+  const where = pathOf(target);
+  if (!failed.length) return toastOk(`اترّبط ${ok} — ${where}`);
+  const names = failed.slice(0, 3)
+    .map((one) => itemTitle(mediaById(one.id)) || one.id).join('، ');
+  return toastError(
+    `اترّبط ${ok} وفشل ${failed.length}: ${names}${failed.length > 3 ? '…' : ''}`
+    + ' — الفاشل لسّه متحدّد، اضغط «اربط المحدد» تاني.',
+  );
+}
+
+/**
  * أفعالُ العنصر الثانويّة — **خلف `⋯` لا في الصفّ** (بند ١٠).
  *
  * ⚠️ الصفُّ يحمل ما تفعله كلَّ يوم: تشغيلٌ وربطٌ وتسمية. وما تفعله
@@ -2061,12 +2371,23 @@ async function renameMedia(mediaId) {
   const done = await showModal({
     title: 'إعادة تسمية',
     submitLabel: 'احفظ',
+    /* ⚠️ حقلٌ واحدٌ ← نافذةٌ مضغوطة (بند ٤١) — ومنطقُ الحفظ لم يتغيّر. */
+    compact: true,
     body: html`
-      <label class="fld"><span>الاسم المعروض</span>
-        <input name="name" dir="auto" maxlength="200" value="${itemTitle(row)}"></label>
+      <div class="field">
+        <label for="ws-rename">الاسم المعروض</label>
+        <input id="ws-rename" name="name" dir="auto" maxlength="200"
+               value="${itemTitle(row)}" autocomplete="off">
+      </div>
       <p class="ws-hint">
         ده الاسم اللي هتشوفه وتدوّر بيه. الملفّ نفسه ومعرّفه وروابطه ما بيتغيّروش.
       </p>`,
+    onMount(root) {
+      /* ⚠️ تركيزٌ مرئيٌّ فورًا، والاسمُ محدَّدٌ فتكتب فوقه بلا مسحٍ يدويّ. */
+      const input = root.querySelector('#ws-rename');
+      input?.focus();
+      input?.select();
+    },
     onSubmit: async (data, close) => {
       const name = String(data.name || '').trim();
       /* ⚠️ اسمٌ فارغٌ يُرفَض ولا يُحوَّل إلى فراغٍ محفوظ (بند ١٠). */
@@ -2396,8 +2717,8 @@ async function openNodeMenu(nodeId) {
     body: html`
       <!--
         ⚠️ **إضافةُ ابنٍ وإضافةُ شقيقٍ هما المفتاحان** (WS-P2 · بند ١٥):
-           بهما وحدَهما تنمو الشجرةُ في أيّ اتّجاه — تقسم «المرحلة ٢»
-           إلى ٢أ و٢ب (أبناء)، أو تضيف «المرحلة ١٣» (شقيق). ولا رقمَ
+           بهما وحدَهما تنمو الشجرةُ في أيّ اتّجاه — تقسم المرحلة ٢»
+           إلى ٢أ و٢ب (أبناء)، أو تضيف المرحلة ١٣» (شقيق). ولا رقمَ
            مفروضٌ ولا عددَ مراحلَ مفترَض: الاسمُ اسمُك.
       -->
       <div class="ws-menu">
@@ -2533,13 +2854,37 @@ function toggleTwist(id) {
  * تحجيمُ الألواح (بند ١١)
  * ================================================================== */
 
+/**
+ * يعيد لوحًا إلى عرضه الافتراضيّ (بند ٤).
+ *
+ * ⚠️ **ولا يكون النقرُ المزدوجُ الطريقَ الوحيد** — البندُ ٤ ينصّ عليه:
+ *    «Do not make double-tap the only reset method». فهو اختصارٌ سريع،
+ *    ومعه بندٌ صريحٌ في قائمة `⋯` للوحة، ومفتاحُ Home على المقبض نفسِه.
+ */
+function resetPane(which) {
+  state.panes[which] = which === 'nav' ? PANE.NAV_DEFAULT : PANE.INSP_DEFAULT;
+  applyShell();
+  writePanePrefs(state.panes);
+  toastOk('رجع للعرض الافتراضي');
+}
+
 function startResize(event, which) {
   const root = $('.ws');
   if (!root) return;
+
+  /*
+   * ⚠️ **نقرتان متتاليتان على المقبض = استعادةُ الافتراضيّ** (بند ٤).
+   *    و`detail` تعدّ النقراتِ المتتابعةَ في المتصفّح نفسِه، فلا مؤقّتَ
+   *    نكتبه ولا حالةَ «آخِرُ لمسةٍ متى» تتقادم.
+   */
+  if (event.detail >= 2) { resetPane(which); return; }
+
   const rtl = getComputedStyle(root).direction === 'rtl';
   const startX = event.clientX;
   const from = which === 'nav' ? state.panes.nav : state.panes.insp;
   event.target.setPointerCapture?.(event.pointerId);
+  event.target.classList.add('is-dragging');
+  root.classList.add('is-resizing');
 
   const move = (ev) => {
     const raw2 = ev.clientX - startX;
@@ -2560,10 +2905,86 @@ function startResize(event, which) {
   const up = () => {
     window.removeEventListener('pointermove', move);
     window.removeEventListener('pointerup', up);
+    event.target.classList.remove('is-dragging');
+    root.classList.remove('is-resizing');
+    /* ⚠️ يُكتَب التفضيلُ عند نهاية السحب لا عند كلّ بكسل (بند ٤٥). */
     writePanePrefs(state.panes);
   };
   window.addEventListener('pointermove', move, wired());
   window.addEventListener('pointerup', up, wired({ once: true }));
+  /*
+   * ⚠️ **و`pointercancel` تُنهي السحبَ كما يُنهيه الرفع** (بند ٣٧): لمسةٌ
+   *    ثانيةٌ أو إيماءةٌ يلتقطها النظام تُلغي المؤشِّرَ بلا `pointerup` —
+   *    فلولا هذا لبقيت الشاشةُ في «حالةِ سحبٍ عالقة» بلا تمريرٍ ولا تحديد.
+   */
+  window.addEventListener('pointercancel', up, wired({ once: true }));
+}
+
+/**
+ * تحجيمُ الانقسام داخل مساحة العمل (بند ١١).
+ *
+ * ⚠️ **والحدّان محسوبان من العرض الفعليّ لا من نسبةٍ عمياء**: النصُّ
+ *    له `MAIN_MIN` نفسُه الذي يحمي المستندَ في الشبكة العامّة، والصورةُ
+ *    لها حدٌّ أدنى تُرى عنده. فلو ضاقت المساحةُ عن مجموعهما لم يتحرّك
+ *    المقبضُ أصلًا — لا انزلاقَ إلى عمودين لا يُقرأ أيٌّ منهما.
+ */
+const SIDE_MIN_IMG = 200;
+
+function startSideResize(event, grip) {
+  const box = $('[data-ws-main-split]');
+  if (!box) return;
+  if (event.detail >= 2) {
+    state.sideRatio = 0.64;
+    box.style.setProperty('--ws-side-ratio', '0.64');
+    return;
+  }
+  const rtl = getComputedStyle(box).direction === 'rtl';
+  grip.setPointerCapture?.(event.pointerId);
+  grip.classList.add('is-dragging');
+  const root = $('.ws');
+  root?.classList.add('is-resizing');
+
+  const move = (ev) => {
+    const rect = box.getBoundingClientRect();
+    /* ⚠️ في RTL يبدأ النصُّ من اليمين — فالنسبةُ تُقاس من `right`. */
+    const from = rtl ? (rect.right - ev.clientX) : (ev.clientX - rect.left);
+    const lo = PANE.MAIN_MIN / rect.width;
+    const hi = (rect.width - SIDE_MIN_IMG) / rect.width;
+    if (lo >= hi) return;
+    state.sideRatio = Math.max(lo, Math.min(hi, from / rect.width));
+    box.style.setProperty('--ws-side-ratio', state.sideRatio.toFixed(4));
+  };
+  const up = () => {
+    window.removeEventListener('pointermove', move);
+    window.removeEventListener('pointerup', up);
+    grip.classList.remove('is-dragging');
+    root?.classList.remove('is-resizing');
+  };
+  window.addEventListener('pointermove', move, wired());
+  window.addEventListener('pointerup', up, wired({ once: true }));
+  window.addEventListener('pointercancel', up, wired({ once: true }));
+}
+
+/** مفاتيحُ المقبض: أسهمٌ تحرّك، وHome تستعيد الافتراضيّ (بند ٤). */
+function resizeKey(event, which) {
+  const step = event.shiftKey ? 48 : 12;
+  if (event.key === 'Home') { resetPane(which); return true; }
+  if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return false;
+
+  const root = $('.ws');
+  const rtl = getComputedStyle(root).direction === 'rtl';
+  const toward = event.key === 'ArrowLeft' ? -1 : 1;
+  /* نفسُ حساب السحب: في RTL المُتصفِّحُ على اليمين فيوسّعه السهمُ الأيسر. */
+  const dir = which === 'nav' ? (rtl ? -toward : toward) : (rtl ? toward : -toward);
+  const other = which === 'nav' ? (state.inspector ? state.panes.insp : 0) : state.panes.nav;
+  const min = which === 'nav' ? PANE.NAV_MIN : PANE.INSP_MIN;
+  const max = which === 'nav' ? PANE.NAV_MAX : PANE.INSP_MAX;
+  const room = root.clientWidth - other - PANE.MAIN_MIN;
+  state.panes[which] = Math.round(Math.max(min,
+    Math.min(max, Math.min(state.panes[which] + dir * step, room))));
+  applyShell();
+  writePanePrefs(state.panes);
+  return true;
 }
 
 /* ================================================================== *
@@ -2586,6 +3007,15 @@ export async function renderWorkspace(main, sceneId) {
   state.zen = false;
   state.drawer = null;
   state.picked = new Set();
+  /*
+   * ⚠️ **ولا تحديدَ متقادمٌ بعد تنقّلٍ لا علاقةَ له** (بند ٢٢): فتحُ ذكرًى
+   *    أخرى يصفّر وضعَ التحديد والمعاينةَ معًا — وإلّا لَرأيتَ صورةً من
+   *    ذكرًى غادرتَها معروضةً بجوار نصٍّ ليس لها.
+   */
+  state.pickMode = false;
+  state.mediaSel = null;
+  state.side = null;
+  state.sideRatio = 0.64;
   state.mediaFilter = 'unlinked';
   state.mediaQuery = '';
   state.fetching = new Set();
@@ -2616,8 +3046,8 @@ export async function renderWorkspace(main, sceneId) {
           <button type="button" class="ws-icon-btn" data-ws="zen"
                   aria-pressed="false" aria-label="وضع التركيز">${raw(icon('eye', 18))}</button>
           <!--
-            ⚠️ **«وضع التنظيم» لم يكن يقول ما يفعل** (WS-P2 · بند ١٢).
-               دقّقتُ الشاشةَ التي يفتحها: سؤالُها الحقيقيّ «إيه اللي
+            ⚠️ **وضع التنظيم» لم يكن يقول ما يفعل** (WS-P2 · بند ١٢).
+               دقّقتُ الشاشةَ التي يفتحها: سؤالُها الحقيقيّ إيه اللي
                لسّه ما نظّمتهوش؟» — فرزٌ على مستوى الذكرى كلِّها، وورشةُ
                ربطٍ بالجملة. وذلك عملٌ حقيقيٌّ لا تغطّيه هذه الشاشة،
                فبقي البابُ **باسمه الصادق** لا باسمٍ غامض.
@@ -2632,9 +3062,22 @@ export async function renderWorkspace(main, sceneId) {
         <div class="ws-split" data-ws-split="nav" role="separator"
              aria-label="عرض المُتصفِّح" tabindex="0"></div>
 
+        <!--
+          ⚠️ **المعاينةُ الجانبيّةُ ابنةُ .ws-main لا عمودٌ خامس** (بندا ٨
+             و٣٤): البندُ ٨ يسمّي الخطرَ بنفسه — Do NOT create: Media panel
+             | Text | Image | Navigator | Global rail. That would recreate
+             the original problem». فالانقسامُ **داخل** مساحة العمل: إن
+             أُغلقت المعاينةُ عاد المستندُ إلى كامل العرض في نفس اللحظة،
+             ولا يبقى في الشبكة العامّة عمودٌ محجوزٌ فارغ.
+        -->
         <main class="ws-main" data-ws-main>
           <div class="ws-head" data-ws-head></div>
-          <div class="ws-doc" data-ws-doc></div>
+          <div class="ws-main-split" data-ws-main-split>
+            <div class="ws-doc" data-ws-doc></div>
+            <div class="ws-side-grip" data-ws-side-grip role="separator"
+                 tabindex="0" aria-label="عرض المعاينة" hidden></div>
+            <aside class="ws-side" data-ws-side aria-label="معاينة جنب النصّ" hidden></aside>
+          </div>
         </main>
 
         <div class="ws-split" data-ws-split="insp" role="separator"
@@ -2789,6 +3232,45 @@ export async function renderWorkspace(main, sceneId) {
 
       case 'open-media': return openMedia(id, btn.dataset.kind);
       case 'rename-media': return renameMedia(id);
+
+      /* ---------- المعاينةُ جنب النصّ (بنود ٩ و١٣ و١٤) ---------- */
+      case 'side-open': {
+        /* ⚠️ الزرُّ نفسُه يقفلها إن كانت مفتوحةً على هذه الصورة (بند ٩). */
+        if (state.side === id) { closeSide(); return undefined; }
+        openSide(id);
+        return undefined;
+      }
+      case 'side-close': { closeSide(); return undefined; }
+
+      /* ---------- تحديدُ وسيطٍ محلّيّ (بند ١٦) ---------- */
+      case 'pick-media': {
+        if (state.pickMode) {
+          if (state.picked.has(id)) state.picked.delete(id); else state.picked.add(id);
+          paintItems();
+          return undefined;
+        }
+        /*
+         * ⚠️ **التحديدُ يقع، والفتحُ يبقى كما كان** (بندا ١٦ و٤٠): البندُ
+         *    ١٦ يشترط تحديدًا محلّيًّا ولا يطلب إلغاءَ الفتح؛ والبندُ ٤٠
+         *    يشترط بقاءَ «اختر/افتح صورة ← عرضٌ كبيرٌ نظيف» كما هو. فيقع
+         *    الاثنان معًا، و`state.node` وحدَها هي التي لا تُمَسّ.
+         */
+        state.mediaSel = id;
+        return openMedia(id, btn.dataset.kind);
+      }
+      case 'pick-mode': {
+        state.pickMode = !state.pickMode;
+        state.picked.clear();
+        paintItems();
+        return undefined;
+      }
+      case 'pick-link': return linkPicked();
+      case 'pick-cancel': {
+        state.pickMode = false;
+        state.picked.clear();
+        paintItems();
+        return undefined;
+      }
       case 'play': return playItem(id);
       case 'toggle': return audio.state.playing ? audio.pause() : audio.play();
       case 'zoom': return openLightbox(id, state.sceneId);
@@ -2932,9 +3414,24 @@ export async function renderWorkspace(main, sceneId) {
     }, wired({ passive: true }));
   }
 
+  /*
+   * ⚠️ **ولا يكون السحبُ الطريقَ الوحيد** (بندا ٤ و٣٧): المقبضُ
+   *    `role="separator"` و`tabindex="0"` أصلًا — فالأسهمُ تحرّكه
+   *    و`Home` تعيده. وهذا أيضًا ما يجعل الاختبارَ يقيس الحدودَ بلا
+   *    محاكاةِ إصبع.
+   */
+  main.addEventListener('keydown', (event) => {
+    const split = event.target.closest?.('[data-ws-split]');
+    if (!split) return;
+    if (resizeKey(event, split.dataset.wsSplit)) event.preventDefault();
+  }, wired());
+
   main.addEventListener('pointerdown', (event) => {
     const split = event.target.closest('[data-ws-split]');
     if (split) { startResize(event, split.dataset.wsSplit); return; }
+
+    const grip = event.target.closest('[data-ws-side-grip]');
+    if (grip) { startSideResize(event, grip); return; }
 
     const track = event.target.closest('[data-ws="seek"]');
     if (!track) return;
@@ -2997,4 +3494,7 @@ export const __wsp = {
   playItem, commitLink, dropLink, revealAndOpen, applyShell,
   /* ⚠️ منافذُ WS-P3: تُقاس بها هُويّةُ التحديد ومسارُ الربط المباشر. */
   pickTargetFor, pickMediaFor, paintNav, paintDoc,
+  /* ⚠️ منافذُ WS-P4: التحجيمُ والمعاينةُ الجانبيّةُ والربطُ الجزئيّ. */
+  resetPane, resizeKey, openSide, closeSide, paintSide, paintItems, linkPicked, PANE,
+  paintInsp,
 };

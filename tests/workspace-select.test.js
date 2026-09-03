@@ -447,7 +447,7 @@ describe('WS-P3 · ج · «ربط» بجوار العنصر', () => {
     } finally { unmount(host); }
   });
 
-  it('١٨ · والصفُّ لا يُحشَى: تشغيلٌ/معاينةٌ · ربطٌ · تسميةٌ · ⋯ — أربعةٌ لا أكثر', async () => {
+  it('١٨ · والصفُّ لا يُحشَى — أربعةُ أفعالٍ على الأكثر', async () => {
     const { host, w } = await mount();
     try {
       const t = await freshTarget(w);
@@ -458,7 +458,14 @@ describe('WS-P3 · ج · «ربط» بجوار العنصر', () => {
       await wait(180);
       const row = $('.ws-item', host);
       expect(Boolean(row)).toBe(true);
-      expect([...row.querySelector('.ws-item-acts').children]).toHaveLength(4);
+      /*
+       * ⚠️ **الحدُّ سقفٌ لا عدد** (WS-P4 · بند ١٩). كان هذا يشترط أربعةً
+       *    بالضبط لأنّ الصفَّ كان: تشغيل · ربط · تسمية · ⋯. ثمّ نزلت
+       *    «إعادة التسمية» تحت `⋯` لأنّها فعلٌ نادر والربطُ هو المركزيّ،
+       *    فصارت ثلاثة. والمقصدُ المحروسُ منذ البداية «لا يُحشى الصفّ»
+       *    — وثلاثةٌ تحته لا فوقه.
+       */
+      expect([...row.querySelector('.ws-item-acts').children].length <= 4).toBe(true);
       /* والباقي خلف `⋯` لا في الصفّ. */
       expect(Boolean(row.querySelector('[data-ws="item-menu"]'))).toBe(true);
     } finally { unmount(host); }
@@ -584,8 +591,14 @@ describe('WS-P3 · ج · «ربط» بجوار العنصر', () => {
 
   it('٢٥ · ولا مسارَ ربطٍ ثانٍ في الكود — كلُّها تنتهي إلى `linkSelection`', async () => {
     const code = codeOnly(await (await fetch('../js/views/workspace-view.js')).text());
-    /* استيرادٌ واحدٌ للربط، واستدعاءٌ واحدٌ له. */
-    expect((code.match(/linkSelection/g) || []).length).toBe(2);
+    /*
+     * ⚠️ **المقصدُ: كلُّ ربطٍ يمرّ من الباب الواحد** — لا عددُ السطور.
+     *    كانا اثنين (استيرادٌ ونداءٌ في `commitLink`)، وصاروا ثلاثةً
+     *    بنداءِ `linkPicked` في WS-P4 — وهو **نفسُ الباب** لكن لكلّ
+     *    عنصرٍ على حدة، كي يُقال الناجحُ والفاشلُ بصدقٍ (بند ٢١).
+     *    والحارسُ الحقيقيُّ هو السطرُ الأخير: لا كتابةَ علاقاتٍ مباشرة.
+     */
+    expect((code.match(/linkSelection/g) || []).length).toBe(3);
     /* والمدخلان الجديدان يمرّان بـ`commitLink` نفسِها. */
     expect(code).toContain("case 'link-item': return pickTargetFor(id)");
     expect(code).toContain("case 'link-into': return pickMediaFor(id)");

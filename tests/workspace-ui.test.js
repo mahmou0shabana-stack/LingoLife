@@ -369,12 +369,23 @@ describe('WS-P · ب · المستندُ وأوضاعُه', () => {
     } finally { unmount(host); }
   });
 
-  it('١٥ · والأوضاعُ ثلاثةٌ مسمّاةٌ تُعلَن للتقنيات المساعدة (بندا ٥ و٢١)', async () => {
+  it('١٥ · والأوضاعُ مسمّاةٌ تُعلَن للتقنيات المساعدة (بندا ٥ و٢١)', async () => {
+    /*
+     * ⚠️ **تحرّك المِرساةُ لا المقصد** (WS-P4 · بندا ٢٣ و٢٤).
+     *
+     *    كان هذا يحرس **ثلاثةَ** أوضاع. وتدقيقُ WS-P4 أظهر أنّ «ربط» لم
+     *    يكن وضعًا للوثيقة أصلًا: كلُّ أثره في `setMode` سطران يفتحان
+     *    لوحَ التفاصيل — وهو ما يفعله زرُّ «تفاصيل» نفسُه. فحُذف بقرارٍ
+     *    مكتوب، ومسارُ الربط كلُّه محروسٌ في `workspace-tablet` (٤٨–٥٢).
+     *
+     *    ⚠️ **والمقصدُ المحروسُ هنا لم يتغيّر**: الأوضاعُ المعروضةُ
+     *       مسمّاةٌ ومُعلَنةٌ بـ`aria-selected` — لا عددُها.
+     */
     const { host } = await mount();
     try {
       const modes = $$('[data-ws="mode"]', host);
       expect(modes.map((el) => el.textContent.trim()))
-        .toEqual([MODE_LABEL.read, MODE_LABEL.edit, MODE_LABEL.link]);
+        .toEqual([MODE_LABEL.read, MODE_LABEL.edit]);
       expect(modes[0].getAttribute('aria-selected')).toBe('true');
       expect(modes[1].getAttribute('aria-selected')).toBe('false');
     } finally { unmount(host); }
@@ -414,12 +425,18 @@ describe('WS-P · ب · المستندُ وأوضاعُه', () => {
     } finally { unmount(host); }
   });
 
-  it('١٨ · ووضعُ «ربط» يفتح المُفتِّشَ على تبويب الربط (بندا ٥ و١٨)', async () => {
+  it('١٨ · وعرضُ الروابط يُفتَح من «تفاصيل» على تبويب الربط (بندا ٥ و١٨)', async () => {
+    /*
+     * ⚠️ **نفسُ الوجهةِ من الباب الباقي** (WS-P4 · بندا ٢٤ و٢٥): كان
+     *    الطريقُ إلى تبويب الربط وضعًا اسمُه «ربط»، وصار زرَّ «تفاصيل».
+     *    والمحروسُ هو **وصولُك إلى عرض العلاقات**، لا اسمُ الباب.
+     */
     const { host, w } = await mount();
     try {
       __wsp.selectNode(w.partB);
-      __wsp.setMode(MODE.LINK);
       await wait(60);
+      $('[data-ws="insp"]', host).click();
+      await wait(80);
       expect(__wsp.state.inspector).toBe(true);
       expect(__wsp.state.tab).toBe(TAB.LINKS);
       expect($('.ws', host).dataset.insp).toBe('on');
@@ -445,7 +462,13 @@ describe('WS-P · ب · المستندُ وأوضاعُه', () => {
     try {
       /* هدفٌ لا وجودَ له — كما لو حُذف من جهازٍ آخرَ ثم زُومِن. */
       __wsp.state.open = { kind: 'text', id: 'لا-وجود-له' };
-      __wsp.setMode(MODE.LINK);
+      /* ⚠️ كان يُستعمَل `setMode(LINK)` لفتح المُفتِّش — وقد سقط الوضع
+         (WS-P4 · بند ٢٤). والمقصدُ واحد: سطحان مرسومان بلا انهيار. */
+      __wsp.paintDoc({ force: true });
+      __wsp.state.inspector = true;
+      __wsp.state.tab = TAB.LINKS;
+      __wsp.applyShell();
+      __wsp.paintInsp?.();
       await wait(80);
       expect($('[data-ws-doc]', host).textContent.includes('مابقاش موجود')).toBe(true);
       /* ⚠️ ولا انهيارَ في المُفتِّش كذلك — الصفوفُ فارغةٌ لا خطأ. */
@@ -890,7 +913,12 @@ describe('WS-P · و · ما لا يجوز أن يتغيّر', () => {
       await wait(40);
       __wsp.setMode(MODE.EDIT);
       await wait(40);
-      __wsp.setMode(MODE.LINK);
+      __wsp.setMode(MODE.READ);
+      await wait(40);
+      /* ⚠️ كان هنا `setMode(LINK)` ليفتح المُفتِّش. وقد سقط الوضعُ في
+         WS-P4 (بند ٢٤)، والبابُ الباقي هو زرُّ «تفاصيل» — والدورةُ
+         المفحوصةُ هي هي: تنقّلٌ وتحريرٌ وتبويباتٌ ووسائطُ وتركيز. */
+      $('[data-ws="insp"]', host).click();
       await wait(60);
       $('[data-ws="tab"][data-v="media"]', host).click();
       await wait(60);

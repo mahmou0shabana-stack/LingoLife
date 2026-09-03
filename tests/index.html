@@ -161,6 +161,7 @@
       await import('./draft-texts.test.js');
       await import('./prompt-text.test.js');
       await import('./prompt-library.test.js');
+      await import('./workspace-tablet.test.js');
 
       const result = await run((event) => {
         if (event.type === 'suite') {

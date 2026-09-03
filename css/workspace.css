@@ -417,12 +417,30 @@ body.workspace-open #app-main {
 
 .ws-nav-face { flex: 0 0 auto; display: grid; place-items: center; color: var(--ink-faint); }
 
+/*
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **سطران لا سطرٌ مبتور** (WS-P4 · بند ٥)
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * بلاغُك: أسماءُ المراحل تُقطَع. وأرخصُ «حلٍّ» أن يُصغَّر الخطُّ حتى
+ * يتّسع — وهو ما ينهى عنه البندُ ٥ صراحةً: «Do not automatically shrink
+ * hierarchy typography to tiny sizes just to fit a title».
+ *
+ * فالترتيبُ المطلوب: **يوسّع المستعملُ اللوحَ أوّلًا**، ثمّ يُسمَح
+ * بسطرين. و`line-clamp: 2` تعطي السطرين وتُبقي «…» عند الثالث، فلا
+ * يصير الصفُّ عمودًا. والارتفاعُ الأدنى باقٍ `--ws-row` فلا ينكمش
+ * هدفُ اللمس تحت ٤٦px.
+ */
 .ws-nav-t {
   flex: 1;
   min-inline-size: 0;
   overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
 }
 
 .ws-nav-meta {
@@ -488,19 +506,44 @@ body.workspace-open #app-main {
   inline-size: 25px;
 }
 
+/*
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **المقبضُ كان `opacity: 0` حتى `:hover` — أي غيرُ موجودٍ على تابلت**
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * هذا هو سببُ بلاغِك أنّ اللوحَ «لا يبدو قابلًا للتحجيم»: الآليّةُ كانت
+ * مبنيّةً وتعمل — التقاطُ المؤشِّر و٢٥px هدفَ لمسٍ وحسابُ RTL — لكنّ
+ * أثرَها البصريَّ لا يظهر إلّا لفأرةٍ تمرّ فوقه. **والإصبعُ لا يمرّ**:
+ * على الشاشة اللمسيّة لا `:hover` قبل الضغط، فلم يكن على الشاشة ما
+ * يقول إنّ هنا شيئًا يُسحَب.
+ *
+ * فصار ظاهرًا دائمًا بهدوء: ثلاثُ نقطٍ خافتةٌ تُقرأ «مقبض» ولا تصرخ،
+ * وتشتدّ عند اللمس والتركيز. والقاعدةُ العامّة: **أثرٌ يظهر بالتمرير
+ * وحدَه هو أثرٌ لا وجودَ له على جهازٍ باللمس** (بند ٢ و٣٧).
+ */
 .ws-split::after {
   content: '';
   position: absolute;
-  inset-block: 40% 40%;
+  inset-block: 50% 50%;
   inset-inline-start: 2px;
   inline-size: 3px;
+  block-size: 34px;
+  margin-block-start: -17px;
   border-radius: 999px;
   background: var(--line-strong);
-  opacity: 0;
+  opacity: .55;
+  transition: opacity .12s ease, block-size .12s ease;
 }
 
 .ws-split:hover::after,
-.ws-split:focus-visible::after { opacity: 1; }
+.ws-split:focus-visible::after,
+.ws-split.is-dragging::after { opacity: 1; block-size: 54px; margin-block-start: -27px; }
+
+/* أثناء السحب: لا تحديدَ نصٍّ ولا تمريرَ لوحٍ تحت الإصبع (بند ٣٧). */
+.ws.is-resizing { cursor: col-resize; user-select: none; }
+.ws.is-resizing .ws-nav,
+.ws.is-resizing .ws-doc,
+.ws.is-resizing .ws-insp { overflow: hidden; }
 .ws[data-fit="narrow"] .ws-split { display: none; }
 .ws[data-fit="mid"] .ws-split[data-ws-split="insp"] { display: none; }
 .ws[data-insp="off"] .ws-split[data-ws-split="insp"] { display: none; }
@@ -515,6 +558,140 @@ body.workspace-open #app-main {
   flex-direction: column;
   min-block-size: 0;
   background: var(--surface);
+}
+
+/*
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **المعاينةُ جنب النصّ — انقسامٌ داخلَ الوثيقة** (بنود ٨ و١٠ و٣٤)
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * البندُ ٨ يسمّي الخطرَ بنفسه: عمودٌ خامسٌ دائمٌ يعيد إنتاج العطب
+ * الأصليّ. فالانقسامُ هنا **ابنُ `.ws-main`**: إن كانت `data-ws-open="off"`
+ * فالمستندُ عمودٌ واحدٌ بكلّ العرض حرفيًّا — لا عمودَ محجوزٌ بصفر، ولا
+ * فجوةٌ باقيةٌ من `gap`.
+ *
+ * ⚠️ **والنصُّ يغلب** (بند ١٠): النسبةُ الافتراضيّةُ ٦٤٪ للنصّ — ضمن
+ *    ٦٠–٧٠٪ التي طلبتَها — وهي متغيّرٌ يُحرَّك بالمقبض لا رقمٌ مسمَّر.
+ */
+.ws-main-split {
+  --ws-side-ratio: .64;
+  flex: 1;
+  min-block-size: 0;
+  min-inline-size: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.ws-main-split[data-ws-open="on"] {
+  grid-template-columns:
+    minmax(0, calc(var(--ws-side-ratio) * 100%)) 7px minmax(0, 1fr);
+}
+
+.ws-side {
+  min-inline-size: 0;
+  min-block-size: 0;
+  display: flex;
+  flex-direction: column;
+  border-inline-start: 1px solid var(--line);
+  background: var(--bg-alt);
+}
+
+.ws-side-head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px 6px 12px;
+  border-block-end: 1px solid var(--line-soft);
+}
+
+.ws-side-t {
+  flex: 1;
+  min-inline-size: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: .78rem;
+  color: var(--ink-soft);
+}
+
+.ws-side-body {
+  flex: 1;
+  min-block-size: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  display: grid;
+  place-items: center;
+  padding: 10px 10px var(--ws-dock);
+}
+
+/* ⚠️ صورةُ المعاينة تفتح اللايت‑بوكس المشترك — لا عارضَ ثانٍ (بند ١٢). */
+.ws-side-shot {
+  display: block;
+  inline-size: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  cursor: zoom-in;
+}
+
+.ws-side-shot img {
+  display: block;
+  inline-size: 100%;
+  block-size: auto;
+  border-radius: var(--radius-sm);
+}
+
+/* مقبضُ الانقسام — نفسُ عقد اللمس في مقبض الألواح (بندا ١١ و٣٧). */
+.ws-side-grip {
+  position: relative;
+  cursor: col-resize;
+  background: transparent;
+  touch-action: none;
+}
+
+.ws-side-grip::before {
+  content: '';
+  position: absolute;
+  inset-block: 0;
+  inset-inline-start: -9px;
+  inline-size: 25px;
+}
+
+.ws-side-grip::after {
+  content: '';
+  position: absolute;
+  inset-block-start: 50%;
+  inset-inline-start: 2px;
+  inline-size: 3px;
+  block-size: 34px;
+  margin-block-start: -17px;
+  border-radius: 999px;
+  background: var(--line-strong);
+  opacity: .55;
+}
+
+.ws-side-grip:hover::after,
+.ws-side-grip:focus-visible::after,
+.ws-side-grip.is-dragging::after { opacity: 1; }
+
+/*
+ * ⚠️ **ولا عمودان ضيّقان في الطول** (بندا ١٥ و٣٦): تحت العتبة يتكدّس
+ *    اللوحان — النصُّ فوق والصورةُ تحته بسقفِ ارتفاعٍ — بدل ٣٠٠px
+ *    لكلٍّ منهما. والبندُ ١٥ يمنع القسمةَ الأفقيّةَ هنا صراحةً.
+ */
+@media (max-width: 900px) {
+  .ws-main-split[data-ws-open="on"] {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+  }
+  .ws-main-split[data-ws-open="on"] .ws-side {
+    max-block-size: 42dvh;
+    border-inline-start: 0;
+    border-block-start: 1px solid var(--line);
+  }
+  .ws-side-grip { display: none; }
 }
 
 .ws-head {
@@ -843,7 +1020,63 @@ body.workspace-open #app-main {
   border: 1px solid var(--line);
 }
 
+/*
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **تحديدٌ ثانويٌّ أخفُّ من تحديد المُتصفِّح** (بندا ١٦ و١٧)
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * صفُّ المُتصفِّح المحدَّد يحمل ثلاثَ إشارات: سطحُ `--accent-wash`،
+ * وشريطٌ جانبيٌّ ٤px، وخطٌّ ثقيل. ولو أخذ صفُّ الوسيط مثلَها لصار على
+ * الشاشة **تحديدان يتنازعان** — ولا تعرف أيُّهما «مكانُك».
+ *
+ * فهذا أخفُّ عمدًا: حدٌّ بلون الهُويّة وسطحٌ شاحبٌ جدًّا، بلا شريطٍ
+ * جانبيٍّ وبلا تغليظِ خطّ. مرتبةٌ ثانيةٌ تُرى ولا تنافس.
+ */
+.ws-item.is-sel {
+  border-color: var(--accent);
+  background: var(--accent-wash);
+}
+
+/* والمعروضةُ جنب النصّ تُعلَن بعلامةٍ رابعةٍ صغيرة — حالةٌ لا تحديد. */
+.ws-item.is-side .ws-item-side { color: var(--accent); }
+.ws-item-side.is-on { background: var(--accent-wash); border-color: var(--accent); }
+
+.ws-item-tick {
+  position: absolute;
+  inset-block-start: -3px;
+  inset-inline-end: -3px;
+  inline-size: 18px;
+  block-size: 18px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--accent);
+  font-size: .7rem;
+  line-height: 1;
+}
+
+.ws-item.is-sel .ws-item-tick { border-color: var(--accent); background: var(--accent-wash); }
+
+/* شريطُ الدفعة — عددٌ حقيقيٌّ وفعلان لا أكثر (بندا ٢١ و٢٢). */
+.ws-pickbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-block-end: 8px;
+  padding: 6px 10px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--accent-wash);
+  font-size: .8rem;
+}
+
+.ws-pickbar b { margin-inline-end: auto; }
+
 .ws-item-face {
+  position: relative;
   flex: 0 0 auto;
   display: grid; place-items: center;
   inline-size: 40px; block-size: 40px;
@@ -1290,6 +1523,23 @@ body.workspace-open.has-mini-player .app-main { padding-bottom: 0; }
  * شريطُ السماع — مشتركٌ لا مالك (بند ٣٥)
  * ------------------------------------------------------------------ */
 
+/*
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **مشغّلٌ نحيفٌ — لا شريطٌ عريضٌ يقطع الشاشة** (بنود ٢٧ و٢٨ و٣١)
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * كان ثلاثةَ أسطرٍ متراكمةٍ في `ws-now-mid` بارتفاعٍ قِيس فوق ٧٦px.
+ * وصار سطرًا واحدًا: تشغيل · اسم · شريطُ موضعٍ رفيع · وقت · ربط.
+ *
+ * ⚠️ **ولا يظهر أصلًا بلا مقطع** (بند ٣١): `hidden` عليه، و`--ws-dock`
+ *    يُضبَط من ارتفاعه المقيس — فالمساحةُ تُحجَز لشيءٍ موجودٍ فقط.
+ *
+ * ⚠️ **ولا شريطَ حالةٍ زخرفيّ** (بند ٣٢): البندُ يسمح به «إن كان مفيدًا»
+ *    ويشترط أرقامًا حقيقيّةً وحدَها. والورشةُ تعرض حالةَ الحفظ في
+ *    ترويستها بالفعل، وعددَ الوسائط في «مربوط هنا» بالفعل — فشريطٌ
+ *    ثالثٌ يكرّرهما هو الضجيجُ الذي جاء البندُ ٣٢ ليمنعه. فاخترنا
+ *    الاحتمال (أ): **يختفي المشغّلُ تمامًا**، ولا يُستبدَل بشيء.
+ */
 .ws-now {
   position: absolute;
   inset-inline: 0;
@@ -1299,7 +1549,8 @@ body.workspace-open.has-mini-player .app-main { padding-bottom: 0; }
   display: flex;
   align-items: center;
   gap: 8px;
-  padding: 6px 12px;
+  min-block-size: 44px;
+  padding: 3px 10px;
   border-block-start: 1px solid var(--line);
   background: var(--surface);
   box-shadow: var(--shadow-sm);
@@ -1307,9 +1558,26 @@ body.workspace-open.has-mini-player .app-main { padding-bottom: 0; }
 
 .ws { position: relative; }
 
+/* ⚠️ `[hidden]` لا تغلب `display:flex` بلا هذا — فكان يبقى مرئيًّا. */
+.ws-now[hidden] { display: none; }
+
+.ws-now-t {
+  flex: 0 1 auto;
+  min-inline-size: 0;
+  max-inline-size: 34%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: .78rem;
+}
+
+.ws-now .ws-seek { flex: 1; min-inline-size: 60px; }
+.ws-now-more { flex: 0 0 auto; }
+
 .ws-now-play {
-  min-inline-size: 44px;
-  min-block-size: 44px;
+  flex: 0 0 auto;
+  min-inline-size: 40px;
+  min-block-size: 40px;
   display: grid;
   place-items: center;
   border: 1px solid var(--line);

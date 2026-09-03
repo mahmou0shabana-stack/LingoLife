@@ -3224,6 +3224,27 @@ body:has(.shadow-app) .improve-fab { display: none; }
 }
 .modal.is-wide { max-inline-size: min(760px, 94vw); }
 
+/*
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **نافذةٌ بحجم مهمّتها** (WS-P4 · بند ٤١)
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * حقلٌ واحدٌ وزرّان لا يحتاجان ٥٦٠px وفراغًا رأسيًّا واسعًا. والحجمُ
+ * ليس تجميلًا: نافذةٌ بحجم النموذج الكامل تقول «مهمّةٌ كبيرة» عن
+ * تغييرِ اسم.
+ *
+ * ⚠️ **والأزرارُ تبقى ٤٤px** — التصغيرُ في العرض والحشو لا في هدف
+ *    اللمس، وإلّا صار «مضغوطًا» يعني «أصعبَ باللمس».
+ */
+.modal.is-compact {
+  max-inline-size: min(400px, 94vw);
+  padding: var(--sp-4) var(--sp-4) calc(var(--sp-4) + env(safe-area-inset-bottom));
+}
+
+.modal.is-compact h2 { margin-bottom: var(--sp-3); font-size: var(--fs-base); }
+.modal.is-compact .modal-actions { margin-top: var(--sp-4); }
+.modal.is-compact .modal-actions .btn { min-block-size: 44px; }
+
 /* ⚠️ وضع التركيز (A6): شاشةٌ فارغةٌ إلا منه — قراءةٌ لا تحرير. */
 body.tr-focused .board > .sec:not(.is-focused),
 body.tr-focused .scene-head,
