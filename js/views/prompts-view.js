@@ -104,6 +104,8 @@ function fresh() {
     listOpen: true,
     /** تصفيةٌ بالمصدر — من درج التصنيفات (بند ٥٦). */
     source: '',
+    /** قسمُ التنظيم مفتوحٌ؟ — مطويٌّ افتراضيًّا (بند ٢٥). */
+    metaOpen: false,
     /**
      * ⚠️ **درجُ التصنيفات — لا عمودٌ دائم** (بندا ١٤ و٥٤).
      *
@@ -592,34 +594,43 @@ function readHtml(row) {
  *    أصلًا، فلا دلالةَ قائمةً أحافظ عليها. وبرومبتٌ من خمسين قسمًا
  *    يُحفَظ تلقائيًّا وأنت في نصف تعديلٍ يترك في القاعدة نصفَ قالب.
  */
+/**
+ * المحرّرُ — **الاسمُ والمتنُ أوّلًا، والتنظيمُ ثانيًا** (بنود ٢٤ و٢٥ و٦٦).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ ما كان يحدث قبل هذا: استمارةٌ إداريّةٌ لا مكانَ كتابة
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * خمسةُ حقولٍ متساويةِ الوزن: الاسمُ ثم الغرضُ ثم التصنيفُ ثم الوسومُ
+ * ثم — أخيرًا — البرومبت. والفعلُ الحقيقيُّ الذي جئتَ من أجله (تلصق
+ * نصًّا طويلًا كتبتَه في ChatGPT) كان خامسًا في الترتيب البصريّ.
+ *
+ * فصار المتنُ يأخذ المساحةَ، والغرضُ والتصنيفُ والوسومُ خلف «التنظيم»
+ * مطويّةً — **ظاهرةً لا مخفيّة**، تفتحها إن أردت وتتجاهلها إن لم ترد.
+ *
+ * ⚠️ **ولا يُطلَب منك التفكيرُ في البيانات الوصفيّة قبل اللصق** (بند ٢٤).
+ */
 function editorHtml(row) {
   const d = state.draft;
+  /*
+   * ⚠️ **وتعليماتُك على طلبِ تحليلٍ متنٌ وحدَه** (قيد المالك ٣): لا اسمَ
+   *    ولا تصنيفَ ولا وسومَ لها، لأنها ليست صفًّا تملكه بل حقلٌ في
+   *    الإعدادات مربوطٌ بطلبٍ مبنيّ. وعرضُ حقولٍ لا تُحفَظ كذبٌ صغير.
+   */
+  const extra = row.sourceKind === SOURCE.EXTRA;
+
   return html`
     <div class="pl-edit">
-      <label class="pl-fld">
-        <span>الاسم</span>
-        <input class="ws-input" data-pl-title dir="auto" value="${d.title}">
-      </label>
-      <label class="pl-fld">
-        <span>الغرض — سطر واحد يفكّرك بالبرومبت ده بيعمل إيه</span>
-        <input class="ws-input" data-pl-purpose dir="auto" value="${d.purpose}"
-               placeholder="مثال: يحوّل جملة روسية لـ Core Chunks">
-      </label>
-      <div class="pl-fld-row">
+      ${raw(extra ? html`
+        <p class="pl-edit-note">
+          دي تعليماتك على «${row.title.replace(/^تعليماتك على «|»$/g, '')}» —
+          بتتحفظ في الإعدادات وبتتلحق بالطلب في كل مرّة.
+        </p>` : html`
         <label class="pl-fld">
-          <span>التصنيف</span>
-          <input class="ws-input" data-pl-category dir="auto" value="${d.category}"
-                 list="pl-cats" placeholder="${NO_CATEGORY}">
-        </label>
-        <label class="pl-fld">
-          <span>وسوم — بفاصلة</span>
-          <input class="ws-input" data-pl-tags dir="auto" value="${d.tags}"
-                 placeholder="روسي، شادوينج">
-        </label>
-      </div>
-      <datalist id="pl-cats">
-        ${raw(categoriesOf(rows).map((one) => html`<option value="${one.name}"></option>`).join(''))}
-      </datalist>
+          <span>الاسم</span>
+          <input class="ws-input" data-pl-title dir="auto" value="${d.title}">
+        </label>`)}
+
       <label class="pl-fld pl-fld-grow">
         <span>البرومبت</span>
         <!--
@@ -629,6 +640,38 @@ function editorHtml(row) {
         <textarea class="ws-area pl-area" data-pl-body dir="auto"
                   spellcheck="false">${d.body}</textarea>
       </label>
+
+      ${raw(extra ? '' : html`
+        <!--
+          ⚠️ **مطويّةٌ لا مخفيّة** (بند ٢٥): عنصرُ الطيّ يبقى في مسار
+             التنقّل بلوحة المفاتيح ويُعلن حالتَه، بخلاف حقلٍ يُزال.
+
+          ⚠️ ولا علامةَ اقتباسٍ خلفيّةٍ في تعليقٍ داخل قالبٍ نصّيّ —
+             تُنهي القالبَ فيتوقّف التحليل. وهي رابعُ مرّةٍ تقع.
+        -->
+        <details class="pl-meta"${state.metaOpen ? ' open' : ''} data-pl-meta>
+          <summary>التنظيم — اختياري</summary>
+          <label class="pl-fld">
+            <span>الغرض — سطر واحد يفكّرك بالبرومبت ده بيعمل إيه</span>
+            <input class="ws-input" data-pl-purpose dir="auto" value="${d.purpose}"
+                   placeholder="مثال: يحوّل جملة روسية لـ Core Chunks">
+          </label>
+          <div class="pl-fld-row">
+            <label class="pl-fld">
+              <span>التصنيف</span>
+              <input class="ws-input" data-pl-category dir="auto" value="${d.category}"
+                     list="pl-cats" placeholder="${NO_CATEGORY}">
+            </label>
+            <label class="pl-fld">
+              <span>وسوم — بفاصلة</span>
+              <input class="ws-input" data-pl-tags dir="auto" value="${d.tags}"
+                     placeholder="روسي، شادوينج">
+            </label>
+          </div>
+          <datalist id="pl-cats">
+            ${raw(categoriesOf(rows).map((one) => html`<option value="${one.name}"></option>`).join(''))}
+          </datalist>
+        </details>`)}
       ${raw(state.save === SAVE.FAILED ? html`
         <div class="ws-fail is-inline" role="alert">
           <p>الحفظ فشل — اللي كتبتَه لسّه هنا.</p>
@@ -892,6 +935,8 @@ function captureDraft() {
   const category = at('[data-pl-category]');
   const tags = at('[data-pl-tags]');
   const body = at('[data-pl-body]');
+  const meta = $('[data-pl-meta]');
+  if (meta) state.metaOpen = meta.open;
   if (title !== undefined) state.draft.title = title;
   if (purpose !== undefined) state.draft.purpose = purpose;
   if (category !== undefined) state.draft.category = category;
@@ -903,6 +948,8 @@ const draftChanged = () => {
   const row = selected();
   const d = state.draft;
   if (!row || !d) return false;
+  /* ⚠️ وتعليماتُك متنٌ وحدَه — ومقارنةُ اسمٍ لا تملكه تجعلها «متغيّرةً» دائمًا. */
+  if (row.sourceKind === SOURCE.EXTRA) return d.body !== row.body;
   return d.title !== row.title || d.body !== row.body || d.purpose !== (row.purpose || '')
     || d.category !== (row.category || NO_CATEGORY)
     || d.tags !== (row.tags || []).join('، ');
@@ -1068,6 +1115,8 @@ export async function handlePromptsAction(action, id, target) {
   if (action === 'pl-edit') {
     const row = selected();
     if (!row) return true;
+    /* ⚠️ وحارسٌ ثانٍ خلف إخفاء الزرّ: الفعلُ نفسُه يرفض ما لا يُحرَّر. */
+    if (!row.editable) return true;
     state.mode = 'edit';
     state.draft = {
       title: row.title,
@@ -1090,16 +1139,30 @@ export async function handlePromptsAction(action, id, target) {
     if (!row || !state.draft) return true;
     setSave(SAVE.SAVING);
     try {
-      await updatePrompt(row.id, {
+      /*
+       * ⚠️ **وتعليماتُك تُكتَب في الإعدادات لا في `promptVersions`**
+       *    (قيد المالك ٣ · بندا ٧ و٣٤): نسخُها إلى مخزن البرومبتات
+       *    يصنع نسختين قابلتين للتحرير لنصٍّ واحد — وتُلحَق إحداهما
+       *    بالطلب والأخرى تُعرَض لك. فالكتابةُ تمرّ بخدمتها وحدَها.
+       */
+      if (row.sourceKind === SOURCE.EXTRA) {
+        await setExtraInstructions(row.sourceId, state.draft.body);
+        extras = await extraInstructions();
+        await reload();
+        state.mode = 'read';
+        state.draft = null;
+        state.save = SAVE.SAVED;
+        paint('all');
+        return true;
+      }
+      await updatePrompt(row.sourceId, {
         title: state.draft.title,
         body: state.draft.body,
         purpose: state.draft.purpose,
         category: state.draft.category,
         tags: state.draft.tags.split(/[,،]/),
       });
-      const saved = await getPrompt(row.id);
-      const at = rows.findIndex((one) => one.id === row.id);
-      if (saved && at >= 0) rows[at] = saved;
+      await reload();
       state.mode = 'read';
       state.draft = null;
       state.save = SAVE.SAVED;
@@ -1199,27 +1262,35 @@ async function newPrompt() {
     wide: true,
     submitLabel: 'احفظ',
     body: html`
+      <!--
+        ⚠️ **الترتيبُ البصريُّ هو ترتيبُ الفعل** (بندا ٢٤ و٦٦): تفتح هذه
+           النافذةَ لتلصق برومبتًا كتبتَه في ChatGPT — فالاسمُ والمتنُ
+           أوّلًا، والتنظيمُ خلف طيّةٍ لا يعترض طريقك.
+      -->
       <label class="pl-fld"><span>الاسم</span>
         <input class="ws-input" data-new-title dir="auto" placeholder="مثال: Core Chunks"></label>
-      <label class="pl-fld"><span>الغرض (اختياري)</span>
-        <input class="ws-input" data-new-purpose dir="auto"></label>
-      <div class="pl-fld-row">
-        <label class="pl-fld"><span>التصنيف (اختياري)</span>
-          <input class="ws-input" data-new-category dir="auto" list="pl-cats-new"></label>
-        <label class="pl-fld"><span>وسوم — بفاصلة (اختياري)</span>
-          <input class="ws-input" data-new-tags dir="auto"></label>
-      </div>
-      <datalist id="pl-cats-new">
-        ${raw(categoriesOf(rows).map((one) => html`<option value="${one.name}"></option>`).join(''))}
-      </datalist>
       <label class="pl-fld pl-fld-grow"><span>البرومبت</span>
         <!--
-          ⚠️ **واللصقُ الكبيرُ يدخل كما هو** (بند ٣٤): بلا تطبيعٍ ولا
+          ⚠️ **واللصقُ الكبيرُ يدخل كما هو** (بند ٢٩): بلا تطبيعٍ ولا
              حذفِ أسطرٍ فارغةٍ ولا إصلاحِ مسافات. ما تلصقه من ChatGPT
              هو ما يُحفَظ، وهو ما سيخرج من الحافظة.
         -->
         <textarea class="ws-area pl-area" data-new-body dir="auto" spellcheck="false"
-                  placeholder="الصق البرومبت هنا…"></textarea></label>`,
+                  placeholder="الصق البرومبت هنا…"></textarea></label>
+      <details class="pl-meta">
+        <summary>التنظيم — اختياري</summary>
+        <label class="pl-fld"><span>الغرض</span>
+          <input class="ws-input" data-new-purpose dir="auto"></label>
+        <div class="pl-fld-row">
+          <label class="pl-fld"><span>التصنيف</span>
+            <input class="ws-input" data-new-category dir="auto" list="pl-cats-new"></label>
+          <label class="pl-fld"><span>وسوم — بفاصلة</span>
+            <input class="ws-input" data-new-tags dir="auto"></label>
+        </div>
+        <datalist id="pl-cats-new">
+          ${raw(categoriesOf(rows).map((one) => html`<option value="${one.name}"></option>`).join(''))}
+        </datalist>
+      </details>`,
     onSubmit: async (data, close) => {
       const read = (sel) => document.querySelector(sel)?.value ?? '';
       const title = read('[data-new-title]');

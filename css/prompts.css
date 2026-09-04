@@ -496,3 +496,54 @@
 @media (max-width: 900px) {
   .pl { grid-template-columns: 1fr; }
 }
+
+/* ================================================================== *
+ * WS-PL3 · المحرّر: الاسمُ والمتنُ أوّلًا (بنود ٢٤ و٢٥ و٢٧)
+ * ================================================================== */
+
+/* ⚠️ **والمتنُ يأخذ المساحة**: كان خامسَ خمسةِ حقولٍ متساوية، والفعلُ
+   الحقيقيُّ (اللصق) آخرَ ما تصل إليه العين. */
+.pl-fld-grow .pl-area { min-block-size: clamp(240px, 42vh, 520px); }
+
+.pl-meta {
+  margin-block-start: 12px;
+  border: 1px solid var(--line-soft, rgba(0, 0, 0, .1));
+  border-radius: 10px;
+  background: var(--surface-soft);
+}
+
+.pl-meta > summary {
+  padding: 10px 12px;
+  /* هدفُ لمسٍ كامل — والطيّةُ تُفتَح بالإصبع لا بالدقّة. */
+  min-block-size: 44px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: .78rem;
+  font-weight: 700;
+  color: var(--ink-soft, #555);
+}
+
+.pl-meta[open] > summary { border-block-end: 1px solid var(--line-soft, rgba(0, 0, 0, .1)); }
+.pl-meta > .pl-fld,
+.pl-meta > .pl-fld-row { margin: 10px 12px; }
+
+.pl-edit-note {
+  margin: 0 0 10px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--surface-soft);
+  font-size: .78rem;
+  color: var(--ink-soft, #555);
+}
+
+/*
+ * ⚠️ **وأزرارُ الحفظ بحجمٍ طبيعيّ** (بند ٢٧): كانت تمتدّ نصفَ الشاشة
+ *    عرضًا، فبدا الحفظُ والإلغاءُ فعلين متساويَي الخطر. الحفظُ أوّلٌ
+ *    ملوَّن، والإلغاءُ شبحيٌّ بجواره — وكلاهما ٤٤px ارتفاعًا للمس.
+ */
+.pl-acts .btn {
+  inline-size: auto;
+  min-block-size: 44px;
+  padding-inline: 16px;
+}

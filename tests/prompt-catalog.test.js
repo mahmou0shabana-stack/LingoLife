@@ -28,9 +28,12 @@ import {
   toggleCatalogFavorite, markCatalogOpened, markCatalogCopied,
   copyToPersonal, catalogMeta, SOURCE, SOURCE_LABEL, VIEW, SENTENCE_SLOT,
 } from '../js/services/prompts/catalog.js';
-import { PROMPTS, LEARN_PROMPTS, promptById } from '../js/services/prompts/library.js';
+import {
+  PROMPTS, LEARN_PROMPTS, promptById, setExtraInstructions, extraInstructions,
+} from '../js/services/prompts/library.js';
 import { createPrompt, updatePrompt, trashPrompt, listPrompts } from '../js/services/prompts/user-prompts.js';
 import { findPlaceholders } from '../js/services/prompts/prompt-text.js';
+import { renderPrompts, handlePromptsAction, resetPrompts } from '../js/views/prompts-view.js';
 
 const TAG = `CAT-${Math.random().toString(36).slice(2, 7)}`;
 
@@ -386,5 +389,429 @@ describe('WS-PL3 · حرّاسُ البنية', () => {
     /* ولا صفَّ جديدًا في برومبتاتك مقابلَه. */
     const rows = await listPrompts();
     expect(rows.some((row) => row.title === item.title)).toBe(false);
+  });
+});
+
+/* ================================================================== *
+ * تعليماتُك المحفوظةُ في الإعدادات (قيد المالك ٣ · بنود ٧ و٣٤ و٧٠)
+ * ================================================================== */
+describe('WS-PL3 · تعليماتُك تُكتَب في مصدرها هي', () => {
+  const OWNER = PROMPTS[0].id;
+  const MINE = `تعليماتي ${TAG}: خلّي الأمثلة قصيرة.`;
+
+  it('٣٠ · تعليماتٌ فيها نصٌّ حقيقيٌّ تدخل الفهرس عنصرًا', async () => {
+    await setExtraInstructions(OWNER, MINE);
+    const item = findBy(await catalog(), SOURCE.EXTRA, OWNER);
+
+    expect(item).toBeTruthy();
+    expect(item.body).toBe(MINE);
+    expect(item.editable).toBe(true);
+    /* ولا تُحذَف من هنا — حذفُها إفراغُ حقلٍ في الإعدادات. */
+    expect(item.deletable).toBe(false);
+  });
+
+  it('٣١ · وتعليماتٌ فارغةٌ لا تصنع عنصرًا كاذبًا (بند ٤٧)', async () => {
+    await setExtraInstructions(OWNER, '   ');
+    expect(findBy(await catalog(), SOURCE.EXTRA, OWNER)).toBe(null);
+    await setExtraInstructions(OWNER, MINE);
+  });
+
+  it('٣٢ · ⚠️ وتحريرُها يكتب في الإعدادات — ولا صفَّ جديدًا في برومبتاتك', async () => {
+    /*
+     * ⚠️ **هذا هو الحارسُ المركزيُّ للقيد الثالث.** أسهلُ تنفيذٍ — وأسوؤه
+     *    — أن يُنسَخ النصُّ إلى `promptVersions` ليصير قابلًا للتحرير
+     *    كالبقيّة. فتصير لنصٍّ واحدٍ نسختان: واحدةٌ تُلحَق بالطلب فعلًا
+     *    وأخرى تراها في الشاشة. ويمرّ ذلك بلا عَرَضٍ حتى تتغيّر إحداهما.
+     */
+    const before = (await listPrompts()).length;
+    const next = `${MINE} وزوّد مثالًا.`;
+
+    await setExtraInstructions(OWNER, next);
+    const stored = await extraInstructions();
+
+    expect(stored[OWNER]).toBe(next);
+    expect(findBy(await catalog(), SOURCE.EXTRA, OWNER).body).toBe(next);
+    /* ولا صفَّ واحدًا زاد في مخزن البرومبتات. */
+    expect((await listPrompts()).length).toBe(before);
+  });
+
+  it('٣٣ · والشاشةُ توجّه الحفظَ إلى الإعدادات لا إلى المخزن', async () => {
+    const src = bare(await sourceOf('../js/views/prompts-view.js'));
+    /*
+     * حارسٌ يقيس الكود: لا بدّ من فرعٍ يكتب `setExtraInstructions`
+     * قبل أن يصل الحفظُ إلى `updatePrompt`.
+     */
+    const at = src.indexOf('setExtraInstructions(row.sourceId');
+    const to = src.indexOf('updatePrompt(row.sourceId');
+    expect(at > 0).toBe(true);
+    expect(at < to).toBe(true);
+  });
+});
+
+/* ================================================================== *
+ * المفضّلةُ والأخيرةُ عبر المصادر الأربعة (بنود ٩ و١٠ و٤٨ و٦١)
+ * ================================================================== */
+describe('WS-PL3 · المفضّلةُ والأخيرةُ تعبران المصادرَ كلَّها', () => {
+  /**
+   * عيّنةٌ من كلّ مصدرٍ — والرابعُ تعليماتُك.
+   *
+   * ⚠️ **وتزرع الشخصيَّ بنفسها.** أوّلُ كتابةٍ افترضت وجودَ برومبتٍ
+   *    شخصيٍّ في القاعدة، والاختباراتُ السابقةُ ترمي ما تزرعه في السلّة
+   *    — فعادت العيّنةُ ثلاثةً وفيها `undefined`. والفشلُ كان في
+   *    **تجهيزِ الاختبار** لا في الفهرس: عيّنةٌ تعتمد على أثرِ غيرِها
+   *    تقيس ترتيبَ التشغيل لا السلوك.
+   */
+  let seeded = null;
+  const sample = async () => {
+    if (!seeded) seeded = await seed(`${TAG} عيّنة`, 'متنُ العيّنة.');
+    const items = await catalog();
+    return [
+      items.find((one) => one.catalogId === catalogKey(SOURCE.PERSONAL, seeded.id)),
+      items.find((one) => one.sourceKind === SOURCE.ANALYSIS),
+      items.find((one) => one.sourceKind === SOURCE.SENTENCE),
+      items.find((one) => one.sourceKind === SOURCE.EXTRA),
+    ];
+  };
+
+  it('٣٤ · المصادرُ الأربعةُ حاضرةٌ في الفهرس', async () => {
+    const four = await sample();
+    expect(four.filter(Boolean)).toHaveLength(4);
+    expect(new Set(four.map((one) => one.sourceKind)).size).toBe(4);
+  });
+
+  it('٣٥ · والتفضيلُ يعمل على كلٍّ منها بهُويّتها الثابتة', async () => {
+    const four = await sample();
+
+    for (const one of four) {
+      const now = await toggleCatalogFavorite(one);
+      expect(now).toBe(true);
+    }
+
+    const after = await catalog();
+    for (const one of four) {
+      const fresh = after.find((x) => x.catalogId === one.catalogId);
+      expect(fresh.favorite).toBe(true);
+      /* والهُويّةُ هي `مصدر:معرّف` لا العنوان. */
+      expect(fresh.catalogId).toBe(catalogKey(one.sourceKind, one.sourceId));
+    }
+
+    /* ونُعيدها كما كانت. */
+    for (const one of after.filter((x) => four.some((f) => f.catalogId === x.catalogId))) {
+      await toggleCatalogFavorite(one);
+    }
+  });
+
+  it('٣٦ · و«الأخيرة» تجمع الأربعةَ معًا', async () => {
+    const four = await sample();
+    for (const one of four) await markCatalogOpened(one);
+
+    const recent = filterCatalog(await catalog(), { view: VIEW.RECENT });
+    const kinds = new Set(recent.map((one) => one.sourceKind));
+    for (const one of four) expect(kinds.has(one.sourceKind)).toBe(true);
+  });
+
+  it('٣٧ · ⚠️ والمصادرُ المبنيّةُ تبقى كما هي حرفًا بحرف', async () => {
+    /*
+     * ⚠️ تفضيلٌ أو فتحٌ أو نسخٌ — لا شيءَ منها يلمس الكودَ المُجمَّد.
+     *    والمقارنةُ بالتسلسل لا بالمرجع: مرجعٌ واحدٌ يمرّ ولو تغيّر جوفُه.
+     */
+    const before = JSON.stringify({ p: PROMPTS, l: LEARN_PROMPTS });
+
+    const four = await sample();
+    for (const one of four) {
+      await markCatalogOpened(one);
+      await markCatalogCopied(one);
+    }
+
+    expect(JSON.stringify({ p: PROMPTS, l: LEARN_PROMPTS })).toBe(before);
+    expect(Object.isFrozen(PROMPTS)).toBe(true);
+    expect(Object.isFrozen(LEARN_PROMPTS)).toBe(true);
+  });
+
+  it('٣٨ · وتفضيلاتُ غيرِ الشخصيِّ في مخزن التفضيلات وحدَه', async () => {
+    const meta = await catalogMeta();
+    const four = await sample();
+    for (const one of four.filter((x) => x.sourceKind !== SOURCE.PERSONAL)) {
+      expect(Boolean(meta[one.catalogId])).toBe(true);
+      expect(one.catalogId.startsWith(`${one.sourceKind}:`)).toBe(true);
+    }
+    if (seeded) { await trashPrompt(seeded.id); seeded = null; }
+  });
+});
+
+/* ================================================================== *
+ * الشاشة: بنيةٌ ومحرّر (بندا ٦٨ و٦٩)
+ * ================================================================== */
+describe('WS-PL3 · الشاشةُ لوحان ومحرّرٌ يبدأ بالمتن', () => {
+  const wait = (ms = 90) => new Promise((done) => { setTimeout(done, ms); });
+  const $$$ = (sel, root) => [...root.querySelectorAll(sel)];
+  let host = null;
+
+  /** شاشةٌ نظيفةٌ — و`paint` تستعلم من `document` فلا يبقى مضيفٌ قديم. */
+  const screen = async () => {
+    document.querySelectorAll('[data-pl]').forEach((one) => one.parentElement?.remove());
+    host = document.createElement('div');
+    document.body.append(host);
+    resetPrompts();
+    await renderPrompts(host);
+    await wait();
+    return host;
+  };
+
+  it('٣٩ · لا عمودَ تصنيفاتٍ دائمًا — لوحان فقط', async () => {
+    await screen();
+    expect($$$('.pl > section, .pl > aside', host)).toHaveLength(2);
+    expect($$$('.pl-side', host)).toHaveLength(0);
+    host.remove();
+  });
+
+  it('٤٠ · والتصفيةُ في المتناول: أوجهٌ ومدخلُ تصنيفات', async () => {
+    await screen();
+    expect($$$('.pl-faces .pl-face', host).length >= 4).toBe(true);
+    expect($$$('[data-action="pl-cats"]', host)).toHaveLength(1);
+    host.remove();
+  });
+
+  it('٤١ · والدرجُ يُفتَح ويُغلَق', async () => {
+    await screen();
+    expect($$$('[data-pl-drawer]', host)).toHaveLength(0);
+
+    await handlePromptsAction('pl-cats');
+    await wait();
+    expect($$$('[data-pl-drawer]', host)).toHaveLength(1);
+
+    await handlePromptsAction('pl-cats');
+    await wait();
+    expect($$$('[data-pl-drawer]', host)).toHaveLength(0);
+    host.remove();
+  });
+
+  it('٤٢ · وتصفيةُ المصدر تُعلَن ثم تُمسَح', async () => {
+    await screen();
+    await handlePromptsAction('pl-source', SOURCE.SENTENCE);
+    await wait();
+
+    const chips = $$$('.pl-active .pl-chip', host).map((one) => one.textContent.trim());
+    expect(chips.some((one) => one.includes(SOURCE_LABEL[SOURCE.SENTENCE]))).toBe(true);
+    expect($$$('.pl-row', host)).toHaveLength(LEARN_PROMPTS.length);
+
+    await handlePromptsAction('pl-clear');
+    await wait();
+    expect($$$('.pl-active', host)).toHaveLength(0);
+    host.remove();
+  });
+
+  it('٤٣ · والتحديدُ ظاهرٌ وواحدٌ لا أكثر', async () => {
+    const made = await seed(`${TAG} تحديد`, 'متن التحديد.');
+    await screen();
+    await handlePromptsAction('pl-open', catalogKey(SOURCE.PERSONAL, made.id));
+    await wait();
+
+    expect($$$('.pl-row.is-on', host)).toHaveLength(1);
+    expect($$$('[aria-selected="true"]', host)).toHaveLength(1);
+    host.remove();
+    await trashPrompt(made.id);
+  });
+
+  it('٤٤ · والسكّةُ مضغوطةٌ بصنف الورشة نفسِه (بند ١٨)', async () => {
+    await screen();
+    expect(document.body.classList.contains('ws-rail-compact')).toBe(true);
+    /* ولا صنفَ سكّةٍ ثانٍ اخترعناه. */
+    const src = bare(await sourceOf('../js/views/prompts-view.js'));
+    expect(src).toContain('ws-rail-compact');
+    expect(src.includes('pl-rail-compact')).toBe(false);
+    host.remove();
+  });
+
+  it('٤٥ · ومدخلُ الإنشاءِ واحدٌ في الشاشة كلِّها (بند ١٩)', async () => {
+    await screen();
+    expect($$$('[data-action="pl-new"]', host)).toHaveLength(1);
+    host.remove();
+  });
+
+  it('٤٦ · والمحرّرُ يبدأ بالاسم والمتن، والتنظيمُ مطويّ', async () => {
+    const made = await seed(`${TAG} محرّر`, 'متنٌ للتحرير.');
+    await screen();
+    await handlePromptsAction('pl-open', catalogKey(SOURCE.PERSONAL, made.id));
+    await wait();
+    await handlePromptsAction('pl-edit');
+    await wait();
+
+    expect($$$('[data-pl-title]', host)).toHaveLength(1);
+    expect($$$('[data-pl-body]', host)).toHaveLength(1);
+
+    const meta = host.querySelector('[data-pl-meta]');
+    expect(Boolean(meta)).toBe(true);
+    /* ⚠️ مطويّةٌ افتراضيًّا — ولا تُطلَب منك قبل اللصق (بند ٢٤). */
+    expect(meta.open).toBe(false);
+    /* وحقولُ التنظيم موجودةٌ داخلها لا محذوفة (بند ٢٥). */
+    expect($$$('[data-pl-meta] [data-pl-category]', host)).toHaveLength(1);
+    host.remove();
+    await trashPrompt(made.id);
+  });
+
+  it('٤٧ · ولا زرَّ حفظٍ يمتدّ نصفَ الشاشة (بند ٢٧)', async () => {
+    const made = await seed(`${TAG} أزرار`, 'متن.');
+    await screen();
+    await handlePromptsAction('pl-open', catalogKey(SOURCE.PERSONAL, made.id));
+    await wait();
+    await handlePromptsAction('pl-edit');
+    await wait();
+
+    const acts = $$$('.pl-acts .btn', host).map((one) => one.textContent.trim());
+    expect(acts).toContain('احفظ');
+    expect(acts).toContain('إلغاء');
+    /* والإلغاءُ شبحيٌّ لا مساوٍ للحفظ في الوزن. */
+    const cancel = $$$('.pl-acts .btn', host).find((one) => one.textContent.trim() === 'إلغاء');
+    expect(cancel.classList.contains('btn-ghost')).toBe(true);
+    host.remove();
+    await trashPrompt(made.id);
+  });
+
+  it('٤٨ · ⚠️ ولصقٌ ضخمٌ يُحفَظ حرفًا بحرف بلا تطبيع', async () => {
+    /*
+     * ⚠️ **أخطرُ ما تفعله شاشةٌ ببرومبتك أن «تُصلحه»**: تحذف سطرًا
+     *    فارغًا أو تُطبّع مسافة. فيخرج من الحافظة نصٌّ غيرُ الذي لصقتَه،
+     *    ولا تعرف السببَ إلّا حين يأتيك ناتجٌ غريبٌ من ChatGPT.
+     */
+    const huge = [
+      '§1 الهدف:', '', '   مسافاتٌ بادئة   ', '',
+      'Русский текст с ударе́нием.', '{ "json": [1, 2] }',
+      '━━━━━━━━━━', '[ضع الجملة الروسية هنا]', '',
+      'x'.repeat(50000),
+    ].join('\n');
+
+    const made = await seed(`${TAG} ضخم`, huge);
+    const item = findBy(await catalog(), SOURCE.PERSONAL, made.id);
+
+    expect(item.body).toBe(huge);
+    expect(item.body.length).toBe(huge.length);
+    /* والمتغيّرُ نجا فيُكشَف. */
+    expect(findPlaceholders(item.body).length >= 1).toBe(true);
+    await trashPrompt(made.id);
+  });
+
+  it('٤٩ · والإلغاءُ بلا تغييرٍ لا يسأل ولا يفقد شيئًا', async () => {
+    const made = await seed(`${TAG} إلغاء`, 'متنٌ أصليّ.');
+    await screen();
+    await handlePromptsAction('pl-open', catalogKey(SOURCE.PERSONAL, made.id));
+    await wait();
+    await handlePromptsAction('pl-edit');
+    await wait();
+    await handlePromptsAction('pl-cancel');
+    await wait();
+
+    expect($$$('[data-pl-body]', host)).toHaveLength(0);
+    expect(findBy(await catalog(), SOURCE.PERSONAL, made.id).body).toBe('متنٌ أصليّ.');
+    host.remove();
+    await trashPrompt(made.id);
+  });
+
+  it('٥٠ · والحفظُ يكتب المتنَ الجديد ويعود للقراءة', async () => {
+    const made = await seed(`${TAG} حفظ`, 'قبل.');
+    await screen();
+    await handlePromptsAction('pl-open', catalogKey(SOURCE.PERSONAL, made.id));
+    await wait();
+    await handlePromptsAction('pl-edit');
+    await wait();
+
+    host.querySelector('[data-pl-body]').value = 'بعد.\n\nسطرٌ ثانٍ.';
+    await handlePromptsAction('pl-save');
+    await wait(200);
+
+    expect(findBy(await catalog(), SOURCE.PERSONAL, made.id).body).toBe('بعد.\n\nسطرٌ ثانٍ.');
+    expect($$$('[data-pl-body]', host)).toHaveLength(0);
+    host.remove();
+    await trashPrompt(made.id);
+  });
+
+  it('٥١ · ولا زرَّ تعديلٍ على ما تملكه آلةُ التطبيق (بند ٣١)', async () => {
+    await screen();
+    await handlePromptsAction('pl-open', catalogKey(SOURCE.ANALYSIS, PROMPTS[0].id));
+    await wait();
+
+    const acts = $$$('.pl-acts button', host).map((one) => one.textContent.trim());
+    expect(acts.some((one) => one === 'تعديل')).toBe(false);
+    expect(acts.some((one) => one.includes('انسخه لبرومبتاتي'))).toBe(true);
+    /* ومسارُ الاستعمالِ المولِّدُ باقٍ (قيد المالك ١). */
+    expect($$$('.pl-use', host)).toHaveLength(1);
+    host.remove();
+  });
+
+  it('٥٢ · وحتى لو نُودي الفعلُ مباشرةً لا يدخل التحرير', async () => {
+    await screen();
+    await handlePromptsAction('pl-open', catalogKey(SOURCE.SENTENCE, LEARN_PROMPTS[0].id));
+    await wait();
+    await handlePromptsAction('pl-edit');
+    await wait();
+    /* ⚠️ حارسٌ خلف إخفاء الزرّ: الإخفاءُ وحدَه ليس منعًا. */
+    expect($$$('[data-pl-body]', host)).toHaveLength(0);
+    host.remove();
+  });
+});
+
+/* ================================================================== *
+ * القياس — بمصادرَ مختلطةٍ لا بشخصيٍّ وحدَه (بند ٦٢)
+ * ================================================================== */
+describe('WS-PL3 · القياس', () => {
+  it('٥٣ · جمعُ فهرسٍ فيه ٢٠٠٠ برومبتٍ شخصيٍّ ومبنيّاتُه تحت ٦٠٠ms', async () => {
+    /*
+     * ⚠️ **ولا تُبنى الفرضيّةُ على «عشراتٍ فقط»** (بند ٤١): المكتبةُ
+     *    تكبر، والطبقةُ الجديدةُ تقرأ أربعةَ مصادرَ لا واحدًا. فالقياسُ
+     *    هنا على حجمٍ لن تبلغه قريبًا — كي يبقى الهامشُ معلومًا.
+     *
+     * ⚠️ **والبذرُ خارج القياس**: ٢٠٠٠ كتابةٍ في IndexedDB تقيس القاعدةَ
+     *    لا الفهرس. المقيسُ هو `buildCatalog` وحدَها.
+     */
+    const bulk = [];
+    for (let i = 0; i < 2000; i += 1) {
+      bulk.push(createPrompt({
+        title: `${TAG} حجم ${i}`,
+        body: `متنٌ رقم ${i} فيه كلمةٌ مميّزة: قنديل${i}.`,
+        category: `${TAG}-ف${i % 12}`,
+        tags: [TAG, `و${i % 7}`],
+      }));
+    }
+    await Promise.all(bulk);
+
+    const at = performance.now();
+    const { items: all } = await buildCatalog();
+    const assembly = performance.now() - at;
+
+    const t1 = performance.now();
+    const mine = filterCatalog(all, { view: VIEW.MINE });
+    const mineMs = performance.now() - t1;
+
+    const t2 = performance.now();
+    const hits = filterCatalog(all, { query: 'قنديل1999' });
+    const searchMs = performance.now() - t2;
+
+    const t3 = performance.now();
+    const counts = countsOf(all);
+    const countMs = performance.now() - t3;
+
+    const t4 = performance.now();
+    const cats = catalogCategories(all);
+    const catMs = performance.now() - t4;
+
+    console.warn(`[perf] WS-PL3 · ${all.length} عنصرًا · جمع ${assembly.toFixed(0)}ms`
+      + ` · برومبتاتي ${mineMs.toFixed(1)}ms · بحثٌ في المتن ${searchMs.toFixed(1)}ms`
+      + ` · عدّ ${countMs.toFixed(1)}ms · تصنيفات ${catMs.toFixed(1)}ms`);
+
+    expect(all.length >= 2000).toBe(true);
+    expect(mine.length >= 2000).toBe(true);
+    expect(hits.length >= 1).toBe(true);
+    expect(counts[VIEW.ALL]).toBe(all.length);
+    expect(cats.length >= 12).toBe(true);
+
+    expect(assembly < 600).toBe(true);
+    /* والتصفيةُ في الذاكرة — فميزانيّتُها أضيقُ بكثير. */
+    expect(mineMs < 60).toBe(true);
+    expect(searchMs < 120).toBe(true);
+    expect(countMs < 60).toBe(true);
+
+    /* ونظافةُ ما بعدَه: ٢٠٠٠ صفٍّ لا تُترَك للاختبارات التالية. */
+    const mineRows = (await listPrompts()).filter((row) => (row.tags || []).includes(TAG));
+    await Promise.all(mineRows.map((row) => trashPrompt(row.id)));
   });
 });
