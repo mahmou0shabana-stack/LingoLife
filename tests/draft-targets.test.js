@@ -104,17 +104,18 @@ describe('WS-DV2 · المعرّفُ يُولَد مرّةً ويعيش', () => 
     expect(idOf(after.targets, edited.ru) === idOf(first, CORE_B.ru)).toBe(false);
   });
 
-  it('٧ · ⚠️ وهدفان متطابقان نصًّا يبقيان اثنين متمايزين', async () => {
-    const twin = t(ROLE.VARIATION, 'Я бы снача́ла уточни́л дета́ли.');
+  it('٧ · ⚠️ وهدفان متطابقان في كلّ شيءٍ يبقيان اثنين', async () => {
+    const twin = t(ROLE.VARIATION, 'Я бы сначала уточнил детали.');
     const first = reconcileTargets([twin, twin], []).targets;
 
     expect(first).toHaveLength(2);
     expect(first[0].id === first[1].id).toBe(false);
 
-    /* وتبقى الهُويّتان ثابتتين عبر قراءةٍ ثانية. */
-    const after = reconcileTargets([twin, twin], first).targets;
-    expect(after[0].id).toBe(first[0].id);
-    expect(after[1].id).toBe(first[1].id);
+    /* وعددٌ ثابتٌ يُبقي المعرّفات — فلا تتولّد جديدةٌ في كلّ فتحة. */
+    const after = reconcileTargets([twin, twin], first);
+    expect(after.targets[0].id).toBe(first[0].id);
+    expect(after.targets[1].id).toBe(first[1].id);
+    expect(after.ambiguous).toHaveLength(0);
   });
 });
 
@@ -266,5 +267,130 @@ describe('WS-DV2 · المعرّفاتُ تعيش على سجلّ المسودّ
     expect(storedTargets(null)).toHaveLength(0);
     expect(storedTargets({})).toHaveLength(0);
     expect(storedTargets({ [TARGET_IDS]: 'مش مصفوفة' })).toHaveLength(0);
+  });
+});
+
+/* ================================================================== *
+ * الالتباس: بصمةٌ لا تكفي وحدَها (شروط المالك ١ إلى ٤)
+ * ================================================================== */
+describe('WS-DV2 · حين لا تكفي البصمة', () => {
+  const ANSWER = 'Я бы сначала уточнил детали.';
+
+  /** تكراران بنفس الإجابة وسؤالين مختلفين — مثالُ المالك حرفيًّا. */
+  const V1 = { role: ROLE.VARIATION, ru: ANSWER, cue: 'Что бы ты сделал сначала?' };
+  const V2 = { role: ROLE.VARIATION, ru: ANSWER, cue: 'Что нужно сделать перед проверкой?' };
+
+  it('٢١ · ⚠️ سؤالان مختلفان يفصلان هدفين بنفس الإجابة', async () => {
+    /*
+     * ⚠️ **هذه الحالةُ أسقطت بصمتي الأولى.** «الدورُ والنصّ» جعلاهما
+     *    واحدًا، فوزّع الدلوُ المعرّفَين بترتيب الظهور — أي بالموضع.
+     */
+    expect(fingerprint(V1.role, V1.ru, V1) === fingerprint(V2.role, V2.ru, V2)).toBe(false);
+
+    const first = reconcileTargets([V1, V2], []).targets;
+    expect(first).toHaveLength(2);
+    expect(first[0].id === first[1].id).toBe(false);
+  });
+
+  it('٢٢ · ⚠️ وتبديلُ ترتيبهما لا ينقل «خلصت» من أحدهما للآخر', async () => {
+    const first = reconcileTargets([V1, V2], []).targets;
+    const idV1 = first[0].id;
+    const idV2 = first[1].id;
+
+    /* نقلبُهما — ولو كانت المطابقةُ بالموضع لَتبادلا المعرّفَين. */
+    const after = reconcileTargets([V2, V1], first);
+    expect(after.targets[0].id).toBe(idV2);
+    expect(after.targets[1].id).toBe(idV1);
+    expect(after.ambiguous).toHaveLength(0);
+    expect(after.minted).toBe(0);
+  });
+
+  it('٢٣ · وعائلتان مختلفتان تفصلان كذلك', async () => {
+    const a = { role: ROLE.VARIATION, ru: ANSWER, family: 'я бы сначала уточнил…' };
+    const b = { role: ROLE.VARIATION, ru: ANSWER, family: 'уточнить вопрос' };
+    expect(fingerprint(a.role, a.ru, a) === fingerprint(b.role, b.ru, b)).toBe(false);
+
+    const first = reconcileTargets([a, b], []).targets;
+    const after = reconcileTargets([b, a], first);
+    expect(after.targets[0].id).toBe(first[1].id);
+    expect(after.targets[1].id).toBe(first[0].id);
+  });
+
+  it('٢٤ · ⚠️ وإدراجُ مثيلٍ لا يميّزه شيءٌ يُبلَّغ ولا يُخمَّن', async () => {
+    /*
+     * ⚠️ **شرطُ المالك ٣ بعينه.** ثلاثةُ أهدافٍ لا يفرّقها سؤالٌ ولا
+     *    عائلةٌ ولا نصّ، وكان اثنان. فأيُّ القديمين هو الأوّلُ الآن؟
+     *    لا جواب. والاختيارُ بالموضع يُسلِّم «خلصت» لهدفٍ لم يُفتَح —
+     *    فتُولَد معرّفاتٌ جديدةٌ ويُقال الالتباسُ صراحةً.
+     */
+    const twin = t(ROLE.VARIATION, ANSWER);
+    const first = reconcileTargets([twin, twin], []).targets;
+    const before = new Set(first.map((one) => one.id));
+
+    const after = reconcileTargets([twin, twin, twin], first);
+
+    expect(after.ambiguous).toHaveLength(1);
+    expect(after.ambiguous[0].before).toBe(2);
+    expect(after.ambiguous[0].after).toBe(3);
+    expect(after.minted).toBe(3);
+    expect(after.kept).toBe(0);
+    /* ولا معرّفَ قديمٍ نجا — فلا تقدُّمَ ينتقل. */
+    expect(after.targets.some((one) => before.has(one.id))).toBe(false);
+  });
+
+  it('٢٥ · وحذفُ أحد المتماثلين يُبلَّغ كذلك', async () => {
+    const twin = t(ROLE.VARIATION, ANSWER);
+    const first = reconcileTargets([twin, twin, twin], []).targets;
+    const after = reconcileTargets([twin, twin], first);
+
+    expect(after.ambiguous).toHaveLength(1);
+    expect(after.kept).toBe(0);
+    expect(after.minted).toBe(2);
+  });
+
+  it('٢٦ · والملتبسُ لا يمسّ غيرَه من الأهداف', async () => {
+    const twin = t(ROLE.VARIATION, ANSWER);
+    const solo = t(ROLE.MICRO_CORE, 'уточнить этот вопрос');
+    const first = reconcileTargets([solo, twin, twin], []).targets;
+    const soloId = first[0].id;
+
+    const after = reconcileTargets([solo, twin, twin, twin], first);
+    /* الملتبسُ وحدَه يُولَد من جديد، والمنفردُ يحتفظ بمعرّفه. */
+    expect(after.targets[0].id).toBe(soloId);
+    expect(after.ambiguous).toHaveLength(1);
+  });
+});
+
+/* ================================================================== *
+ * الشريطُ السريع لا يخمّن (شرط المالك ٥)
+ * ================================================================== */
+describe('WS-DV2 · ربطُ الشريط آمنٌ من الالتباس', () => {
+  it('٢٧ · مطابقٌ واحدٌ فقط يُربَط', async () => {
+    const { targets } = reconcileTargets([CORE_A, CORE_B], []);
+    const linked = linkQuickChain([{ cue: 'س', ru: CORE_A.ru }], targets);
+    expect(linked[0].state).toBe('linked');
+    expect(linked[0].ref).toBe(idOf(targets, CORE_A.ru));
+  });
+
+  it('٢٨ · ⚠️ ومطابقان يُبلَّغان ولا يُختار أوّلُهما', async () => {
+    /*
+     * ⚠️ نصٌّ يطابق هدفين هو سؤالٌ بلا جواب. وأخذُ الأوّل يربط المراجعةَ
+     *    بهدفٍ ليس هدفَها — فيُظهر تقدّمًا في غير موضعه.
+     */
+    const twinA = { role: ROLE.MICRO_CORE, ru: 'уточнить детали', cue: 'أ' };
+    const twinB = { role: ROLE.VARIATION, ru: 'уточнить детали', cue: 'ب' };
+    const { targets } = reconcileTargets([twinA, twinB], []);
+
+    const linked = linkQuickChain([{ cue: 'س', ru: 'уточнить детали' }], targets);
+    expect(linked[0].state).toBe('ambiguous');
+    expect(linked[0].ref).toBe(null);
+    expect(linked[0].candidates).toHaveLength(2);
+  });
+
+  it('٢٩ · وإجابةٌ بلا نظيرٍ تُقال «فريدة» لا «مربوطة»', async () => {
+    const { targets } = reconcileTargets([CORE_A], []);
+    const linked = linkQuickChain([{ cue: 'س', ru: 'нечто новое' }], targets);
+    expect(linked[0].state).toBe('unique');
+    expect(linked[0].ref).toBe(null);
   });
 });
