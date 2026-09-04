@@ -113,10 +113,27 @@ function newId() {
  * فسؤالُ الاسترجاع وعائلةُ القلب والقسمُ الأب تدخل البصمةَ متى وُجدت.
  */
 export function fingerprint(role, ru, context = {}) {
-  const cue = subjectKey(context.cue || '');
-  const family = subjectKey(context.family || '');
-  const parent = subjectKey(context.parent || '');
-  return `${role}|${cue}|${family}|${parent}|${subjectKey(ru || '')}`;
+  /*
+   * ⚠️ **ولا فاصلَ مطبوعًا بين حقولٍ يكتبها إنسان.**
+   *
+   * أوّلُ كتابةٍ وصلت الحقولَ بـ`|`، و`subjectKey` لا تحذف هذا الحرف —
+   * تحذف النبرَ وتوحّد المسافاتِ والحالةَ فقط. فسؤالٌ فيه `|` يصنع
+   * بصمةَ هدفٍ آخر:
+   *
+   *     cue='أ|ب' · family='ج'   ←┐ بصمةٌ واحدة: «R|أ|ب|ج|…»
+   *     cue='أ'   · family='ب|ج' ←┘  الفاصلُ ينزلق بين حقلين متجاورين
+   *
+   * فيتشارك هدفان مختلفان معرّفًا واحدًا وحالةَ «خلصت» معه. و`JSON`
+   * يهرّب المحارفَ ويُطوّل السلاسلَ بأطوالها، فلا يصنع أيُّ محتوًى
+   * حدًّا كاذبًا.
+   */
+  return JSON.stringify([
+    role,
+    subjectKey(context.cue || ''),
+    subjectKey(context.family || ''),
+    subjectKey(context.parent || ''),
+    subjectKey(ru || ''),
+  ]);
 }
 
 /** بصمةُ صفٍّ محفوظٍ أو مقروء — نفسُ الحقول من نفس الشكل. */

@@ -394,3 +394,57 @@ describe('WS-DV2 · ربطُ الشريط آمنٌ من الالتباس', () =>
     expect(linked[0].ref).toBe(null);
   });
 });
+
+/* ================================================================== *
+ * ترميزُ البصمة — لا حدَّ كاذبًا من محتوًى مؤلَّف
+ * ================================================================== */
+describe('WS-DV2 · البصمةُ لا تُخدَع بمحرف فاصل', () => {
+  it('٣٠ · ⚠️ فاصلٌ في نصٍّ مؤلَّفٍ لا يصنع تصادمًا', async () => {
+    /*
+     * ⚠️ **وأوّلُ حارسٍ كتبتُه هنا كان أجوف.** اخترتُ زوجًا ظننتُه
+     *    يتصادم، فمرّ الاختبارُ قبل الإصلاح وبعده — لأنّ الزوجَ لم يكن
+     *    يتصادم أصلًا. قِستُه فبان:
+     *
+     *        cue='а|б' · ru='в'   →  R|а|б|||в
+     *        cue='а'   · ru='б|в' →  R|а|||б|в     ← مختلفتان
+     *
+     *    والتصادمُ الحقيقيُّ حين ينزلق الفاصلُ بين **حقلين متجاورين**:
+     *
+     *        cue='а|б' · family='в' →  R|а|б|в|г|д
+     *        cue='а'   · family='б|в' →  R|а|б|в|г|д   ← متساويتان
+     *
+     *    فاختبارٌ يمرّ قبل الإصلاح لا يحرس شيئًا.
+     */
+    const left = fingerprint(ROLE.VARIATION, 'д', { cue: 'а|б', family: 'в', parent: 'г' });
+    const right = fingerprint(ROLE.VARIATION, 'д', { cue: 'а', family: 'б|в', parent: 'г' });
+    expect(left === right).toBe(false);
+
+    /* والوصلُ بـ`|` كان يجعلهما واحدًا — نُثبت ذلك صراحةً. */
+    const glued = (role, ru, c) => `${role}|${c.cue || ''}|${c.family || ''}|${c.parent || ''}|${ru}`;
+    expect(glued(ROLE.VARIATION, 'д', { cue: 'а|б', family: 'в', parent: 'г' }))
+      .toBe(glued(ROLE.VARIATION, 'д', { cue: 'а', family: 'б|в', parent: 'г' }));
+
+    /* وهدفان كهذين يبقيان اثنين بمعرّفين. */
+    const { targets } = reconcileTargets([
+      { role: ROLE.VARIATION, ru: 'д', cue: 'а|б', family: 'в', parent: 'г' },
+      { role: ROLE.VARIATION, ru: 'д', cue: 'а', family: 'б|в', parent: 'г' },
+    ], []);
+    expect(targets).toHaveLength(2);
+    expect(targets[0].id === targets[1].id).toBe(false);
+  });
+
+  it('٣١ · واقتباسٌ أو شرطةٌ مائلةٌ في النصّ لا تكسر الترميز', async () => {
+    const odd = fingerprint(ROLE.MICRO_CORE, 'он сказал: "да" \\ нет');
+    /* سلسلةٌ صالحةٌ تُقرأ إلى خمسة حقول. */
+    const back = JSON.parse(odd);
+    expect(Array.isArray(back)).toBe(true);
+    expect(back).toHaveLength(5);
+    expect(back[0]).toBe(ROLE.MICRO_CORE);
+  });
+
+  it('٣٢ · والبصمةُ نفسُها لنفس المدخلات — حتميّةٌ لا عشوائيّة', async () => {
+    const a = fingerprint(ROLE.EXPANSION, 'уточнить', { cue: 'что?', family: 'ф' });
+    const b = fingerprint(ROLE.EXPANSION, 'уточнить', { cue: 'что?', family: 'ф' });
+    expect(a).toBe(b);
+  });
+});
