@@ -33,30 +33,37 @@ import { toastOk, toastError } from '../components/toast.js';
 import { confirmAction, showModal } from '../components/modal.js';
 import { scenes } from '../db/repositories.js';
 import {
-  PROMPTS, NOT_A_PROMPT, NEVER_ASKED, promptById, promptCard,
+  PROMPTS, NOT_A_PROMPT, NEVER_ASKED, promptById,
   buildPrompt, previewInstructions, requestSummary, requestFilename,
   extraInstructions, setExtraInstructions,
 } from '../services/prompts/library.js';
 import { CONTRACT_VERSION } from '../services/prompts/contract.js';
 import {
   listPrompts, getPrompt, createPrompt, updatePrompt, duplicatePrompt,
-  trashPrompt, toggleFavorite, markCopied, markOpened,
-  categoriesOf, tagsOf, buildSearchIndex, filterPrompts, sortPrompts,
-  recentPrompts, renameCategory, clearCategory,
+  trashPrompt,
+  categoriesOf, tagsOf, sortPrompts, renameCategory, clearCategory,
   SORTS, SORT_LABEL, NO_CATEGORY,
 } from '../services/prompts/user-prompts.js';
 import {
   findPlaceholders, fillTemplate, unfilledCount, outlineOf, readingBlocks,
 } from '../services/prompts/prompt-text.js';
+import {
+  buildCatalog, filterCatalog, countsOf, catalogCategories, catalogKey,
+  toggleCatalogFavorite, markCatalogOpened, markCatalogCopied, copyToPersonal,
+  SOURCE, SOURCE_LABEL, VIEW,
+} from '../services/prompts/catalog.js';
 
 /* ================================================================== *
  * الحالة
  * ================================================================== */
 
-/** أوجهُ التصفية الجانبيّة. */
-const VIEW = Object.freeze({
-  ALL: 'all', FAV: 'fav', RECENT: 'recent', BUILTIN: 'builtin',
-});
+/*
+ * ⚠️ **والأوجهُ تأتي من الفهرس لا تُعرَّف هنا** (بند ٤٧).
+ *
+ *    كان في هذا الملفِّ `VIEW` محلّيٌّ فيه `BUILTIN` — وهو الذي صنع
+ *    الكونَين: وجهٌ يقرأ `promptVersions` ووجهٌ يقرأ مصفوفةً مُجمَّدة،
+ *    بقائمتين وعارضَين. فحُذف، وصارت الأوجهُ تصفيةً على مجموعةٍ واحدة.
+ */
 
 /** حالاتُ الحفظ — **بأسماءٍ صريحةٍ لا بألوان** (بند ٢٩). */
 const SAVE = Object.freeze({
@@ -95,6 +102,16 @@ function fresh() {
     outlineOpen: true,
     /** في العرض الضيّق: هل القائمةُ ظاهرةٌ فوق العارض؟ (بند ٤١) */
     listOpen: true,
+    /** تصفيةٌ بالمصدر — من درج التصنيفات (بند ٥٦). */
+    source: '',
+    /**
+     * ⚠️ **درجُ التصنيفات — لا عمودٌ دائم** (بندا ١٤ و٥٤).
+     *
+     *    كان التصنيفُ يأخذ عمودًا كامل الارتفاع لأربعة صفوف، فيبتلع
+     *    ٢٥٠px من عرض التابلت طوالَ الوقت مقابل تصفيةٍ تُستعمَل مرّةً
+     *    في الجلسة. صار درجًا يُفتَح عند الحاجة ويُغلَق.
+     */
+    catsOpen: false,
     /* طلباتُ التحليل القديمة — حالتُها كما كانت. */
     builtin: null,
     material: '', hint: '', date: '', sceneId: '',
@@ -105,29 +122,47 @@ state = fresh();
 
 export function resetPrompts() { state = fresh(); }
 
-/** بياناتُ اللوحة — تُقرأ مرّةً لكلّ رسمةٍ كاملة. */
+/**
+ * بياناتُ اللوحة — تُقرأ مرّةً لكلّ رسمةٍ كاملة.
+ *
+ * ⚠️ `items` هي **الفهرسُ الموحَّد** من مصادره الأربعة، و`rows` تبقى
+ *    برومبتاتك وحدَها لأنّ التصنيفَ وإعادةَ التسمية تعملان عليها هي.
+ */
+let items = [];
+let catalogErrors = [];
 let rows = [];
-let searchIndex = new Map();
 let extras = {};
 
 /* ================================================================== *
  * القراءة والاشتقاق
  * ================================================================== */
 
-const selected = () => (state.sel ? rows.find((row) => row.id === state.sel) || null : null);
+/** العنصرُ المفتوح — بهُويّةِ الفهرس لا بمعرّفِ صفّ. */
+const selected = () => (state.sel
+  ? items.find((one) => one.catalogId === state.sel) || null
+  : null);
+
+/** هل المفتوحُ برومبتٌ تملكه؟ — تُسأل كثيرًا فتُختصَر. */
+const isMine = (one) => Boolean(one) && one.sourceKind === SOURCE.PERSONAL;
 
 /** ما يُعرَض في القائمة الآن — مصفًّى ومرتَّب. */
 function visibleRows() {
-  const base = state.view === VIEW.RECENT ? recentPrompts(rows) : rows;
-  const list = filterPrompts(base, {
+  const list = filterCatalog(items, {
+    view: state.view,
     query: state.query,
     category: state.category,
     tag: state.tag,
-    favorite: state.view === VIEW.FAV,
-    index: searchIndex,
+    source: state.source,
   });
-  /* ⚠️ «الأخيرة» مرتَّبةٌ بآخر استعمالٍ أصلًا — ولا تُعاد بترتيبٍ آخر. */
-  return state.view === VIEW.RECENT ? list : sortPrompts(list, state.sort);
+  /*
+   * ⚠️ «الأخيرة» مرتَّبةٌ بآخر استعمالٍ أصلًا — ولا تُعاد بترتيبٍ آخر.
+   *
+   * ⚠️ و`sortPrompts` تقرأ `updatedAt` و`title`، وهما على عناصر الفهرس
+   *    كلِّها (المبنيُّ `lastModified: null` فيهبط إلى الآخر) — فترتيبٌ
+   *    واحدٌ يسع المصادرَ كلَّها بلا فرعٍ ثانٍ.
+   */
+  if (state.view === VIEW.RECENT) return list;
+  return sortPrompts(list.map((one) => ({ ...one, updatedAt: one.lastModified || 0 })), state.sort);
 }
 
 /** المتغيّراتُ في البرومبت المفتوح. */
@@ -148,11 +183,16 @@ const hasFilled = () => Object.values(state.values).some((one) => String(one || 
  * أ · اللوحُ الجانبيّ — تصنيفاتٌ مضغوطة (بند ٥٧)
  * ================================================================== */
 
-function sideHtml() {
-  const cats = categoriesOf(rows);
-  const tags = tagsOf(rows);
-  const favs = rows.filter((row) => row.favorite).length;
-  const recent = recentPrompts(rows).length;
+/**
+ * صفُّ الأوجه — **أربعةُ أزرارٍ ودرج، لا عمودٌ كامل** (بندا ١٣ و١٤).
+ *
+ * ⚠️ **ومدخلُ الإنشاء واحدٌ** (بند ١٩): كانت الشاشةُ الفارغةُ تعرض
+ *    ثلاثةَ أزرارٍ متطابقةٍ «+ برومبت جديد» — في اللوح الجانبيّ، وفي
+ *    فراغ القائمة، وفي فراغ العارض. وتكرارُ الفعل الأوّل ثلاثًا لا
+ *    يجعله أوضح بل يجعل الشاشةَ تصرخ.
+ */
+function facesHtml() {
+  const counts = countsOf(items);
 
   const face = (id, label, count, on) => html`
     <button type="button" class="pl-face ${on ? 'is-on' : ''}"
@@ -161,28 +201,65 @@ function sideHtml() {
       ${raw(count === null ? '' : html`<b>${count}</b>`)}
     </button>`;
 
+  const filtering = Boolean(state.category || state.tag || state.source);
+
   return html`
-    <div class="pl-side-head">
+    <div class="pl-bar">
       <button type="button" class="btn btn-primary pl-new" data-action="pl-new">
         ${raw(icon('plus', 15))} برومبت جديد
       </button>
     </div>
 
     <nav class="pl-faces" aria-label="أوجه المكتبة">
-      ${raw(face(VIEW.ALL, 'كل البرومبتات', rows.length, state.view === VIEW.ALL && !state.category && !state.tag))}
-      ${raw(face(VIEW.FAV, 'المفضلة', favs, state.view === VIEW.FAV))}
+      <!--
+        ⚠️ **«كل البرومبتات» تعني كلَّها الآن** (بندا ٤ و٢١): كانت تعدُّ
+           صفوفَ مخزنٍ واحدٍ فتقول صفرًا وفي التطبيق خمسة. ومعها
+           «برومبتاتي» لمن يريد ما يملكه وحدَه — واللفظان صادقان معًا.
+      -->
+      ${raw(face(VIEW.ALL, 'كل البرومبتات', counts[VIEW.ALL], state.view === VIEW.ALL && !filtering))}
+      ${raw(face(VIEW.MINE, 'برومبتاتي', counts[VIEW.MINE], state.view === VIEW.MINE))}
+      ${raw(face(VIEW.FAV, 'المفضلة', counts[VIEW.FAV], state.view === VIEW.FAV))}
       <!--
         ⚠️ **«الأخيرة» من فتحٍ ونسخٍ حقيقيَّين** (بند ١٣) — لا من
            آخرِ تعديل. وبرومبتٌ لم يُفتَح قطُّ لا يظهر فيها، ولو كان
            آخرَ ما عدّلتَه.
       -->
-      ${raw(face(VIEW.RECENT, 'الأخيرة', recent, state.view === VIEW.RECENT))}
-      ${raw(face(VIEW.BUILTIN, 'طلبات التحليل', PROMPTS.length, state.view === VIEW.BUILTIN))}
-    </nav>
+      ${raw(face(VIEW.RECENT, 'الأخيرة', counts[VIEW.RECENT], state.view === VIEW.RECENT))}
 
-    ${raw(cats.length ? html`
-      <div class="pl-group">
-        <h3>التصنيفات</h3>
+      <button type="button" class="pl-face pl-face-more ${filtering ? 'is-on' : ''}"
+              data-action="pl-cats" aria-expanded="${state.catsOpen ? 'true' : 'false'}">
+        <span>التصنيفات</span> <i aria-hidden="true">▾</i>
+      </button>
+    </nav>`;
+}
+
+/** درجُ التصنيفات والمصادر — يُفتَح عند الحاجة (بندا ١٤ و٥٤). */
+function catsDrawerHtml() {
+  if (!state.catsOpen) return '';
+  const cats = catalogCategories(items);
+  const tags = tagsOf(rows);
+  const counts = countsOf(items);
+
+  return html`
+    <div class="pl-drawer" data-pl-drawer role="dialog" aria-label="تصفية">
+      <div class="pl-drawer-head">
+        <h3>تصفية</h3>
+        <button type="button" class="ws-icon-btn" data-action="pl-cats"
+                aria-label="اقفل">${raw(icon('close', 15))}</button>
+      </div>
+
+      <h4>النوع</h4>
+      <div class="pl-tags">
+        ${raw(Object.values(SOURCE).map((kind) => html`
+          <button type="button" class="pl-tag ${state.source === kind ? 'is-on' : ''}"
+                  data-action="pl-source" data-id="${kind}"
+                  aria-pressed="${state.source === kind ? 'true' : 'false'}">
+            ${SOURCE_LABEL[kind]} <i>${counts.bySource[kind] || 0}</i>
+          </button>`).join(''))}
+      </div>
+
+      ${raw(cats.length ? html`
+        <h4>التصنيفات</h4>
         <ul class="pl-cats">
           ${raw(cats.map((one) => html`
             <li>
@@ -191,15 +268,18 @@ function sideHtml() {
                       aria-pressed="${state.category === one.name ? 'true' : 'false'}">
                 <span dir="auto">${one.name}</span><b>${one.count}</b>
               </button>
+              <!--
+                ⚠️ **والإدارةُ خلف ⋯ لا بجوار التصفية** (بند ٥٤): إعادةُ
+                   التسمية والإفراغُ فعلان نادران وخطيران، والتصفيةُ فعلٌ
+                   يوميّ. وخلطُهما يجعل الضغطةَ الخاطئةَ سهلة.
+              -->
               <button type="button" class="ws-icon-btn pl-cat-more" data-action="pl-cat-menu"
                       data-id="${one.name}" aria-label="خيارات ${one.name}">⋯</button>
             </li>`).join(''))}
-        </ul>
-      </div>` : '')}
+        </ul>` : '')}
 
-    ${raw(tags.length ? html`
-      <div class="pl-group">
-        <h3>الوسوم</h3>
+      ${raw(tags.length ? html`
+        <h4>الوسوم</h4>
         <div class="pl-tags">
           ${raw(tags.slice(0, 18).map((one) => html`
             <button type="button" class="pl-tag ${state.tag === one.name ? 'is-on' : ''}"
@@ -207,8 +287,8 @@ function sideHtml() {
                     aria-pressed="${state.tag === one.name ? 'true' : 'false'}">
               #${one.name} <i>${one.count}</i>
             </button>`).join(''))}
-        </div>
-      </div>` : '')}`;
+        </div>` : '')}
+    </div>`;
 }
 
 /* ================================================================== *
@@ -221,13 +301,13 @@ function sideHtml() {
  *    والتصنيفُ ووسمان — وما بعدها في العارض.
  */
 function rowHtml(row) {
-  const on = state.sel === row.id;
+  const on = state.sel === row.catalogId;
   const tags = (row.tags || []).slice(0, 2);
   const more = (row.tags || []).length - tags.length;
 
   return html`
     <li class="pl-row ${on ? 'is-on' : ''}" ${on ? 'data-pl-here' : ''}>
-      <button type="button" class="pl-row-hit" data-action="pl-open" data-id="${row.id}"
+      <button type="button" class="pl-row-hit" data-action="pl-open" data-id="${row.catalogId}"
               role="option" aria-selected="${on ? 'true' : 'false'}" title="${row.title}">
         <span class="pl-row-top">
           <span class="pl-row-t" dir="auto">${row.title}</span>
@@ -235,7 +315,13 @@ function rowHtml(row) {
         </span>
         ${raw(row.purpose ? html`<span class="pl-row-p" dir="auto">${row.purpose}</span>` : '')}
         <span class="pl-row-meta">
-          <span class="pl-row-cat" dir="auto">${row.category || NO_CATEGORY}</span>
+          <!--
+            ⚠️ **شارةُ النوع تقول ما هو لا أين ثابتُه** (بندا ٥ و٣٥):
+               «تحليل» و«جملة» و«شخصي» — لا أسماءَ متغيّراتٍ برمجيّة.
+               وهي بجوار التصنيف صغيرةً: العنوانُ يبقى البطل.
+          -->
+          <span class="pl-src is-${row.sourceKind}">${SOURCE_LABEL[row.sourceKind]}</span>
+          ${raw(isMine(row) ? html`<span class="pl-row-cat" dir="auto">${row.category || NO_CATEGORY}</span>` : '')}
           ${raw(tags.map((one) => html`<i dir="auto">#${one}</i>`).join(''))}
           ${raw(more > 0 ? html`<i>+${more}</i>` : '')}
         </span>
@@ -262,29 +348,46 @@ function emptyHtml() {
       <p>مفيش برومبت اتفتح أو اتنسخ لسّه</p>
     </div>`;
   }
-  if (state.category || state.tag) {
+  if (state.category || state.tag || state.source) {
     return html`<div class="pl-empty">
       <p>مفيش برومبت هنا</p>
       <button type="button" class="btn btn-soft" data-action="pl-clear">شيل الفلاتر</button>
     </div>`;
   }
+  /*
+   * ⚠️ **ولا تُقال «المكتبة فاضية» والتطبيقُ فيه خمسةُ برومبتات** (بند ٢٠).
+   *
+   *    هذا هو العطبُ الأصليُّ في صورته الأخيرة: الشاشةُ كانت تنفي وجودَ
+   *    ما هو موجود. والفارقُ الصادق: **أنت** لم تُضف بعدُ — والمبنيُّ
+   *    موجودٌ ويظهر في «كل البرومبتات».
+   */
+  if (state.view === VIEW.MINE) {
+    return html`<div class="pl-empty">
+      <p>لسّه ما أضفتش برومبت شخصي</p>
+      <p class="pl-hint">الصق أي برومبت بتستعمله مع ChatGPT وخلّيه هنا.</p>
+      <button type="button" class="btn btn-soft" data-action="pl-view" data-id="${VIEW.ALL}">
+        شوف كل البرومبتات
+      </button>
+    </div>`;
+  }
   return html`<div class="pl-empty">
     <p>المكتبة فاضية</p>
     <p class="pl-hint">الصق أي برومبت بتستعمله مع ChatGPT وخلّيه هنا.</p>
-    <button type="button" class="btn btn-primary" data-action="pl-new">+ برومبت جديد</button>
   </div>`;
 }
 
 function listHtml() {
-  if (state.view === VIEW.BUILTIN) return builtinListHtml();
-
   const list = visibleRows();
   const filters = [
     state.category && { label: state.category, act: 'pl-cat', id: state.category },
     state.tag && { label: `#${state.tag}`, act: 'pl-tag', id: state.tag },
+    state.source && { label: SOURCE_LABEL[state.source], act: 'pl-source', id: state.source },
   ].filter(Boolean);
 
   return html`
+    ${raw(facesHtml())}
+    ${raw(catsDrawerHtml())}
+
     <div class="pl-list-head">
       <div class="pl-find">
         ${raw(icon('search', 15))}
@@ -305,7 +408,7 @@ function listHtml() {
     </div>
 
     <!--
-      ⚠️ **الفلاتر الفعّالةُ معلَنة** (بند ٣٩): «ليه بشوف دول؟» سؤالٌ
+      ⚠️ **الفلاتر الفعّالةُ معلَنة** (بند ٥٦): «ليه بشوف دول؟» سؤالٌ
          يجب أن يُجاب من الشاشة لا بالتخمين. وإخفاءُ البرومبت المحدَّد
          بلا كلمةٍ أسوأُ من عدم تصفيته أصلًا.
     -->
@@ -317,7 +420,17 @@ function listHtml() {
         <button type="button" class="pl-chip is-clear" data-action="pl-clear">مسح الفلاتر</button>
       </div>` : '')}
 
-    <p class="pl-count" role="status">${list.length} من ${rows.length}</p>
+    ${raw(catalogErrors.length ? html`
+      <!--
+        ⚠️ **مصدرٌ سقط يُقال، ولا يُفرَغ به الباقي** (بند ٥٩): إخفاءُ
+           عائلةِ برومبتاتٍ كاملةٍ خلف عطبٍ صامتٍ أسوأُ من رسالةِ خطأ.
+      -->
+      <div class="pl-warn" role="status">
+        ${raw(catalogErrors.map((one) => html`
+          <p>تعذّر تحميل «${SOURCE_LABEL[one.source] || one.source}» — ${one.message}</p>`).join(''))}
+      </div>` : '')}
+
+    <p class="pl-count" role="status">${list.length} من ${items.length}</p>
 
     ${raw(list.length
       ? html`<ul class="pl-rows" role="listbox" aria-label="البرومبتات">
@@ -326,44 +439,29 @@ function listHtml() {
       : emptyHtml())}`;
 }
 
-/** قائمةُ طلبات التحليل المبنيّة — للقراءة فقط. */
-function builtinListHtml() {
-  return html`
-    <p class="pl-count" role="status">${PROMPTS.length} طلبات تحليل</p>
-    <ul class="pl-rows" role="listbox" aria-label="طلبات التحليل">
-      ${raw(PROMPTS.map((one) => html`
-        <li class="pl-row ${state.builtin === one.id ? 'is-on' : ''}">
-          <button type="button" class="pl-row-hit" data-action="pl-builtin" data-id="${one.id}"
-                  role="option" aria-selected="${state.builtin === one.id ? 'true' : 'false'}">
-            <span class="pl-row-top"><span class="pl-row-t">${one.label}</span></span>
-            <span class="pl-row-p" dir="auto">${one.purpose}</span>
-            <span class="pl-row-meta"><span class="pl-row-cat">نسخة ${one.version}</span></span>
-          </button>
-        </li>`).join(''))}
-    </ul>`;
-}
-
 /* ================================================================== *
  * ج · العارض — هو البطل (بنود ٤ و٥ و٢٥ و٥٩)
  * ================================================================== */
 
 function viewerHtml() {
-  if (state.view === VIEW.BUILTIN) return builtinViewerHtml();
-
   const row = selected();
   if (!row) {
+    /*
+     * ⚠️ **ولا زرَّ إنشاءٍ ثانيًا هنا** (بند ١٩): المدخلُ الأوّلُ فوق
+     *    القائمة، وتكرارُه في فراغ العارض كان أحدَ النسخ الثلاث.
+     */
     return html`
       <div class="pl-blank">
-        <p>${rows.length ? 'اختار برومبت من القايمة' : 'مفيش برومبتات لسّه'}</p>
-        <button type="button" class="btn ${rows.length ? 'btn-soft' : 'btn-primary'}"
-                data-action="pl-new">+ برومبت جديد</button>
+        <p>${items.length ? 'اختار برومبت من القايمة' : 'مفيش برومبتات لسّه'}</p>
       </div>`;
   }
 
   const vars = placeholders();
   const line = outlineOf(row.body);
-  /* ⚠️ ولا يُعرَض مخطَّطٌ لبرومبتٍ قصير (بند ٢٤) — سرقةُ عرضٍ بلا مقابل. */
+  /* ⚠️ ولا يُعرَض مخطَّطٌ لبرومبتٍ قصير (بند ٤٠) — سرقةُ عرضٍ بلا مقابل. */
   const showOutline = line.length >= 4 && row.body.length > 1200;
+  const analysis = row.sourceKind === SOURCE.ANALYSIS;
+  const prompt = analysis ? promptById(row.sourceId) : null;
 
   return html`
     ${raw(viewerHeadHtml(row, vars))}
@@ -371,19 +469,33 @@ function viewerHtml() {
       ${raw(showOutline ? outlineHtml(line) : '')}
       <div class="pl-main" data-pl-main>
         ${raw(state.mode === 'edit' ? editorHtml(row) : readHtml(row))}
+
+        <!--
+          ⚠️ **ومسارُ الاستعمال يبقى المولِّد نفسَه** (قيد المالك ١):
+             طلبُ التحليل يبني حزمةَ JSON من ذكرًى حقيقيّة، والمعروضُ
+             أعلاه تعليماتُه فقط. فالحقولُ والأفعالُ هنا هي القديمةُ
+             بلا مسارٍ ثانٍ — نسخُ التعليمات شيءٌ وبناءُ الطلب شيء.
+        -->
+        ${raw(analysis && prompt && state.mode === 'read' ? html`
+          <div class="pl-use">
+            <h3>استعمله على ذكرى</h3>
+            ${raw(builtinBodyHtml(prompt))}
+          </div>` : '')}
       </div>
       ${raw(vars.length && state.mode === 'read' ? varsHtml(vars) : '')}
     </div>`;
 }
 
 function viewerHeadHtml(row, vars) {
-  const stamp = row.updatedAt ? new Date(row.updatedAt).toLocaleDateString('ar-EG') : '';
+  const stamp = row.lastModified ? new Date(row.lastModified).toLocaleDateString('ar-EG') : '';
+  const mine = isMine(row);
+
   return html`
     <header class="pl-head">
       <div class="pl-head-top">
         <h2 class="pl-title" dir="auto" title="${row.title}">${row.title}</h2>
         <button type="button" class="pl-fav ${row.favorite ? 'is-on' : ''}"
-                data-action="pl-fav" data-id="${row.id}"
+                data-action="pl-fav" data-id="${row.catalogId}"
                 aria-pressed="${row.favorite ? 'true' : 'false'}"
                 aria-label="${row.favorite ? 'شيل من المفضلة' : 'ضيف للمفضلة'}">★</button>
       </div>
@@ -391,11 +503,12 @@ function viewerHeadHtml(row, vars) {
       ${raw(row.purpose ? html`<p class="pl-purpose" dir="auto">${row.purpose}</p>` : '')}
 
       <div class="pl-facts">
-        <span class="pl-row-cat" dir="auto">${row.category || NO_CATEGORY}</span>
+        <span class="pl-src is-${row.sourceKind}">${SOURCE_LABEL[row.sourceKind]}</span>
+        ${raw(mine ? html`<span class="pl-row-cat" dir="auto">${row.category || NO_CATEGORY}</span>` : '')}
         ${raw((row.tags || []).map((one) => html`<i dir="auto">#${one}</i>`).join(''))}
         ${raw(stamp ? html`<span>آخر تعديل ${stamp}</span>` : '')}
         <!--
-          ⚠️ **ولا يُعرَض عدّادٌ إلّا إن وقع فعلًا** (بندا ١٤ و٥٠ · قاعدة ٩):
+          ⚠️ **ولا يُعرَض عدّادٌ إلّا إن وقع فعلًا** (بندا ١٤ و٤٧ · قاعدة ٩):
              عدّادُ النسخ يزيد **بعد** نجاح النسخ لا عند الضغط. وصفرٌ لا
              يُرسَم أصلًا — «نُسخ ٠ مرّة» ضجيجٌ لا خبر.
         -->
@@ -405,21 +518,33 @@ function viewerHeadHtml(row, vars) {
       <div class="pl-acts">
         ${raw(state.mode === 'edit' ? html`
           <button type="button" class="btn btn-primary" data-action="pl-save">احفظ</button>
-          <button type="button" class="btn btn-soft" data-action="pl-cancel">إلغاء</button>
+          <button type="button" class="btn btn-ghost" data-action="pl-cancel">إلغاء</button>
           ${raw(saveBadgeHtml())}`
           : html`
-          <button type="button" class="btn btn-primary" data-action="pl-copy" data-id="${row.id}">
+          <button type="button" class="btn btn-primary" data-action="pl-copy" data-id="${row.catalogId}">
             ${raw(icon('copy', 15))} نسخ
           </button>
           ${raw(vars.length ? html`
-            <button type="button" class="btn btn-soft" data-action="pl-copy-filled" data-id="${row.id}"
+            <button type="button" class="btn btn-soft" data-action="pl-copy-filled" data-id="${row.catalogId}"
                     ${hasFilled() ? '' : 'disabled'}>نسخ بعد التعبئة</button>` : '')}
-          <button type="button" class="btn btn-soft" data-action="pl-edit">
-            ${raw(icon('edit', 15))} تعديل
-          </button>
-          <!-- ⚠️ والحذفُ ليس بجوار «نسخ» (بند ٥٩) — بل خلف زرّ الخيارات. -->
-          <button type="button" class="ws-icon-btn pl-more" data-action="pl-menu" data-id="${row.id}"
-                  aria-label="خيارات تانية">⋯</button>`)}
+
+          <!--
+            ⚠️ **ولا زرَّ «تعديل» لما تملكه آلةُ التطبيق** (بندا ٦ و٣١):
+               عرضُ زرٍّ يرفض العملَ أسوأُ من غيابه. والبابُ المفتوحُ
+               بدلَه: نسخةٌ تملكها أنت — بمعرّفٍ جديدٍ لا يعرف أباه.
+          -->
+          ${raw(row.editable ? html`
+            <button type="button" class="btn btn-soft" data-action="pl-edit">
+              ${raw(icon('edit', 15))} تعديل
+            </button>` : html`
+            <button type="button" class="btn btn-soft" data-action="pl-fork" data-id="${row.catalogId}">
+              ${raw(icon('copy', 15))} انسخه لبرومبتاتي
+            </button>`)}
+
+          <!-- ⚠️ والحذفُ ليس بجوار «نسخ» (بند ٣٠) — بل خلف زرّ الخيارات. -->
+          ${raw(mine ? html`
+            <button type="button" class="ws-icon-btn pl-more" data-action="pl-menu" data-id="${row.sourceId}"
+                    aria-label="خيارات تانية">⋯</button>` : '')}`)}
       </div>
     </header>`;
 }
@@ -565,71 +690,6 @@ function outlineHtml(line) {
  * د · طلباتُ التحليل المبنيّة — **بلا مساسٍ بمسارها** (بند ٠)
  * ================================================================== */
 
-function builtinViewerHtml() {
-  const prompt = state.builtin ? promptById(state.builtin) : null;
-  if (!prompt) {
-    return html`<div class="pl-blank">
-      <p>دي طلبات التحليل المبنيّة في التطبيق</p>
-      <p class="pl-hint">
-        بتطلع ملف طلب، وإنت اللي تديه لأي محلِّل، وترجّع ردّه في
-        <a href="#/import">شاشة الاستيراد</a>. عقد ${CONTRACT_VERSION}.
-      </p>
-    </div>`;
-  }
-
-  const info = promptCard(prompt);
-  const mine = extras[prompt.id];
-
-  return html`
-    <header class="pl-head">
-      <div class="pl-head-top">
-        <h2 class="pl-title">${info.label}</h2>
-        <span class="pl-row-cat">نسخة ${info.version}</span>
-      </div>
-      <p class="pl-purpose" dir="auto">${info.purpose}</p>
-      <div class="pl-facts"><span>بيرجع بـ: ${info.returns.join(' · ')}</span></div>
-      <div class="pl-acts">
-        <button type="button" class="btn btn-soft" data-action="prompt-extra" data-id="${prompt.id}">
-          ${raw(icon('edit', 15))} ${mine ? 'عدّل تعليماتك' : 'ضيف تعليماتك'}
-        </button>
-        <button type="button" class="btn btn-soft" data-action="prompt-peek" data-id="${prompt.id}">
-          ${raw(icon('eye', 15))} شوف التعليمات كلها
-        </button>
-      </div>
-    </header>
-
-    <div class="pl-body">
-      <div class="pl-main">
-        ${raw(mine ? html`<div class="pl-mine"><b>تعليماتك:</b> <span dir="auto">${mine}</span></div>` : '')}
-
-        ${raw(info.omitted.length ? html`
-          <details class="pr-omit">
-            <summary>وفيه حاجات مش بنطلبها في الطلب ده — وليه</summary>
-            <dl class="pr-why-list">
-              ${raw(info.omitted.map((one) => html`
-                <dt>${one.kind}</dt><dd>${one.why}</dd>`).join(''))}
-            </dl>
-          </details>` : '')}
-
-        ${raw(builtinBodyHtml(prompt))}
-
-        <details class="sec pr-limits">
-          <summary>وفيه أسئلة مابنعملهاش طلب — وليه</summary>
-          <dl class="pr-why-list">
-            ${raw(NOT_A_PROMPT.map((one) => html`
-              <dt>${one.label}</dt><dd>${one.why}</dd>`).join(''))}
-          </dl>
-        </details>
-        <details class="sec pr-limits">
-          <summary>وحاجات مابنطلبهاش من أي محلِّل خالص — وليه</summary>
-          <dl class="pr-why-list">
-            ${raw(NEVER_ASKED.map((one) => html`
-              <dt>${one.label}</dt><dd>${one.why}</dd>`).join(''))}
-          </dl>
-        </details>
-      </div>
-    </div>`;
-}
 
 /** جسمُ الطلب المبنيّ — **نفسُ الحقول ونفسُ الأفعال** كما كانت. */
 function builtinBodyHtml(prompt) {
@@ -668,16 +728,27 @@ function builtinBodyHtml(prompt) {
  * ================================================================== */
 
 export async function renderPrompts(main) {
-  const [list, mine, sceneRows] = await Promise.all([
+  const [cat, list, mine, sceneRows] = await Promise.all([
+    buildCatalog(),
     listPrompts(),
     extraInstructions(),
     scenes.page({ index: 'date', direction: 'prev', limit: 60 }),
   ]);
 
+  items = cat.items;
+  catalogErrors = cat.errors;
   rows = list;
   extras = mine;
-  /* ⚠️ الفهرسُ يُبنى مرّةً هنا لا عند كلّ ضغطةِ مفتاحٍ في البحث. */
-  searchIndex = buildSearchIndex(rows);
+
+  /*
+   * ⚠️ **والسكّةُ مضغوطةٌ هنا — بآليّة الورشة نفسِها لا بأخرى** (بند ١٨).
+   *
+   *    `ws-rail-compact` و`ws-fabs-on` صنفان على `body` تملكهما الورشةُ
+   *    من قبلُ، وتُنظّفهما عند المغادرة. فإعادةُ بنائهما هنا كانت ستصنع
+   *    سكّتين تفترقان بعد أوّل تحسين.
+   */
+  document.body.classList.add('ws-rail-compact');
+  document.body.classList.remove('ws-fabs-on');
 
   state.sceneOptions = sceneRows.map((row) => html`
     <option value="${row.id}"${row.id === state.sceneId ? ' selected' : ''}>
@@ -685,14 +756,13 @@ export async function renderPrompts(main) {
     </option>`).join('');
 
   /* ⚠️ برومبتٌ حُذف لا يبقى «محدَّدًا» بمعرِّفٍ ميّت. */
-  if (state.sel && !rows.some((row) => row.id === state.sel)) {
+  if (state.sel && !items.some((one) => one.catalogId === state.sel)) {
     state.sel = null;
     state.mode = 'read';
   }
 
   main.innerHTML = html`
     <div class="pl" data-pl data-pl-list="${state.listOpen ? 'open' : 'shut'}">
-      <aside class="pl-side" data-pl-side>${raw(sideHtml())}</aside>
       <section class="pl-list" data-pl-list-pane aria-label="البرومبتات">${raw(listHtml())}</section>
       <section class="pl-viewer" data-pl-viewer aria-label="البرومبت">
         <!--
@@ -708,13 +778,24 @@ export async function renderPrompts(main) {
   wire(main);
 }
 
+/**
+ * يعيد قراءةَ الفهرس وصفوفِك بعد كلّ تغيير.
+ *
+ * ⚠️ **والاثنان معًا لا أحدُهما**: العدّادُ يقرأ `items` والتصنيفُ يقرأ
+ *    `rows`. وتحديثُ واحدٍ دون الآخر يجعل الرقمَ يخالف القائمةَ لحظةً
+ *    — وهو بعينه العطبُ الذي جاءت هذه التمريرةُ لإصلاحه.
+ */
+async function reload() {
+  const [cat, list] = await Promise.all([buildCatalog(), listPrompts()]);
+  items = cat.items;
+  catalogErrors = cat.errors;
+  rows = list;
+}
+
 /** يعيد رسمَ لوحٍ واحدٍ — بلا هدم الشاشة كلِّها. */
 function paint(part) {
-  if (part === 'side' || part === 'all') {
-    const el = $('[data-pl-side]');
-    if (el) el.innerHTML = sideHtml();
-  }
-  if (part === 'list' || part === 'all') {
+  /* ⚠️ ولا لوحَ جانبيًّا يُرسَم — الأوجهُ صارت في رأس القائمة (بند ١٣). */
+  if (part === 'side' || part === 'list' || part === 'all') {
     const el = $('[data-pl-list-pane]');
     if (el) el.innerHTML = listHtml();
   }
@@ -862,7 +943,7 @@ export async function handlePromptsAction(action, id, target) {
     state.view = id;
     state.category = '';
     state.tag = '';
-    if (id === VIEW.BUILTIN) state.sel = null; else state.builtin = null;
+    state.source = '';
     state.listOpen = true;
     paint('all');
     return true;
@@ -870,14 +951,14 @@ export async function handlePromptsAction(action, id, target) {
 
   if (action === 'pl-cat') {
     state.category = state.category === id ? '' : id;
-    if (state.view === VIEW.BUILTIN) state.view = VIEW.ALL;
+    state.catsOpen = false;
     paint('all');
     return true;
   }
 
   if (action === 'pl-tag') {
     state.tag = state.tag === id ? '' : id;
-    if (state.view === VIEW.BUILTIN) state.view = VIEW.ALL;
+    state.catsOpen = false;
     paint('all');
     return true;
   }
@@ -886,6 +967,7 @@ export async function handlePromptsAction(action, id, target) {
     state.query = '';
     state.category = '';
     state.tag = '';
+    state.source = '';
     paint('all');
     return true;
   }
@@ -902,21 +984,26 @@ export async function handlePromptsAction(action, id, target) {
       state.preview = false;
     }
     state.listOpen = false;
+    /*
+     * ⚠️ **وطلبُ التحليل يُزامَن مع حالة المولِّد** (قيد المالك ١):
+     *    `builtinBodyHtml` تقرأ `state.builtin`، فلو بقي على القديم
+     *    عرض العارضُ حقولَ طلبٍ غيرِ الذي تنظر إليه.
+     */
+    const picked = selected();
+    state.builtin = picked && picked.sourceKind === SOURCE.ANALYSIS ? picked.sourceId : null;
     paint('all');
     /* ⚠️ يُسجَّل الفتحُ بعد الرسم — والفشلُ فيه لا يمنعك من القراءة. */
-    markOpened(id).then(async () => {
-      const row = await getPrompt(id);
-      if (row) {
-        const at = rows.findIndex((one) => one.id === id);
-        if (at >= 0) rows[at] = row;
-      }
-    }).catch(() => {});
+    if (picked) {
+      markCatalogOpened(picked)
+        .then(() => reload())
+        .catch(() => {});
+    }
     return true;
   }
 
   /* ---------- النسخ (بنود ٦ و٢٢ و٦٠ و٦٤) ---------- */
   if (action === 'pl-copy' || action === 'pl-copy-filled') {
-    const row = rows.find((one) => one.id === id);
+    const row = items.find((one) => one.catalogId === id);
     if (!row) return true;
     /*
      * ⚠️ **الفرقُ معلَنٌ لا مضمَر** (بند ٢٢): «نسخ» ينسخ القالبَ كما
@@ -929,22 +1016,51 @@ export async function handlePromptsAction(action, id, target) {
 
     flashCopied(target);
     /* ⚠️ العدُّ **بعد** النجاح لا عند الضغط (بند ١٤). */
-    markCopied(row.id).then(async () => {
-      const fresh2 = await getPrompt(row.id);
-      const at = rows.findIndex((one) => one.id === row.id);
-      if (fresh2 && at >= 0) rows[at] = fresh2;
-    }).catch(() => {});
+    markCatalogCopied(row).then(() => reload()).catch(() => {});
     return true;
   }
 
   /* ---------- المفضّلة ---------- */
   if (action === 'pl-fav') {
+    const row = items.find((one) => one.catalogId === id);
+    if (!row) return true;
     try {
-      const now2 = await toggleFavorite(id);
-      const at = rows.findIndex((one) => one.id === id);
-      if (at >= 0) rows[at] = { ...rows[at], favorite: now2 };
+      /*
+       * ⚠️ **ورأيُك في المبنيِّ يُحفَظ في تفضيلاتك** (بندا ٩ و٤٨):
+       *    `PROMPTS` مُجمَّدةٌ فعلًا، وكتابةُ `favorite` عليها ترمي.
+       *    فالفهرسُ يوجّه كلَّ مصدرٍ إلى مخزنه.
+       */
+      await toggleCatalogFavorite(row);
+      await reload();
       paint('all');
     } catch (error) { toastError(error.message); }
+    return true;
+  }
+
+  /* ---------- نسخةٌ تملكها من برومبتٍ مبنيّ (بندا ٣٢ و٥٣) ---------- */
+  if (action === 'pl-fork') {
+    const row = items.find((one) => one.catalogId === id);
+    if (!row) return true;
+    try {
+      const made = await copyToPersonal(row);
+      await reload();
+      /* ⚠️ والنسخةُ تُفتَح فورًا — وإلّا بدا الفعلُ كأنه لم يقع. */
+      state.sel = catalogKey(SOURCE.PERSONAL, made.id);
+      state.view = VIEW.MINE;
+      state.values = {};
+      paint('all');
+      toastOk('اتعملت نسخة تقدر تعدّلها');
+    } catch (error) { toastError(error.message); }
+    return true;
+  }
+
+  /* ---------- درجُ التصفية والمصدر (بندا ١٤ و٥٦) ---------- */
+  if (action === 'pl-cats') { state.catsOpen = !state.catsOpen; paint('list'); return true; }
+
+  if (action === 'pl-source') {
+    state.source = state.source === id ? '' : id;
+    state.catsOpen = false;
+    paint('all');
     return true;
   }
 
@@ -984,7 +1100,6 @@ export async function handlePromptsAction(action, id, target) {
       const saved = await getPrompt(row.id);
       const at = rows.findIndex((one) => one.id === row.id);
       if (saved && at >= 0) rows[at] = saved;
-      searchIndex = buildSearchIndex(rows);
       state.mode = 'read';
       state.draft = null;
       state.save = SAVE.SAVED;
@@ -1036,12 +1151,6 @@ export async function handlePromptsAction(action, id, target) {
   if (action === 'pl-cat-menu') { await categoryMenu(id); return true; }
 
   /* ---------- طلباتُ التحليل المبنيّة — المسارُ القديم كما هو ---------- */
-  if (action === 'pl-builtin') {
-    state.builtin = id;
-    state.listOpen = false;
-    paint('viewer');
-    return true;
-  }
   return builtinAction(action, id);
 }
 
@@ -1135,9 +1244,14 @@ async function newPrompt() {
   });
 
   if (!made) return;
-  rows = await listPrompts();
-  searchIndex = buildSearchIndex(rows);
-  state.sel = made.id;
+  await reload();
+  /*
+   * ⚠️ **هُويّةُ الفهرس لا معرّفُ الصفّ** (بند ٦١): كتابةُ `made.id` هنا
+   *    تترك `state.sel` بقيمةٍ لا يطابقها عنصرٌ واحدٌ في الفهرس — فيُحفَظ
+   *    البرومبتُ ويبقى العارضُ فارغًا. **ولا رسالةَ خطأ**: كلُّ سطرٍ نجح،
+   *    والمقارنةُ وحدَها كذبت. أمسكه اختبارُ الشاشة لا قراءةُ الكود.
+   */
+  state.sel = catalogKey(SOURCE.PERSONAL, made.id);
   state.view = VIEW.ALL;
   state.category = '';
   state.tag = '';
@@ -1190,9 +1304,8 @@ async function promptMenu(id) {
   if (pick === 'duplicate') {
     try {
       const copy = await duplicatePrompt(id);
-      rows = await listPrompts();
-      searchIndex = buildSearchIndex(rows);
-      state.sel = copy.id;
+      await reload();
+      state.sel = catalogKey(SOURCE.PERSONAL, copy.id);
       paint('all');
       return toastOk('اتعمل نسخة');
     } catch (error) { return toastError(error.message); }
@@ -1230,12 +1343,13 @@ async function promptMenu(id) {
     });
     if (!go) return;
     try { await trashPrompt(id); } catch (error) { return toastError(error.message); }
-    if (state.sel === id) { state.sel = null; state.mode = 'read'; state.draft = null; }
+    if (state.sel === catalogKey(SOURCE.PERSONAL, id)) {
+      state.sel = null; state.mode = 'read'; state.draft = null;
+    }
     toastOk('راح السلّة');
   }
 
-  rows = await listPrompts();
-  searchIndex = buildSearchIndex(rows);
+  await reload();
   paint('all');
   return undefined;
 }
@@ -1288,8 +1402,7 @@ async function categoryMenu(name) {
   }
 
   if (state.category === name) state.category = '';
-  rows = await listPrompts();
-  searchIndex = buildSearchIndex(rows);
+  await reload();
   paint('all');
   return undefined;
 }

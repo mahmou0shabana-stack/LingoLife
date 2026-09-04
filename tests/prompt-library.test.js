@@ -309,18 +309,32 @@ describe('WS-PL · لا يُحذَف برومبتٌ صامتًا (بندا ١٠ 
 describe('WS-PL · الشاشةُ: العارضُ هو البطل (بنود ٣ و٤ و٤١ و٥٩)', () => {
   const host = document.createElement('div');
 
-  it('٣٤ · الشاشةُ ثلاثةُ ألواحٍ لا أعمدةٌ ضيّقةٌ كثيرة', async () => {
-    /* ⚠️ «Do not recreate the old Workspace too-many-narrow-columns problem». */
+  it('٣٤ · الشاشةُ لوحان لا ثلاثةُ أعمدةٍ حول فراغ (WS-PL3 · بند ١٣)', async () => {
+    /*
+     * ⚠️ **وهذا الاختبارُ نفسُه كان يحرس العكس.**
+     *
+     *    كان يقول «ثلاثةُ ألواح» ويمرّ، والشاشةُ تُهدر ٢١٦px على عمودِ
+     *    تصنيفاتٍ دائمٍ فيه أربعةُ أزرار. فالاختبارُ لم يكن خطأً في
+     *    الكتابة بل **صادقًا عن معماريّةٍ صارت خطأً**. وتحديثُه جزءٌ من
+     *    التمريرة لا التفافٌ عليها: البنيةُ تغيّرت فتغيّر حارسُها.
+     */
     document.body.append(host);
     resetPrompts();
     await renderPrompts(host);
-    expect($$('.pl > section, .pl > aside', host)).toHaveLength(3);
+    expect($$('.pl > section, .pl > aside', host)).toHaveLength(2);
   });
 
-  it('٣٥ · وفيها لوحٌ جانبيٌّ وقائمةٌ وعارض', () => {
-    expect($$('.pl-side', host)).toHaveLength(1);
+  it('٣٥ · قائمةٌ وعارضٌ — ولا عمودَ تصنيفاتٍ دائم', () => {
+    expect($$('.pl-side', host)).toHaveLength(0);
     expect($$('.pl-list', host)).toHaveLength(1);
     expect($$('.pl-viewer', host)).toHaveLength(1);
+    /* والأوجهُ صفٌّ داخل القائمة — ومعها مدخلُ التصنيفات. */
+    expect($$('.pl-faces .pl-face', host).length >= 4).toBeTruthy();
+    expect($$('[data-action="pl-cats"]', host).length >= 1).toBeTruthy();
+  });
+
+  it('٣٥ب · ومدخلُ الإنشاءِ واحدٌ لا ثلاثة (بند ١٩)', () => {
+    expect($$('[data-action="pl-new"]', host)).toHaveLength(1);
   });
 
   it('٣٦ · العددُ المعروضُ حقيقيٌّ لا زخرفة', async () => {
@@ -332,7 +346,8 @@ describe('WS-PL · الشاشةُ: العارضُ هو البطل (بنود ٣ �
   it('٣٧ · فتحُ برومبتٍ يعرض متنَه كما هو', async () => {
     const made = await seed({ title: `${TAG} للعرض` });
     await renderPrompts(host);
-    await handlePromptsAction('pl-open', made.id);
+    /* ⚠️ والفتحُ بهُويّة الفهرس `مصدر:معرّف` لا بمعرّف الصفّ (بند ٦١). */
+    await handlePromptsAction('pl-open', `personal:${made.id}`);
     await wait();
     const doc = host.querySelector('[data-pl-doc]');
     expect(doc.textContent).toContain('сотру́дник');
@@ -387,9 +402,16 @@ describe('WS-PL · طلباتُ التحليل الثلاثةُ لم تُمَس�
     expect(Object.isFrozen(PROMPTS)).toBeTruthy();
   });
 
-  it('٤٥ · ولها وجهٌ مستقلٌّ في الشاشة لا يختلط بالمكتبة', async () => {
+  it('٤٥ · وتظهر داخل المكتبة الواحدة بشارةِ نوعها (WS-PL3 · بند ٤)', async () => {
     /*
-     * ⚠️ **لوحٌ واحدٌ في الصفحة لا اثنان.** `paint` تستعلم عن
+     * ⚠️ **وهذا الاختبارُ انقلب معناه — وهو المقصود.**
+     *
+     *    كان يحرس أن لطلبات التحليل «وجهًا مستقلًّا لا يختلط بالمكتبة»،
+     *    وهو بعينه الصومعةُ التي جعلت «كل البرومبتات» تقول صفرًا
+     *    وبجوارها «طلبات التحليل ٣». فصار يحرس نقيضَه: أن تكون في
+     *    القائمة الواحدة، معروفةً بشارتها لا بعزلها.
+     *
+     * ⚠️ **ولوحٌ واحدٌ في الصفحة لا اثنان.** `paint` تستعلم عن
      *    `[data-pl-list-pane]` من `document` — فلو بقي مضيفُ الوصف
      *    السابق معلّقًا رسمت فيه، وقاس هذا الاختبارُ شاشةً غيرَ التي فتح.
      */
@@ -398,9 +420,10 @@ describe('WS-PL · طلباتُ التحليل الثلاثةُ لم تُمَس�
     document.body.append(host);
     resetPrompts();
     await renderPrompts(host);
-    await handlePromptsAction('pl-view', 'builtin');
     await wait();
-    expect($$('.pl-row', host)).toHaveLength(3);
+
+    const badges = $$('.pl-row .pl-src', host).map((one) => one.textContent.trim());
+    expect(badges.filter((one) => one === 'تحليل')).toHaveLength(PROMPTS.length);
     host.remove();
   });
 
