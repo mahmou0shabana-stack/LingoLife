@@ -1,0 +1,270 @@
+/**
+ * LingoLife — هُويّةُ أهداف المسودّة V2 (WS-DV2 · بنود ٤٠ و٤١ و٦٣ و٦٥)
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ ما يُقاس هنا هو **ما ينكسر بصمت**
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * هُويّةٌ بالموضع لا تُخطئ أبدًا في وجهك: كلُّ مفتاحٍ صحيحٌ في ذاته،
+ * والتطبيقُ يعمل، والرقمُ يظهر. لكنّك تُدرج قطعةً في أوّل المسودّة
+ * فيرث الجديدُ «خلصت» من جارِه. فكلُّ اختبارٍ هنا يُمسك انتقالًا
+ * كان سيقع بلا رسالةِ خطأ.
+ */
+
+import { describe, it, expect } from './test-runner.js';
+import {
+  ROLE, TARGET_IDS, SPEECH_ROLES, OPTIONAL_SPEECH_ROLES, isSpeechRole,
+  fingerprint, storedTargets, reconcileTargets, ensureTargetIds,
+  textIndex, linkQuickChain,
+} from '../js/services/shadow/draft-targets.js';
+import { studyDrafts } from '../js/db/repositories.js';
+
+const TAG = `DT-${Math.random().toString(36).slice(2, 7)}`;
+
+/** أهدافٌ مقروءةٌ الآن — دورٌ ونصّ. */
+const t = (role, ru) => ({ role, ru });
+
+const CORE_A = t(ROLE.MICRO_CORE, 'тре́бования по документа́ции');
+const CORE_B = t(ROLE.MICRO_CORE, 'не совсе́м поня́тны');
+const CORE_C = t(ROLE.MICRO_CORE, 'уточни́ть э́тот вопро́с');
+
+const idOf = (targets, ru) => targets.find((one) => one.ru === ru)?.id || null;
+
+/* ================================================================== *
+ * الخاصّيّاتُ الستّ التي طلبها المالك
+ * ================================================================== */
+describe('WS-DV2 · المعرّفُ يُولَد مرّةً ويعيش', () => {
+  it('١ · أوّلُ قراءةٍ تُولّد معرّفًا لكلّ هدف', async () => {
+    const { targets, minted, kept } = reconcileTargets([CORE_A, CORE_B, CORE_C], []);
+    expect(targets).toHaveLength(3);
+    expect(minted).toBe(3);
+    expect(kept).toBe(0);
+    /* ولا معرّفَ يتكرّر. */
+    expect(new Set(targets.map((one) => one.id)).size).toBe(3);
+  });
+
+  it('٢ · ⚠️ إعادةُ الترتيب لا تغيّر معرّفًا واحدًا', async () => {
+    const first = reconcileTargets([CORE_A, CORE_B, CORE_C], []).targets;
+    /* نقلبُ الترتيبَ رأسًا على عقب. */
+    const after = reconcileTargets([CORE_C, CORE_B, CORE_A], first).targets;
+
+    expect(idOf(after, CORE_A.ru)).toBe(idOf(first, CORE_A.ru));
+    expect(idOf(after, CORE_B.ru)).toBe(idOf(first, CORE_B.ru));
+    expect(idOf(after, CORE_C.ru)).toBe(idOf(first, CORE_C.ru));
+  });
+
+  it('٣ · ⚠️ والإدراجُ في الأوّل لا يُزحزح مَن بعدَه', async () => {
+    /*
+     * ⚠️ **هذه هي الحالةُ التي أسقطت تصميمي الأوّل.** بمفتاحٍ بالموضع
+     *    كان `core#1` يصير للجديد، فيرث تقدُّمَ «أ» وهو لم يُقرأ بعد.
+     */
+    const first = reconcileTargets([CORE_A, CORE_B, CORE_C], []).targets;
+    const fresh = t(ROLE.MICRO_CORE, 'у отве́тственного специали́ста');
+    const after = reconcileTargets([fresh, CORE_A, CORE_B, CORE_C], first).targets;
+
+    expect(after).toHaveLength(4);
+    expect(idOf(after, CORE_A.ru)).toBe(idOf(first, CORE_A.ru));
+    expect(idOf(after, CORE_B.ru)).toBe(idOf(first, CORE_B.ru));
+    expect(idOf(after, CORE_C.ru)).toBe(idOf(first, CORE_C.ru));
+    /* والجديدُ وحدَه هو الذي وُلد. */
+    expect(reconcileTargets([fresh, CORE_A, CORE_B, CORE_C], first).minted).toBe(1);
+  });
+
+  it('٤ · وحذفُ جارٍ لا يمسّ الباقين', async () => {
+    const first = reconcileTargets([CORE_A, CORE_B, CORE_C], []).targets;
+    const after = reconcileTargets([CORE_A, CORE_C], first).targets;
+
+    expect(after).toHaveLength(2);
+    expect(idOf(after, CORE_A.ru)).toBe(idOf(first, CORE_A.ru));
+    expect(idOf(after, CORE_C.ru)).toBe(idOf(first, CORE_C.ru));
+  });
+
+  it('٥ · ونصٌّ لم يتغيّر يُبقي معرّفَه — فيُبقي تقدُّمَه', async () => {
+    const first = reconcileTargets([CORE_A, CORE_B], []).targets;
+    const again = reconcileTargets([CORE_A, CORE_B], first);
+    expect(again.kept).toBe(2);
+    expect(again.minted).toBe(0);
+    expect(again.changed).toBe(false);
+  });
+
+  it('٦ · ⚠️ ونصٌّ تغيّر يأخذ معرّفًا جديدًا — ولا يرث «خلصت»', async () => {
+    /*
+     * ⚠️ **هنا افترقتُ عن `reconcileIds` عمدًا.** لها خطوةٌ بالموضع
+     *    تُورِّث المعرّفَ لمن حلَّ مكانَ غيره. وهي صحيحةٌ للجُمَل، وكارثةٌ
+     *    هنا: قطعةٌ كتبتَها للتوّ تُعرَض «خلصت» لأنّ سابقتَها كانت كذلك.
+     */
+    const first = reconcileTargets([CORE_A, CORE_B], []).targets;
+    const edited = t(ROLE.MICRO_CORE, 'не о́чень поня́тны');
+    const after = reconcileTargets([CORE_A, edited], first);
+
+    expect(after.kept).toBe(1);
+    expect(after.minted).toBe(1);
+    expect(idOf(after.targets, CORE_A.ru)).toBe(idOf(first, CORE_A.ru));
+    /* والمعرّفُ الجديدُ ليس معرّفَ من كان مكانَه. */
+    expect(idOf(after.targets, edited.ru) === idOf(first, CORE_B.ru)).toBe(false);
+  });
+
+  it('٧ · ⚠️ وهدفان متطابقان نصًّا يبقيان اثنين متمايزين', async () => {
+    const twin = t(ROLE.VARIATION, 'Я бы снача́ла уточни́л дета́ли.');
+    const first = reconcileTargets([twin, twin], []).targets;
+
+    expect(first).toHaveLength(2);
+    expect(first[0].id === first[1].id).toBe(false);
+
+    /* وتبقى الهُويّتان ثابتتين عبر قراءةٍ ثانية. */
+    const after = reconcileTargets([twin, twin], first).targets;
+    expect(after[0].id).toBe(first[0].id);
+    expect(after[1].id).toBe(first[1].id);
+  });
+});
+
+/* ================================================================== *
+ * الدورُ جزءٌ من الهُويّة (بند ٩)
+ * ================================================================== */
+describe('WS-DV2 · الدورُ يفصل ما يتشابه نصُّه', () => {
+  it('٨ · ⚠️ قطعةٌ أساسيّةٌ وتكرارٌ بنفس النصّ هدفان لا هدف', async () => {
+    /*
+     * ⚠️ البندُ ٩ يقتضي تكرارَ الهيكل نفسِه في سياقاتٍ مختلفة. فلو كان
+     *    النصُّ وحدَه بصمةً لَشارك القلبُ وتكرارُه حالةَ «خلصت» — فيقول
+     *    التطبيقُ إنك أتممتَ تكرارًا لم تفتحه.
+     */
+    const text = 'Я бы снача́ла уточни́л э́тот вопро́с.';
+    const core = t(ROLE.MICRO_CORE, text);
+    const vari = t(ROLE.VARIATION, text);
+    const { targets } = reconcileTargets([core, vari], []);
+
+    expect(targets).toHaveLength(2);
+    expect(targets[0].id === targets[1].id).toBe(false);
+    expect(fingerprint(ROLE.MICRO_CORE, text) === fingerprint(ROLE.VARIATION, text)).toBe(false);
+  });
+
+  it('٩ · وتغيُّرُ الدور وحدَه يُولّد هُويّةً جديدة', async () => {
+    const text = 'уточни́ть э́тот вопро́с';
+    const first = reconcileTargets([t(ROLE.MICRO_CORE, text)], []).targets;
+    const after = reconcileTargets([t(ROLE.EXPANSION, text)], first);
+    expect(after.minted).toBe(1);
+  });
+});
+
+/* ================================================================== *
+ * أدوارُ النُّطق (بندا ٢٧ و٤٤)
+ * ================================================================== */
+describe('WS-DV2 · ما يُنطَق وما لا يُنطَق', () => {
+  it('١٠ · أربعةُ أدوارٍ تُنطَق افتراضيًّا لا غير', async () => {
+    expect(SPEECH_ROLES.size).toBe(4);
+    expect(isSpeechRole(ROLE.MICRO_CORE)).toBe(true);
+    expect(isSpeechRole(ROLE.EXPANSION)).toBe(true);
+    expect(isSpeechRole(ROLE.VARIATION)).toBe(true);
+    expect(isSpeechRole(ROLE.FULL_BUILD)).toBe(true);
+  });
+
+  it('١١ · ⚠️ وسؤالُ الاسترجاع والسقالةُ لا تُنطَق', async () => {
+    for (const role of [ROLE.RECALL_CUE, ROLE.MEANING, ROLE.NOTE,
+      ROLE.PATTERN, ROLE.SECTION, ROLE.METADATA]) {
+      expect(isSpeechRole(role)).toBe(false);
+    }
+  });
+
+  it('١٢ · والمثالُ اختياريٌّ لا افتراضيّ (بندا ١٣ و٦١)', async () => {
+    expect(isSpeechRole(ROLE.EXAMPLE)).toBe(false);
+    expect(OPTIONAL_SPEECH_ROLES.has(ROLE.EXAMPLE)).toBe(true);
+  });
+
+  it('١٣ · و`RECALL_CUE` دورٌ مستقلٌّ عن استرجاع V1', async () => {
+    /* اسمان متشابهان وشكلان متعاكسان — راجع ترويسة الوحدة. */
+    expect(ROLE.RECALL_CUE).toBe('recall_cue');
+    expect(ROLE.RECALL_CUE === 'recall').toBe(false);
+  });
+});
+
+/* ================================================================== *
+ * الشريطُ السريع سطحُ مراجعة (بندا ١١ و٤٢)
+ * ================================================================== */
+describe('WS-DV2 · الشريطُ السريع لا يضاعف العدّ', () => {
+  it('١٤ · ⚠️ إجابةٌ تُعيد نصَّ هدفٍ قائمٍ تشير إليه ولا تصير هدفًا', async () => {
+    const { targets } = reconcileTargets([CORE_A, CORE_B, CORE_C], []);
+    const chain = [
+      { cue: 'Каки́е тре́бования?', ru: 'тре́бования по документа́ции' },
+      { cue: 'Что ну́жно сде́лать?', ru: 'уточни́ть э́тот вопро́с' },
+    ];
+    const linked = linkQuickChain(chain, targets);
+
+    expect(linked).toHaveLength(2);
+    expect(linked[0].ref).toBe(idOf(targets, CORE_A.ru));
+    expect(linked[1].ref).toBe(idOf(targets, CORE_C.ru));
+    /* ولا معرّفَ جديدًا وُلد لأجل الشريط. */
+    expect(linked.every((one) => targets.some((x) => x.id === one.ref))).toBe(true);
+  });
+
+  it('١٥ · وإجابةٌ فريدةٌ فعلًا تُبلَّغ ولا تُبتلَع', async () => {
+    const { targets } = reconcileTargets([CORE_A], []);
+    const linked = linkQuickChain([{ cue: 'سؤال', ru: 'не́что но́вое' }], targets);
+    /* `null` تعني «فريدة» — والشاشةُ تقرّر، ولا تُخفى بصمت. */
+    expect(linked[0].ref).toBe(null);
+  });
+
+  it('١٦ · والفهرسُ النصّيُّ يتجاهل ما لا يُنطَق', async () => {
+    const { targets } = reconcileTargets([
+      CORE_A, t(ROLE.RECALL_CUE, 'С чего́ бы ты на́чал?'),
+    ], []);
+    const index = textIndex(targets);
+    /* سؤالُ الاسترجاع ليس هدفًا يُشار إليه من الشريط. */
+    expect(index.size).toBe(1);
+  });
+});
+
+/* ================================================================== *
+ * الحفظُ على السجلّ — بلا ترقيةِ مخطَّط (بند ٤٠)
+ * ================================================================== */
+describe('WS-DV2 · المعرّفاتُ تعيش على سجلّ المسودّة', () => {
+  const makeDraft = () => studyDrafts.create({
+    subject: `${TAG}-${Math.random().toString(36).slice(2, 7)}`,
+    subjectKind: 'sentence',
+    text: 'مسودّةُ اختبار',
+  });
+
+  it('١٧ · تُكتَب في حقلٍ لا فهرسَ له ولا مخطَّط', async () => {
+    const draft = await makeDraft();
+    const targets = await ensureTargetIds(draft, [CORE_A, CORE_B]);
+
+    const saved = await studyDrafts.get(draft.id);
+    expect(storedTargets(saved)).toHaveLength(2);
+    expect(saved[TARGET_IDS][0].id).toBe(targets[0].id);
+    await studyDrafts.trash(draft.id);
+  });
+
+  it('١٨ · وتعيش عبر إعادةِ الفتح', async () => {
+    const draft = await makeDraft();
+    const first = await ensureTargetIds(draft, [CORE_A, CORE_B, CORE_C]);
+
+    const reopened = await studyDrafts.get(draft.id);
+    const again = await ensureTargetIds(reopened, [CORE_C, CORE_A, CORE_B]);
+
+    expect(idOf(again, CORE_A.ru)).toBe(idOf(first, CORE_A.ru));
+    expect(idOf(again, CORE_B.ru)).toBe(idOf(first, CORE_B.ru));
+    expect(idOf(again, CORE_C.ru)).toBe(idOf(first, CORE_C.ru));
+    await studyDrafts.trash(draft.id);
+  });
+
+  it('١٩ · ⚠️ ولا كتابةَ حين لا شيءَ يتغيّر', async () => {
+    /*
+     * ⚠️ `update` ترفع `rev` وتضع `dirty=1`. فكتابةٌ في كلّ رسمةٍ تجعل
+     *    مجرَّدَ فتحِ الشاشة تعديلًا يُزامَن — ضجيجٌ في سجلّ التغيير
+     *    ونقلٌ بلا سبب.
+     */
+    const draft = await makeDraft();
+    await ensureTargetIds(draft, [CORE_A, CORE_B]);
+    const after = await studyDrafts.get(draft.id);
+    const rev = after.rev;
+
+    await ensureTargetIds(after, [CORE_A, CORE_B]);
+    expect((await studyDrafts.get(draft.id)).rev).toBe(rev);
+    await studyDrafts.trash(draft.id);
+  });
+
+  it('٢٠ · ومسودّةٌ بلا معرّفاتٍ بعدُ تُقرأ فارغةً لا تُخطئ', async () => {
+    expect(storedTargets(null)).toHaveLength(0);
+    expect(storedTargets({})).toHaveLength(0);
+    expect(storedTargets({ [TARGET_IDS]: 'مش مصفوفة' })).toHaveLength(0);
+  });
+});
