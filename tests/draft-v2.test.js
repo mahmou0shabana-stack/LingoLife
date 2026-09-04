@@ -16,6 +16,7 @@
 import { describe, it, expect } from './test-runner.js';
 import { isDraftV2, parseDraftV2, countRoles, readHead } from '../js/services/shadow/draft-v2.js';
 import { ROLE, isSpeechRole, reconcileTargets, linkQuickChain } from '../js/services/shadow/draft-targets.js';
+import { LEARN_PROMPTS, learnPromptById } from '../js/services/prompts/library.js';
 
 /** مسودّةٌ كاملةٌ فيها كلُّ ما يذكره البند ٥١. */
 const V2 = [
@@ -300,5 +301,134 @@ describe('WS-DV2 · تفشل بأمان', () => {
   it('٢٦ · والنبرُ يُحفَظ في نصّ الهدف كما كُتب', async () => {
     const withStress = ['MICRO CORE 1', 'уточни́ть э́тот вопро́с', 'يوضّح'].join('\n');
     expect(parseDraftV2(withStress).targets[0].ru).toBe('уточни́ть э́тот вопро́с');
+  });
+});
+
+/* ================================================================== *
+ * البرومبتُ المبنيُّ يطلب V2 (بندا ٣٤ و٣٥ · قبولٌ Z)
+ * ================================================================== */
+describe('WS-DV2 · برومبتُ الجملة يطلب البنيةَ الجديدة', () => {
+  it('٢٧ · يذكر كلَّ عنوانٍ يقرؤه المحلّل', async () => {
+    const body = learnPromptById('sentence-chunks').build('Э́то сло́во.');
+    for (const marker of ['MICRO CORE', 'EXPANSION', 'CORE FAMILY', 'VARIATION',
+      'FULL RECONSTRUCTION', 'QUICK RECALL CHAIN', 'Вопрос:', 'Ответ:',
+      'المعنى:', 'القالب:', 'أمثلة:']) {
+      expect(body.includes(marker)).toBe(true);
+    }
+    /* والجملةُ تُملأ فيه قبل النسخ. */
+    expect(body).toContain('Э́то сло́во.');
+  });
+
+  it('٢٨ · ⚠️ ونفسُ الهُويّة — ولا برومبتَ ثانٍ في المكتبة', async () => {
+    /*
+     * ⚠️ البندُ ٣٤ صريح: لا صومعةَ جديدة. فتطوُّرُ المحتوى إلى V2 يجب
+     *    ألّا يُنشئ مدخلًا ثانيًا، وإلّا ظهر في الفهرس برومبتان
+     *    متشابهان لا تعرف أيَّهما استعملت — وضاعت مفضّلتُك وسجلُّ
+     *    استعمالك مع القديم.
+     */
+    expect(LEARN_PROMPTS).toHaveLength(2);
+    expect(LEARN_PROMPTS.map((one) => one.id)).toEqual(['sentence-chunks', 'sentence-scene']);
+    expect(Boolean(learnPromptById('sentence-chunks'))).toBe(true);
+  });
+
+  it('٢٩ · وما يطلبه البرومبتُ يقرؤه المحلّلُ فعلًا', async () => {
+    /*
+     * ⚠️ **حارسُ الدائرة المغلقة**: البرومبتُ يطلب عناوين، والمحلّلُ
+     *    يقرأ عناوين. ولو انفصلا لَخرج ChatGPT ببنيةٍ لا يفهمها
+     *    التطبيقُ — ولا رسالةَ خطأ، فقط مسودّةٌ تُقرأ نصفَ قراءة.
+     */
+    const body = learnPromptById('sentence-chunks').build('тест');
+    expect(isDraftV2(body)).toBe(true);
+    for (const head of ['MICRO CORE 1', 'EXPANSION 1', 'VARIATION 1',
+      'FULL RECONSTRUCTION', 'QUICK RECALL CHAIN']) {
+      expect(Boolean(readHead(head))).toBe(true);
+    }
+  });
+
+  it('٣٠ · ولا يفرض عددًا ثابتًا (بند ٣٦)', async () => {
+    const body = learnPromptById('sentence-chunks').build('тест');
+    /* إرشادٌ لا حصّة — والنصُّ يقولها صراحةً. */
+    expect(body).toContain('NOT a quota');
+    expect(body).toContain('Do NOT inflate');
+    expect(body).toContain('Do NOT fragment');
+  });
+});
+
+/* ================================================================== *
+ * عددُ العائلات متكيّف (تصحيحُ المالك)
+ * ================================================================== */
+describe('WS-DV2 · العائلاتُ بعددها الحقيقيّ لا بواحدة', () => {
+  it('٣١ · ⚠️ البرومبتُ لا يفرض عائلةً واحدة', async () => {
+    /*
+     * ⚠️ **كتبتُ أوّلًا «pick the ONE core»** — فحدّدتُ سقفًا لم تطلبه
+     *    المواصفة. وجملةٌ فيها إطاران منتجان تُجبَر على إهمال أحدهما،
+     *    وجملةٌ لا يستحقّ فيها شيءٌ تكرارًا تُجبَر على اختراع عائلة.
+     *    والحدُّ في الاتّجاهين خطأ.
+     */
+    const body = learnPromptById('sentence-chunks').build('тест');
+    expect(body.includes('pick the ONE core')).toBe(false);
+
+    /* ويقول الاحتمالاتِ الثلاثةَ صراحة. */
+    expect(body).toContain('ZERO families');
+    expect(body).toContain('ONE family');
+    expect(body).toContain('SEVERAL families');
+    expect(body).toContain('do not cap it at one');
+    /* ومعاييرُ الاستحقاق مذكورة. */
+    expect(body).toContain('substitution flexibility');
+  });
+
+  it('٣٢ · والمحلّلُ يقرأ عائلتين فأكثر', async () => {
+    const two = [
+      'HIGH-VALUE CORE REPETITION',
+      'CORE FAMILY: я бы сначала уточнил…',
+      'VARIATION 1', 'Я бы сначала уточнил детали.',
+      'VARIATION 2', 'Я бы сначала уточнил сроки.',
+      'CORE FAMILY: не совсем…',
+      'VARIATION 1', 'Не совсем понятно.',
+    ].join('\n');
+    const out = parseDraftV2(two);
+
+    expect(out.families).toHaveLength(2);
+    expect(out.families[0].label).toBe('я бы сначала уточнил…');
+    expect(out.families[1].label).toBe('не совсем…');
+
+    const vars = out.targets.filter((one) => one.role === ROLE.VARIATION);
+    expect(vars).toHaveLength(3);
+    /* وكلُّ تكرارٍ يحمل عائلتَه هو لا عائلةَ جارِه. */
+    expect(vars[0].family).toBe('я бы сначала уточнил…');
+    expect(vars[1].family).toBe('я бы сначала уточнил…');
+    expect(vars[2].family).toBe('не совсем…');
+  });
+
+  it('٣٣ · ومسودّةٌ بلا عائلةٍ واحدةٍ سليمةٌ تمامًا', async () => {
+    const none = [
+      'MICRO CORE 1', 'первый', 'الأول',
+      'EXPANSION 1', 'Первый и второй.', 'الأول والثاني',
+    ].join('\n');
+    const out = parseDraftV2(none);
+
+    expect(out.families).toHaveLength(0);
+    expect(out.targets.filter((one) => one.role === ROLE.VARIATION)).toHaveLength(0);
+    /* ولا صفرَ كاذبٌ يُعرَض: العدّادُ لا يذكر دورًا غائبًا. */
+    expect(countRoles(out.targets).by[ROLE.VARIATION] === undefined).toBe(true);
+  });
+
+  it('٣٤ · ⚠️ وتكراران بنفس النصّ في عائلتين هدفان لا هدف', async () => {
+    /*
+     * ⚠️ وهنا تُثمر العائلةُ في البصمة: نفسُ الجملة تحت إطارين مختلفين
+     *    شيئان يتعلّمهما المرء في سياقين — ولو اندمجا لَشارَكا «خلصت».
+     */
+    const twin = [
+      'CORE FAMILY: إطار أول',
+      'VARIATION 1', 'Я бы уточнил.',
+      'CORE FAMILY: إطار ثانٍ',
+      'VARIATION 1', 'Я бы уточнил.',
+    ].join('\n');
+    const out = parseDraftV2(twin);
+    const { targets } = reconcileTargets(out.targets, []);
+
+    expect(targets).toHaveLength(2);
+    expect(targets[0].id === targets[1].id).toBe(false);
+    expect(targets[0].family === targets[1].family).toBe(false);
   });
 });
