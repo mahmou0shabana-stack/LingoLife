@@ -28,6 +28,11 @@ import {
   coreChunks, chunkStates, chunkProgress, setChunkState, hasLearning,
   evidenceCount, CHUNK_STATE,
 } from '../services/shadow/sentence-learning.js';
+import {
+  learnModel, learnModelSync, sentenceSummary, selectionSummary,
+  speechTargets, setTargetState, GROUP_LABEL,
+} from '../services/shadow/draft-learning.js';
+import { ROLE, isSpeechRole } from '../services/shadow/draft-targets.js';
 import { SCOPE, SCOPE_LABEL, resolveTarget } from '../services/shadow/practice-target.js';
 import { openVoiceAttempts } from '../modals/voice-attempts.js';
 import { openLightbox } from '../components/lightbox.js';
@@ -2014,12 +2019,20 @@ function learnBadgeHtml(index) {
           data-sh-learn="${index}" aria-label="${add}" title="${add}">＋</span>`;
   }
 
-  /* عَدَدٌ يُقرأ: القطعُ الخالصةُ من كلّها، ثمّ القصصُ إن وُجدت. */
+  /*
+   * عَدَدٌ يُقرأ: أهدافُ النُّطق الخالصةُ من كلّها، ثمّ القصصُ إن وُجدت.
+   *
+   * ⚠️ **والوصفُ يقول الأنواعَ بأسمائها** (بند ١٥): «٣ من ٨» وحدَها
+   *    رقمٌ لا يعرف ما يعدّ — وهو عيبُ «٤٤ وحدة» نفسُه في حجمٍ أصغر.
+   *    فقارئُ الشاشة يسمع «٤ كور · تدرّجان · تكراران».
+   */
   const bits = [];
   if (at.chunks) bits.push(`${at.done}/${at.chunks}`);
   if (at.stories) bits.push(at.stories > 1 ? `▤${at.stories}` : '▤');
+  const kinds = (at.rows || []).map((one) => `${one.total} ${one.label}`).join(' · ');
   const label = `افتح تعلّم الجملة ${index + 1}${
-    at.chunks ? ` — ${at.done} من ${at.chunks} قطعة` : ''}${
+    at.chunks ? ` — ${at.done} من ${at.chunks} هدف` : ''}${
+    kinds ? ` (${kinds})` : ''}${
     at.stories ? ` · ${at.stories} قصّة` : ''}`;
 
   return html`<span class="sh-line-learn is-on" role="button" tabindex="0"
@@ -5040,13 +5053,22 @@ function summariseLearning() {
   const seen = new Set([...material.keys(), ...stories.keys()]);
   for (const i of seen) {
     const hit = material.get(i) || null;
-    const chunks = hit?.draft ? coreChunks(hit.draft) : [];
-    const at = chunkProgress(chunks, chunkStates(hit?.draft));
+    /*
+     * ⚠️ **`learnModelSync` لا `learnModel`** (بندا ٤٩ و٥٠): هذا السطرُ
+     *    يعمل لكلّ جملةٍ في السكريبت وفي كلّ رسمة. والنسخةُ غيرُ
+     *    المتزامنة تكتب `targetIds` — فمئةُ جملةٍ = مئةُ تعديلٍ يُزامَن
+     *    لمجرَّد فتحِ الشاشة. أمسكتُه قبل أن يشحن، وحرسَه اختبارٌ.
+     */
+    const model = hit?.draft ? learnModelSync(hit.draft) : null;
+    const sum = model ? sentenceSummary(model) : null;
     out.set(i, {
       draft: hit?.draft || null,
       how: hit?.how || null,
-      chunks: at.total,
-      done: at.done,
+      /* ⚠️ العدّادُ دلاليٌّ الآن: أهدافُ نُطقٍ لا «قطع» عمياء (بند ١٥). */
+      chunks: sum ? sum.speech : 0,
+      done: sum ? sum.done : 0,
+      rows: sum ? sum.rows : [],
+      version: sum ? sum.version : 0,
       stories: (stories.get(i) || []).length,
     });
   }
@@ -5167,9 +5189,16 @@ async function renderLearn() {
   const draft = found.draft;
   openDraftId = draft?.id || null;
 
-  const chunks = draft ? coreChunks(draft) : [];
+  /*
+   * ⚠️ **وهنا وحدَها تقع الكتابة** (بندا ٤٩ و٥٠): `learnModel` تُثبّت
+   *    `targetIds` على السجلّ — مرّةً عند فتح اللوح، لا مرّةً لكلّ
+   *    جملةٍ في كلّ رسمة. والقائمةُ الصفراء تقرأ بالمتزامنة.
+   */
+  const model = draft ? await learnModel(draft) : null;
+  const chunks = model ? model.targets : [];
   const states = chunkStates(draft);
-  const progress = chunkProgress(chunks, states);
+  const progress = { total: model?.counts.speech || 0, done: model?.counts.done || 0,
+    practicing: chunks.filter((o) => o.state === CHUNK_STATE.PRACTICING).length };
   const tales = stories.get(at) || [];
 
   /*
@@ -5178,14 +5207,14 @@ async function renderLearn() {
    *    الفارغُ يقول ما ينقص وكيف يُملأ، وهو أنفعُ من غيابه.
    */
   const tabs = [
-    { id: LEARN_TAB.CHUNKS, label: '🧩 القطع', note: chunks.length ? `${progress.done}/${chunks.length}` : '' },
+    { id: LEARN_TAB.CHUNKS, label: '🧩 التعلّم', note: progress.total ? `${progress.done}/${progress.total}` : '' },
     { id: LEARN_TAB.STORY, label: '📖 مشهد النقل', note: tales.length ? String(tales.length) : '' },
     { id: LEARN_TAB.TOOLS, label: '🧰 أدوات', note: '' },
   ];
 
   host.innerHTML = `
     ${learnHeadHtml(at, source, found)}
-    ${learnProgressHtml(progress, tales, summary)}
+    ${learnProgressHtml(progress, tales, summary, model)}
     <!--
       ⚠️ **ولا raw() هنا**: الغلافُ قالبٌ عاديٌّ لا موسومٌ بـhtml،
          و raw() لا معنى لها إلّا داخل الموسوم. كتبتُها فخرجت
@@ -5201,7 +5230,7 @@ async function renderLearn() {
     </div>
     <div class="sh-learn-body" data-learn-body></div>`;
 
-  await paintLearnBody({ at, source, draft, chunks, states, tales });
+  await paintLearnBody({ at, source, draft, chunks, states, tales, model });
 }
 
 /**
@@ -5244,14 +5273,24 @@ function learnHeadHtml(index, source, found) {
  *    وعرضُهما في سطرٍ واحدٍ لا يخلطهما ما دام كلٌّ مسمًّى باسمه — أمّا
  *    جمعُهما في رقمٍ واحدٍ فكان سيصنع «إتقانًا» لا مصدرَ له.
  */
-function learnProgressHtml(progress, tales, summary) {
+function learnProgressHtml(progress, tales, summary, model = null) {
+  /*
+   * ⚠️ **ولا مجموعَ بلا تفصيله** (بند ١٥): «٨ عناصر» وحدَها هي «٤٤
+   *    وحدة» في ثوبٍ جديد. فالأسطرُ تقول: ٣ كور · تدرّجان · تكراران…
+   */
+  const rows = model ? sentenceSummary(model).rows : [];
+  const kinds = rows.length ? html`<span class="sh-learn-kinds">${
+    raw(rows.map((one) => html`<b>${one.done}/${one.total}</b> ${one.label}`).join(' · '))
+  }</span>` : '';
+
   const bits = [];
-  if (progress.total) bits.push(html`<b>${progress.done}/${progress.total}</b> قطعة خلصت`);
+  if (progress.total) bits.push(html`<b>${progress.done}/${progress.total}</b> هدف خلص`);
   if (progress.practicing) bits.push(html`<b>${progress.practicing}</b> تحت التمرين`);
   if (tales.length) bits.push(html`<b>${tales.length}</b> مشهد نقل`);
   if (summary?.reps) bits.push(html`<b>${summary.reps}</b> مرّة تدريب`);
-  if (!bits.length) return '<p class="sh-learn-none">لسّه مفيش مادّة على الجملة دي.</p>';
-  return `<p class="sh-learn-progress">${bits.join(' · ')}</p>`;
+  if (!bits.length && !kinds) return '<p class="sh-learn-none">لسّه مفيش مادّة على الجملة دي.</p>';
+  return `<p class="sh-learn-progress">${bits.join(' · ')}</p>${
+    kinds ? `<p class="sh-learn-kindrow">${kinds}</p>` : ''}`;
 }
 
 /** يرسم جسمَ التبويب المفتوح وحدَه — بلا إعادة رسمِ الرأس والتقدّم. */
@@ -5270,7 +5309,7 @@ async function paintLearnBody(ctxIn) {
  *    تملأ اللوحَ بما لا تقرؤه الآن. فالعنوانُ ومعناه ظاهران، والباقي
  *    يُفرَد بلمسة — وهو ما يجعل «٨/١٢» قابلةً للقراءة أصلًا.
  */
-function paintLearnChunks(body, { chunks, states, draft }) {
+function paintLearnChunks(body, { chunks, draft, model }) {
   if (!draft) {
     body.innerHTML = `
       <p class="sh-learn-hint">
@@ -5295,31 +5334,93 @@ function paintLearnChunks(body, { chunks, states, draft }) {
   }
 
   body.innerHTML = `
-    <div class="sh-chunks">
-      ${chunks.map((one) => chunkCardHtml(one, states[one.key])).join('')}
-    </div>
+    ${groupsHtml(model)}
     <div class="sh-draft-row">
       <button data-sh="learn-edit">عدّل التحليل</button>
       <button data-sh="draft-shadow">تدرّب على جزء منه</button>
     </div>`;
 }
 
+/**
+ * مجموعاتُ الأدوار — **الهرميّةُ المؤلَّفةُ تُرى** (قيدُ المالك ٤ · بند ٢٦).
+ *
+ * ⚠️ **والتكراراتُ تحت عائلاتها لا مسرودةً**: البندُ ٩ يقول إنّ التكرارَ
+ *    موجودٌ ليعيد **هيكلًا** بعينه في سياقاتٍ مختلفة. فسردُها قائمةً
+ *    مسطّحةً يُخفي الشيءَ الوحيدَ الذي يجعلها مفيدة.
+ *
+ * ⚠️ **وعنوانُ العائلة سقالةٌ لا هدف**: يُعرَض ولا يُنطَق ولا يُعَدّ.
+ */
+function groupsHtml(model) {
+  if (!model?.groups?.length) return '';
+  return model.groups.map((group) => {
+    const inner = group.role === ROLE.VARIATION
+      ? familiesHtml(group.items, model.families)
+      : group.items.map((one) => chunkCardHtml(one)).join('');
+    return html`
+      <section class="sh-group" data-group="${group.role}">
+        <h4 class="sh-group-head">
+          ${group.label}<i>${group.items.length}</i>
+          ${raw(group.optional ? html`<em class="sh-group-opt">اختياري</em>` : '')}
+        </h4>
+        ${raw(inner)}
+      </section>`;
+  }).join('');
+}
+
+/** التكراراتُ مجمَّعةً بعائلتها، وكلُّ عائلةٍ بأولويّتها إن ذُكرت. */
+function familiesHtml(items, families) {
+  const byFamily = new Map();
+  for (const one of items) {
+    const key = one.family || '';
+    if (!byFamily.has(key)) byFamily.set(key, []);
+    byFamily.get(key).push(one);
+  }
+  return [...byFamily.entries()].map(([label, rows]) => {
+    const meta = (families || []).find((f) => f.label === label);
+    return html`
+      <div class="sh-family">
+        ${raw(label ? html`
+          <p class="sh-family-head" dir="auto">
+            <span>${label}</span>
+            ${raw(meta?.priority ? html`<i>${meta.priority}</i>` : '')}
+          </p>` : '')}
+        ${raw(rows.map((one) => chunkCardHtml(one)).join(''))}
+      </div>`;
+  }).join('');
+}
+
 /** بطاقةُ قطعةٍ واحدة — مطويّةٌ إلّا المفرودة. */
-function chunkCardHtml(chunk, state) {
-  const open = openChunk === chunk.key;
+function chunkCardHtml(chunk) {
+  const state = chunk.state;
+  const open = openChunk === chunk.id;
   const done = state === CHUNK_STATE.DONE;
   const doing = state === CHUNK_STATE.PRACTICING;
   const mark = done ? '✓' : doing ? '◔' : '○';
   const cls = ['sh-chunk', open ? 'is-open' : '', done ? 'is-done' : '', doing ? 'is-doing' : '']
     .filter(Boolean).join(' ');
 
+  /*
+   * ⚠️ **وسؤالُ الاسترجاع يسبق جوابَه، والجوابُ مستورٌ حتى تكشفه**
+   *    (بندا ٣ و٢٥). فالاستدعاءُ يبدأ من الروسيّ لا من العربيّ —
+   *    وهذا هو الفرقُ بين «أتذكّر» و«أقرأ».
+   *
+   * ⚠️ **ولا محرّكَ استرجاعٍ ثانٍ**: نفسُ البطاقة، ونفسُ الهدف، ونفسُ
+   *    زرّ التدريب. الكشفُ عرضٌ لا مسارٌ جديد.
+   */
+  const hasCue = Boolean(chunk.cue);
+  const shown = !hasCue || openChunk === chunk.id;
+
   return html`
-    <div class="${cls}">
-      <button class="sh-chunk-head" data-sh="chunk-open" data-v="${chunk.key}"
+    <div class="${cls}" data-target="${chunk.id}">
+      <button class="sh-chunk-head" data-sh="chunk-open" data-v="${chunk.id}"
               aria-expanded="${open ? 'true' : 'false'}">
         <span class="sh-chunk-mark" aria-hidden="true">${mark}</span>
-        <span class="sh-chunk-ru" dir="ltr" lang="ru">${chunk.ru}</span>
-        <span class="sh-chunk-ar">${chunk.ar}</span>
+        ${raw(hasCue ? html`
+          <span class="sh-chunk-cue" dir="ltr" lang="ru">${chunk.cue}</span>` : '')}
+        ${raw(shown
+          ? html`<span class="sh-chunk-ru" dir="ltr" lang="ru">${chunk.ru}</span>`
+          : html`<span class="sh-chunk-veil">اكشف الإجابة</span>`)}
+        ${raw(chunk.ar ? html`<span class="sh-chunk-ar">${chunk.ar}</span>` : '')}
       </button>
       ${raw(open ? chunkBodyHtml(chunk, state) : '')}
     </div>`;
@@ -5353,15 +5454,15 @@ function chunkBodyHtml(chunk, state) {
     <div class="sh-chunk-body">
       ${raw(sense)}${raw(examples)}${raw(patterns)}
       <div class="sh-chunk-acts">
-        <button data-sh="chunk-state" data-v="${chunk.key}" data-to="${CHUNK_STATE.PRACTICING}"
+        <button data-sh="chunk-state" data-v="${chunk.id}" data-to="${CHUNK_STATE.PRACTICING}"
                 class="${state === CHUNK_STATE.PRACTICING ? 'on' : ''}">بتمرّن عليها</button>
-        <button data-sh="chunk-state" data-v="${chunk.key}" data-to="${CHUNK_STATE.DONE}"
+        <button data-sh="chunk-state" data-v="${chunk.id}" data-to="${CHUNK_STATE.DONE}"
                 class="${state === CHUNK_STATE.DONE ? 'on' : ''}">خلصت</button>
         ${raw(state ? html`
-          <button data-sh="chunk-state" data-v="${chunk.key}"
+          <button data-sh="chunk-state" data-v="${chunk.id}"
                   data-to="${CHUNK_STATE.NEW}">شيل العلامة</button>` : '')}
         ${raw(chunk.examples.length ? html`
-          <button data-sh="chunk-shadow" data-v="${chunk.key}">اتدرب على أمثلتها</button>` : '')}
+          <button data-sh="chunk-shadow" data-v="${chunk.id}">اتدرّب عليه</button>` : '')}
       </div>
     </div>`;
 }
@@ -5377,24 +5478,32 @@ function chunkBodyHtml(chunk, state) {
  *    تقول ذلك بلا أن تضغط زرًّا ثانيًا. و«خلصت» تبقى حكمَك وحدَك —
  *    فلا يُدّعى إتقانٌ من مجرّد فتحِ التدريب.
  */
-async function shadowChunk(key) {
+async function shadowChunk(id) {
   if (!openDraftId) return toastError('مفيش تحليل محفوظ للجملة دي');
   const draft = await studyDrafts.get(openDraftId);
-  const chunk = coreChunks(draft).find((one) => one.key === key);
-  if (!chunk) return toastError('القطعة دي مابقتش موجودة');
+  const model = await learnModel(draft);
+  const chunk = model.targets.find((one) => one.id === id);
+  if (!chunk) return toastError('الهدف ده مابقاش موجود');
 
-  /* الأمثلةُ أوّلًا، وإلّا فالمفردةُ نفسُها — أفضلُ من رسالةِ عجز. */
-  const rows = chunk.examples.length ? chunk.examples : [{ ru: chunk.ru, ar: chunk.ar }];
+  /*
+   * ⚠️ **والهدفُ نفسُه هو ما يُتدرَّب عليه** (قيدُ المالك ٣): كان
+   *    التدريبُ يأخذ أمثلةَ القطعة، وهو صحيحٌ لـV1 حيث القطعةُ مفردة.
+   *    وفي V2 القلبُ والتدرّجُ والتكرارُ **جملٌ تُقال**، فهي هدفُ
+   *    النطق. والمثالُ يبقى بابًا ثانويًّا حين يوجد.
+   */
+  const rows = isSpeechRole(chunk.role)
+    ? [{ ru: chunk.ru, ar: chunk.ar }]
+    : (chunk.examples?.length ? chunk.examples : [{ ru: chunk.ru, ar: chunk.ar }]);
 
-  if (chunkStates(draft)[key] !== CHUNK_STATE.DONE) {
-    await setChunkState(openDraftId, key, CHUNK_STATE.PRACTICING);
+  if (chunk.state !== CHUNK_STATE.DONE) {
+    await setTargetState(openDraftId, id, CHUNK_STATE.PRACTICING);
     await refreshDrafted();
   }
 
   /* واللوحُ يُقفَل قبل التدريب — درسُ WS-SC2: حاجبٌ فوق ما فتحتَه. */
   rail.open = false;
   renderRail();
-  return enterTempSource(`chunk:${openDraftId}:${key}`, rows, { label: chunk.ru });
+  return enterTempSource(`chunk:${openDraftId}:${id}`, rows, { label: chunk.ru });
 }
 
 /**
@@ -8394,6 +8503,109 @@ async function enterCorrectionSource(error) {
  *    صاحب. والقطعُ قبل التبديل لا بعده — وإلّا سمعتَ نصفَ كلمةٍ من
  *    مصدرٍ غادرتَه.
  */
+/**
+ * مُنتقي أهداف التدريب — **مجموعٌ بالدور، وتفصيلٌ يقول ما اخترتَه**
+ * (بندا ٢٨ و٦٠).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ ما الذي كان يحدث قبله
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * «تدرّب على جزء منه» كان يفتح مراجعةَ أزواجٍ مسطّحة، فيها الملاحظةُ
+ * والمثالُ والسؤالُ بنفس وزن القلب. فتختار «سبعة» ولا تعرف سبعةَ ماذا.
+ *
+ * والآن: أقسامٌ بأسمائها، والأمثلةُ مُعلَّمةٌ اختياريّةً ومطفأةٌ ابتداءً،
+ * والمجموعُ أسفلَه **مفرداتُه** — «٦ محدَّد: ٣ كور + ٢ تكرار + ١ إعادة
+ * بناء». ولا رقمَ بلا سببه.
+ *
+ * ⚠️ **ولا يدخل الشادوينجَ إلّا دورُ نُطق**: `speechTargets` تحرس ذلك،
+ *    فلا سؤالُ استرجاعٍ ولا عنوانُ قسمٍ ولا عربيّةٌ في النصّ المقروء.
+ */
+async function pickTargetsToPractice(draftId) {
+  const draft = await studyDrafts.get(draftId);
+  if (!draft) return toastError('مفيش تحليل محفوظ للجملة دي');
+
+  const model = await learnModel(draft);
+  const able = speechTargets(model.targets, { withExamples: true });
+  if (!able.length) return toastError('مفيش أهداف نُطق في التحليل ده');
+
+  /* الافتراضُ: أدوارُ النطق كلُّها، والأمثلةُ مطفأة (بندا ١٤ و٦١). */
+  const chosen = new Set(able.filter((one) => isSpeechRole(one.role)).map((one) => one.id));
+
+  const groups = model.groups.filter((g) => able.some((a) => a.role === g.role));
+  let picked = null;
+
+  /*
+   * ⚠️ **والتفصيلُ يتحرّك مع كلّ لمسة** (بند ٦٠): رقمٌ يتأخّر عن
+   *    الاختيار يكذب لحظةً — وهي اللحظةُ التي تقرّر فيها. والمستمعُ
+   *    مفوَّضٌ على المستند لأنّ جسمَ النافذة يُرسَم بعد هذا السطر،
+   *    ويُرفَع في `finally` فلا يبقى بعد إغلاقها.
+   */
+  const onPick = (event) => {
+    const box = event.target.closest?.('[data-pick-id]');
+    if (!box) return;
+    if (box.checked) chosen.add(box.dataset.pickId);
+    else chosen.delete(box.dataset.pickId);
+    paintPickSum(model, chosen);
+  };
+  document.addEventListener('change', onPick);
+  /* أوّلُ رسمٍ للتفصيل بعد أن يُبنى جسمُ النافذة. */
+  setTimeout(() => paintPickSum(model, chosen), 0);
+
+  try {
+  await showModal({
+    title: 'اختَر أهداف التدريب',
+    wide: true,
+    submitLabel: 'ابدأ بالمحدَّد',
+    body: html`
+      <div class="sh-pick" data-pick>
+        ${raw(groups.map((group) => html`
+          <section class="sh-pick-group">
+            <h4>
+              ${group.label}<i>${group.items.length}</i>
+              ${raw(group.optional ? html`<em>اختياري</em>` : '')}
+            </h4>
+            ${raw(group.items.map((one) => html`
+              <label class="sh-pick-row">
+                <input type="checkbox" data-pick-id="${one.id}"
+                       ${raw(chosen.has(one.id) ? 'checked' : '')}>
+                <span dir="ltr" lang="ru">${one.ru}</span>
+                ${raw(one.family ? html`<i class="sh-pick-fam">${one.family}</i>` : '')}
+              </label>`).join(''))}
+          </section>`).join(''))}
+      </div>
+      <p class="sh-pick-sum" data-pick-sum role="status"></p>`,
+    onSubmit: async (data, close) => {
+      if (!chosen.size) return toastError('اختَر هدفًا واحدًا على الأقلّ');
+      picked = model.targets.filter((one) => chosen.has(one.id));
+      close();
+      return undefined;
+    },
+  });
+  } finally {
+    document.removeEventListener('change', onPick);
+  }
+
+  if (!picked?.length) return undefined;
+
+  const rows = picked.map((one) => ({ ru: one.ru, ar: one.ar || '' }));
+  return enterTempSource(`pick:${draftId}`, rows, {
+    label: model.source || draft.subjectText || 'المسودّة',
+    stamp: (seg) => ({ ...seg, draftId }),
+  });
+}
+
+/** يُحدِّث سطرَ التفصيل تحت المنتقي — من نفس دالّة العدّ لا من ثانية. */
+function paintPickSum(model, chosen) {
+  const box = $('[data-pick-sum]');
+  if (!box) return;
+  const sum = selectionSummary(model.targets, [...chosen]);
+  box.innerHTML = sum.total
+    ? html`<b>${sum.total}</b> محدَّد — ${raw(sum.breakdown
+      .map((one) => html`<span>${one.count} ${one.label}</span>`).join(' + '))}`
+    : 'مفيش حاجة محدَّدة.';
+}
+
 async function enterDraftSource(draftId) {
   if (!ctx || !player) return;
 
@@ -9896,7 +10108,7 @@ function wireInteractions(main) {
 
       case 'chunk-state': {
         if (!openDraftId) return toastError('مفيش تحليل محفوظ للجملة دي');
-        await setChunkState(openDraftId, btn.dataset.v, btn.dataset.to);
+        await setTargetState(openDraftId, btn.dataset.v, btn.dataset.to);
         /*
          * ⚠️ **والسطرُ يعرف فورًا**: `refreshDrafted` تُعيد قراءةَ
          *    الخريطة وتُنعش الشارة، فيتغيّر «٣/٨» أمامك في اللحظة.
@@ -10047,7 +10259,7 @@ function wireInteractions(main) {
        */
       case 'draft-shadow': {
         if (!openDraftId) return undefined;
-        return enterDraftSource(openDraftId);
+        return pickTargetsToPractice(openDraftId);
       }
 
       case 'sky-pick': {

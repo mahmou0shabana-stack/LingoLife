@@ -263,6 +263,40 @@ describe('WS-DV2 · المعرّفاتُ تعيش على سجلّ المسودّ
     await studyDrafts.trash(draft.id);
   });
 
+  it('١٩-ب · ⚠️ ونفسُ السجلّ في اليد يعطي نفسَ المعرّفات — لا لقطةً جامدة', async () => {
+    /*
+     * ═══════════════════════════════════════════════════════════════
+     * ⚠️ **العطبُ الذي مرّ من تحت ١٨ و١٩ — وقِستُه في المتصفّح**
+     * ═══════════════════════════════════════════════════════════════
+     *
+     * الاختباران فوقُ يُعيدان القراءةَ من القاعدة بين النداءين
+     * (`studyDrafts.get`). والشاشةُ **لا تفعل ذلك**: `resolveDraft`
+     * تُعيد لقطةً محفوظةً في الذاكرة جُمعت مرّةً عند تحميل الجلسة،
+     * فيُنادى `ensureTargetIds` على **نفس الكائن** في كلّ رسمة.
+     *
+     * فكان الحقلُ يُكتَب في القاعدة ولا يظهر في اللقطة، فتقرأ الرسمةُ
+     * التاليةُ `[]` وتُولّد معرّفاتٍ جديدةً وتكتبها — دورةٌ لا تنتهي.
+     * وقِستُه حيًّا: `DT_…6C68_*` ثمّ `DT_…6D3X_*` بعد ضغطةٍ واحدة.
+     *
+     * ولذلك يمسك هذا الاختبارُ **المرجعَ نفسَه** بلا إعادة قراءة —
+     * وهو الشكلُ الوحيدُ الذي يُخفق قبل الإصلاح.
+     */
+    const draft = await makeDraft();
+    const first = await ensureTargetIds(draft, [CORE_A, CORE_B, CORE_C]);
+    const again = await ensureTargetIds(draft, [CORE_A, CORE_B, CORE_C]);
+
+    expect(idOf(again, CORE_A.ru)).toBe(idOf(first, CORE_A.ru));
+    expect(idOf(again, CORE_B.ru)).toBe(idOf(first, CORE_B.ru));
+    expect(idOf(again, CORE_C.ru)).toBe(idOf(first, CORE_C.ru));
+
+    /* واللقطةُ نفسُها صارت تعرف — فلا تُعيد الكتابةَ في كلّ رسمة. */
+    expect(storedTargets(draft)).toHaveLength(3);
+    const rev = (await studyDrafts.get(draft.id)).rev;
+    await ensureTargetIds(draft, [CORE_A, CORE_B, CORE_C]);
+    expect((await studyDrafts.get(draft.id)).rev).toBe(rev);
+    await studyDrafts.trash(draft.id);
+  });
+
   it('٢٠ · ومسودّةٌ بلا معرّفاتٍ بعدُ تُقرأ فارغةً لا تُخطئ', async () => {
     expect(storedTargets(null)).toHaveLength(0);
     expect(storedTargets({})).toHaveLength(0);

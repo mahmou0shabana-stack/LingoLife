@@ -6142,3 +6142,65 @@ body.shadow-open { overflow: hidden; }
 .vo-when { flex: 1 1 auto; font-size: 14px; }
 .vo-dur { color: var(--ink-faint); font-size: 13px; }
 .vo-del { color: var(--red); }
+
+/* ================================================================== *
+ * WS-DV2 · مجموعاتُ الأدوار والاسترجاع والمنتقي
+ * ================================================================== */
+
+.sh-group { margin-block-end: 14px; }
+.sh-group-head {
+  display: flex; align-items: center; gap: 6px;
+  margin: 0 0 6px; font-size: .74rem; font-weight: 700;
+  color: var(--ink-soft, #6B7280);
+}
+.sh-group-head i { font-style: normal; opacity: .7; }
+.sh-group-opt {
+  font-style: normal; font-size: .68rem; padding: 1px 6px;
+  border-radius: 6px; background: var(--surface-soft); opacity: .8;
+}
+
+/* ⚠️ والعائلةُ إطارٌ يُرى: التكرارُ بلا عائلته سطرٌ لا يقول لِمَ يتكرّر. */
+.sh-family { border-inline-start: 2px solid var(--line-soft, rgba(0,0,0,.12));
+             padding-inline-start: 8px; margin-block-end: 8px; }
+.sh-family-head {
+  display: flex; gap: 6px; align-items: center;
+  margin: 0 0 4px; font-size: .72rem; opacity: .85;
+}
+.sh-family-head i { font-style: normal; }
+
+/* سؤالُ الاسترجاع فوق جوابه، والجوابُ مستورٌ حتى يُكشَف. */
+.sh-chunk-cue {
+  display: block; font-size: .82rem; opacity: .9;
+  margin-block-end: 2px;
+}
+.sh-chunk-veil {
+  display: block; font-size: .78rem; opacity: .55;
+  font-style: italic;
+}
+
+.sh-learn-kindrow { margin: 2px 0 0; font-size: .74rem; opacity: .85; }
+.sh-learn-kinds b { font-weight: 700; }
+
+/* المنتقي: أقسامٌ وهدفُ لمسٍ كامل. */
+.sh-pick { max-block-size: 52vh; overflow-y: auto; }
+.sh-pick-group { margin-block-end: 12px; }
+.sh-pick-group h4 {
+  display: flex; gap: 6px; align-items: center;
+  margin: 0 0 4px; font-size: .74rem; color: var(--ink-soft, #6B7280);
+}
+.sh-pick-group h4 i { font-style: normal; opacity: .7; }
+.sh-pick-group h4 em {
+  font-style: normal; font-size: .68rem; padding: 1px 6px;
+  border-radius: 6px; background: var(--surface-soft);
+}
+.sh-pick-row {
+  display: flex; gap: 8px; align-items: center;
+  min-block-size: 44px; padding-inline: 4px; cursor: pointer;
+}
+.sh-pick-fam { font-style: normal; font-size: .7rem; opacity: .6; }
+.sh-pick-sum {
+  margin: 8px 0 0; padding-block-start: 8px;
+  border-block-start: 1px solid var(--line-soft, rgba(0,0,0,.1));
+  font-size: .8rem;
+}
+.sh-pick-sum span { opacity: .85; }
