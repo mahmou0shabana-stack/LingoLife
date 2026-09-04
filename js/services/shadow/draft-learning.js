@@ -66,21 +66,12 @@ function fromV1(draft) {
  * @param {object} draft سجلُّ المسودّة
  * @param {{write?: boolean}} options `write:false` لقراءةٍ بلا حفظ
  */
-export async function learnModel(draft, { write = true } = {}) {
-  const text = draft?.text || '';
-  const read = isDraftV2(text) ? parseDraftV2(text) : fromV1(draft);
-
-  const withIds = write
-    ? await ensureTargetIds(draft, read.targets)
-    : reconcileTargets(read.targets, storedTargets(draft)).targets;
-
-  const states = chunkStates(draft);
+function shape(read, withIds, states) {
   const targets = read.targets.map((one, i) => ({
     ...one,
     id: withIds[i]?.id || '',
     state: states[withIds[i]?.id] || CHUNK_STATE.NEW,
   }));
-
   return {
     version: read.version,
     targets,
@@ -90,6 +81,36 @@ export async function learnModel(draft, { write = true } = {}) {
     families: read.families,
     source: read.source,
   };
+}
+
+/**
+ * نفسُ النموذج **بلا وعدٍ ولا كتابة** — لقائمة الجمل الصفراء.
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **ولمَ نسخةٌ متزامنة؟** (بندا ٤٩ و٥٠)
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * صفُّ الجملة يُرسَم لكلّ جملةٍ في السكريبت — مئاتٌ منها. ولو نادى كلٌّ
+ * منها `learnModel` لَصار في كلّ رسمةٍ **مئةُ وعدٍ ومئةُ كتابةٍ في
+ * IndexedDB**: `ensureTargetIds` ترفع `rev` وتضع `dirty=1`، فيصير مجرَّدُ
+ * فتحِ الشاشة تعديلًا يُزامَن مئةَ مرّة.
+ *
+ * فالقراءةُ هنا خالصة، والمعرّفاتُ تُوفَّق في الذاكرة ولا تُحفَظ.
+ * والكتابةُ تقع مرّةً واحدةً حين تفتح لوحَ التعلّم فعلًا.
+ */
+export function learnModelSync(draft) {
+  const text = draft?.text || '';
+  const read = isDraftV2(text) ? parseDraftV2(text) : fromV1(draft);
+  const withIds = reconcileTargets(read.targets, storedTargets(draft)).targets;
+  return shape(read, withIds, chunkStates(draft));
+}
+
+export async function learnModel(draft, { write = true } = {}) {
+  if (!write) return learnModelSync(draft);
+  const text = draft?.text || '';
+  const read = isDraftV2(text) ? parseDraftV2(text) : fromV1(draft);
+  const withIds = await ensureTargetIds(draft, read.targets);
+  return shape(read, withIds, chunkStates(draft));
 }
 
 /** مجموعاتٌ بالدور، بترتيبٍ ثابتٍ وبترتيبٍ مؤلَّفٍ داخلَ كلٍّ (بند ٢٨). */

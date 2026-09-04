@@ -11,7 +11,7 @@
 
 import { describe, it, expect } from './test-runner.js';
 import {
-  learnModel, groupsOf, countsOf, selectionSummary, speechTargets,
+  learnModel, learnModelSync, groupsOf, countsOf, selectionSummary, speechTargets,
   sentenceSummary, setTargetState, GROUP_LABEL, GROUP_ORDER,
 } from '../js/services/shadow/draft-learning.js';
 import { ROLE, isSpeechRole } from '../js/services/shadow/draft-targets.js';
@@ -268,6 +268,49 @@ describe('WS-DV2 · التقدّمُ ينجو من إعادة الترتيب', (
 
     await learnModel(await studyDrafts.get(draft.id), { write: false });
     expect((await studyDrafts.get(draft.id)).rev).toBe(before);
+    await studyDrafts.trash(draft.id);
+  });
+});
+
+/* ================================================================== *
+ * قراءةُ القائمة الصفراء لا تكتب (بندا ٤٩ و٥٠)
+ * ================================================================== */
+describe('WS-DV2 · صفُّ الجملة يقرأ ولا يكتب', () => {
+  it('١٥ · ⚠️ النسخةُ المتزامنةُ لا تلمس السجلَّ ولو نوديت مرارًا', async () => {
+    /*
+     * ⚠️ **عطبٌ أمسكتُه قبل أن يشحن.** صفُّ الجملة يُرسَم لكلّ جملةٍ في
+     *    السكريبت. ولو نادى كلٌّ منها `learnModel` لَصارت كلُّ رسمةٍ
+     *    **مئةَ كتابةٍ في IndexedDB**: `rev` يرتفع و`dirty=1`، فيصير
+     *    مجرَّدُ فتحِ الشاشة مئةَ تعديلٍ تُزامَن. وهو البند ٥٠ مكسورًا
+     *    في اتّجاه الكتابة — وهو أسوأُ من اتّجاه القراءة.
+     */
+    const draft = await mkDraft(V2);
+    await learnModel(draft);
+    const settled = await studyDrafts.get(draft.id);
+    const rev = settled.rev;
+
+    for (let i = 0; i < 20; i += 1) learnModelSync(settled);
+    expect((await studyDrafts.get(draft.id)).rev).toBe(rev);
+    await studyDrafts.trash(draft.id);
+  });
+
+  it('١٦ · وتُخرج نفسَ ما تُخرجه النسخةُ غيرُ المتزامنة', async () => {
+    const draft = await mkDraft(V2);
+    const async1 = await learnModel(draft);
+    const sync1 = learnModelSync(await studyDrafts.get(draft.id));
+
+    expect(sync1.version).toBe(async1.version);
+    expect(sync1.counts.speech).toBe(async1.counts.speech);
+    expect(sync1.targets.map((o) => o.id)).toEqual(async1.targets.map((o) => o.id));
+    await studyDrafts.trash(draft.id);
+  });
+
+  it('١٧ · ومسودّةٌ بلا معرّفاتٍ بعدُ تُقرأ متزامنةً بلا رمي', async () => {
+    const draft = await mkDraft(V2);
+    /* لم تُفتَح اللوحةُ بعد، فلا `targetIds` محفوظة. */
+    const model = learnModelSync(draft);
+    expect(model.counts.speech).toBe(8);
+    expect(model.targets.every((o) => o.id)).toBe(true);
     await studyDrafts.trash(draft.id);
   });
 });
