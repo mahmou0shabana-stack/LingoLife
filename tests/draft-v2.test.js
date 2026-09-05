@@ -432,3 +432,211 @@ describe('WS-DV2 · العائلاتُ بعددها الحقيقيّ لا بوا
     expect(targets[0].family === targets[1].family).toBe(false);
   });
 });
+
+/* ================================================================== *
+ * إجابةُ الاسترجاع المنطوقة — أطولُ من قلبها ولا تصير قلبًا ثانيًا
+ * ================================================================== */
+describe('WS-DV2ب · الإجابةُ الطبيعيّةُ تلتصق ولا تُضاعف', () => {
+  /**
+   * ⚠️ **ما يقيسه هذا الوصف** — والعطبُ الذي وُجد لأجله.
+   *
+   * كان المحلّلُ يقبل «Ответ:» **إن طابقت نصَّ القلب حرفًا بحرف** فقط،
+   * وذلك كافٍ حين كان البرومبتُ يطلب «الإجابةُ = نفسُ القلب». ثمّ صار
+   * يطلب إجابةً منطوقةً طبيعيّةً أطولَ من القلب — فتسقط إلى «هدفٍ جديد»
+   * ويصير القلبُ قلبين. وقِستُه: ثلاثةُ قلوبٍ مؤلَّفةٍ تُقرأ **ستّة**.
+   *
+   * ⚠️ ولا يكفي أن نعدّ: العدُّ وحدَه مرّ في التمريرة الأولى. فكلُّ
+   *    اختبارٍ هنا يثبّت **النصوصَ بعينها** كذلك.
+   */
+  const core = (ru, cue, reply) => [
+    'MICRO CORE 1', ru, 'معناها',
+    `Вопрос: ${cue}`,
+    `Ответ: ${reply}`,
+  ].join('\n');
+
+  it('٣٥ · إجابةٌ مطابقةٌ حرفيًّا: قلبٌ واحدٌ وسؤالُه معه', async () => {
+    const out = parseDraftV2(core('наличие документа', 'Что проверить?', 'наличие документа'));
+    const cores = out.targets.filter((one) => one.role === ROLE.MICRO_CORE);
+    expect(cores).toHaveLength(1);
+    expect(cores[0].ru).toBe('наличие документа');
+    expect(cores[0].cue).toBe('Что проверить?');
+  });
+
+  it('٣٦ · ⚠️ وإجابةٌ منطوقةٌ أطولُ لا تصنع قلبًا ثانيًا', async () => {
+    const out = parseDraftV2(core(
+      'наличие документа',
+      'На что важно обратить внимание в первую очередь?',
+      'На наличие документа.'
+    ));
+    const cores = out.targets.filter((one) => one.role === ROLE.MICRO_CORE);
+
+    /* قلبٌ واحدٌ — لا اثنان. وهذا هو السطرُ الذي يسقط قبل الإصلاح. */
+    expect(cores).toHaveLength(1);
+    /* والقلبُ يبقى هو هُويّةَ التعلّم: نصُّه لم يتبدّل بالإجابة. */
+    expect(cores[0].ru).toBe('наличие документа');
+    /* والإجابةُ محفوظةٌ للعرض في سطح الاسترجاع. */
+    expect(cores[0].reply).toBe('На наличие документа.');
+    expect(cores[0].cue).toBe('На что важно обратить внимание в первую очередь?');
+  });
+
+  it('٣٧ · وسؤالٌ موقفيٌّ مع إجابةٍ نامية — نفسُ القاعدة', async () => {
+    const long = 'Нет, важно обращать внимание не только на наличие документа, но и на его статус.';
+    const out = parseDraftV2(core('статус документа', 'Только на наличие?', long));
+    const cores = out.targets.filter((one) => one.role === ROLE.MICRO_CORE);
+    expect(cores).toHaveLength(1);
+    expect(cores[0].reply).toBe(long);
+    /* ولا يتسرّب نصُّ الإجابة إلى نصّ القلب. */
+    expect(cores[0].ru).toBe('статус документа');
+  });
+
+  it('٣٨ · ⚠️ ولا تضخُّمَ في العدّ: ثلاثةُ قلوبٍ تبقى ثلاثة', async () => {
+    /*
+     * ⚠️ هذه هي المسودّةُ التي يصفها البرومبتُ الجديد بحرفه — إجاباتٌ
+     *    منطوقةٌ تنمو. وقبل الإصلاح كانت تُقرأ ٦ قلوبٍ و١١ هدفَ نُطق.
+     */
+    const draft = [
+      'مسودة — Core Recall V2', '',
+      'الجملة الأساسية:', 'При работе с документацией важно обращать внимание на статус.', '',
+      'MICRO CORE 1', 'при работе с технической документацией', 'وإحنا بنشتغل',
+      'Вопрос: С чем мы сейчас работаем?',
+      'Ответ: С технической документацией.', '',
+      'MICRO CORE 2', 'наличие документа', 'وجود المستند',
+      'Вопрос: На что важно обратить внимание?',
+      'Ответ: На наличие документа.', '',
+      'MICRO CORE 3', 'статус документа', 'حالة المستند',
+      'Вопрос: Только на наличие?',
+      'Ответ: Нет, ещё и на его статус.',
+    ].join('\n');
+    const out = parseDraftV2(draft);
+    const counts = countRoles(out.targets);
+
+    expect(counts.by[ROLE.MICRO_CORE]).toBe(3);
+    expect(counts.speech).toBe(3);
+    /* وكلُّ قلبٍ نصُّه المؤلَّف لا نصُّ إجابته. */
+    expect(out.targets.filter((one) => one.role === ROLE.MICRO_CORE).map((one) => one.ru))
+      .toEqual(['при работе с технической документацией', 'наличие документа', 'статус документа']);
+  });
+
+  it('٣٩ · وإعادةُ البناء تأخذ إجابتَها نصًّا لها — كما كانت', async () => {
+    /*
+     * ⚠️ قسمُ إعادة البناء يفتح هدفًا **بلا نصّ**، فإجابتُه هي نصُّه.
+     *    وهذا فرعٌ سابقٌ على الإصلاح، ولولا هذا الاختبارُ لَانقلبت
+     *    إعادةُ البناء إلى هدفٍ فارغٍ نصُّه في `reply`.
+     */
+    const full = 'При работе с документацией важно обращать внимание на статус.';
+    const out = parseDraftV2([
+      'FULL RECONSTRUCTION',
+      'Вопрос: Что вы поняли?',
+      `Ответ: ${full}`,
+    ].join('\n'));
+    const build = out.targets.find((one) => one.role === ROLE.FULL_BUILD);
+    expect(build.ru).toBe(full);
+    expect(build.cue).toBe('Что вы поняли?');
+  });
+
+  it('٤٠ · ⚠️ وإجابةٌ بلا سؤالٍ تبقى هدفًا — لا تُبتلَع صامتةً', async () => {
+    /*
+     * ⚠️ الالتصاقُ مشروطٌ بوجود «Вопрос:» قبلها. وبلا هذا الشرط كانت
+     *    القاعدةُ ستبتلع أيَّ سطرٍ تحت «Ответ:» ولو كان مادّةً مستقلّة.
+     */
+    const out = parseDraftV2([
+      'MICRO CORE 1', 'наличие документа', 'وجود',
+      'Ответ: совершенно другая фраза',
+    ].join('\n'));
+    const cores = out.targets.filter((one) => one.role === ROLE.MICRO_CORE);
+    expect(cores).toHaveLength(2);
+  });
+
+  it('٤١ · وV1 لا تعرف هذا الحقل أصلًا — لا انحدارَ عليها', async () => {
+    /*
+     * ⚠️ مسودّةُ V1 ليس فيها عنوانُ دورٍ ولا عائلةٌ ولا شريط، فلا
+     *    يلمسها هذا المسارُ من أصله. والحارسُ يثبّت ذلك بدل افتراضه.
+     */
+    const v1 = ['требования по документации — متطلبات التوثيق', 'الإحساس: ورق الشغل'].join('\n');
+    expect(isDraftV2(v1)).toBe(false);
+  });
+});
+
+/* ================================================================== *
+ * حرّاسُ البرومبت — الجودةُ التربويّةُ مكتوبةٌ في المصدر لا مأمولة
+ * ================================================================== */
+describe('WS-DV2ب · البرومبتُ يطلب استرجاعًا موقفيًّا متّصلًا', () => {
+  /**
+   * ⚠️ **هذه حرّاسُ نصٍّ لا حرّاسُ سلوك** — وهو حدُّها المُعلَن.
+   *
+   * لا يستطيع اختبارٌ أن يثبت أنّ ChatGPT سيطيع. لكنّه يستطيع أن يثبت
+   * أنّ **الطلبَ مكتوبٌ في المصدر الموثوق**، فلا يضيع في تحريرٍ لاحق
+   * بلا أن يصرخ أحد. والحكمُ على الناتج يبقى للعين البشريّة.
+   */
+  const body = () => learnPromptById('sentence-chunks').build('[الجملة]');
+
+  it('٤٢ · نفسُ الهُويّة — ولا برومبتَ ثانٍ', async () => {
+    expect(LEARN_PROMPTS.map((one) => one.id)).toEqual(['sentence-chunks', 'sentence-scene']);
+    expect(Boolean(learnPromptById('sentence-chunks'))).toBe(true);
+  });
+
+  it('٤٣ · يمنع العربيّةَ داخل سؤال الاسترجاع صراحةً', async () => {
+    const text = body();
+    expect(text).toContain('NEVER put Arabic inside a Russian Recall Question');
+    expect(text).toContain('RUSSIAN-ONLY');
+  });
+
+  it('٤٤ · ويطلب السؤالَ الموقفيَّ أوّلًا', async () => {
+    const text = body();
+    expect(text).toContain('SITUATIONAL, not meta-linguistic');
+    expect(text).toContain('must be SITUATIONAL whenever possible');
+  });
+
+  it('٤٥ · ويُنزل «Как сказать» عن كونها الأسلوبَ الافتراضيّ', async () => {
+    const text = body();
+    expect(text).toContain('Как сказать');
+    /* مذكورةٌ لتُتجنَّب لا لتُحتذى — والنصُّ يقول ذلك بحرفه. */
+    expect(text).toContain('Avoid translation-style questions');
+    expect(text).toContain('stay rare and secondary');
+  });
+
+  it('٤٦ · ويطلب سلسلةً متّصلةً لا بطاقاتٍ متفرّقة', async () => {
+    const text = body();
+    expect(text).toContain('ONE CONNECTED RECALL CHAIN');
+    expect(text).toContain('each answer prepares the next');
+  });
+
+  it('٤٧ · ويطلب إجاباتٍ تنمو وتُعيد استعمالَ ما قبلها', async () => {
+    const text = body();
+    expect(text).toContain('ANSWERS GROW');
+    expect(text).toContain('REUSE and EXTEND');
+  });
+
+  it('٤٨ · ويسمح بتوسّعٍ محكومٍ خارج الجملة الأصليّة', async () => {
+    const text = body();
+    expect(text).toContain('ANCHOR, NOT A PRISON');
+    expect(text).toContain('CONTROLLED expansion');
+    /* ومحكومٌ يعني أنّ الانحرافَ ممنوعٌ بالاسم. */
+    expect(text).toContain('topic drift');
+  });
+
+  it('٤٩ · وعددُ العائلات يبقى متكيّفًا: صفرٌ أو واحدةٌ أو عدّة', async () => {
+    const text = body();
+    expect(text).toContain('ZERO families');
+    expect(text).toContain('ONE family');
+    expect(text).toContain('SEVERAL families');
+    expect(text).toContain('do not cap it at one');
+  });
+
+  it('٥٠ · ولا يزال يحمل كلَّ عناوين V2 التي يقرؤها المحلّل', async () => {
+    const text = body();
+    for (const mark of ['MICRO CORE', 'Вопрос:', 'Ответ:', 'EXPANDING RECALL',
+      'EXPANSION', 'HIGH-VALUE CORE REPETITION', 'CORE FAMILY', 'VARIATION',
+      'FULL RECONSTRUCTION', 'QUICK RECALL CHAIN']) {
+      expect(text).toContain(mark);
+    }
+  });
+
+  it('٥١ · ⚠️ والدائرةُ مغلقة: ما يطلبه البرومبتُ يقرؤه المحلّل', async () => {
+    /*
+     * ⚠️ ولو انفصلا لَخرج ChatGPT ببنيةٍ لا يفهمها التطبيق — بلا رسالةِ
+     *    خطأ، فقط مسودّةٌ تُقرأ نصفَ قراءة.
+     */
+    expect(isDraftV2(body())).toBe(true);
+  });
+});

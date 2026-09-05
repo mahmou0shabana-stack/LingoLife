@@ -6204,3 +6204,11 @@ body.shadow-open { overflow: hidden; }
   font-size: .8rem;
 }
 .sh-pick-sum span { opacity: .85; }
+
+/* إجابةُ الاسترجاع المنطوقة — تُعرَض تحت قلبها ولا تُعَدّ هدفًا. */
+.sh-chunk-reply {
+  display: block; font-size: .84rem; margin-block-start: 2px;
+  padding-inline-start: 8px;
+  border-inline-start: 2px solid var(--line-soft, rgba(0,0,0,.12));
+  opacity: .9;
+}

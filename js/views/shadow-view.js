@@ -5420,6 +5420,13 @@ function chunkCardHtml(chunk) {
         ${raw(shown
           ? html`<span class="sh-chunk-ru" dir="ltr" lang="ru">${chunk.ru}</span>`
           : html`<span class="sh-chunk-veil">اكشف الإجابة</span>`)}
+        <!--
+          ⚠️ **وإجابةُ الاسترجاع تُعرَض ولا تُعَدّ**: هي الجملةُ المنطوقةُ
+             التي يسحبها السؤالُ من الذاكرة، والقلبُ فوقها يبقى هدفَ
+             التدريب وهُويّتَه. عرضُها هنا لا يصنع هدفًا ثانيًا.
+        -->
+        ${raw(shown && chunk.reply
+          ? html`<span class="sh-chunk-reply" dir="ltr" lang="ru">${chunk.reply}</span>` : '')}
         ${raw(chunk.ar ? html`<span class="sh-chunk-ar">${chunk.ar}</span>` : '')}
       </button>
       ${raw(open ? chunkBodyHtml(chunk, state) : '')}
