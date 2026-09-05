@@ -5141,6 +5141,55 @@ let learnTab = LEARN_TAB.CHUNKS;
 let openChunk = null;
 
 /**
+ * الهدفُ الذي تتدرّب عليه الآن — يُبرَز داخل سياق مسودّته (WS-DV3).
+ *
+ * ⚠️ **ولا يُخلَط بـ`openChunk`**: تلك بطاقةٌ فرَدتَها بإصبعك للقراءة،
+ *    وهذه ما ينطقه المحرّك في هذه اللحظة. يجتمعان ويفترقان.
+ */
+let activeTargetId = '';
+
+/**
+ * نسبُ المقطع الفعّال إلى مسودّته وهدفِه — **بمعرّفاتٍ ثابتة**.
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ لماذا لا يُسأل النصُّ عن نسبه
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * مقطعُ التدريب نصُّه هو نصُّ الهدف — وقد يتكرّر النصُّ نفسُه في مسودّتين
+ * أو في هدفين. فالبحثُ بالنصّ يصيب أحيانًا ويخطئ صامتًا أحيانًا، وهو
+ * بالضبط ما نهى عنه عقدُ الهُويّة في WS-DV2. والمقطعُ يحمل نسبَه معه.
+ */
+function draftLineage() {
+  const seg = activeSegment();
+  if (!seg?.draftId) return null;
+  return { draftId: seg.draftId, targetId: seg.targetId || '' };
+}
+
+/**
+ * نموذجُ مسودّةٍ بعينها — مُخزَّنٌ بمعرّفها ورقم مراجعتها.
+ *
+ * ⚠️ **ولا تحليلَ في كلّ رسمة** (شرطُ الأداء): اللوحُ يُعاد رسمُه مع كلّ
+ *    نقلةِ هدف، والتحليلُ هو الجزءُ الغالي. فيُحفَظ الناتجُ ما دام
+ *    `rev` كما هو، ويُعاد تحليلُه حين تتغيّر المسودّةُ فعلًا.
+ *
+ * ⚠️ **و`learnModelSync` لا `learnModel`**: هذه قراءةٌ خالصة. ولوحُ
+ *    السياق لا يجوز أن يكتب في القاعدة لمجرّد أنه رُسم.
+ */
+let draftModelCache = { draftId: '', rev: -1, model: null, draft: null };
+
+async function modelForDraft(draftId) {
+  if (!draftId) return null;
+  const draft = await studyDrafts.get(draftId);
+  if (!draft) return null;
+  if (draftModelCache.draftId === draftId && draftModelCache.rev === draft.rev) {
+    return { draft: draftModelCache.draft, model: draftModelCache.model };
+  }
+  const model = learnModelSync(draft);
+  draftModelCache = { draftId, rev: draft.rev, model, draft };
+  return { draft, model };
+}
+
+/**
  * يفتح طبقةَ تعلّم جملةٍ بعينها — **بابٌ واحدٌ بدل بابين** (بند ١٥).
  *
  * ⚠️ **الجملةُ تُختار أوّلًا ثمّ يُفتَح اللوح**: اللوحُ يقرأ موضوعَه من
@@ -5185,16 +5234,41 @@ async function renderLearn() {
   }
 
   const summary = learning.get(at) || null;
-  const found = await resolveDraft({ kind: SUBJECT.SENTENCE, text: source });
+
+  /*
+   * ═══════════════════════════════════════════════════════════════
+   * ⚠️ **وأنت تتدرّب، المسودّةُ تُقرأ بنسبها لا بنصّ ما تنطقه** (WS-DV3)
+   * ═══════════════════════════════════════════════════════════════
+   *
+   * مقاطعُ التدريب المؤقّتةُ تُلحَق بعد مقاطع المصدر، و`resolveDraft`
+   * تقرأ `material.get(index)` — وهي خريطةٌ بُنيت لمقاطع **المصدر
+   * الأصليّ** وحدَها. فكان الفهرسُ يقع خارجَها فتعود بلا مسودّة، فيعرض
+   * اللوحُ «لسّه مفيش مادّة على الجملة دي» ويدعوك للصق تحليلٍ **هو
+   * نفسُه ما تتدرّب عليه**. قِستُه حيًّا: `groups:0 · cards:0`.
+   *
+   * فالنسبُ يُسأل أوّلًا: المقطعُ يحمل `draftId` و`targetId`، وكلاهما
+   * معرّفٌ ثابت. ولا يُلجَأ إلى النصّ إلّا حين لا نسبَ أصلًا.
+   */
+  const lineage = draftLineage();
+  const viaLineage = lineage ? await modelForDraft(lineage.draftId) : null;
+
+  const found = viaLineage
+    ? { draft: viaLineage.draft, how: null }
+    : await resolveDraft({ kind: SUBJECT.SENTENCE, text: source });
   const draft = found.draft;
   openDraftId = draft?.id || null;
+  activeTargetId = viaLineage ? (lineage.targetId || '') : '';
 
   /*
    * ⚠️ **وهنا وحدَها تقع الكتابة** (بندا ٤٩ و٥٠): `learnModel` تُثبّت
    *    `targetIds` على السجلّ — مرّةً عند فتح اللوح، لا مرّةً لكلّ
    *    جملةٍ في كلّ رسمة. والقائمةُ الصفراء تقرأ بالمتزامنة.
+   *
+   * ⚠️ **ولوحُ السياق يقرأ ولا يكتب**: أثناء التدريب المعرّفاتُ مسكوكةٌ
+   *    من قبل، فالنموذجُ المخزَّنُ يكفي — ولا تُفتَح كتابةٌ لمجرّد أنّ
+   *    اللوحَ رُسم مع كلّ نقلةِ هدف.
    */
-  const model = draft ? await learnModel(draft) : null;
+  const model = viaLineage ? viaLineage.model : (draft ? await learnModel(draft) : null);
   const chunks = model ? model.targets : [];
   const states = chunkStates(draft);
   const progress = { total: model?.counts.speech || 0, done: model?.counts.done || 0,
@@ -5212,8 +5286,19 @@ async function renderLearn() {
     { id: LEARN_TAB.TOOLS, label: '🧰 أدوات', note: '' },
   ];
 
+  /*
+   * ⚠️ **ورأسُ اللوح يقول الجملةَ الأمَّ لا ما تنطقه** (بند ١ من الطلب):
+   *    أنت تتدرّب على «наличие документа»، والسياقُ الذي يعطيها معناها
+   *    هو الجملةُ التي جاءت منها. وعرضُ الهدف مكانَ الأمّ يجعل الرأسَ
+   *    يكرّر المسرحَ ويُسقط السياق.
+   */
+  const motherText = viaLineage
+    ? (model?.source || draft?.subjectText || source)
+    : source;
+
   host.innerHTML = `
-    ${learnHeadHtml(at, source, found)}
+    ${learnHeadHtml(at, motherText, found, Boolean(viaLineage))}
+    ${activeContextHtml(model)}
     ${learnProgressHtml(progress, tales, summary, model)}
     <!--
       ⚠️ **ولا raw() هنا**: الغلافُ قالبٌ عاديٌّ لا موسومٌ بـhtml،
@@ -5240,10 +5325,15 @@ async function renderLearn() {
  *    بنفس مُعالِجَي الشاشة، فلا مشغّلَ ثانٍ ولا مسجّلَ ثانٍ — زرّان
  *    في مكانٍ جديدٍ لا آلتان جديدتان.
  */
-function learnHeadHtml(index, source, found) {
+function learnHeadHtml(index, source, found, fromDraft = false) {
   return html`
     <div class="sh-learn-head">
-      <span class="sh-learn-from">الجملة ${index + 1}</span>
+      <!--
+        ⚠️ **ورقمُ الجملة يكذب أثناء التدريب**: مقاطعُ التدريب تُلحَق بعد
+           مقاطع المصدر، فيصير الهدفُ «الجملة ٤» في نصٍّ من ثلاث. فحين
+           يكون السياقُ من مسودّةٍ يُقال ما هو: جملتُها الأمّ.
+      -->
+      <span class="sh-learn-from">${fromDraft ? 'الجملة الأم' : `الجملة ${index + 1}`}</span>
       <p class="sh-learn-src" dir="ltr" lang="ru">${source}</p>
       <div class="sh-learn-acts">
         <button data-sh="play" title="اسمع الجملة">🔊 اسمع</button>
@@ -5264,6 +5354,49 @@ function learnHeadHtml(index, source, found) {
       </div>
       ${raw(found?.how === ATTACH.AMBIGUOUS ? unsureBannerHtml() : '')}
     </div>`;
+}
+
+/**
+ * سياقُ الهدف الجاري داخل مسودّته (WS-DV3).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **عرضٌ لا محرّكُ تدريبٍ ثانٍ**
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * هذا القسمُ يقرأ ولا يملك: لا تشغيلَ ولا تسجيلَ ولا عدَّ تكرارٍ ولا
+ * حالةَ تقدّم. محرّكُ الشادوينج يبقى صاحبَ الحقيقة في كلّ ذلك، وهذه
+ * نافذةٌ تقول: **أين أنت من المسودّة الآن**.
+ *
+ * ⚠️ **والسؤالُ قبل الجواب** (عقدُ الاسترجاع): تقرأ السؤالَ فتستدعي،
+ *    ثم ترى ما استُدعي. وعرضُ الجواب وحدَه يحوّل الاسترجاعَ قراءةً.
+ */
+function activeContextHtml(model) {
+  if (!activeTargetId || !model?.targets?.length) return '';
+  const one = model.targets.find((t) => t.id === activeTargetId);
+  if (!one) return '';
+
+  const label = GROUP_LABEL[one.role] || '';
+  /* عائلةُ القلب سقالةٌ تُرى للتكرارات — تقول لِمَ يتكرّر هذا. */
+  const fam = one.role === ROLE.VARIATION && one.family
+    ? html`<p class="sh-now-fam"><span>CORE FAMILY</span> <b dir="ltr" lang="ru">${one.family}</b></p>`
+    : '';
+  const cue = one.cue
+    ? html`<p class="sh-now-cue"><span>Вопрос:</span>
+             <b dir="ltr" lang="ru">${one.cue}</b></p>` : '';
+  const reply = one.reply
+    ? html`<p class="sh-now-reply"><span>Ответ:</span>
+             <b dir="ltr" lang="ru">${one.reply}</b></p>` : '';
+  const ar = one.ar ? html`<p class="sh-now-ar">${one.ar}</p>` : '';
+
+  return html`
+    <section class="sh-now" data-now-target="${one.id}" aria-label="مكانك من المسودّة">
+      <p class="sh-now-role">${label}</p>
+      ${raw(fam)}
+      <p class="sh-now-ru" dir="ltr" lang="ru">${one.ru}</p>
+      ${raw(ar)}
+      ${raw(cue)}
+      ${raw(reply)}
+    </section>`;
 }
 
 /**
@@ -5396,7 +5529,10 @@ function chunkCardHtml(chunk) {
   const done = state === CHUNK_STATE.DONE;
   const doing = state === CHUNK_STATE.PRACTICING;
   const mark = done ? '✓' : doing ? '◔' : '○';
-  const cls = ['sh-chunk', open ? 'is-open' : '', done ? 'is-done' : '', doing ? 'is-doing' : '']
+  /* ⚠️ **والهدفُ الجاري يُرى داخل بنيته** — لا يُنتزَع منها إلى صندوق. */
+  const now = activeTargetId && chunk.id === activeTargetId;
+  const cls = ['sh-chunk', open ? 'is-open' : '', done ? 'is-done' : '',
+    doing ? 'is-doing' : '', now ? 'is-now' : '']
     .filter(Boolean).join(' ');
 
   /*
@@ -5510,7 +5646,16 @@ async function shadowChunk(id) {
   /* واللوحُ يُقفَل قبل التدريب — درسُ WS-SC2: حاجبٌ فوق ما فتحتَه. */
   rail.open = false;
   renderRail();
-  return enterTempSource(`chunk:${openDraftId}:${id}`, rows, { label: chunk.ru });
+  /*
+   * ⚠️ **ونفسُ النسب هنا** (WS-DV3): كان هذا البابُ لا يضع وسمًا أصلًا،
+   *    فالنسبُ محبوسٌ في نصّ `sourceId` وحدَه — سلسلةٌ تُقرأ بالتقطيع لا
+   *    حقلٌ يُسأل. والمثالُ (دورٌ غيرُ ناطق) يُتدرَّب عليه بنصّه، ويبقى
+   *    معرّفُ هدفِه الأمّ هو النسب.
+   */
+  return enterTempSource(`chunk:${openDraftId}:${id}`, rows, {
+    label: chunk.ru,
+    stamp: (seg) => ({ ...seg, draftId: openDraftId, targetId: id }),
+  });
 }
 
 /**
@@ -8596,9 +8741,15 @@ async function pickTargetsToPractice(draftId) {
   if (!picked?.length) return undefined;
 
   const rows = picked.map((one) => ({ ru: one.ru, ar: one.ar || '' }));
+  /*
+   * ⚠️ **والمعرّفُ الثابتُ يركب مع المقطع** (WS-DV3): `picked[i].id` هو
+   *    معرّفُ هدفِ المسودّة نفسِه، فيعرف اللوحُ **أيَّ هدفٍ** تتدرّب
+   *    عليه الآن — لا بالنصّ ولا بالموضع. وبلا هذا كان اللوحُ يرى
+   *    «جملةً ٤» لا يعرف لها مسودّة، فيعرض دعوةً للصق تحليلٍ هو نفسُه.
+   */
   return enterTempSource(`pick:${draftId}`, rows, {
     label: model.source || draft.subjectText || 'المسودّة',
-    stamp: (seg) => ({ ...seg, draftId }),
+    stamp: (seg, i) => ({ ...seg, draftId, targetId: picked[i]?.id || '' }),
   });
 }
 
@@ -8686,7 +8837,12 @@ async function enterTempSource(sourceId, rows, { label, stamp } = {}) {
       temporary: true,
       sourceId,
     };
-    return stamp ? stamp(seg) : seg;
+    /*
+     * ⚠️ **والوسمُ يرى رقمَ الصفّ** (WS-DV3): مِن دونه لا يستطيع النادي
+     *    أن يضع على كلّ مقطعٍ معرّفَ هدفِه — فيضيع النسبُ بين ما تتدرّب
+     *    عليه وما كُتب في المسودّة.
+     */
+    return stamp ? stamp(seg, i) : seg;
   });
 
   ctx.segments.push(...made);

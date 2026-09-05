@@ -6212,3 +6212,38 @@ body.shadow-open { overflow: hidden; }
   border-inline-start: 2px solid var(--line-soft, rgba(0,0,0,.12));
   opacity: .9;
 }
+
+/* ================================================================== *
+ * WS-DV3 · مكانُك من المسودّة أثناء التدريب
+ * ================================================================== */
+
+/* ⚠️ عرضٌ لا محرّك: لا زرَّ تشغيلٍ ولا تسجيلٍ هنا — راجع `activeContextHtml`. */
+.sh-now {
+  margin: 8px 0 10px; padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-soft, rgba(0, 0, 0, .04));
+  border-inline-start: 3px solid var(--accent, #6C5CE7);
+}
+.sh-now-role {
+  margin: 0 0 4px; font-size: .7rem; font-weight: 700;
+  letter-spacing: .02em; color: var(--ink-soft, #6B7280);
+}
+.sh-now-fam { margin: 0 0 6px; font-size: .72rem; opacity: .85; }
+.sh-now-fam span { font-weight: 700; opacity: .7; }
+.sh-now-ru { margin: 0; font-size: 1.02rem; font-weight: 600; line-height: 1.5; }
+.sh-now-ar { margin: 2px 0 0; font-size: .8rem; opacity: .8; }
+.sh-now-cue, .sh-now-reply {
+  margin: 6px 0 0; font-size: .84rem; line-height: 1.5;
+}
+.sh-now-cue span, .sh-now-reply span {
+  font-size: .7rem; font-weight: 700; opacity: .6;
+  margin-inline-end: 4px;
+}
+.sh-now-reply b { font-weight: 600; }
+
+/* الهدفُ الجاري داخل بنيته — يُرى ولا يُنتزَع منها. */
+.sh-chunk.is-now {
+  outline: 2px solid var(--accent, #6C5CE7);
+  outline-offset: 1px;
+  border-radius: 10px;
+}
