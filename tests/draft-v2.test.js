@@ -14,7 +14,7 @@
  */
 
 import { describe, it, expect } from './test-runner.js';
-import { isDraftV2, parseDraftV2, countRoles, readHead } from '../js/services/shadow/draft-v2.js';
+import { isDraftV2, parseDraftV2, countRoles, readHead, CHAIN_PARENT } from '../js/services/shadow/draft-v2.js';
 import { ROLE, isSpeechRole, reconcileTargets, linkQuickChain } from '../js/services/shadow/draft-targets.js';
 import { LEARN_PROMPTS, learnPromptById } from '../js/services/prompts/library.js';
 
@@ -144,12 +144,35 @@ describe('WS-DV2 · كلُّ سطرٍ إلى دوره', () => {
     expect(full[0].ru).toContain('Если требования по документации');
   });
 
-  it('٩ · وسؤالُ الاسترجاع يلتصق بإجابته لا يصير هدفًا', async () => {
+  it('٩ · وسؤالُ الاسترجاع يلتصق بإجابته — ووحدةُ نُطقٍ لا قلبًا', async () => {
     const cores = only(ROLE.MICRO_CORE);
     expect(cores[0].cue).toBe('Какие требования?');
     expect(cores[1].cue).toBe('Полностью понятны?');
-    /* والسؤالُ الروسيُّ نفسُه ليس في قائمة الأهداف. */
-    expect(parsed().targets.some((one) => one.ru === 'Какие требования?')).toBe(false);
+
+    /*
+     * ⚠️ **وهذا الحارسُ انقلب نصفَه في WS-DI — عن قصد.** كان يشترط
+     *    ألّا يكون السؤالُ في قائمة الأهداف البتّة. والصوابُ أدقّ:
+     *    السؤالُ **يُنطَق** (المتعلّم يسمعه فيسترجع)، ولا **يُعَدُّ
+     *    قلبًا**. فالشرطُ صار على الدور لا على الوجود.
+     */
+    const q = parsed().targets.filter((one) => one.ru === 'Какие требования?');
+    /* سؤالُ القلب، وسؤالُ الشريط السريع — نصٌّ واحدٌ وموضعان مؤلَّفان. */
+    expect(q).toHaveLength(2);
+    expect(q.every((one) => one.role === ROLE.RECALL_CUE)).toBe(true);
+    /* ويبقى منسوبًا إلى قلبه، فلا يصير سؤالًا سائبًا. */
+    expect(q[0].parent).toBe('требования по документации');
+    /*
+     * ⚠️ **وأبُ الشريط يفصل بصمتَه** (WS-DI): إجابةُ الشريط تعيد نصَّ
+     *    قلبٍ قائمٍ حرفيًّا، فلولا `parent` مختلفٍ لتصادمت البصمتان
+     *    وتشارك هدفان حالةَ «خلصت» — وهو عيبُ الهُويّة بعينه.
+     */
+    expect(q[1].parent).toBe(CHAIN_PARENT);
+    const echo = parsed().targets.filter((one) => one.ru === 'требования по документации');
+    expect(echo.map((one) => one.role))
+      .toEqual([ROLE.MICRO_CORE, ROLE.RECALL_ANSWER]);
+    expect(echo[1].parent).toBe(CHAIN_PARENT);
+    /* ولم يزد عددُ القلوب بسببه. */
+    expect(texts(ROLE.MICRO_CORE)).toHaveLength(3);
   });
 
   it('١٠ · والمثالُ مثالٌ لا قطعة (بند ١٣)', async () => {

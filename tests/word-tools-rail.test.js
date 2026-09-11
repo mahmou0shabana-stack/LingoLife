@@ -134,9 +134,26 @@ describe('WS-DV4 · الحجابُ يُرى ولا يُمسك', () => {
      *    يكتب `draftId` أو `targetId`. فلو ظهرت كتابةٌ لهما خارج
      *    وسمَي الإنشاء لَانكسر هذا الحارس.
      */
-    const writes = (src.match(/targetId:/g) || []).length;
-    /* موضعان للوسم + قراءةٌ واحدة في `draftLineage` = ثلاثة لا أكثر. */
-    expect(writes <= 3).toBe(true);
+    /*
+     * ⚠️ **وعدُّ ظهورِ `targetId:` في الملفّ كلِّه ليس مقياسًا — أمسكه
+     *    انحدارٌ كاذب.** كانت أوّلُ صياغةٍ تشترط «ثلاثةً لا أكثر»، فسقط
+     *    الحارسُ حين أضافت WS-DI قارئًا جديدًا للنسب (`activeDraftModel`)
+     *    — وهو **قراءةٌ** لا كتابة. فالعددُ كان يعدّ سطورًا لا يعدّ
+     *    كتابات، وهو نفسُ عيبِ «عدُّ الاستيرادات» في الحارس ٦.
+     *
+     *    فالمقياسُ صار على الشيء نفسِه: النسبُ يُكتَب في **وسمَي
+     *    الإنشاء** وحدَهما، ولا يُكتَب في مسار الكلمة البتّة.
+     */
+    const stamps = (src.match(/stamp: \([^)]*\) => \(\{ \.\.\.seg,[^)]*targetId/g) || []).length;
+    expect(stamps).toBe(2);
+    /* والثالثُ يسم المسودّةَ وحدَها (مراجعةُ جملها) — فلا هدفَ له. */
+    expect((src.match(/stamp: \([^)]*\) => \(\{ \.\.\.seg,/g) || []).length).toBe(3);
+
+    /* ولا سطرَ في مسار الكلمة يمسّ النسب. */
+    const at = src.indexOf('long = true;');
+    const body = src.slice(at, src.indexOf('}, 420);', at));
+    expect(body.includes('targetId')).toBe(false);
+    expect(body.includes('draftId')).toBe(false);
   });
 
   it('١٠ · و`beginPhrase` تبقى تُغلق السكّة — سلوكٌ مقصودٌ لا أثرٌ للعطب', async () => {

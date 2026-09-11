@@ -58,6 +58,13 @@ export const TARGET_IDS = 'targetIds';
 export const ROLE = Object.freeze({
   MICRO_CORE: 'micro_core',
   RECALL_CUE: 'recall_cue',
+  /*
+   * ⚠️ **وإجابةُ الاسترجاع دورٌ مستقلٌّ عن القلب** (WS-DI · بند ٢):
+   *    «Ответ:» قد تكون جملةً منطوقةً طبيعيّةً أطولَ من قلبها. كانت
+   *    تُحفَظ سلسلةً (`reply`) لا تُنطَق؛ وهي مُدخَلٌ روسيٌّ يستحقّ
+   *    النُّطق. ولا تُعَدّ قلبًا — ولذلك دورٌ خاصٌّ لا `MICRO_CORE`.
+   */
+  RECALL_ANSWER: 'recall_answer',
   EXPANSION: 'expansion',
   VARIATION: 'variation',
   FULL_BUILD: 'full_build',
@@ -84,8 +91,35 @@ export const SPEECH_ROLES = Object.freeze(new Set([
 /** اختياريٌّ — يُضاف بطلبك لا بالصمت (بندا ١٣ و١٤). */
 export const OPTIONAL_SPEECH_ROLES = Object.freeze(new Set([ROLE.EXAMPLE]));
 
+/**
+ * أدوارُ الاسترجاع المنطوقة (WS-DI · بند ٢).
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **ولمَ مجموعةٌ ثانيةٌ لا توسيعُ `SPEECH_ROLES`**
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * `SPEECH_ROLES` تعني «الأدوارُ الدلاليّةُ للقلب» ويُبنى عليها:
+ *
+ *   `counts.speech`   → «٧ قلوب» في الشارة الصفراء وفي التقدّم
+ *   `textIndex`       → ربطُ الشريط السريع بأهدافٍ قائمة
+ *   `sentenceSummary` → صفوفُ الشارة
+ *
+ * فلو دخلها السؤالُ والإجابةُ لَقال العدّادُ «٢١ قلبًا» عن سبعة —
+ * وهو بعينه تضخُّمُ العدّ الذي وُجدت WS-DV2 لإبطاله، ونهى عنه الطلبُ
+ * صراحةً: «لا تُبلِّغ عن ١٤ قلبًا لأنّ ٧ أسئلةٍ تُنطَق أيضًا».
+ *
+ * فالفصلُ صريح: **دورٌ دلاليٌّ** شيء، و**وحدةُ تدريبٍ منطوقة** شيءٌ آخر.
+ */
+export const RECALL_ROLES = Object.freeze(new Set([ROLE.RECALL_CUE, ROLE.RECALL_ANSWER]));
+
+/** كلُّ ما يدخل الشادوينج افتراضيًّا — قلوبٌ وأسئلةٌ وإجابات. */
+export const PRACTICE_ROLES = Object.freeze(new Set([...SPEECH_ROLES, ...RECALL_ROLES]));
+
 /** ما لا يُنطَق أبدًا — سقالةٌ تُعرَض ولا تُقرأ (بندا ١٢ و٤٤). */
 export const isSpeechRole = (role) => SPEECH_ROLES.has(role);
+
+/** أهو وحدةُ تدريبٍ منطوقة؟ — أوسعُ من `isSpeechRole` عن قصد. */
+export const isPracticeRole = (role) => PRACTICE_ROLES.has(role);
 
 function newId() {
   return `DT_${Date.now().toString(36).toUpperCase()}_${
@@ -314,7 +348,12 @@ export function textIndex(targets) {
 export function linkQuickChain(chain, targets) {
   const byText = textIndex(targets);
   return (chain || []).map((one) => {
-    const base = { cue: one.cue || '', ru: one.ru || '' };
+    /*
+     * ⚠️ **والترجمتان تعبُران** (WS-DI): كان الشكلُ يُعاد بناؤه من
+     *    حقلين، فتسقط `cueAr` و`ar` صامتتين — فيظهر الشريطُ روسيًّا
+     *    بلا سنَدٍ عربيّ، وهو نصفُ ما طُلب عرضُه.
+     */
+    const base = { cueAr: '', ar: '', ...one, cue: one.cue || '', ru: one.ru || '' };
     const hits = byText.get(subjectKey(one.ru || '')) || [];
     /*
      * ⚠️ **ولا يُؤخَذ أوّلُ مطابقٍ نصّيّ** (شرط المالك ٥): نصٌّ يطابق

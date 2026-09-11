@@ -32,7 +32,8 @@ import {
   learnModel, learnModelSync, sentenceSummary, selectionSummary,
   speechTargets, setTargetState, GROUP_LABEL,
 } from '../services/shadow/draft-learning.js';
-import { ROLE, isSpeechRole } from '../services/shadow/draft-targets.js';
+import { isDraftV2 } from '../services/shadow/draft-v2.js';
+import { ROLE, isPracticeRole } from '../services/shadow/draft-targets.js';
 import { SCOPE, SCOPE_LABEL, resolveTarget } from '../services/shadow/practice-target.js';
 import { openVoiceAttempts } from '../modals/voice-attempts.js';
 import { openLightbox } from '../components/lightbox.js';
@@ -2393,6 +2394,14 @@ function syncSegment() {
   if (analysis.on && ctx.segments[index]?.id !== analysis.segmentId) closeAnalysis();
   renderRail();
   if (rail.open && rail.tool === 'learn') renderLearn().catch(() => {});
+  /*
+   * ⚠️ **وصفحةُ الجملة تتبع الجملةَ — وهي المنبعُ الوحيدُ الذي يفعل**
+   *    (WS-DI). بقيّةُ المنابع تقرأ الذكرى كلَّها فلا تتغيّر بنقلةِ
+   *    جملة. وهذه إعادةُ رسمٍ **بلا كتابةٍ في القاعدة**: `read` تنادي
+   *    `modelForDraft` المخزَّنةَ بالمراجعة، فنقلةُ هدفٍ لا تعيد تحليلًا
+   *    ولا تكتب. وشرطُ `well` يمنع رسمَ منبعٍ لست فيه.
+   */
+  if (well === 'draft') renderWells().catch(() => {});
   savePosition(ctx.session.id, index).catch(() => {});
   // الترجمة الناقصة تُجلب في الخلفية إن فعّل المستخدم ذلك.
   fetchMissingTranslation(segment).catch(() => {});
@@ -5190,6 +5199,34 @@ async function modelForDraft(draftId) {
 }
 
 /**
+ * مسودّةُ الجملة الجارية ونموذجُها — **بابٌ واحدٌ لكلّ من يسأل**.
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ ولمَ لا يكفي `material.get(index)`
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * تلك خريطةٌ بُنيت لمقاطع **المصدر الأصليّ** وحدها. ومقاطعُ التدريب
+ * المؤقّتةُ تُلحَق بعدها، فيقع فهرسُها خارجَها فتعود بلا مسودّة —
+ * وهو عطبُ WS-DV3 بعينه. فالنسبُ (`draftId`) يُسأل أوّلًا.
+ *
+ * ⚠️ **وقراءةٌ خالصة**: `modelForDraft` تخزّن بالمعرّف والمراجعة
+ *    وتنادي `learnModelSync`. فرسمُ صفحة الجملة لا يكتب في القاعدة
+ *    مهما تكرّر — وهو شرطُ الأداء في الطلب حرفيًّا.
+ */
+async function activeDraftModel() {
+  const lineage = draftLineage();
+  if (lineage) {
+    const via = await modelForDraft(lineage.draftId);
+    if (via) return { ...via, targetId: lineage.targetId || '' };
+  }
+  const at = player?.state?.index ?? 0;
+  const hit = material.get(at);
+  if (!hit?.draft?.id) return null;
+  const via = await modelForDraft(hit.draft.id);
+  return via ? { ...via, targetId: '' } : null;
+}
+
+/**
  * يفتح طبقةَ تعلّم جملةٍ بعينها — **بابٌ واحدٌ بدل بابين** (بند ١٥).
  *
  * ⚠️ **الجملةُ تُختار أوّلًا ثمّ يُفتَح اللوح**: اللوحُ يقرأ موضوعَه من
@@ -5451,7 +5488,9 @@ function paintLearnChunks(body, { chunks, draft, model }) {
       </p>
       <textarea class="sh-draft-box" data-draft-box dir="auto" rows="8"
         placeholder="الصق تحليل الجملة…"></textarea>
-      <div class="sh-draft-state" data-draft-state></div>`;
+      <div class="sh-draft-state" data-draft-state></div>
+      <div class="sh-draft-derived" data-draft-derived></div>
+      <div class="sh-draft-count" data-draft-count></div>`;
     return;
   }
 
@@ -5462,7 +5501,9 @@ function paintLearnChunks(body, { chunks, draft, model }) {
       </p>
       <textarea class="sh-draft-box" data-draft-box dir="auto" rows="8"
         placeholder="الصق تحليل الجملة…">${esc(draft.text || '')}</textarea>
-      <div class="sh-draft-state" data-draft-state></div>`;
+      <div class="sh-draft-state" data-draft-state></div>
+      <div class="sh-draft-derived" data-draft-derived></div>
+      <div class="sh-draft-count" data-draft-count></div>`;
     return;
   }
 
@@ -5634,7 +5675,7 @@ async function shadowChunk(id) {
    *    وفي V2 القلبُ والتدرّجُ والتكرارُ **جملٌ تُقال**، فهي هدفُ
    *    النطق. والمثالُ يبقى بابًا ثانويًّا حين يوجد.
    */
-  const rows = isSpeechRole(chunk.role)
+  const rows = isPracticeRole(chunk.role)
     ? [{ ru: chunk.ru, ar: chunk.ar }]
     : (chunk.examples?.length ? chunk.examples : [{ ru: chunk.ru, ar: chunk.ar }]);
 
@@ -5989,18 +6030,50 @@ function unsureBannerHtml() {
  *    فصارا في حاويتين مستقلّتين تُكتَبان من النصّ مباشرةً بعد الحفظ،
  *    والصندوقُ لا يُمَسّ.
  */
-function drawDerived(text) {
+function drawDerived(text, { draftId = '' } = {}) {
   const slot = $('[data-draft-derived]');
   const count = $('[data-draft-count]');
-  if (!slot || !count) return;
+  if (!slot && !count) return;
 
-  const lines = draftSentences(text);
-  const ru = lines.filter((line) => line.ru).length;
+  /*
+   * ═══════════════════════════════════════════════════════════════
+   * ⚠️ **والعطبُ المُبلَّغ كان هنا: حاويتان لا وجودَ لهما** (WS-DI · بند ٣)
+   * ═══════════════════════════════════════════════════════════════
+   *
+   * الشرحُ أعلاه يصف علاجًا صحيحًا — حاويتان تُكتبان بلا لمسِ الصندوق.
+   * لكنّ سطحَ التحرير انتقل بعدها إلى لوح التعلّم (`paintLearnChunks`
+   * و`learn-edit`)، **ولم تُنقَل معه الحاويتان**. فصارت أوّلُ سطرين
+   * هنا `null` ويعود الحدث فورًا:
+   *
+   *     تلصق مسودّةً صحيحةً → «اتحفظت» → ولا قطعٌ ولا زرُّ تدريب
+   *     تغادر الجملةَ وتعود → تظهر كلُّها
+   *
+   * أي أنّ العلاجَ بقي والمريضُ انتقل. فوُضعت الحاويتان في كلّ سطحِ
+   * لصقٍ قائم، وصار هذا يقرأ **نموذجَ V2** لا تقطيعَ V1 — فالعدُّ
+   * الذي تراه هو نفسُه عدُّ ما ستتدرّب عليه.
+   *
+   * ⚠️ **ولا كتابةَ هنا**: `learnModelSync` تقرأ النصَّ في الذاكرة.
+   */
+  const v2 = isDraftV2(text) ? learnModelSync({ text }) : null;
+  const lines = v2 ? [] : draftSentences(text);
+  const able = v2 ? v2.counts.units : lines.filter((line) => line.ru).length;
 
-  slot.innerHTML = lines.length
-    ? '<button data-sh="draft-shadow">تدرّب على جزء منها</button>'
-    : '';
-  count.textContent = lines.length ? `${lines.length} جملة · ${ru} فيها روسي` : '';
+  if (count) {
+    /* ⚠️ ولا مجموعَ بلا تفصيله (بند ١٥): كلُّ رقمٍ يقول ما يعدّ. */
+    count.textContent = v2
+      ? sentenceSummary(v2).rows.map((row) => `${row.total} ${row.label}`).join(' · ')
+      : (lines.length ? `${lines.length} جملة · ${able} فيها روسي` : '');
+  }
+
+  /*
+   * ⚠️ **والزرُّ لا يظهر إلّا ومعه مسودّةٌ محفوظة.** زرٌّ يظهر مع أوّل
+   *    حرفٍ ثمّ يقول «مفيش تحليل محفوظ» وعدٌ كاذب — والحفظُ يسبقه.
+   */
+  if (slot) {
+    slot.innerHTML = able && draftId
+      ? html`<button data-sh="draft-shadow" data-v="${draftId}">تدرّب عليه</button>`
+      : '';
+  }
 }
 
 /**
@@ -6019,8 +6092,8 @@ function scheduleDraftSave(value) {
   const state = $('[data-draft-state]');
   if (state) state.textContent = 'بيتكتب…';
 
-  /* العدُّ وزرُّ التدريب يتبعان ما تكتبه فورًا — لا ينتظران القاعدة. */
-  drawDerived(value);
+  /* العدُّ يتبع ما تكتبه فورًا — لا ينتظر القاعدة. والزرُّ ينتظرها. */
+  drawDerived(value, { draftId: openDraftId || '' });
 
   clearTimeout(draftTimer);
   const subject = draftSubject();
@@ -6032,6 +6105,29 @@ function scheduleDraftSave(value) {
       if (now) now.textContent = 'اتحفظت';
       /* العلامةُ على السطر تظهر مع أوّل حرفٍ يُحفَظ — لا عند إعادة الفتح. */
       await refreshDrafted();
+
+      /*
+       * ═══════════════════════════════════════════════════════════════
+       * ⚠️ **والحفظُ يُبطل النموذجَ المخزَّن — وإلّا بقيت الصفحةُ قديمة**
+       * ═══════════════════════════════════════════════════════════════
+       *
+       * `modelForDraft` تخزّن بالمعرّف و`rev`. والحفظُ يرفع `rev`،
+       * فالمخزنُ يُبطَل من تلقائه في المرّة القادمة — **لو سأل أحدٌ**.
+       * والعطبُ أنّ أحدًا لم يكن يسأل: `refreshDrafted` تُنعش شاراتِ
+       * السطور وحدَها، ولا شيءَ يُعيد رسمَ سطح المسودّة. فتلصق وتحفظ
+       * وتبقى تنظر إلى صفحةٍ تقول «لسّه مفيش مسودّة» حتى تغادر وتعود.
+       *
+       * ⚠️ **ولا يُلمَس الصندوقُ الذي تكتب فيه**: الزرُّ والعدُّ في
+       *    حاويتين مستقلّتين، وإعادةُ رسم السطح كلِّه تبني `<textarea>`
+       *    جديدةً فيقفز المؤشّرُ — وهو العطبُ الذي وُلدت `drawDerived`
+       *    لتفاديه أصلًا. فالتحديثُ هنا **حاويتان لا صفحة**.
+       */
+      draftModelCache = { draftId: '', rev: -1, model: null, draft: null };
+      drawDerived(value, { draftId: openDraftId || '' });
+      /* واللوحُ الأيمنُ إن كان مفتوحًا على التعلّم يتبع بدوره. */
+      if (rail.open && rail.tool === 'learn' && !$('[data-draft-box]')) {
+        renderLearn().catch(() => {});
+      }
     } catch (error) {
       console.error(error);
       const now = $('[data-draft-state]');
@@ -6084,7 +6180,164 @@ function scheduleDraftSave(value) {
  *    «متثبتة في أي صفحة شادوينج افتحها». فـ`read` تتجاهل معطاها
  *    فيهما — وذلك مقصودٌ لا سهو.
  */
+/* ================================================================== *
+ * صفحةُ الجملة: المسودّةُ كما كُتبت (WS-DI · بند ١)                     *
+ * ================================================================== */
+
+/**
+ * ⚠️ **العطبُ الذي فتح هذا الشريط — وتصحيحُ موضعٍ اخترتُه خطأً.**
+ *
+ * في WS-DV3 وضعتُ سياقَ المسودّة في **اللوح الأيمن**، وهو مكانٌ
+ * صحيحٌ لسطرٍ يقول «أنت الآن داخل هذا الهدف». لكنّ المسودّةَ نفسَها
+ * — القلوبُ ومعانيها وجذورُها وأسئلتُها وإجاباتُها وشريطُها — **مادّةُ
+ * قراءةٍ**، ومكانُها صفحةُ الجملة اليسرى حيث تسكن بقيّةُ موادّ الجملة:
+ * القواعدُ والملخّصُ والصورُ والأصوات.
+ *
+ * فلم تُبنَ منطقةٌ جديدةٌ ولا صفحةٌ ثالثة: **سطرٌ في سجلّ `WELLS`**،
+ * كما وعد التعليقُ فوقه أن يكون كلُّ منبعٍ جديد.
+ *
+ * ⚠️ **وهذا الشريطُ وحدَه مربوطٌ بالجملة لا بالذكرى.** بقيّةُ المنابع
+ *    تقرأ `sceneId`، وهذا يقرأ الجملةَ الجارية — فيُعاد رسمُه مع كلّ
+ *    نقلةِ جملة (انظر `syncSegment`). ولذلك `read` تتجاهل معطاها.
+ */
+function draftFieldHtml(label, rows) {
+  if (!rows.length) return '';
+  return html`
+    <div class="dw-field">
+      <span class="dw-lbl">${label}</span>
+      ${raw(rows.join(''))}
+    </div>`;
+}
+
+/** سطرٌ روسيٌّ وترجمتُه تحته مباشرةً — القاعدةُ العامّة في البرومبت. */
+function draftPairHtml(ru, ar, cls = '') {
+  return html`
+    <p class="dw-ru ${cls}" dir="ltr" lang="ru">${ru}</p>
+    ${raw(ar ? html`<p class="dw-ar" dir="auto">${ar}</p>` : '')}`;
+}
+
+/**
+ * بطاقةُ هدفٍ بكلّ سقالته المؤلَّفة.
+ *
+ * ⚠️ **ولا يُخفى قسمٌ كبير** (الطلب): «يجب أن يقرأ المستخدمُ المسودّةَ
+ *    الحقيقيّةَ هنا». فما كُتب يُعرَض — والغائبُ وحدَه يغيب.
+ */
+function draftCardHtml(one, activeId) {
+  const qa = (one.pairs || []).map((pair) => html`
+    <div class="dw-qa">
+      <span class="dw-qlbl">Вопрос</span>
+      ${raw(draftPairHtml(pair.cue, pair.cueAr, 'is-q'))}
+      ${raw(pair.reply ? html`
+        <span class="dw-qlbl">Ответ</span>
+        ${raw(draftPairHtml(pair.reply, pair.replyAr, 'is-a'))}` : '')}
+    </div>`).join('');
+
+  return html`
+    <article class="dw-card ${one.id && one.id === activeId ? 'is-now' : ''}"
+             data-dw-target="${one.id || ''}">
+      ${raw(draftPairHtml(one.ru, one.ar))}
+      ${raw(draftFieldHtml('المعنى', (one.sense || []).map((t) => html`<p dir="auto">${t}</p>`)))}
+      ${raw(draftFieldHtml('الجذر والعيلة', (one.roots || [])
+    .map((r) => draftPairHtml(r.ru, r.ar))))}
+      ${raw(draftFieldHtml('الإحساس', (one.feel || []).map((t) => html`<p dir="auto">${t}</p>`)))}
+      ${raw(draftFieldHtml('القالب', (one.patterns || [])
+    .map((t) => html`<p class="dw-ru" dir="ltr" lang="ru">${t}</p>`)))}
+      ${raw(draftFieldHtml('أمثلة', (one.examples || [])
+    .map((ex) => draftPairHtml(ex.ru, ex.ar))))}
+      ${raw(qa)}
+    </article>`;
+}
+
+/**
+ * المسودّةُ كلُّها في صفحة الجملة.
+ *
+ * ⚠️ **والأسئلةُ تُعرَض داخل أصحابها لا مجموعةً على حدة**: هي استرجاعُ
+ *    قلبٍ بعينه، وسردُها منفصلةً يقطع الرابطَ الذي يجعلها مفيدة.
+ *    وتبقى **مجموعةً** في منتقي التدريب لأنّ الاختيارَ هناك بالدور.
+ */
+function draftWellHtml(entry) {
+  if (!entry) {
+    return html`
+      <div class="sh-draftwell is-empty">
+        <p class="sh-learn-hint">
+          لسّه مفيش مسودّة للجملة دي. انسخ برومبت «قطع الجملة» من لوح
+          التعلّم، حلّلها برّه، وارجع الصقها هنا — هتتحفظ وتتقسم فورًا.
+        </p>
+        <textarea class="sh-draft-box" data-draft-box dir="auto" rows="8"
+          placeholder="الصق تحليل الجملة…"></textarea>
+        <div class="sh-draft-state" data-draft-state></div>
+        <div class="sh-draft-derived" data-draft-derived></div>
+        <div class="sh-draft-count" data-draft-count></div>
+      </div>`;
+  }
+
+  const { model, draft, targetId } = entry;
+  const shown = new Set([ROLE.MICRO_CORE, ROLE.EXPANSION, ROLE.VARIATION, ROLE.FULL_BUILD]);
+  const groups = (model.groups || []).filter((g) => shown.has(g.role));
+
+  const chain = (model.chain || []).length ? html`
+    <section class="dw-group dw-chain">
+      <h4 class="dw-head">QUICK RECALL CHAIN<i>${model.chain.length}</i></h4>
+      ${raw(model.chain.map((link) => html`
+        <div class="dw-qa">
+          <span class="dw-qlbl">Вопрос</span>
+          ${raw(draftPairHtml(link.cue, link.cueAr || '', 'is-q'))}
+          <span class="dw-qlbl">Ответ</span>
+          ${raw(draftPairHtml(link.ru, link.ar || '', 'is-a'))}
+        </div>`).join(''))}
+    </section>` : '';
+
+  return html`
+    <div class="sh-draftwell">
+      ${raw(model.source ? html`
+        <section class="dw-group dw-source">
+          <h4 class="dw-head">الجملة الأساسية</h4>
+          ${raw(draftPairHtml(model.source, model.sourceAr || ''))}
+        </section>` : '')}
+
+      ${raw(groups.map((group) => html`
+        <section class="dw-group" data-dw-group="${group.role}">
+          <h4 class="dw-head">${group.label}<i>${group.items.length}</i></h4>
+          ${raw(group.role === ROLE.VARIATION && model.families?.length ? html`
+            <p class="dw-fam">CORE FAMILY · ${model.families.map((f) => f.label).join(' · ')}</p>` : '')}
+          ${raw(group.items.map((one) => draftCardHtml(one, targetId)).join(''))}
+        </section>`).join(''))}
+
+      ${raw(chain)}
+
+      <!--
+        ⚠️ **وزرُّ التدريب هنا لا في لوحٍ آخر** (بند ٨ من الطلب): تلصق
+           المسودّةَ في هذه الصفحة، فيجب أن تبدأ منها بلا أن تغادرها.
+      -->
+      <div class="sh-draft-row">
+        <!--
+          ⚠️ **والمعرّفُ على الزرّ لا في حالةٍ عامّة**: openDraftId
+             تُكتَب حين يُفتَح لوحُ التعلّم الأيمن، وصفحةُ الجملة قد
+             تُقرأ بلا أن يُفتَح. فزرٌّ يعتمد عليها كان سيصمت بلا سبب.
+
+             ⚠️ **ولا علامةَ اقتباسٍ خلفيّةً في تعليقٍ داخل قالب html** —
+                هي التي تُنهي القالبَ فيصير ما بعدها كودًا. كلّفتني
+                هذه واحدةً هنا بالفعل، وهي الثالثةُ في هذا الملفّ.
+        -->
+        <button data-sh="draft-shadow" data-v="${draft?.id || ''}">تدرّب عليه</button>
+        <button data-sh="well-draft-edit" data-v="${draft?.id || ''}">عدّل التحليل</button>
+      </div>
+    </div>`;
+}
+
 const WELLS = {
+  /* ---------------- مسودّةُ الجملة (WS-DI) ---------------- */
+  draft: {
+    label: 'مسودّة',
+    /* بابُ اللصق يجب أن يوجد قبل أن توجد المسودّة — كالقواعد والملخّص. */
+    always: true,
+    read: async () => {
+      const entry = await activeDraftModel();
+      return entry ? [entry] : [];
+    },
+    draw: (rows) => draftWellHtml(rows[0] || null),
+  },
+
   /* ---------------- القواعدُ المهمّة (WS-B) ---------------- */
   rules: {
     label: 'القواعد',
@@ -8681,8 +8934,14 @@ async function pickTargetsToPractice(draftId) {
   const able = speechTargets(model.targets, { withExamples: true });
   if (!able.length) return toastError('مفيش أهداف نُطق في التحليل ده');
 
-  /* الافتراضُ: أدوارُ النطق كلُّها، والأمثلةُ مطفأة (بندا ١٤ و٦١). */
-  const chosen = new Set(able.filter((one) => isSpeechRole(one.role)).map((one) => one.id));
+  /*
+   * الافتراضُ: أدوارُ النطق كلُّها، والأمثلةُ مطفأة (بندا ١٤ و٦١).
+   *
+   * ⚠️ **والأسئلةُ والإجاباتُ داخلةٌ في الافتراض** (WS-DI): «لا تُسقِط
+   *    الأسئلةَ صامتًا». والسلسلةُ إنّما تكون سلسلةً حين يُسمَع السؤالُ
+   *    ثمّ الجواب؛ فحذفُ أحد طرفيها افتراضيًّا يترك إجاباتٍ يتيمة.
+   */
+  const chosen = new Set(able.filter((one) => isPracticeRole(one.role)).map((one) => one.id));
 
   const groups = model.groups.filter((g) => able.some((a) => a.role === g.role));
   let picked = null;
@@ -10333,6 +10592,8 @@ function wireInteractions(main) {
           <textarea class="sh-draft-box" data-draft-box dir="auto" rows="10"
             placeholder="الصق تحليل الجملة…">${esc(draft?.text || '')}</textarea>
           <div class="sh-draft-state" data-draft-state></div>
+          <div class="sh-draft-derived" data-draft-derived></div>
+          <div class="sh-draft-count" data-draft-count></div>
           <div class="sh-draft-row"><button data-sh="learn-tab" data-v="chunks">خلصت</button></div>`;
         return undefined;
       }
@@ -10462,9 +10723,39 @@ function wireInteractions(main) {
        *    فوق `enterDraftSource`.
        */
       case 'draft-shadow': {
-        if (!openDraftId) return undefined;
-        return pickTargetsToPractice(openDraftId);
+        const id = btn.dataset.v || openDraftId;
+        if (!id) return undefined;
+        return pickTargetsToPractice(id);
       }
+
+      /*
+       * تحريرُ المسودّة **داخل صفحة الجملة** — لا مغادرةَ ولا لوحٌ ثانٍ.
+       *
+       * ⚠️ **والصندوقُ يحلّ محلَّ العرض ولا يُفتَح فوقه**: نافذةٌ عائمةٌ
+       *    فوق ما تقرؤه كانت ستُخفي المسودّةَ التي تعدّلها.
+       */
+      case 'well-draft-edit': {
+        const body = $('[data-well-body]');
+        if (!body) return undefined;
+        const id = btn.dataset.v || openDraftId;
+        const record = id ? await studyDrafts.get(id) : null;
+        openDraftId = id || openDraftId;
+        body.innerHTML = html`
+          <div class="sh-draftwell is-empty">
+            <textarea class="sh-draft-box" data-draft-box dir="auto" rows="14"
+              placeholder="الصق تحليل الجملة…">${record?.text || ''}</textarea>
+            <div class="sh-draft-state" data-draft-state></div>
+            <div class="sh-draft-derived" data-draft-derived></div>
+            <div class="sh-draft-count" data-draft-count></div>
+            <div class="sh-draft-row">
+              <!-- ⚠️ وopenWell تعود فورًا لأنّا في المنبع نفسِه — فبابٌ يرسم. -->
+              <button data-sh="well-draft-done">خلصت</button>
+            </div>
+          </div>`;
+        return undefined;
+      }
+
+      case 'well-draft-done': return renderWells();
 
       case 'sky-pick': {
         const [file] = await pickFiles({ accept: 'image/*', multiple: false });

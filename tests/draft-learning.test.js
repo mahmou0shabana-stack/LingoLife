@@ -12,9 +12,9 @@
 import { describe, it, expect } from './test-runner.js';
 import {
   learnModel, learnModelSync, groupsOf, countsOf, selectionSummary, speechTargets,
-  sentenceSummary, setTargetState, GROUP_LABEL, GROUP_ORDER,
+  sentenceSummary, setTargetState, GROUP_LABEL, GROUP_ORDER, coreTargets,
 } from '../js/services/shadow/draft-learning.js';
-import { ROLE, isSpeechRole } from '../js/services/shadow/draft-targets.js';
+import { ROLE, isSpeechRole, isPracticeRole } from '../js/services/shadow/draft-targets.js';
 import { CHUNK_STATE } from '../js/services/shadow/sentence-learning.js';
 import { studyDrafts } from '../js/db/repositories.js';
 
@@ -149,11 +149,16 @@ describe('WS-DV2 · الاختيارُ يقول ما اخترتَه', () => {
     const model = await learnModel(draft);
     const roles = model.groups.map((g) => g.role);
 
-    expect(roles).toEqual([ROLE.MICRO_CORE, ROLE.EXPANSION, ROLE.VARIATION,
-      ROLE.FULL_BUILD, ROLE.EXAMPLE]);
+    /*
+     * ⚠️ **وأسئلةُ الاسترجاع دخلت الترتيبَ بعد القلوب (WS-DI).** هي
+     *    استرجاعُها، فبُعدُها عنها يفصل ما يُقرأ معًا. والقلوبُ تبقى
+     *    أوّلًا، والأمثلةُ آخرًا اختياريّةً كما كانت.
+     */
+    expect(roles).toEqual([ROLE.MICRO_CORE, ROLE.RECALL_CUE, ROLE.EXPANSION,
+      ROLE.VARIATION, ROLE.FULL_BUILD, ROLE.EXAMPLE]);
     expect(model.groups[0].label).toBe(GROUP_LABEL[ROLE.MICRO_CORE]);
     /* والأمثلةُ مُعلَّمةٌ اختياريّة. */
-    expect(model.groups[4].optional).toBe(true);
+    expect(model.groups[roles.length - 1].optional).toBe(true);
     await studyDrafts.trash(draft.id);
   });
 
@@ -183,13 +188,22 @@ describe('WS-DV2 · الاختيارُ يقول ما اخترتَه', () => {
     const draft = await mkDraft(V2);
     const model = await learnModel(draft);
 
+    /*
+     * ⚠️ **و«أهدافُ النُّطق» اتّسعت في WS-DI ولم تنفلت.** صار السؤالُ
+     *    وحدةً منطوقةً — فالعددُ ٩ لا ٨ — لكنّ المثالَ يبقى خارجَ
+     *    الافتراض، والسقالةُ (المعنى · القالب · العائلة) لا تدخل أبدًا.
+     */
     const speech = speechTargets(model.targets);
-    expect(speech).toHaveLength(8);
-    expect(speech.every((one) => isSpeechRole(one.role))).toBe(true);
+    expect(speech).toHaveLength(9);
+    expect(speech.every((one) => isPracticeRole(one.role))).toBe(true);
     expect(speech.some((one) => one.role === ROLE.EXAMPLE)).toBe(false);
 
+    /* والأدوارُ الدلاليّةُ وحدَها ثمانية — لم يمسَّها اتّساعُ النُّطق. */
+    expect(coreTargets(model.targets)).toHaveLength(8);
+    expect(coreTargets(model.targets).every((one) => isSpeechRole(one.role))).toBe(true);
+
     /* وبطلبٍ صريحٍ يُضاف المثال — والفرقُ ظاهرٌ في العدد. */
-    expect(speechTargets(model.targets, { withExamples: true })).toHaveLength(9);
+    expect(speechTargets(model.targets, { withExamples: true })).toHaveLength(10);
     await studyDrafts.trash(draft.id);
   });
 });
@@ -203,10 +217,17 @@ describe('WS-DV2 · ملخّصُ الجملة صادقٌ ومضغوط', () => {
     const summary = sentenceSummary(await learnModel(draft));
 
     expect(summary.rows.map((r) => r.role)).toEqual([
-      ROLE.MICRO_CORE, ROLE.EXPANSION, ROLE.VARIATION, ROLE.FULL_BUILD,
+      ROLE.MICRO_CORE, ROLE.RECALL_CUE, ROLE.EXPANSION, ROLE.VARIATION, ROLE.FULL_BUILD,
     ]);
     expect(summary.rows[0].total).toBe(3);
+    /*
+     * ⚠️ **والمجموعُ الدلاليُّ لم يتحرّك** (WS-DI · شرطُ المالك): سؤالٌ
+     *    صار يُنطَق لا يجعل القلوبَ تسعةً. `speech` يعدّ الأدوارَ
+     *    الدلاليّة، و`units` يعدّ ما يدخل الشادوينج — وهما رقمان.
+     */
     expect(summary.speech).toBe(8);
+    expect(summary.units).toBe(9);
+    expect(summary.recall).toBe(1);
     await studyDrafts.trash(draft.id);
   });
 

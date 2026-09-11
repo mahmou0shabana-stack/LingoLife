@@ -76,7 +76,22 @@ const SUPPORT_HEADS = [
   ['priority', ['priority', 'الأولوية', 'الاولويه']],
   ['chain', ['quick recall chain', 'شريط الاسترجاع السريع', 'الاسترجاع السريع', 'سلسلة الاسترجاع']],
   ['repetition', ['high-value core repetition', 'high value core repetition', 'تكرار القلب المهم']],
-  ['meaning', ['المعنى', 'الإحساس', 'الاحساس', 'الحس']],
+  ['meaning', ['المعنى']],
+  /*
+   * ⚠️ **و«الإحساس» فُصل عن «المعنى» (WS-DI · بند ٥).** كان مرادفًا له،
+   *    و`attachSupport` تضع أوّلَ نصٍّ في `ar` — فسطرُ الإحساس كان
+   *    يحلّ محلَّ ترجمة القلب حين تسبقه. وهما شيئان: المعنى ترجمةٌ،
+   *    والإحساسُ صورةٌ ذهنيّةٌ تشرح **لِمَ** تُقال هكذا.
+   */
+  ['feel', ['الإحساس', 'الاحساس', 'الحس', 'feel']],
+  /*
+   * ⚠️ **والجذرُ والعيلةُ سقالةٌ لا هدف** (بند ٥): سطرٌ روسيٌّ فيه
+   *    عائلةُ كلمةٍ ليس جملةً تُنطَق في الشادوينج. ولولا هذا العنوانُ
+   *    لَوقع سطرُ العائلة في `if (isRu) push(...)` فصار هدفَ نُطقٍ
+   *    وضخّم عدَّ القلوب — وهو بعينه العيبُ الذي وُجدت V2 لإبطاله.
+   */
+  ['roots', ['الجذر والعيلة', 'الجذر والعائلة', 'الجذر و العيلة', 'الجذر',
+    'العيلة', 'العائلة الاشتقاقية', 'root and family', 'word family']],
   ['pattern', ['القالب', 'النمط', 'التركيب']],
   ['examples', ['أمثلة', 'امثلة', 'الأمثلة', 'الامثلة', 'مثال', 'examples']],
   ['note', ['ملاحظة', 'ملحوظة', 'تنبيه', 'note']],
@@ -141,9 +156,17 @@ export function isDraftV2(text) {
  * ٣) القراءة
  * ================================================================== */
 
+/**
+ * الشكلُ الخام لهدفٍ مقروء.
+ *
+ * ⚠️ **و`pairs` هي أزواجُ الاسترجاع المؤلَّفة** (WS-DI · بند ٢). كان
+ *    `cue` و`reply` سلسلتين مفردتين، فقلبٌ فيه سؤالان يفقد أوّلَهما
+ *    صامتًا: الثاني يكتب فوق الأوّل. وهما يبقيان — أوّلُ زوجٍ — لأنّ
+ *    `fingerprint` تقرأ `cue`، وتغييرُ ذلك يغيّر كلَّ معرّفٍ مسكوك.
+ */
 const blank = () => ({
   ru: '', ar: '', cue: '', reply: '', family: '', parent: '',
-  sense: [], patterns: [], examples: [],
+  sense: [], patterns: [], examples: [], pairs: [], roots: [], feel: [],
 });
 
 /**
@@ -163,6 +186,8 @@ export function parseDraftV2(text) {
   const chain = [];
   const families = [];
   let source = '';
+  /* ⚠️ وترجمةُ الجملة الأساسيّة تُقرأ كذلك — البرومبتُ صار يطلبها. */
+  let sourceAr = '';
 
   let role = null;          /* دورُ القسم الجاري */
   let family = '';          /* عائلةُ القلب الجارية */
@@ -170,9 +195,28 @@ export function parseDraftV2(text) {
   let inChain = false;      /* داخلَ شريط الاسترجاع السريع */
   let inSource = false;
   let pendingCue = '';      /* سؤالٌ ينتظر إجابته */
+  let pendingCueAr = '';    /* ترجمةُ ذلك السؤال */
   let expectCue = false;    /* «Вопрос:» بلا نصٍّ على سطره */
   let expectAnswer = false;
   let open = null;          /* الهدفُ المفتوح، تُلحَق به السقالة */
+
+  /*
+   * ═══════════════════════════════════════════════════════════════
+   * ⚠️ **خانةُ العربيّة — ولمَ لم تكن تكفي قاعدةُ «أوّلُ عربيٍّ للقلب»**
+   * ═══════════════════════════════════════════════════════════════
+   *
+   * البرومبتُ الجديد يشترط أن تتبع **كلَّ** سطرٍ روسيٍّ ترجمتُه فورًا —
+   * ومنها سطرُ السؤال وسطرُ الإجابة. والقاعدةُ القديمة كانت:
+   *
+   *     else if (isAr(line) && open && !open.ar) open.ar = line;
+   *
+   * فترجمةُ السؤال كانت تنزل على **ترجمة القلب** حين يكون القلبُ بلا
+   * ترجمةٍ بعد، أو تضيع في `sense` حين يكون له واحدة. وفي الحالين
+   * السؤالُ يظهر بلا سنَدٍ عربيّ — وهو نصفُ ما طُلب عرضُه.
+   *
+   * فصارت الترجمةُ تُسنَد إلى **آخر سطرٍ روسيٍّ قُرئ**، أيًّا كان دورُه.
+   */
+  let arSlot = null;        /* دالّةٌ تستقبل ترجمةَ آخر سطرٍ روسيّ */
 
   const push = (ru, ar = '') => {
     const one = blank();
@@ -182,10 +226,33 @@ export function parseDraftV2(text) {
     one.cue = pendingCue;
     one.family = role === ROLE.VARIATION ? family : '';
     one.parent = '';
+    /*
+     * ⚠️ **و`before` ترتيبٌ مؤلَّفٌ لا زينة**: هنا سبق السؤالُ نصَّه
+     *    («Вопрос:» ثمّ «Ответ:» يحمل النصّ)، وهناك تبع القلبَ. فلو
+     *    سُطِّحت الوحداتُ بترتيبٍ واحدٍ لَنطق الشادوينج إجابةَ إعادةِ
+     *    البناء **قبل** سؤالها — أي صار الاسترجاعُ قراءة.
+     */
+    if (pendingCue) {
+      one.pairs.push({ cue: pendingCue, cueAr: pendingCueAr, reply: '', replyAr: '', before: true });
+    }
     targets.push(one);
     open = one;
     pendingCue = '';
+    pendingCueAr = '';
+    arSlot = (text) => { if (!one.ar) one.ar = text; else one.sense.push(text); };
     return one;
+  };
+
+  /** يسجّل زوجَ استرجاعٍ على هدفٍ مفتوح، ويُبقي الأوّلَ في `cue`/`reply`. */
+  const addPair = (target, reply) => {
+    const pair = { cue: pendingCue, cueAr: pendingCueAr, reply, replyAr: '' };
+    target.pairs.push(pair);
+    if (!target.cue) target.cue = pendingCue;
+    if (!target.reply) target.reply = reply;
+    pendingCue = '';
+    pendingCueAr = '';
+    arSlot = (text) => { pair.replyAr = pair.replyAr || text; };
+    return pair;
   };
 
   /**
@@ -204,16 +271,25 @@ export function parseDraftV2(text) {
    *    أمسكه التثبيتُ الدقيقُ للنصوص، لا عدٌّ إجماليّ.
    */
   const answer = (text) => {
-    if (inChain) { chain.push({ cue: pendingCue, ru: text }); pendingCue = ''; return; }
+    if (inChain) {
+      const link = { cue: pendingCue, cueAr: pendingCueAr, ru: text, ar: '' };
+      chain.push(link);
+      pendingCue = '';
+      pendingCueAr = '';
+      arSlot = (ar) => { link.ar = link.ar || ar; };
+      return;
+    }
     /* إجابةٌ تُعيد نصَّ الهدف المفتوح: سؤالُها له، ولا هدفَ جديد. */
     if (open && subjectKey(open.ru) === subjectKey(text)) {
-      if (pendingCue) { open.cue = pendingCue; pendingCue = ''; }
+      if (pendingCue) addPair(open, '');
       return;
     }
     /* وهدفٌ مفتوحٌ بلا نصٍّ بعدُ يأخذ الإجابةَ نصًّا له. */
     if (open && !open.ru) {
       open.ru = text;
-      if (pendingCue) { open.cue = pendingCue; pendingCue = ''; }
+      const slot = open;
+      if (pendingCue) addPair(open, '');
+      arSlot = (ar) => { if (!slot.ar) slot.ar = ar; else slot.sense.push(ar); };
       return;
     }
 
@@ -247,9 +323,7 @@ export function parseDraftV2(text) {
      *    ذلك كان سيبتلع أسطرًا مؤلَّفةً قائمةً بذاتها.
      */
     if (open && pendingCue) {
-      open.cue = pendingCue;
-      open.reply = text;
-      pendingCue = '';
+      addPair(open, text);
       return;
     }
     push(text);
@@ -275,7 +349,10 @@ export function parseDraftV2(text) {
         continue;
       }
       if (head.kind === 'cue') {
-        if (head.rest) { pendingCue = head.rest; expectCue = false; } else expectCue = true;
+        if (head.rest) {
+          pendingCue = head.rest; pendingCueAr = ''; expectCue = false;
+          arSlot = (ar) => { pendingCueAr = pendingCueAr || ar; };
+        } else { expectCue = true; pendingCueAr = ''; }
         sub = null;
         continue;
       }
@@ -304,19 +381,42 @@ export function parseDraftV2(text) {
     }
 
     /* سطرٌ عاديّ. */
-    if (inSource) { if (!source && isRu(trimmed)) source = trimmed; continue; }
+    if (inSource) {
+      if (!source && isRu(trimmed)) source = trimmed;
+      else if (source && !sourceAr && isAr(trimmed)) sourceAr = trimmed;
+      continue;
+    }
 
     if (expectCue) {
-      pendingCue = trimmed; expectCue = false; continue;
+      pendingCue = trimmed;
+      pendingCueAr = '';
+      expectCue = false;
+      arSlot = (ar) => { pendingCueAr = pendingCueAr || ar; };
+      continue;
     }
     if (expectAnswer) { answer(trimmed); expectAnswer = false; continue; }
 
     if (inChain) {
+      /*
+       * ⚠️ **وترجمةُ سطرِ الشريط تُقرأ قبل أن تُحسَب سؤالًا.** الشريطُ
+       *    يتناوب سؤالًا فجوابًا، والبرومبتُ الجديد يدسّ بينهما سطرَ
+       *    ترجمة. فبلا هذا السطر تصير الترجمةُ العربيّةُ «سؤالًا» في
+       *    الشريط، ويخرج الجوابُ الحقيقيُّ ترجمةً لسؤالٍ لم يُكتَب.
+       */
+      if (isAr(trimmed) && arSlot) { arSlot(trimmed); arSlot = null; continue; }
       /* «سؤال → جواب» على سطرٍ واحد، أو سطران متتاليان. */
       const arrow = trimmed.split(/\s*(?:→|←|=>|->)\s*/);
-      if (arrow.length === 2) { chain.push({ cue: arrow[0].trim(), ru: arrow[1].trim() }); continue; }
-      if (pendingCue) { chain.push({ cue: pendingCue, ru: trimmed }); pendingCue = ''; }
-      else pendingCue = trimmed;
+      if (arrow.length === 2) { chain.push({ cue: arrow[0].trim(), ru: arrow[1].trim(), cueAr: '', ar: '' }); continue; }
+      if (pendingCue) {
+        const link = { cue: pendingCue, cueAr: pendingCueAr, ru: trimmed, ar: '' };
+        chain.push(link);
+        pendingCue = ''; pendingCueAr = '';
+        arSlot = (ar) => { link.ar = link.ar || ar; };
+      } else {
+        pendingCue = trimmed;
+        pendingCueAr = '';
+        arSlot = (ar) => { pendingCueAr = pendingCueAr || ar; };
+      }
       continue;
     }
 
@@ -326,7 +426,29 @@ export function parseDraftV2(text) {
       else if (open.examples.length) open.examples[open.examples.length - 1].ar = trimmed;
       continue;
     }
+    /*
+     * ⚠️ **والجذرُ والعيلةُ زوجٌ مرتَّب لا سطران سائبان** (بند 4B):
+     *    سطرٌ روسيٌّ فيه أفرادُ العائلة، وتحته عربيٌّ يترجمهم **بنفس
+     *    الترتيب**. ففصلُهما في حقلين يفقد التقابل، وهو كلُّ فائدتهما.
+     */
+    if (sub === 'roots') {
+      if (!open) continue;
+      if (isRu(trimmed)) open.roots.push({ ru: trimmed, ar: '' });
+      else if (open.roots.length) open.roots[open.roots.length - 1].ar = trimmed;
+      else open.roots.push({ ru: '', ar: trimmed });
+      continue;
+    }
+    if (sub === 'feel') {
+      if (open) open.feel.push(trimmed);
+      continue;
+    }
     if (sub && open) { attachSupport(open, sub, trimmed); continue; }
+
+    /*
+     * ⚠️ **وترجمةُ آخر سطرٍ روسيٍّ تذهب إليه هو** — سؤالًا كان أو
+     *    إجابةً أو قلبًا. راجع شرحَ `arSlot` أعلاه.
+     */
+    if (isAr(trimmed) && arSlot) { arSlot(trimmed); arSlot = null; continue; }
 
     /*
      * ⚠️ **ولا هدفَ بلا دورٍ مُعلَن** (قيدُ المالك ٣): سطرٌ روسيٌّ خارجَ
@@ -340,10 +462,55 @@ export function parseDraftV2(text) {
     else if (open) open.sense.push(trimmed);
   }
 
+  /*
+   * ═══════════════════════════════════════════════════════════════
+   * ⚠️ **سؤالُ الاسترجاع وحدةُ نُطقٍ حقيقيّة — تصحيحُ تصميمٍ سابق**
+   * ═══════════════════════════════════════════════════════════════
+   *
+   * كانت WS-DV2 تحفظ `Вопрос:` **سلسلةً على الهدف** (`cue`) وتعرضها
+   * سقالةً لا تُنطَق. وكان ذلك صحيحًا في نصفه وخاطئًا في نصفه:
+   *
+   *   صحيح  — ألّا تُعَدَّ قلبًا أساسيًّا؛ سؤالٌ ليس قلبًا.
+   *   خاطئ  — ألّا تُنطَق؛ المتعلّمُ **يجب أن يسمع السؤالَ الروسيّ**
+   *           ويفهمه ويستحضر الجواب. السؤالُ مُدخَلٌ روسيٌّ بذاته.
+   *
+   * فصارت الأزواجُ وحداتٍ مسطَّحةً بدورين خاصّين — تُنطَق وتُنتقى،
+   * ولا تدخل عدَّ القلوب. والفصلُ بين **عدّ الأدوار** و**عدّ وحدات
+   * التدريب** هو ما يجعل الاثنين صادقين معًا (`speech` و`units`).
+   *
+   * ⚠️ **وهُويّةُ القلب لم تُمَسّ**: `ru` كما هو، و`cue` أوّلُ زوجٍ كما
+   *    كان — فبصمةُ `fingerprint` ثابتةٌ ولا معرّفَ مسكوكٌ يندثر.
+   *
+   * ⚠️ **ولا تُبنى وحدةُ إجابةٍ حين تكون الإجابةُ هي القلبَ نفسَه**:
+   *    ذلك يضاعف النصَّ نفسَه وحدتين — وهو تضخُّمُ العدّ من بابٍ ثالث.
+   */
+  const recallUnits = (one, { before }) => {
+    const out = [];
+    for (const pair of one.pairs) {
+      if (Boolean(pair.before) !== before) continue;
+      if (pair.cue) {
+        out.push({
+          ...blank(), role: ROLE.RECALL_CUE, ru: pair.cue, ar: pair.cueAr,
+          parent: one.ru, family: one.family,
+        });
+      }
+      if (pair.reply && subjectKey(pair.reply) !== subjectKey(one.ru)) {
+        out.push({
+          ...blank(), role: ROLE.RECALL_ANSWER, ru: pair.reply, ar: pair.replyAr,
+          parent: one.ru, family: one.family, cue: pair.cue,
+        });
+      }
+    }
+    return out;
+  };
+
   /* الأمثلةُ أهدافٌ اختياريّةٌ بدورها الخاصّ (بند ١٣). */
   const flat = [];
   for (const one of targets) {
+    /* والترتيبُ المؤلَّف: ما سبق نصَّه يسبقه، وما تبعه يتبعه. */
+    flat.push(...recallUnits(one, { before: true }));
     flat.push(one);
+    flat.push(...recallUnits(one, { before: false }));
     for (const ex of one.examples) {
       flat.push({
         ...blank(), role: ROLE.EXAMPLE, ru: ex.ru, ar: ex.ar,
@@ -352,12 +519,41 @@ export function parseDraftV2(text) {
     }
   }
 
-  return { version: 2, targets: flat, chain, families, source };
+  /*
+   * ⚠️ **وشريطُ الاسترجاع السريع يُنطَق هو الآخر** (بند 4J): هو السلسلةُ
+   *    الذهنيّةُ المضغوطة، وأهمُّ ما يُتدرَّب عليه بصوتٍ عالٍ. وكان
+   *    `chain` يُربَط بأهدافٍ قائمةٍ **للعرض فقط** ولا يدخل التدريب.
+   *
+   * ⚠️ **و`parent: 'chain'` يفصل بصمتَه عن بصمة القلب**: إجابةُ الشريط
+   *    قد تعيد نصَّ هدفٍ قائمٍ حرفيًّا، فلولا الأبُ لتصادمت البصمتان
+   *    وتشارك هدفان حالةَ «خلصت» — وهو عيبُ الهُويّة بعينه.
+   */
+  for (const link of chain) {
+    if (link.cue) {
+      flat.push({
+        ...blank(), role: ROLE.RECALL_CUE, ru: link.cue, ar: link.cueAr || '',
+        parent: CHAIN_PARENT,
+      });
+    }
+    if (link.ru) {
+      flat.push({
+        ...blank(), role: ROLE.RECALL_ANSWER, ru: link.ru, ar: link.ar || '',
+        parent: CHAIN_PARENT, cue: link.cue || '',
+      });
+    }
+  }
+
+  return { version: 2, targets: flat, chain, families, source, sourceAr };
 }
+
+/** أبُ وحدات الشريط السريع — يفصل بصمتَها عن بصمة الأهداف القائمة. */
+export const CHAIN_PARENT = '__chain__';
 
 function attachSupport(target, kind, text) {
   if (kind === 'pattern') target.patterns.push(text);
   else if (kind === 'meaning') { if (!target.ar) target.ar = text; else target.sense.push(text); }
+  else if (kind === 'feel') target.feel.push(text);
+  else if (kind === 'roots') target.roots.push({ ru: text, ar: '' });
   else target.sense.push(text);
 }
 

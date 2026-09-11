@@ -6263,3 +6263,121 @@ body.shadow-open { overflow: hidden; }
   outline-offset: 1px;
   border-radius: 10px;
 }
+
+/* ================================================================== */
+/* صفحةُ الجملة — المسودّةُ كما كُتبت (WS-DI · بند ١)                    */
+/* ================================================================== */
+
+/*
+ * ⚠️ **هنا تُقرأ المسودّةُ، لا في اللوح الأيمن.**
+ *
+ *    اللوحُ الأيمنُ سطحُ **سياقٍ** يقول «أنت الآن داخل هذا الهدف»،
+ *    وعرضُه لا يحتمل مسودّةً كاملة. والمسودّةُ مادّةُ قراءةٍ تسكن
+ *    صفحةَ الجملة اليسرى — بجوار القواعد والملخّص والصور والأصوات.
+ *
+ * ⚠️ **والحبرُ حبرُ الورق لا حبرُ السكّة — عطبٌ أمسكته اللقطة.**
+ *    أوّلُ كتابةٍ نسخت ألوانَ `sh-draft-box` وهي تعيش في السكّة
+ *    **الداكنة**، فوقع حبرٌ فاتحٌ على ورقٍ فاتح: المسودّةُ مرسومةٌ
+ *    كاملةً وغيرُ مقروءةٍ البتّة. ولم يرفع أحدٌ خطأً — الرسمُ لا
+ *    يُخطئ بل يصمت. فالرموزُ هنا رموزُ الورقة (`--sh-paper-*`).
+ *
+ * ⚠️ **والروسيُّ فوق والعربيُّ تحته مباشرةً** (بند 4B): لا شيءَ يفصل
+ *    سطرًا روسيًّا عن ترجمته — لا عنوانٌ ولا شرحٌ ولا سطرٌ روسيٌّ آخر.
+ *    فالتقابلُ هو الفائدةُ كلُّها، وكسرُه يجعل الصفحةَ نصَّين متوازيين.
+ */
+.sh-draftwell {
+  display: flex; flex-direction: column; gap: 14px;
+  padding: 2px 2px 10px; color: var(--sh-paper-ink);
+}
+
+.dw-group { display: flex; flex-direction: column; gap: 8px; }
+.dw-head {
+  margin: 0; display: flex; align-items: center; gap: 8px;
+  font-family: var(--sh-mono); font-size: 9.5px; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--sh-paper-gold);
+  border-bottom: 1px solid var(--sh-paper-line); padding-bottom: 5px;
+}
+.dw-head i {
+  font-style: normal; font-size: 9px; padding: 1px 6px; border-radius: 2px;
+  background: rgba(101, 80, 48, .1); color: var(--sh-paper-ink-2);
+}
+
+.dw-fam {
+  margin: 0; font-family: var(--sh-mono); font-size: 9.5px; letter-spacing: .12em;
+  color: var(--sh-paper-gold);
+}
+
+.dw-card {
+  border: 1px solid var(--sh-paper-line); border-radius: 4px;
+  padding: 9px 11px; display: flex; flex-direction: column; gap: 7px;
+  background: rgba(255, 255, 255, .45);
+}
+/* الهدفُ الذي تنطقه الآن يُبرَز **داخل بنيته** لا يُنتزَع منها (WS-DV3). */
+.dw-card.is-now {
+  border-color: rgba(122, 95, 44, .55);
+  background: rgba(217, 182, 114, .16);
+}
+
+.dw-ru { margin: 0; font-size: 14px; line-height: 1.55; color: var(--sh-paper-ink); }
+.dw-ar { margin: 0; font-size: 12px; line-height: 1.6; color: var(--sh-paper-mute); }
+
+.dw-field {
+  display: flex; flex-direction: column; gap: 3px;
+  padding-inline-start: 9px; border-inline-start: 2px solid var(--sh-paper-line);
+}
+.dw-field > .dw-lbl {
+  font-family: var(--sh-mono); font-size: 8.5px; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--sh-paper-gold);
+}
+.dw-field p { margin: 0; font-size: 12px; line-height: 1.6; color: var(--sh-paper-ink-2); }
+.dw-field .dw-ru { font-size: 12.5px; color: var(--sh-paper-ink); }
+
+/*
+ * سؤالُ الاسترجاع وإجابتُه — **والسؤالُ قبل الجواب دائمًا**، وإلّا
+ * صار الاسترجاعُ قراءة. وهما وحدتا نُطقٍ حقيقيّتان لا زينة (WS-DI).
+ */
+.dw-qa {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 7px 9px; border-radius: 3px;
+  background: rgba(101, 80, 48, .06);
+}
+.dw-qlbl {
+  font-family: var(--sh-mono); font-size: 8.5px; letter-spacing: .16em;
+  color: var(--sh-paper-gold);
+}
+.dw-qlbl ~ .dw-qlbl { margin-top: 5px; }
+.dw-ru.is-q { font-weight: 600; }
+
+.dw-chain .dw-qa { background: rgba(217, 182, 114, .14); }
+
+/*
+ * ⚠️ **وهاتان الحاويتان تعيشان في سطحين بلونين**: صفحةُ الجملة
+ *    (ورقٌ فاتح) ولوحُ التعلّم (سكّةٌ داكنة). فاللونُ يُورَث من محيطه
+ *    بـ`currentColor` ولا يُثبَّت — وإلّا اختفى في أحدهما.
+ */
+.sh-draft-count {
+  padding: 4px 2px 0; font-family: var(--sh-mono); font-size: 9.5px;
+  letter-spacing: .12em; color: currentColor; opacity: .65;
+}
+.sh-draft-derived { margin-top: 6px; }
+.sh-draft-derived button {
+  width: 100%; min-height: 44px; padding: 0 12px; cursor: pointer;
+  font-family: var(--sh-mono); font-size: 10px; letter-spacing: .14em;
+  border: 1px solid currentColor; border-radius: 3px;
+  background: rgba(217, 182, 114, .14); color: inherit;
+}
+
+/* وصندوقُ اللصق داخل الصفحة بحبرها لا بحبر السكّة. */
+.sh-draftwell .sh-draft-box {
+  background: rgba(255, 255, 255, .6); color: var(--sh-paper-ink);
+  border-color: var(--sh-paper-line);
+}
+.sh-draftwell .sh-draft-box::placeholder { color: var(--sh-paper-mute); }
+.sh-draftwell .sh-learn-hint,
+.sh-draftwell .sh-draft-state { color: var(--sh-paper-mute); }
+.sh-draftwell .sh-draft-row button {
+  border-color: var(--sh-paper-line); color: var(--sh-paper-ink-2);
+}
+.sh-draftwell .sh-draft-row button:hover {
+  border-color: var(--sh-paper-gold); color: var(--sh-paper-gold);
+}

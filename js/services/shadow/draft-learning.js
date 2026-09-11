@@ -17,7 +17,7 @@
  *    وأمثلتُها، وكفى. والادّعاءُ بغير ذلك يخترع تعلُّمًا لم يُكتَب.
  */
 
-import { ROLE, SPEECH_ROLES, OPTIONAL_SPEECH_ROLES, isSpeechRole, ensureTargetIds, storedTargets, reconcileTargets, linkQuickChain } from './draft-targets.js';
+import { ROLE, SPEECH_ROLES, RECALL_ROLES, PRACTICE_ROLES, OPTIONAL_SPEECH_ROLES, isSpeechRole, isPracticeRole, ensureTargetIds, storedTargets, reconcileTargets, linkQuickChain } from './draft-targets.js';
 import { isDraftV2, parseDraftV2 } from './draft-v2.js';
 import { coreChunks, chunkStates, CHUNK_STATE, CHUNK_STATES } from './sentence-learning.js';
 import { studyDrafts } from '../../db/repositories.js';
@@ -25,15 +25,23 @@ import { studyDrafts } from '../../db/repositories.js';
 /** أسماءُ المجموعات كما يراها الإنسان (بند ٢٨). */
 export const GROUP_LABEL = Object.freeze({
   [ROLE.MICRO_CORE]: 'الكور الأساسية',
+  [ROLE.RECALL_CUE]: 'أسئلة الاسترجاع',
+  [ROLE.RECALL_ANSWER]: 'إجابات الاسترجاع',
   [ROLE.EXPANSION]: 'التدرّج',
   [ROLE.VARIATION]: 'التكرارات',
   [ROLE.FULL_BUILD]: 'إعادة البناء',
   [ROLE.EXAMPLE]: 'الأمثلة',
 });
 
-/** ترتيبُ المجموعات في الشاشة — من الأصغر إلى إعادة البناء (بند ٢٦). */
+/**
+ * ترتيبُ المجموعات في الشاشة — من الأصغر إلى إعادة البناء (بند ٢٦).
+ *
+ * ⚠️ **والسؤالُ والإجابةُ بعد القلوب مباشرةً** (WS-DI): هما استرجاعُها،
+ *    فبُعدُهما عنها في القائمة يفصل ما يجب أن يُقرأ معًا.
+ */
 export const GROUP_ORDER = Object.freeze([
-  ROLE.MICRO_CORE, ROLE.EXPANSION, ROLE.VARIATION, ROLE.FULL_BUILD, ROLE.EXAMPLE,
+  ROLE.MICRO_CORE, ROLE.RECALL_CUE, ROLE.RECALL_ANSWER,
+  ROLE.EXPANSION, ROLE.VARIATION, ROLE.FULL_BUILD, ROLE.EXAMPLE,
 ]);
 
 /**
@@ -55,7 +63,7 @@ function fromV1(draft) {
       });
     }
   }
-  return { version: 1, targets, chain: [], families: [], source: '' };
+  return { version: 1, targets, chain: [], families: [], source: '', sourceAr: '' };
 }
 
 /**
@@ -80,6 +88,7 @@ function shape(read, withIds, states) {
     chain: linkQuickChain(read.chain, withIds),
     families: read.families,
     source: read.source,
+    sourceAr: read.sourceAr || '',
   };
 }
 
@@ -141,7 +150,16 @@ export function countsOf(targets) {
   }
   const speech = [...SPEECH_ROLES].reduce((sum, role) => sum + (byRole[role] || 0), 0);
   const done = [...SPEECH_ROLES].reduce((sum, role) => sum + (doneByRole[role] || 0), 0);
-  return { byRole, doneByRole, speech, done, examples: byRole[ROLE.EXAMPLE] || 0 };
+  /*
+   * ⚠️ **عدّان لا عدٌّ واحد** (WS-DI · بند ٢): `speech` هو عددُ الأدوار
+   *    الدلاليّة — القلوبُ والتدرّجُ والتكراراتُ وإعادةُ البناء — ولا
+   *    يتغيّر بأن صار السؤالُ يُنطَق. و`units` هو ما يدخل الشادوينج
+   *    فعلًا، وفيه السؤالُ والإجابة. وخلطُهما هو ما يجعل «٧ قلوب»
+   *    تصير «١٤ قلبًا» في تقريرٍ يصدّقه المتعلّم.
+   */
+  const units = [...PRACTICE_ROLES].reduce((sum, role) => sum + (byRole[role] || 0), 0);
+  const recall = [...RECALL_ROLES].reduce((sum, role) => sum + (byRole[role] || 0), 0);
+  return { byRole, doneByRole, speech, done, units, recall, examples: byRole[ROLE.EXAMPLE] || 0 };
 }
 
 /**
@@ -171,8 +189,19 @@ export function selectionSummary(targets, selectedIds) {
  *    وهنا لا يمرّ إلّا دورٌ في القائمة البيضاء — والمثالُ بطلبٍ صريح.
  */
 export function speechTargets(targets, { withExamples = false } = {}) {
-  return targets.filter((one) => isSpeechRole(one.role)
+  return targets.filter((one) => isPracticeRole(one.role)
     || (withExamples && OPTIONAL_SPEECH_ROLES.has(one.role)));
+}
+
+/**
+ * أهدافُ النُّطق **الدلاليّة** وحدَها — بلا سؤالٍ ولا إجابة.
+ *
+ * ⚠️ **ولمَ بابان؟** لأنّ «ما يُنطَق» و«ما يُعَدُّ قلبًا» افترقا في
+ *    WS-DI. ومن يريد الثاني يسأل هذه، ولا يُترَك يمرّر `isSpeechRole`
+ *    بنفسه فينسى أحدُ المواضع تحديثًا ناله الآخر.
+ */
+export function coreTargets(targets) {
+  return targets.filter((one) => isSpeechRole(one.role));
 }
 
 /**
@@ -187,8 +216,16 @@ export function sentenceSummary(model) {
     version: model.version,
     speech: counts.speech,
     done: counts.done,
+    units: counts.units,
+    recall: counts.recall,
+    /*
+     * ⚠️ **والصفوفُ تشمل الاسترجاع، والمجموعُ `speech` لا يشمله**
+     *    (WS-DI): فترى «٧ كور · ٧ أسئلة · ٤ تدرّج» ولا يُقال لك إنّ
+     *    عندك أربعةَ عشرَ قلبًا. الصفُّ يسمّي ما يعدّ، والمجموعُ يبقى
+     *    دلاليًّا — وهذا هو الفصلُ الذي طلبه البند.
+     */
     rows: GROUP_ORDER
-      .filter((role) => SPEECH_ROLES.has(role) && counts.byRole[role])
+      .filter((role) => PRACTICE_ROLES.has(role) && counts.byRole[role])
       .map((role) => ({
         role,
         label: GROUP_LABEL[role],
