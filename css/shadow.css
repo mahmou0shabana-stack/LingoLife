@@ -6381,3 +6381,102 @@ body.shadow-open { overflow: hidden; }
 .sh-draftwell .sh-draft-row button:hover {
   border-color: var(--sh-paper-gold); color: var(--sh-paper-gold);
 }
+
+/* ================================================================== */
+/* تقدّمُ الجلسة — أين أنت، وكم مارستَ، وكم خلصت (WS-PR)                */
+/* ================================================================== */
+
+/*
+ * ⚠️ **وليس هذا `.sh-bar` فوقه.** ذاك يقيس دورةَ تكرارِ **وحدةٍ
+ *    واحدة** ويرجع إلى الصفر مع كلّ نقلة؛ وهذا يقيس **الجلسةَ كلَّها**
+ *    ولا يرجع. وخلطُهما في عنصرٍ واحد كان سيجعل أحدَهما يكذب دائمًا.
+ *
+ * ⚠️ **وطبقتان في شريطٍ واحد لا طبقةٌ**: الامتلاءُ «خلصت»، والعلامةُ
+ *    المتحرّكةُ «موضعك». ولو قِيس الامتلاءُ بالموضع لَقال «٣٢٪» لمن لم
+ *    يُنهِ شيئًا — وهو بالضبط ما نهى عنه الطلب: لا تُساوِ المرورَ
+ *    بالإتقان.
+ */
+.sh-prog {
+  flex: none; inline-size: min(560px, 92%); margin: 6px auto 0;
+  display: flex; flex-direction: column; gap: 5px;
+}
+.sh-prog[hidden] { display: none; }
+
+.sh-prog-head {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  font-family: var(--sh-mono); font-size: 9.5px; letter-spacing: .14em;
+  color: rgba(239, 231, 216, .5);
+}
+.sh-prog-sec { color: rgba(240, 220, 176, .92); }
+.sh-prog-sec i {
+  font-style: normal; margin-inline-start: 6px;
+  color: rgba(239, 231, 216, .45);
+}
+.sh-prog-pair { color: rgba(239, 231, 216, .6); }
+.sh-prog-next { color: rgba(217, 182, 114, .6); }
+.sh-prog-pos { margin-inline-start: auto; }
+.sh-prog-pos b { color: rgba(240, 220, 176, .95); font-weight: 400; }
+
+.sh-prog-bar {
+  position: relative; block-size: 4px; border-radius: 2px;
+  background: rgba(239, 231, 216, .1); overflow: hidden;
+}
+/* «خلصت» — حكمُك أنت، وهو الوحيدُ الذي ينجو من إعادة التحميل. */
+.sh-prog-fill {
+  position: absolute; inset-block: 0; inset-inline-start: 0;
+  background: rgba(217, 182, 114, .85); border-radius: 2px;
+  transition: inline-size .3s ease;
+}
+/* «مارست» — دورةُ تكرارٍ اكتملت، وهي في الذاكرة وحدَها. أخفتُ لونًا. */
+.sh-prog-lived {
+  position: absolute; inset-block: 0; inset-inline-start: 0;
+  background: rgba(217, 182, 114, .26); border-radius: 2px;
+  transition: inline-size .3s ease;
+}
+/*
+ * علامةُ الموضع — فوق الطبقتين، ولا تملأ شيئًا.
+ *
+ * ⚠️ **ولا حركةَ تُوهم تقدّمًا لم يقع** (شرطُ الطلب): الانتقالُ هنا
+ *    ٣٠٠ms يتبع نقلةً وقعت فعلًا، ولا نبضَ ولا وميضَ بلا حدث.
+ */
+.sh-prog-at {
+  position: absolute; inset-block: -3px; inline-size: 2px;
+  background: rgba(255, 255, 255, .9); border-radius: 1px;
+  transform: translateX(-1px);
+  transition: inset-inline-start .3s ease;
+}
+
+.sh-prog-facts {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  font-family: var(--sh-mono); font-size: 9px; letter-spacing: .12em;
+  color: rgba(239, 231, 216, .42);
+}
+.sh-prog-facts b { color: rgba(239, 231, 216, .8); font-weight: 400; margin-inline-end: 3px; }
+.sh-prog-facts .is-done b { color: rgba(240, 220, 176, .95); }
+.sh-prog-pct { margin-inline-start: auto; color: rgba(240, 220, 176, .7); }
+.sh-prog-more {
+  min-block-size: 26px; padding: 0 8px; cursor: pointer;
+  font: inherit; letter-spacing: .12em;
+  border: 1px solid rgba(239, 231, 216, .14); border-radius: 3px;
+  background: transparent; color: rgba(239, 231, 216, .55);
+}
+.sh-prog-more:hover { border-color: rgba(217, 182, 114, .45); color: rgba(240, 220, 176, .9); }
+
+.sh-prog-map { display: flex; flex-direction: column; gap: 3px; padding-top: 2px; }
+.sh-prog-map[hidden] { display: none; }
+.sh-prog-row {
+  display: grid; grid-template-columns: 46px 1fr 60px; gap: 8px;
+  align-items: center;
+  font-family: var(--sh-mono); font-size: 9px; letter-spacing: .1em;
+  color: rgba(239, 231, 216, .42);
+}
+.sh-prog-row.is-at { color: rgba(240, 220, 176, .95); }
+.sh-prog-row-n { text-align: end; }
+.sh-prog-row-b { block-size: 2px; background: rgba(239, 231, 216, .1); border-radius: 1px; }
+.sh-prog-row-b i { display: block; block-size: 100%; background: rgba(217, 182, 114, .7); border-radius: 1px; }
+
+/* على عرضٍ ضيّق: الحقائقُ تلتفّ، والتفصيلُ يبقى مقروءًا. */
+@media (max-width: 700px) {
+  .sh-prog { inline-size: 96%; }
+  .sh-prog-row { grid-template-columns: 44px 1fr 40px; }
+}

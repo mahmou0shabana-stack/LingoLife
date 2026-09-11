@@ -33,6 +33,7 @@ import {
   speechTargets, setTargetState, GROUP_LABEL,
 } from '../services/shadow/draft-learning.js';
 import { isDraftV2 } from '../services/shadow/draft-v2.js';
+import { sessionProgress, targetIndex } from '../services/shadow/session-progress.js';
 import { ROLE, isPracticeRole } from '../services/shadow/draft-targets.js';
 import { SCOPE, SCOPE_LABEL, resolveTarget } from '../services/shadow/practice-target.js';
 import { openVoiceAttempts } from '../modals/voice-attempts.js';
@@ -1488,7 +1489,7 @@ function shell() {
 
               <div class="sh-stage-top">
                 <div class="sh-mono sh-count">
-                  <b data-pos>${idx + 1}</b> / ${String(segments.length).padStart(2, '0')} SENTENCES
+                  <b data-pos>${idx + 1}</b> / <span data-pos-total>${String(segments.length).padStart(2, '0')}</span> SENTENCES
                   <span data-status class="sh-dim">جاهز</span>
                 </div>
                 <!--
@@ -1514,6 +1515,19 @@ function shell() {
                 <span data-counter hidden></span>
                 ${raw(fontChip('stage'))}
               </div>
+
+              <!--
+                ══════════ تقدّمُ الجلسة (WS-PR) ══════════
+
+                ⚠️ **وليس هذا شريطَ التكرار فوقه.** ذاك (data-bar) يقيس
+                   دورةَ تكرارِ **وحدةٍ واحدة** ويرجع إلى الصفر مع كلّ
+                   نقلة. وهذا يقيس **الجلسةَ كلَّها** ولا يرجع.
+                   وخلطُهما كان سيجعل أحدَهما يكذب دائمًا.
+
+                ⚠️ **ومكانُه الصفحةُ اليمنى**: هي ما تنظر إليه طوال
+                   التدريب — وهو نفسُ الدرس المكتوب فوق زرّ الرجوع.
+              -->
+              <div class="sh-prog" data-prog hidden></div>
 
               <div class="sh-hero" data-card>
                 <!--
@@ -2303,8 +2317,24 @@ function syncSegment() {
   const app = document.querySelector('.shadow-app');
   if (app) app.style.setProperty('--sh-len', chars > 150 ? '.62' : chars > 80 ? '.78' : '1');
 
+  /*
+   * ⚠️ **والعدّادُ القديمُ كان يقول «4 / 03» — بسطٌ مطلقٌ ومقامٌ مجمَّد.**
+   *
+   *    `index` فهرسٌ في `ctx.segments` كلِّها، ومقاطعُ التدريب تُلحَق
+   *    بعد مقاطع المصدر — فأوّلُ وحدةِ تدريبٍ فهرسُها ٣ لا ٠. والمقامُ
+   *    مكتوبٌ في القالب لحظةَ الرسم، فبقي ثلاثةً بعد إلحاق ستَّ عشرة.
+   *    قِستُه حيًّا قبل الإصلاح: «4 / 03 SENTENCES» ثمّ «7 / 03».
+   *
+   *    والمحرّكُ يعرف الجواب: `sourceWindow` تحصر التنقّلَ في المصدر
+   *    الجاري. فالموضعُ والمقامُ كلاهما منها.
+   */
+  const win = player.sourceWindow;
+  const from = Math.max(0, win?.from ?? 0);
+  const to = Math.min(ctx.segments.length - 1, win?.to ?? (ctx.segments.length - 1));
   const pos = $('[data-pos]');
-  if (pos) pos.textContent = index + 1;
+  if (pos) pos.textContent = String(index - from + 1);
+  const posTotal = $('[data-pos-total]');
+  if (posTotal) posTotal.textContent = String(to - from + 1).padStart(2, '0');
   const counter = $('[data-counter]');
   if (counter) counter.textContent = '—';
   const bar = $('[data-bar] > span');
@@ -2395,6 +2425,12 @@ function syncSegment() {
   renderRail();
   if (rail.open && rail.tool === 'learn') renderLearn().catch(() => {});
   /*
+   * ⚠️ **وسطرُ التقدّم يتبع نقلةَ الوحدة — لا نبضَ الصوت.** `syncSegment`
+   *    تُنادى عند تغيّر الوحدة الفعّالة وحدَها، و`timeupdate` لا يمرّ
+   *    من هنا. فالحسابُ يقع مرّةً لكلّ نقلة، ولا قاعدةَ تُلمَس.
+   */
+  renderProgress().catch(() => {});
+  /*
    * ⚠️ **وصفحةُ الجملة تتبع الجملةَ — وهي المنبعُ الوحيدُ الذي يفعل**
    *    (WS-DI). بقيّةُ المنابع تقرأ الذكرى كلَّها فلا تتغيّر بنقلةِ
    *    جملة. وهذه إعادةُ رسمٍ **بلا كتابةٍ في القاعدة**: `read` تنادي
@@ -2402,7 +2438,19 @@ function syncSegment() {
    *    ولا تكتب. وشرطُ `well` يمنع رسمَ منبعٍ لست فيه.
    */
   if (well === 'draft') renderWells().catch(() => {});
-  savePosition(ctx.session.id, index).catch(() => {});
+  /*
+   * ⚠️ **ولا يُحفَظ موضعٌ داخل مصدرٍ مؤقّت.**
+   *
+   *    مقاطعُ التدريب `temporary: true` ولا صفَّ لها في القاعدة، فلا
+   *    تُبعَث بعد إعادة التحميل. وحفظُ فهرسٍ منها يعني أن تفتح الجلسةَ
+   *    غدًا فتقف على **جملةٍ أخرى** من المصدر الأصليّ صادف أن فهرسَها
+   *    هو نفسُه — وهو بعينه عيبُ «الفهرس المطلق فوق مصفوفةٍ تغيّرت»
+   *    الذي وُلدت هذه التمريرةُ لإصلاحه في العدّاد.
+   *
+   *    وموضعُ الأصل محفوظٌ من قبلُ في `ctx.returnIndex`، فالرجوعُ إليه
+   *    يحفظه من جديد. أي أنّ الصمتَ هنا لا يُضيع شيئًا.
+   */
+  if (!activeSegment()?.temporary) savePosition(ctx.session.id, index).catch(() => {});
   // الترجمة الناقصة تُجلب في الخلفية إن فعّل المستخدم ذلك.
   fetchMissingTranslation(segment).catch(() => {});
 }
@@ -2500,6 +2548,8 @@ async function persistSegment(event) {
       const meta = node.querySelector('.meta');
       if (meta) meta.textContent = `×${updated.repetitionsCompleted}`;
     }
+    /* ⚠️ عند اكتمال الدورة لا مع كلّ نبضة — راجع شرحَ `renderProgress`. */
+    await renderProgress();
   } catch (error) {
     console.error('[shadow] تعذّر حفظ التكرارات', error);
   }
@@ -5196,6 +5246,109 @@ async function modelForDraft(draftId) {
   const model = learnModelSync(draft);
   draftModelCache = { draftId, rev: draft.rev, model, draft };
   return { draft, model };
+}
+
+/* ================================================================== *
+ * تقدّمُ الجلسة — أين أنت، وكم مارستَ، وكم خلصت (WS-PR)                *
+ * ================================================================== */
+
+/**
+ * يرسم سطرَ التقدّم فوق المسرح.
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ ثلاثةُ أرقامٍ مسمّاةٌ — ولا يُجمَع ما لا يُجمَع
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * الطلبُ نهى صراحةً عن أن يُقرأ «أنت عند الوحدة ١٢» بمعنى «أنهيتَ
+ * اثنتي عشرة». وفي التطبيق ثلاثُ إشاراتٍ حقيقيّة:
+ *
+ *   **موضعك**  ملاحةٌ خالصة — `index` داخل نافذة المصدر.
+ *   **مارست**  دورةُ تكرارٍ اكتملت على الوحدة. ومقاطعُ التدريب
+ *              مؤقّتةٌ في الذاكرة، فهذا الرقمُ **لا ينجو من إعادة
+ *              التحميل** — ولذلك لا يُسمّى «خلصت».
+ *   **خلصت**   حكمُك أنت، مكتوبٌ على سجلّ المسودّة بمعرّف الهدف —
+ *              وهو الوحيدُ الذي ينجو.
+ *
+ * فالشريطُ الممتلئُ يقيس «خلصت» وحدَها، وعلامةُ الموضع تسير فوقه
+ * مستقلّةً. ولو قِيس الشريطُ بالموضع لَقال «٣٢٪» لمن لم يُنهِ شيئًا.
+ *
+ * ⚠️ **ولا كتابةَ ولا تحليلَ هنا**: النموذجُ يأتي من `modelForDraft`
+ *    المخزَّنةِ بالمعرّف والمراجعة، والحسابُ في `session-progress.js`
+ *    دالّةٌ خالصة. وتُنادى عند **نقلةِ وحدةٍ** أو تغيّرِ حالة — لا مع
+ *    نبض الصوت.
+ */
+let progMapOpen = false;
+
+async function renderProgress() {
+  const host = $('[data-prog]');
+  if (!host || !player || !ctx) return;
+
+  const lineage = draftLineage();
+  const via = lineage ? await modelForDraft(lineage.draftId) : null;
+  const byId = via ? targetIndex(via.model) : new Map();
+  const at = sessionProgress(ctx.segments, player.sourceWindow, player.state.index, byId);
+
+  if (!at.total) { host.hidden = true; return; }
+  host.hidden = false;
+
+  /*
+   * ⚠️ **وجلسةٌ بلا أدوارٍ تقول ما عندها ولا تخترع الباقي** (بند ٢):
+   *    المصدرُ الأصليُّ جملٌ بلا مسودّة، فلا أقسامَ ولا «خلصت». فيُعرَض
+   *    الموضعُ وحدَه، ويُحذَف صفُّ الإتمام بدل أن يُعرَض صفرًا كاذبًا.
+   */
+  const pairLine = at.pair
+    ? html`<span class="sh-prog-pair">${at.pair.part === 'q' ? 'سؤال' : 'إجابة'} ${at.pair.index} / ${at.pair.total}</span>`
+    : '';
+
+  const nextLine = at.next && at.section && at.next.key !== at.section.key
+    ? html`<span class="sh-prog-next">→ ${at.next.label}</span>`
+    : (at.next && at.pair?.part === 'q' ? html`<span class="sh-prog-next">→ الإجابة</span>` : '');
+
+  host.innerHTML = html`
+    <div class="sh-prog-head">
+      <span class="sh-prog-sec">${at.section ? at.section.label : 'الجلسة'}${
+  raw(at.section ? html`<i>${at.section.index} / ${at.section.total}</i>` : '')}</span>
+      ${raw(pairLine)}
+      ${raw(nextLine)}
+      <span class="sh-prog-pos"><b>${at.position}</b> / ${at.total}</span>
+    </div>
+
+    <!--
+      ⚠️ **الامتلاءُ «خلصت» والعلامةُ «موضعك» — طبقتان لا واحدة.**
+         شريطٌ واحدٌ يقيس الاثنين كان سيُوهم أنّ المرورَ إتقان.
+    -->
+    <div class="sh-prog-bar" role="img"
+         aria-label="خلصت ${at.done} من ${at.total} · موضعك ${at.position}">
+      <span class="sh-prog-fill" style="inline-size: ${at.percentDone}%"></span>
+      ${raw(at.hasRoles ? html`
+        <span class="sh-prog-lived" style="inline-size: ${at.percentPractised}%"></span>` : '')}
+      <span class="sh-prog-at" style="inset-inline-start: ${at.percentPosition}%"></span>
+    </div>
+
+    <div class="sh-prog-facts">
+      <span><b>${at.position}</b> موضعك</span>
+      ${raw(at.hasRoles ? html`
+        <span><b>${at.practised}</b> مارست</span>
+        <span class="is-done"><b>${at.done}</b> خلصت</span>
+        <span><b>${at.remaining}</b> فاضل</span>
+        <span class="sh-prog-pct">${at.percentDone}%</span>` : html`
+        <span><b>${at.total}</b> جملة</span>`)}
+      ${raw(at.sections.length ? html`
+        <button class="sh-prog-more" data-sh="prog-map"
+                aria-expanded="${progMapOpen ? 'true' : 'false'}">${progMapOpen ? 'إخفاء' : 'التفصيل'}</button>` : '')}
+    </div>
+
+    ${raw(at.sections.length ? html`
+      <div class="sh-prog-map" ${raw(progMapOpen ? '' : 'hidden')}>
+        ${raw(at.sections.map((one) => html`
+          <div class="sh-prog-row ${one.at ? 'is-at' : ''}">
+            <span class="sh-prog-row-n">${one.done} / ${one.total}</span>
+            <span class="sh-prog-row-l">${one.label}</span>
+            <span class="sh-prog-row-b">
+              <i style="inline-size: ${Math.round((one.done / one.total) * 100)}%"></i>
+            </span>
+          </div>`).join(''))}
+      </div>` : '')}`;
 }
 
 /**
@@ -10578,6 +10731,13 @@ function wireInteractions(main) {
          *    وبلا ذلك كان الحكمُ يُحفَظ ولا يُرى — وهو حفظٌ لا تصدّقه.
          */
         await refreshDrafted();
+        /*
+         * ⚠️ **و«خلصت» ترفع `rev` فيبطل النموذجُ المخزَّن.** لولا هذا
+         *    السطر لَبقي سطرُ التقدّم يقول «٣ خلصت» بعد أن صارت أربعًا
+         *    — رقمٌ صحيحٌ لحظةَ حُسب وكاذبٌ بعدها، وهو أسوأُ من غيابه.
+         */
+        draftModelCache = { draftId: '', rev: -1, model: null, draft: null };
+        await renderProgress();
         return renderLearn();
       }
 
@@ -10756,6 +10916,14 @@ function wireInteractions(main) {
       }
 
       case 'well-draft-done': return renderWells();
+
+      /*
+       * ⚠️ **وحالةُ الطيّ خارج الرسم** — وإلّا انطبق التفصيلُ مع كلّ
+       *    نقلةِ وحدة، وهي أكثرُ ما يحدث في هذه الشاشة.
+       */
+      case 'prog-map':
+        progMapOpen = !progMapOpen;
+        return renderProgress();
 
       case 'sky-pick': {
         const [file] = await pickFiles({ accept: 'image/*', multiple: false });
