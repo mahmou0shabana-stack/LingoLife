@@ -2910,7 +2910,23 @@ body.shadow-open { overflow: hidden; }
   background: linear-gradient(270deg, transparent 40%, rgba(4, 7, 14, .35));
   transition: opacity .4s ease;
 }
-.shadow-app.is-rail .sh-scrim { opacity: 1; pointer-events: auto; }
+/*
+ * ⚠️ **الحجابُ يُرى ولا يُمسك** (WS-DV4).
+ *
+ *    كان `pointer-events: auto` حين تُفتَح السكّة، و`inset: 0` يغطّي
+ *    الكتابَ كلَّه — فلا تصل لمسةٌ إلى رقاقة كلمة. أي أنّ **أدوات
+ *    الكلمة كلَّها (اسمع · النطق · معناها · احفظ) كانت متعذّرةً كلّما
+ *    كانت السكّةُ مفتوحة**، وهي مفتوحةٌ افتراضًا أثناء تدريب المسودّة
+ *    فبدا العطبُ خاصًّا بها — وليس كذلك.
+ *
+ *    وقِستُه: `elementFromPoint` على إحداثيّات الرقاقة نفسِها يعيد
+ *    `div.sh-scrim` لا `span.sh-chip-w`.
+ *
+ *    و`beginPhrase` كانت تلتفّ على هذا بإغلاق السكّة — علاجٌ موضعيٌّ
+ *    لعرَضٍ عامّ. فصار الحجابُ زينةً خالصة، وإغلاقُ السكّة بلمسةٍ
+ *    خارجها انتقل إلى مُعالِجٍ يعرف ما يمرّ وما يُغلِق.
+ */
+.shadow-app.is-rail .sh-scrim { opacity: 1; }
 
 .sh-toolrail {
   position: absolute; inset-inline-end: 0; inset-block: 0; z-index: 9;
