@@ -127,21 +127,41 @@ describe('WS-MB · نطاقان يصيران نطاقًا', () => {
  * ج) الصفّ والقائمة                                                    *
  * ================================================================== */
 describe('WS-MB · قائمةُ قراءةٍ لا رصُّ بطاقات', () => {
-  it('٧ · الصفُّ بحشوةٍ أقلَّ وفاصلٍ خفيفٍ لا صندوق', async () => {
+  it('٧ · الصفُّ بحشوةٍ أقلَّ ولا إطارَ بطاقةٍ حوله', async () => {
     /*
-     * ⚠️ **بندا ٦ و٧**: «لا تجعل كلَّ جملةٍ بطاقةً كبيرة». فالفاصلُ
-     *    خطٌّ، والحشوةُ خمسةٌ لا اثنا عشر، والحوافُّ شبهُ قائمة.
+     * ⚠️ **بندا ٦ و٧**: «لا تجعل كلَّ جملةٍ بطاقةً كبيرة».
+     *
+     * ⚠️ **وهذا الحارسُ عُكس عمدًا في WS-BK.** كان يشترط
+     *    `border-bottom: 1px solid` و`border-radius: 2px`
+     *    و`padding: 5px 4px` — أي أنّه كان **يحرس المسطرةَ** التي
+     *    تبيّن أنّها أقوى إشارةِ «قائمةِ تطبيق» في الصفحة، ويحرس
+     *    حشوةً بالبكسل بينما الإيقاعُ الصحيحُ بالسطر.
+     *
+     *    فصار يقيس القصدَ لا الكتابة: لا حافّةَ دائريّةً ولا مسطرةً
+     *    ولا خلفيّة، والحشوةُ نسبةٌ من السطر لا رقمٌ ثابت. وحدُّ
+     *    الهاتف ما زال يضغط الصفَّ — وهو ما كانت تعنيه WS-MB.
      */
     const block = await phoneBlock();
-    expect(block).toContain('padding: 5px 4px; margin-bottom: 0;');
-    expect(block).toContain('border-bottom: 1px solid');
-    expect(block).toContain('border-radius: 2px');
+    const bare = block.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(/\.sh-left \.sh-line \{[^}]*padding: \.\d+em/.test(bare)).toBe(true);
+    expect(/\.sh-left \.sh-line \{[^}]*border-bottom: 0/.test(bare)).toBe(true);
+    expect(/\.sh-left \.sh-line \{[^}]*border-radius: 0/.test(bare)).toBe(true);
+    expect(/\.sh-left \.sh-line \{[^}]*background: transparent/.test(bare)).toBe(true);
   });
 
   it('٨ · والمحدَّدُ يُرى بلا بطاقةٍ ضخمة', async () => {
+    /*
+     * ⚠️ **والمنتقي تغيّر في WS-BK** — صار مقصورًا على وضع القراءة
+     *    (`:not(.picking)`) كي لا يمسّ وضعَ الاختيار. فالحارسُ يسأل
+     *    عن **الحالة** لا عن نصّ المنتقي: هل للجارية قاعدةٌ في حدّ
+     *    الهاتف، وهل هي غَسْلةٌ لا بطاقة.
+     */
     const block = await phoneBlock();
-    expect(block).toContain('.sh-left .sh-line.current');
-    expect(block).toContain('box-shadow: none');
+    const bare = block.replace(/\/\*[\s\S]*?\*\//g, '');
+    const rule = /\.sh-line\.current \{([^}]*)\}/.exec(bare);
+    expect(Boolean(rule)).toBe(true);
+    expect(rule[1]).toContain('background:');
+    expect(/box-shadow: (none|inset)/.test(rule[1])).toBe(true);
   });
 
   it('٩ · والطابعُ الزمنيُّ يبقى خارج الصفّ', async () => {
@@ -160,9 +180,18 @@ describe('WS-MB · قائمةُ قراءةٍ لا رصُّ بطاقات', () => 
      * ⚠️ **بند ٥**: ١٦/١٦ على عرضِ ٤١٢ هي ٣٢px — ٧٫٨٪ من الشاشة
      *    لهامشٍ لا يقرؤه أحد. والكتابُ نفسُه كان يترك ١٦ أخرى.
      */
+    /*
+     * ⚠️ **والرقمُ صار متغيّرًا في WS-BK** (`--sh-pagepad`) لأنّ خطَّ
+     *    الهامش يُحسَب منه أيضًا — ورقمان منفصلان ينفصلان. فالحارسُ
+     *    يقرأ القيمةَ من حيث تُعرَّف، لا من نصِّ قاعدة `.sh-page`.
+     */
     const block = await phoneBlock();
-    expect(block).toContain('.sh-book { margin: 0 6px 6px; }');
-    expect(block).toContain('.sh-page { padding: 10px 8px 8px; }');
+    const bare = block.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(bare).toContain('.sh-book { margin: 0 6px 6px; }');
+    const pad = /--sh-pagepad:\s*(\d+)px/.exec(bare);
+    expect(Boolean(pad)).toBe(true);
+    expect(Number(pad[1]) <= 8).toBe(true);
+    expect(/\.sh-page \{[^}]*padding: 10px var\(--sh-pagepad/.test(bare)).toBe(true);
   });
 });
 
@@ -257,10 +286,21 @@ describe('WS-MB · تُضغَط المساحةُ لا قابليّةُ اللم�
  * و) النصُّ المتّصل على الهاتف                                           *
  * ================================================================== */
 describe('WS-MB · النصُّ المتّصل أوفرُ أوضاعِ الهاتف', () => {
-  it('١٦ · يملأ العرضَ ويضيق تباعدُه', async () => {
+  it('١٦ · يملأ العرضَ وتباعدُه تباعدُ قراءة', async () => {
+    /*
+     * ⚠️ **وهذا الحارسُ حُدِّث في WS-BK**: كان يشترط الرقمين بالحرف
+     *    (`margin-bottom: 10px; line-height: 1.72`)، فصار يسقط حين
+     *    كبر النصُّ عمدًا. والمقصودُ أنّ الوضعَ المتّصلَ يملأ العرضَ
+     *    وتباعدُه تباعدُ قراءةٍ لا قائمة — فذلك ما يُقاس.
+     */
     const block = await phoneBlock();
-    expect(block).toContain('.sh-lines.is-flow { padding-inline: 0; }');
-    expect(block).toContain('.sh-flow-p { margin-bottom: 10px; line-height: 1.72; }');
+    const bare = block.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(/\.sh-lines\.is-flow \{[^}]*padding-inline: 0/.test(bare)).toBe(true);
+    const p = /\.sh-flow-p \{([^}]*)\}/.exec(bare);
+    expect(Boolean(p)).toBe(true);
+    const lh = Number(/line-height: ([\d.]+)/.exec(p[1])[1]);
+    expect(lh >= 1.7).toBe(true);
+    expect(lh <= 1.9).toBe(true);
   });
 
   it('١٧ · والهُويّةُ فيه كما هي — لم تمسَّها هذه التمريرة', async () => {
