@@ -2001,9 +2001,6 @@ function lineHtml(segment, index, isCurrent) {
         ? html`<span class="sh-line-spk ${segment.isMine ? 'mine' : ''}">${segment.speaker}</span>`
         : ''
     )}
-    <span class="tx" data-line-text>${segment.sourceTextSnapshot}${raw(
-      segment.translationSnapshot ? html`<span class="tr" hidden>${segment.translationSnapshot}</span>` : ''
-    )}</span>
     <!--
       ⚠️ **والطابعُ الزمنيُّ خرج من الصفّ** (بند ٣). كان يحجز عمودًا
          ثابتًا (00:00) في كلّ سطرٍ من عشرين، وهو رقمٌ لا يُقرأ إلّا
@@ -2016,12 +2013,43 @@ function lineHtml(segment, index, isCurrent) {
       ⚠️ **ولا علامةَ اقتباسٍ خلفيّةً في تعليقٍ داخل قالب html** — هي
          التي تُنهي القالبَ فيصير ما بعدها كودًا. وقعتُ فيها هنا مرّةً
          أخرى، وهي الرابعةُ في هذا الملفّ.
+
+      ⚠️ **والميتا سبقت النصَّ في الترتيب المصدريّ عمدًا** (WS-RW).
+         على الهاتف يصير الصفُّ كتلةً والميتا **طافيةً** في التدفّق،
+         والطافيةُ لا تُزيح إلّا ما جاء بعدها. فلو بقيت الميتا بعد
+         النصّ لَما انحسر عنها سطرٌ واحد، ولاحتجتُ إلى حجز عرضٍ
+         ثابتٍ أخمّنه بيدي — وهو رقمٌ يكذب كلّما أُضيفت شارة.
+         وبهذا الترتيب يصير المحجوزُ **هو المرسومَ نفسَه**، صفرًا
+         حين لا شارةَ ظاهرة.
+
+         وترتيبُ القراءة على الشاشة لم يتغيّر: في الصفّ المرن
+         (الحاسوب واللوح ووضعُ الاختيار) تُعيدها خاصّيّةُ order إلى
+         آخر الصفّ كما كانت.
+
+      ⚠️ **ولا علامةَ اقتباسٍ خلفيّةً هنا** — وهذه خامسُ مرّة.
     -->
     <span class="meta">
       ${raw(done ? html`<span class="reps">×${segment.repetitionsCompleted}</span>` : '')}
       ${raw(learnBadgeHtml(index))}
       <span class="spk">🔊</span>
     </span>
+    <!--
+      ⚠️ **والروسيّةُ تقول عن نفسها إنّها روسيّة** (WS-RW · بند ٦).
+         كان اتّجاهُها مكتوبًا في CSS وحدَها (direction: ltr) —
+         وهذا يكفي **الرسمَ** ولا يكفي **المعنى**: المتصفّحُ لا يعرف
+         أيَّ لغةٍ يقرأ، فلا قاموسَ فصلٍ صحيحًا ولا نطقًا صحيحًا في
+         قارئ الشاشة، ولو غاب ملفُّ الأنماط لحظةً لَورثت الجملةُ
+         اتّجاهَ الصفحة العربيّ. وlang/dir على العنصر نفسِه يجعل
+         السلوكَ صحيحًا حتّى بلا CSS.
+
+         والترجمةُ تحتها تعلن عربيّتَها بالمثل، وإلّا ورثت هي
+         الاتّجاهَ اللاتينيَّ من أبيها.
+    -->
+    <span class="tx" data-line-text lang="ru" dir="ltr">${segment.sourceTextSnapshot}${raw(
+      segment.translationSnapshot
+        ? html`<span class="tr" lang="ar" dir="rtl" hidden>${segment.translationSnapshot}</span>`
+        : ''
+    )}</span>
   </button>`;
 }
 
@@ -7073,7 +7101,8 @@ function flowHtml(rows, current) {
     const cls = ['sh-flow-s', i === current ? 'current' : '',
       material.has(i) ? 'has-draft' : '',
       seg.repetitionsCompleted > 0 ? 'practiced' : ''].filter(Boolean).join(' ');
-    out.push(html`<span class="${cls}" data-line="${i}" role="button" tabindex="0"
+    /* والجملةُ في النصّ المتّصل روسيّةٌ صراحةً كأختِها في وضع الجُمَل. */
+    out.push(html`<span class="${cls}" data-line="${i}" role="button" tabindex="0" lang="ru" dir="ltr"
       ><i class="sh-flow-n" aria-hidden="true">${i + 1}</i>${seg.sourceTextSnapshot}</span> `);
   });
   if (open) out.push('</p>');
