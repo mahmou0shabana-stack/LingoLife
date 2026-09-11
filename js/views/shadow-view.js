@@ -148,7 +148,7 @@ import {
   addRuleImage, detachRuleImage,
   listReferenceImages, addReferenceImage,
   activeDoc, setActiveDoc, clearActiveDoc,
-  readView, patchView,
+  readView, patchView, READ_MODE,
 } from '../services/reference-service.js';
 
 /*
@@ -1112,10 +1112,18 @@ export async function renderShadow(main, sessionId) {
   const savedTab = refView?.tab || REF_TAB.SOURCE;
   /* تبويبٌ محفوظٌ لم يعد موجودًا (نسخةٌ أقدم) يرجع للمصدر لا لفراغ. */
   well = savedTab === REF_TAB.SOURCE || WELLS[savedTab] ? savedTab : REF_TAB.SOURCE;
+  /* ⚠️ وضعُ القراءة يعود كما تركتَه — كالتبويب تمامًا (بند ١٤). */
+  readMode = refView?.read === READ_MODE.FLOW ? READ_MODE.FLOW : READ_MODE.LINES;
   /* مواضعُ التمرير للجلسة الحاليّة وحدها — جلسةٌ جديدةٌ تبدأ نظيفة. */
   refScroll.clear();
   await renderWells();
   paintRefHead();
+  /*
+   * ⚠️ **والقالبُ يرسم الصفوفَ دائمًا، فالوضعُ المحفوظُ يُطبَّق بعده.**
+   *    وإعادةُ الرسم هنا مرّةٌ واحدةٌ عند فتح الشاشة لا في كلّ نقلة.
+   */
+  if (readMode === READ_MODE.FLOW) paintLines();
+  else paintReadModes();
   renderModes();
   renderRail();
   /* رجعتَ والزرُّ عاد أمامك — فالشريطُ يرفع نفسَه. */
@@ -1431,9 +1439,18 @@ function shell() {
                 <button data-sh="doc" data-fit="full">TRANSCRIPT ▸</button>
               </div>
 
-              <div class="sh-sec-head">
-                <span class="sh-mono">TRANSCRIPT · ${segments.length} SENTENCES</span>
-                <span class="sh-mono sh-dim">RU → AR</span>
+              <!--
+                ⚠️ **والمبدّلُ في الرأس القائم لا في صفٍّ جديد** (بند ٦):
+                   هذه التمريرةُ تُقلّل الارتفاعَ لا تزيده. والرأسُ كان
+                   يحمل «RU → AR» وحدَها وهي معلومةٌ ثابتةٌ لا تُبدَّل،
+                   فحلّ محلَّها ما يُضغَط.
+              -->
+              <div class="sh-sec-head sh-read-head">
+                <span class="sh-mono">TRANSCRIPT · ${segments.length}</span>
+                <span class="sh-read-modes" role="tablist" aria-label="طريقة القراءة">
+                  <button data-sh="read-mode" data-v="lines" role="tab">جمل</button>
+                  <button data-sh="read-mode" data-v="flow" role="tab">نص كامل</button>
+                </span>
               </div>
 
               <div class="sh-select-bar" data-select-bar hidden>
@@ -1449,6 +1466,13 @@ function shell() {
 
               ${raw(fontChip('doc'))}
 
+              <!--
+                ⚠️ **حاويةٌ واحدةٌ لرسمين لا حاويتان** (بند ٩): لو عاش
+                   الرسمان معًا في الشجرة لَتكرّرت وسومُ data-line،
+                   فيصير querySelector يُصيب أحدَهما بالصدفة — وكلُّ
+                   ما يقرأ السطرَ بالفهرس (التمرير · الشارة · الإبراز)
+                   يخطئ صامتًا. فالمعروضُ واحدٌ دائمًا.
+              -->
               <div class="sh-lines" data-lines>
                 ${raw(segments.map((seg, i) => lineHtml(seg, i, i === idx)).join(''))}
               </div>
@@ -1967,7 +1991,7 @@ function lineHtml(segment, index, isCurrent) {
     .filter(Boolean)
     .join(' ');
 
-  return html`<button class="${classes}" data-line="${index}">
+  return html`<button class="${classes}" data-line="${index}" title="${stamp(index)}">
     <span class="sh-line-pick" data-pick-box aria-hidden="true"></span>
     <span class="n">${index + 1}</span>
     ${raw(
@@ -1980,10 +2004,22 @@ function lineHtml(segment, index, isCurrent) {
     <span class="tx" data-line-text>${segment.sourceTextSnapshot}${raw(
       segment.translationSnapshot ? html`<span class="tr" hidden>${segment.translationSnapshot}</span>` : ''
     )}</span>
+    <!--
+      ⚠️ **والطابعُ الزمنيُّ خرج من الصفّ** (بند ٣). كان يحجز عمودًا
+         ثابتًا (00:00) في كلّ سطرٍ من عشرين، وهو رقمٌ لا يُقرأ إلّا
+         نادرًا — بينما الجملةُ الروسيّةُ هي ما جئتَ لأجله. وقِستُ
+         أنّ الميتا كانت ٨٧px من ٥٧٦، والنصُّ ٤٢٧ فقط.
+
+         والزمنُ لم يُحذَف من البيانات: stamp(index) كما هي، وتُقرأ
+         في عنوان السطر (title) لمن يحتاجها.
+
+      ⚠️ **ولا علامةَ اقتباسٍ خلفيّةً في تعليقٍ داخل قالب html** — هي
+         التي تُنهي القالبَ فيصير ما بعدها كودًا. وقعتُ فيها هنا مرّةً
+         أخرى، وهي الرابعةُ في هذا الملفّ.
+    -->
     <span class="meta">
       ${raw(done ? html`<span class="reps">×${segment.repetitionsCompleted}</span>` : '')}
       ${raw(learnBadgeHtml(index))}
-      <span class="ts">${stamp(index)}</span>
       <span class="spk">🔊</span>
     </span>
   </button>`;
@@ -6978,6 +7014,115 @@ function syncMediaSession(segment) {
 /** المنبعُ المفتوح الآن. */
 let well = 'source';
 
+/* ================================================================== *
+ * وضعُ القراءة: جملٌ أو نصٌّ متّصل (WS-TD)                              *
+ * ================================================================== */
+
+/**
+ * ⚠️ **عرضان لنفس المقاطع — لا مصدرٌ ثانٍ ولا نسخة.**
+ *
+ *    البلاغُ كان عن **الكثافة**: صفحةُ النصّ تُنفق ٣٢٢px من ٦٤٦ على
+ *    ما فوق القائمة، فلا يبقى للجُمَل إلّا ٢٣٩px — أربعةُ صفوفٍ من
+ *    عشرين. وقِستُ ذلك قبل أن ألمس سطرًا.
+ *
+ *    وجزءٌ من الجواب ضغطُ الزينة، وجزؤه الأهمُّ **وضعُ قراءةٍ ثانٍ**:
+ *    نصٌّ متّصلٌ يُقرأ كتقريرٍ لا كعشرين صندوقًا.
+ *
+ * ⚠️ **والهُويّةُ لا تُمَسّ** (بند ١٠): كلُّ جملةٍ في النصّ المتّصل تبقى
+ *    عنصرًا يحمل `data-line` — نفسَ الوسم الذي يقرؤه مُعالِجُ اللمس
+ *    و`syncSegment` و`refreshDrafted`. فلا بنيةَ اختيارٍ ثانية، ولا
+ *    سلسلةٌ نصّيّةٌ بلا هُويّة.
+ */
+let readMode = READ_MODE.LINES;
+
+/**
+ * مقاطعُ المصدر وحدَها — بلا مقاطع التدريب المؤقّتة.
+ *
+ * ⚠️ **ولمَ التصفية؟** `enterTempSource` **تُلحِق** وحداتِ التدريب
+ *    بـ`ctx.segments` ولا تُعيد رسمَ القائمة. فلو أعاد المبدّلُ الرسمَ
+ *    من `ctx.segments` وأنت داخل تدريبٍ لَظهرت الستَّ عشرةَ وحدةً
+ *    فجأةً في قائمة جُمَل السكريبت. والإلحاقُ في الآخر دائمًا، فالفهارسُ
+ *    الباقيةُ لا تتزحزح.
+ */
+function sourceRows() {
+  return (ctx?.segments || []).filter((seg) => !seg.temporary);
+}
+
+/**
+ * النصُّ المتّصل — ما جئتَ لتقرأه، بلا صناديق.
+ *
+ * ⚠️ **ولا فقراتٌ مخترَعة** (بند ١٢): المقاطعُ لا تحمل حدودَ فقرات،
+ *    والمصدرُ لا يعطيها. فالاختراعُ هنا كذبٌ على بنيةٍ ليست موجودة.
+ *    والفاصلُ الوحيدُ المؤلَّفُ فعلًا هو **تبدّلُ المتحدّث** في
+ *    المحادثات — وهو حدٌّ من المصدر لا منّي.
+ */
+function flowHtml(rows, current) {
+  const out = [];
+  let speaker = null;
+  let open = false;
+  rows.forEach((seg, i) => {
+    const who = seg.speaker || null;
+    if (!open || who !== speaker) {
+      if (open) out.push('</p>');
+      out.push(who
+        ? html`<p class="sh-flow-p"><span class="sh-flow-who">${who}</span>`
+        : '<p class="sh-flow-p">');
+      speaker = who;
+      open = true;
+    }
+    const cls = ['sh-flow-s', i === current ? 'current' : '',
+      material.has(i) ? 'has-draft' : '',
+      seg.repetitionsCompleted > 0 ? 'practiced' : ''].filter(Boolean).join(' ');
+    out.push(html`<span class="${cls}" data-line="${i}" role="button" tabindex="0"
+      ><i class="sh-flow-n" aria-hidden="true">${i + 1}</i>${seg.sourceTextSnapshot}</span> `);
+  });
+  if (open) out.push('</p>');
+  return out.join('');
+}
+
+/**
+ * يرسم القائمةَ بالوضع الجاري — **حاويةٌ واحدةٌ لرسمين**.
+ *
+ * ⚠️ **ولا يُعاد بناءُ الجلسة ولا يُقرأ شيءٌ من القاعدة** (بند ٢١):
+ *    نفسُ المقاطع في الذاكرة، ورسمٌ آخرُ لها. فالتبديلُ لحظيّ.
+ */
+function paintLines() {
+  const host = $('[data-lines]');
+  if (!host || !ctx?.segments) return;
+  const rows = sourceRows();
+  const at = player?.state?.index ?? 0;
+  host.classList.toggle('is-flow', readMode === READ_MODE.FLOW);
+  host.innerHTML = readMode === READ_MODE.FLOW
+    ? flowHtml(rows, at)
+    : rows.map((seg, i) => lineHtml(seg, i, i === at)).join('');
+  paintReadModes();
+}
+
+/** يُعلِّم الزرَّ الجاري في مبدّل القراءة. */
+function paintReadModes() {
+  document.querySelectorAll('[data-sh="read-mode"]').forEach((btn) => {
+    const on = btn.dataset.v === readMode;
+    btn.classList.toggle('on', on);
+    btn.setAttribute('aria-selected', on ? 'true' : 'false');
+  });
+}
+
+/**
+ * يبدّل وضعَ القراءة ويحفظه.
+ *
+ * ⚠️ **ولا كتابةَ في مخزنٍ جديد** (بند ١٤): `patchView` تكتب في
+ *    `settings` — نفسُ المكان الذي يحفظ التبويبَ المفتوح. فلا مخطَّطَ
+ *    يتغيّر ولا مخزنَ يُضاف لأجل مفتاحِ عرضٍ واحد.
+ */
+async function setReadMode(mode) {
+  const next = mode === READ_MODE.FLOW ? READ_MODE.FLOW : READ_MODE.LINES;
+  if (next === readMode) return undefined;
+  readMode = next;
+  paintLines();
+  refView = await patchView({ read: next }).catch(() => refView);
+  return undefined;
+}
+
 /**
  * حالةُ الورشة المحفوظة — التبويبُ وصفحةُ الملفّ والقاعدةُ المفتوحة.
  *
@@ -10916,6 +11061,8 @@ function wireInteractions(main) {
       }
 
       case 'well-draft-done': return renderWells();
+
+      case 'read-mode': return setReadMode(btn.dataset.v);
 
       /*
        * ⚠️ **وحالةُ الطيّ خارج الرسم** — وإلّا انطبق التفصيلُ مع كلّ

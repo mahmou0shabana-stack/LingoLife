@@ -471,8 +471,18 @@ describe('WS-SL · بابٌ واحدٌ لا بابان', () => {
 
   it('٢٩ · وصفُّ الجملة يحمل شارةً واحدةً لا شارتين', async () => {
     const src = bare(await view());
+    /*
+     * ⚠️ **والجسمُ يُقطَع عند نهايته لا عند بايتٍ بعينه.**
+     *
+     *    كان القطعُ `at + 1600`، فسقط الحارسُ في WS-TD حين طال تعليقٌ
+     *    **بصيغة HTML** داخل القالب: `bare` تحذف تعليقاتِ الكود ولا
+     *    تحذف تعليقاتِ الوسم، فدفعت `learnBadgeHtml` خارج النافذة.
+     *    والشارةُ لم تتغيّر — تغيّر طولُ ما قبلها.
+     *
+     *    ونافذةٌ بعدد البايتات تحرس **طولَ الكتابة** لا السلوك.
+     */
     const at = src.indexOf('function lineHtml');
-    const body = src.slice(at, at + 1600);
+    const body = src.slice(at, src.indexOf('\nfunction ', at + 10));
     expect(body.includes('learnBadgeHtml(index)')).toBe(true);
     expect(/draftBadgeHtml|storyBadgeHtml/.test(body)).toBe(false);
   });

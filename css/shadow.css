@@ -637,12 +637,18 @@
 .sh-line {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  /*
+   * ⚠️ **الحشوةُ أقلُّ والنصُّ أعرض (WS-TD · بندا ٥ و٦).** قِستُ قبل
+   *    التغيير: الصفُّ ٦٦px، والميتا ٨٧px، والنصُّ ٤٢٧ من ٥٧٦ — أي أنّ
+   *    ربعَ العرض يذهب لما حول الجملة. وأربعةُ صفوفٍ من عشرين تُرى.
+   *    والزينةُ هي التي ضُغطت، لا أهدافُ اللمس.
+   */
+  gap: 8px;
   width: 100%;
   text-align: start;
   font: inherit;
-  padding: 11px 12px;
-  margin-bottom: 7px;
+  padding: 7px 9px;
+  margin-bottom: 4px;
   border-radius: 13px;
   border: 1px solid transparent;
   background: rgba(255, 255, 255, .02);
@@ -797,7 +803,7 @@
   border: 0;
   border-radius: 3px;
   border-inline-start: 3px solid transparent;
-  padding: 12px 12px;
+  padding: 6px 8px;
   margin-bottom: 2px;
   color: var(--sh-paper-ink-2);
   font-weight: 300;
@@ -2718,12 +2724,25 @@ body.shadow-open { overflow: hidden; }
  *    يقسم **الورقة نفسها**: كم ترى من المستند وكم ترى من الجمل. و44px
  *    حدُّ اللمس هنا أيضًا — نفسُ الدرس الذي كلّفنا جولةً في الكعب.
  */
+/*
+ * ⚠️ **المقبضُ بلا أزراره — لأنّها مكرَّرةٌ حرفيًّا فوقه (WS-TD · بند ٦).**
+ *
+ *    كان الصفُّ ٤٤px يحمل «◂ SOURCE» و«TRANSCRIPT ▸»، وكلاهما يضبط
+ *    `docSize` — وهو نفسُه ما تفعله FIT وFULL و▾ في رأس الورشة على
+ *    بُعد سطرين. فأربعةٌ وأربعون بكسلًا تُنفَق على **نسخةٍ ثانيةٍ من
+ *    نفس التحكّم**، في شاشةٍ شكوى صاحبها أنّ النصَّ لا يجد مكانًا.
+ *
+ * ⚠️ **ولم يُحذَف تحكُّمٌ**: الطيُّ والتكبيرُ وFIT وFULL كلُّها باقيةٌ في
+ *    الرأس، والسحبُ نفسُه باقٍ — المقبضُ هو الذي يُسحَب لا الأزرار.
+ *    وارتفاعُه ٢٢px يكفي إصبعًا للسحب، وليس هدفَ نقرٍ حتى يلزمه ٤٤.
+ */
 .sh-docsplit {
   flex: none; display: flex; align-items: center; justify-content: center;
-  gap: 14px; min-block-size: 44px; margin: 4px 0 2px;
+  gap: 14px; min-block-size: 22px; margin: 2px 0 0;
   cursor: row-resize; touch-action: none; border-radius: 3px;
   transition: background .25s ease;
 }
+.sh-docsplit button { display: none; }
 .shadow-app.is-docdrag .sh-docsplit { background: rgba(101, 80, 48, .08); }
 
 .sh-docsplit button {
@@ -2738,16 +2757,21 @@ body.shadow-open { overflow: hidden; }
 }
 .shadow-app.is-docdrag .sh-grip { background: rgba(122, 95, 44, .75); }
 
-.sh-lines { flex: 1; min-height: 0; overflow-y: auto; margin-top: 4px; }
+.sh-lines { flex: 1; min-height: 0; overflow-y: auto; margin-top: 2px; }
 
 .sh-foot-tabs {
-  display: flex; gap: 20px; flex: none; margin-top: 8px; padding-top: 12px;
+  display: flex; gap: 18px; flex: none; margin-top: 4px; padding-top: 4px;
   border-top: 1px solid var(--sh-paper-line);
 }
+/*
+ * ⚠️ **الحدُّ صريحٌ الآن لا ناتجٌ عن الحشوة.** كان الارتفاعُ يأتي من
+ *    `padding: 8px 0` وحدَه، فضغطُ الحشوة كان سيُصغّر هدفَ اللمس بلا
+ *    أن ينتبه أحد. فالحدُّ مكتوبٌ، والفجوةُ فوقه هي التي ضُغطت.
+ */
 .sh-foot-tabs button {
   font-family: var(--sh-mono); font-size: 10.5px; letter-spacing: .15em;
-  border: 0; background: none; padding: 8px 0; cursor: pointer;
-  color: rgba(90, 72, 44, .5);
+  border: 0; background: none; padding: 4px 0; cursor: pointer;
+  min-block-size: 34px; color: rgba(90, 72, 44, .5);
 }
 .sh-foot-tabs button.on { color: var(--sh-paper-gold); }
 
@@ -3780,7 +3804,13 @@ body.shadow-open { overflow: hidden; }
 }
 
 /* والصفوف تلتصق ببعضها فتُرى منها أكثر. */
-.sh-left .sh-line { padding: 9px 10px; }
+/*
+ * ⚠️ **وهنا الحشوةُ الفعليّة لا في القاعدة العامّة (WS-TD).** غيّرتُ
+ *    القاعدةَ العامّة أوّلًا فقِست الصفَّ ٤٢px — وهو تحسّنٌ حقيقيّ —
+ *    ثمّ قرأتُ الحشوةَ فوجدتُها ٩/١٠ كما كانت: تخصيصٌ أدقُّ يغلبها.
+ *    فالرقمُ الذي تراه الشاشةُ ليس دائمًا الرقمَ الذي كتبتَه.
+ */
+.sh-left .sh-line { padding: 6px 8px; }
 
 /*
  * ⚠️ **وحالاتي كلُّها كانت ترمي `ReferenceError` بصمت.**
@@ -3798,7 +3828,8 @@ body.shadow-open { overflow: hidden; }
 /* ---------- منابعُ الذكرى في الورقة (طلبُك: كل حاجة في مكانها) ---------- */
 .sh-well-tabs {
   display: flex; gap: 2px; flex: none; flex-wrap: wrap;
-  margin-bottom: 4px; padding-bottom: 4px;
+  /* ⚠️ الفجوةُ ضُغطت لا الزرُّ — الزرُّ يبقى 44 (WS-B · بند 56). */
+  margin-bottom: 2px; padding-bottom: 2px;
   border-bottom: 1px solid var(--sh-paper-line);
 }
 .sh-well-tabs button {
@@ -6479,4 +6510,94 @@ body.shadow-open { overflow: hidden; }
 @media (max-width: 700px) {
   .sh-prog { inline-size: 96%; }
   .sh-prog-row { grid-template-columns: 44px 1fr 40px; }
+}
+
+/* ================================================================== */
+/* وضعُ القراءة: جملٌ أو نصٌّ متّصل (WS-TD)                              */
+/* ================================================================== */
+
+/*
+ * ⚠️ **البلاغُ كان عن الكثافة، والقياسُ سبق التغيير.**
+ *
+ *    على ١٢٨٠×٨٠٠: الصفحةُ اليسرى ٦٤٦px، تُنفق **٣٢٢** منها على ما
+ *    فوق القائمة و**٤١** على ما تحتها — فلا يبقى للجُمَل إلّا ٢٣٩px،
+ *    أي **أربعةُ صفوفٍ من عشرين**. والنصُّ الروسيُّ ٤٢٧px من ٥٧٦،
+ *    والميتا ٨٧ منها طابعٌ زمنيٌّ لا يُقرأ.
+ *
+ *    والجوابُ شقّان: ضغطُ الزينة (لا أهدافِ اللمس)، ووضعُ قراءةٍ ثانٍ
+ *    يعرض النصَّ كتقريرٍ متّصلٍ لا كعشرين صندوقًا.
+ */
+.sh-read-head { gap: 8px; }
+.sh-read-modes { display: flex; gap: 2px; }
+.sh-read-modes button {
+  font-family: var(--sh-mono); font-size: 9.5px; letter-spacing: .12em;
+  /* ⚠️ مبدّلٌ يُضغَط كثيرًا — فلا ينزل عن حدّ اللمس مهما ضُغط ما حوله. */
+  min-block-size: 34px; padding: 0 10px; border: 0; border-radius: 3px;
+  background: none; color: rgba(90, 72, 44, .55); cursor: pointer;
+  white-space: nowrap;
+}
+.sh-read-modes button.on {
+  background: rgba(217, 182, 114, .22); color: var(--sh-paper-gold); font-weight: 600;
+}
+
+/* ---------------- النصُّ المتّصل ---------------- */
+
+/*
+ * ⚠️ **ولا صندوقَ حول كلّ جملة** (بند ٨): ذاك هو وضعُ الجُمَل. وهنا
+ *    تُقرأ الصفحةُ كتقريرٍ — سطورٌ متّصلةٌ بطولٍ مريح، بلا عمودِ زمنٍ
+ *    ولا عدّادِ تقدّمٍ بجوار كلّ سطر.
+ *
+ * ⚠️ **والهُويّةُ باقيةٌ تحت الجلد** (بند ١٠): كلُّ جملةٍ عنصرٌ يحمل
+ *    `data-line`، فتُلمَس وتُبرَز وتُفتَح مسودّتُها بنفس المسار.
+ */
+.sh-lines.is-flow {
+  padding-inline: 2px;
+  font-size: calc(1em * var(--sh-font-size, 1) * var(--font-scale, 1));
+}
+
+.sh-flow-p {
+  margin: 0 0 14px;
+  /*
+   * ⚠️ **طولُ سطرٍ مريحٌ للقراءة — لا عرضُ الورقة كلِّه مهما اتّسع.**
+   *    والوحدةُ `ch` لا `px` لأنّ حجمَ الخطّ يتغيّر بمنزلق المستخدم،
+   *    فسقفٌ بالبكسل يصير ثلاثين حرفًا عند تكبيره وتسعين عند تصغيره.
+   */
+  max-inline-size: min(68ch, 100%);
+  line-height: 1.85;
+  color: var(--sh-paper-ink);
+  direction: ltr; text-align: start;
+}
+
+.sh-flow-who {
+  display: inline-block; margin-inline-end: 8px;
+  font-family: var(--sh-mono); font-size: 9.5px; letter-spacing: .14em;
+  color: var(--sh-paper-gold); vertical-align: 2px;
+}
+
+.sh-flow-s {
+  cursor: pointer; border-radius: 3px;
+  padding: 1px 2px; margin-inline: -2px;
+  transition: background .18s ease;
+}
+.sh-flow-s:hover { background: rgba(101, 80, 48, .08); }
+.sh-flow-s.current { background: rgba(217, 182, 114, .28); }
+/* حاشيةٌ خفيفةٌ تقول «لهذه الجملة مسودّة» — بلا صندوق. */
+.sh-flow-s.has-draft { box-shadow: inset 0 -2px 0 rgba(217, 182, 114, .5); }
+.sh-flow-s.practiced { color: rgba(43, 36, 27, .72); }
+
+/*
+ * رقمُ الجملة: مستورٌ حتى تُلمَس أو تُحوَّم — «قابلٌ للاكتشاف» لا
+ * «معروضٌ دائمًا» (بند ١٣). وإظهارُه لكلّ جملةٍ يُعيد بناءَ القائمة.
+ */
+.sh-flow-n {
+  display: none; font-style: normal;
+  font-family: var(--sh-mono); font-size: 9px;
+  color: var(--sh-paper-gold); margin-inline-end: 4px; vertical-align: 3px;
+}
+.sh-flow-s:hover .sh-flow-n,
+.sh-flow-s.current .sh-flow-n { display: inline; }
+
+@media (max-width: 700px) {
+  .sh-flow-p { max-inline-size: none; line-height: 1.75; }
+  .sh-read-modes button { padding: 0 8px; }
 }

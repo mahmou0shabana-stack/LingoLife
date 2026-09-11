@@ -84,8 +84,23 @@ export const FIT = Object.freeze({
 });
 
 /** الحالةُ الافتراضيّة للورشة — أوّلُ فتحةٍ في العمر. */
+/**
+ * وضعُ القراءة في لوح النصّ (WS-TD).
+ *
+ * ⚠️ **عرضان لنفس المقاطع لا مصدران**: `LINES` صفوفٌ مرقَّمةٌ للدرس
+ *    جملةً جملة، و`FLOW` نصٌّ متّصلٌ للقراءة. والبياناتُ واحدةٌ
+ *    والهُويّاتُ واحدة — يتغيّر الرسمُ لا المخزن.
+ */
+export const READ_MODE = Object.freeze({ LINES: 'lines', FLOW: 'flow' });
+
 const DEFAULT_VIEW = Object.freeze({
   tab: REF_TAB.SOURCE,
+  /*
+   * ⚠️ **ولا ترقيةَ مخطَّط لأجل مفتاحٍ جديد**: `readView` تدمج المحفوظَ
+   *    فوق الافتراضيّ، فحالةٌ كُتبت قبل هذه التمريرة تقرأ `lines` بلا
+   *    هجرةٍ ولا كسر — وهو ما وُعد به التعليقُ فوق `readView` حرفيًّا.
+   */
+  read: READ_MODE.LINES,
   collapsed: false,
   doc: { page: 1, zoom: 1, fit: FIT.WIDTH },
   rules: { openId: null, query: '' },
