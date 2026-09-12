@@ -212,13 +212,40 @@ describe('WS-ST · الشاشةُ للغة', () => {
      *    نسبةٌ من المسرح لا ارتفاعُ سطرين.
      */
     const f = await stageAt(412, 915);
-    expect(f.cs('.sh-chips').flexGrow).toBe('1');
+    /*
+     * ⚠️ **`>= 1` لا `=== '1'` (عُدِّل في WS-SZ).** المحروسُ أن النطاقَ
+     *    **ينمو**، لا أن نصيبَه رقمٌ بعينه. وصار ٢ حين أخذ البطلُ ٣
+     *    في قسمة المسرح — ونصيبٌ أكبرُ لا يكسر هذا الحارسَ، والرقمُ
+     *    الحرفيُّ كان يحرس الصياغةَ لا القرار.
+     */
+    expect(Number(f.cs('.sh-chips').flexGrow) >= 1).toBe(true);
     const cap = f.cs('.sh-chips').maxHeight;
     expect(cap.includes('em')).toBe(false);
     expect(cap === 'none').toBe(false);
-    /* والصفوفُ تتراصُّ في أعلاه فلا يتوسّط الفراغُ الكلمات. */
-    expect(f.cs('.sh-chips').alignContent).toBe('flex-start');
     f.close();
+
+    /*
+     * ⚠️ **وشرطُ `align-content: flex-start` نُقض عمدًا في WS-SZ** —
+     *    وهذا موضعُ الحساب. كان قصدُه: «لا يتوسّط الفراغُ الكلماتِ
+     *    فتلتصق بالترجمة ويبقى ما تحتها خاليًا». وبلاغُ WS-SZ عكسَ
+     *    القرار: حقلُ الكلمات نطاقٌ في **النصف الأسفل** يتوسّط نصيبَه.
+     *
+     *    لكنّ **ما كان يحرسه هذا الشرطُ فعلًا باقٍ محروسًا**: عند
+     *    الفيض تبدأ الصفوفُ من **أعلى** النطاق لا من وسطه. فالتوسيطُ
+     *    الأعمى في صندوقٍ يُمرَّر يقصّ أعلاه قصًّا لا رجعةَ فيه (حدُّ
+     *    التمرير الأعلى صفرٌ لا سالب) — وقد حدث ذلك فعلًا: ثلاثُ
+     *    كلماتٍ من ٢٣ صارت غيرَ قابلةٍ للوصول. فصار الشرطُ سلوكًا
+     *    مقيسًا بدل اسمِ قيمة: **لا رقاقةَ فوق حدّ نطاقها حين يفيض.**
+     */
+    const g = await stageAt(412, 915, { words: 23 });
+    const host = g.doc.querySelector('.sh-chips');
+    const hb = host.getBoundingClientRect();
+    const above = [...g.doc.querySelectorAll('.sh-chip')]
+      .filter((c) => c.getBoundingClientRect().top < hb.top - 1).length;
+    const overflow = host.scrollHeight - host.clientHeight;
+    g.close();
+    expect(overflow > 0).toBe(true);
+    expect(above).toBe(0);
   });
 
   it('٤ · والبطلُ لا يمتصّ الفائضَ فيصنع حفرة', async () => {
@@ -226,9 +253,45 @@ describe('WS-ST · الشاشةُ للغة', () => {
      * ⚠️ **بند ٢٠**: كان `flex: 1 1 auto` فيأخذ كلَّ فراغٍ زائد —
      *    وقِستُ جملةً من كلمةٍ واحدة: ٣١٦px لمحتوى ٨٩.
      */
-    const f = await stageAt(412, 915);
-    expect(f.cs('.sh-hero').flexGrow).toBe('0');
+    /*
+     * ⚠️ **وشرطُ `flex-grow: 0` نُقض عمدًا في WS-SZ** — والحفرةُ
+     *    التي يحرسها باقيةٌ محروسة، لكن بقياسها لا بمنع النموّ.
+     *
+     *    كان المنعُ صحيحًا **لأنّ الجملةَ كانت في أعلى البطل**
+     *    (`justify-content: flex-start`): فكلُّ ما ينمو يصير فراغًا
+     *    **تحتها** — حفرةً من جهةٍ واحدة. وقِيس حينها: صندوقٌ ٣١٦px
+     *    لمحتوى ٨٩.
+     *
+     *    ومنعُ النموّ ثمنُه أنّ ارتفاعَ البطل يصير ارتفاعَ جملته،
+     *    فيتحرّك كلُّ ما تحته بطولها — وهو عطبُ WS-SZ بحرفه: الترجمةُ
+     *    عند ٢٢٫٥٪ في جملةٍ من كلمتين و٤٣٫٩٪ في جملةٍ من أربعَ عشرة.
+     *
+     *    فصار للبطل نصيبٌ **مع توسيطٍ آمن**: ينمو، والفائضُ يُقسَم
+     *    **حول** الجملة لا يتجمّع تحتها. فالمحروسُ الآن هو ذلك
+     *    بالضبط — لا حفرةَ من جهةٍ واحدةٍ داخل البطل — ويُقاس على
+     *    جملةٍ قصيرةٍ حيث كان العطبُ أظهرَ ما يكون.
+     */
+    const f = await stageAt(412, 915, { words: 3 });
+    const hero = f.doc.querySelector('.sh-hero').getBoundingClientRect();
+    /*
+     * ⚠️ **بصندوق الهامش لا بصندوق الحدّ.** أوّلُ قياسٍ أعطى ٤٦ أعلى
+     *    و٦٦ أسفل فبدا التوسيطُ مكسورًا — والسببُ أنّ فليكس يوسّط
+     *    **صناديقَ الهوامش**، فهامشُ ابنٍ سفليٌّ يُحسَب في التوسيط
+     *    ولا يُحسَب في قياسي. المِرقابُ كان يقيس شيئًا آخر.
+     */
+    const kids = [...f.doc.querySelector('.sh-hero').children]
+      .filter((c) => c.getBoundingClientRect().height > 0)
+      .map((c) => {
+        const r = c.getBoundingClientRect();
+        const cs = f.win.getComputedStyle(c);
+        return { top: r.top - parseFloat(cs.marginTop), bottom: r.bottom + parseFloat(cs.marginBottom) };
+      });
+    const gapTop = Math.round(Math.min(...kids.map((r) => r.top)) - hero.top);
+    const gapBottom = Math.round(hero.bottom - Math.max(...kids.map((r) => r.bottom)));
     f.close();
+    /* والفائضُ مقسومٌ حول المحتوى: الفرقُ بين الجهتين لا يتجاوز ١٤px. */
+    expect(`أعلى ${gapTop} · أسفل ${gapBottom}`)
+      .toBe(`أعلى ${gapTop} · أسفل ${Math.abs(gapTop - gapBottom) <= 14 ? gapBottom : gapTop}`);
   });
 });
 

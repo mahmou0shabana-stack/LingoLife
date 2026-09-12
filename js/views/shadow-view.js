@@ -1639,8 +1639,6 @@ function shell() {
                   </span>
                 </div>
                 <div class="sh-current-text" data-text></div>
-                <div class="sh-current-tr" dir="rtl" data-tr></div>
-                <div class="sh-marks" data-marks></div>
 
                 <!--
                   ⚠️ **مربّعُ النصّ الخارجيّ في مكان الجملة نفسه.**
@@ -1659,6 +1657,20 @@ function shell() {
                   <button type="button" data-sh="scratch-close" aria-label="اقفل">✕</button>
                 </form>
               </div>
+
+              <!--
+                ⚠️ **الترجمةُ خرجت من البطل وصارت نطاقًا ثالثًا** (WS-SZ ·
+                   بند ٩). كانت داخل البطل فتتحرّك معه: قِستُ
+                   موضعَها على ٤١٢×٩١٥ فكان ١٨٦px في جملةٍ من كلمتين
+                   و٣٦٢ في جملةٍ من أربعَ عشرة — أي أنّها تتبع طولَ
+                   الجملة لا تقسيمَ الصفحة، وتبقى ملتصقةً بها دائمًا.
+
+                   وهي **جسرٌ** بين الجملة والكلمات: لا تتبع أيًّا منهما،
+                   بل تقف بينهما بمسافةٍ من كلٍّ. فصارت أختًا للبطل لا
+                   ابنةً له، ولها نصيبُها من قسمة المسرح.
+              -->
+              <div class="sh-current-tr" dir="rtl" data-tr></div>
+              <div class="sh-marks" data-marks></div>
 
               <!--
                 رقائقُ الكلمات: ضغطةٌ تسمعها، وضغطةٌ مطوّلة تفتح أدواتها
