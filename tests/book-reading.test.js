@@ -128,11 +128,16 @@ async function frameAt(width, { flow = false } = {}) {
    *    فالانتظارُ الآن على ما نحتاجه فعلًا: أن يكون الصفُّ قد أخذ
    *    تخطيطَه من ورقة الظلّ. **انتظر النتيجةَ لا الإشعار.**
    */
+  /*
+   * ⚠️ **والأثرُ يجب أن يكون من ورقة الظلّ وحدَها** (WS-BG). كان
+   *    الانتظارُ على `display` — و`base.css` تكفي لذلك، فيمرّ
+   *    الانتظارُ و`shadow.css` لم تصل، فيُقاس زرٌّ بخلفيّة المتصفّح
+   *    الافتراضيّة. وتدرّجُ الورقة لا يأتي إلّا من ورقة الظلّ.
+   */
   const ready = () => {
-    const el = doc.querySelector('.sh-line, .sh-flow-p');
-    if (!el) return false;
-    const d = iframe.contentWindow.getComputedStyle(el).display;
-    return d === 'block' || d === 'flex';
+    const left = doc.querySelector('.sh-left');
+    if (!left) return false;
+    return iframe.contentWindow.getComputedStyle(left).backgroundImage.includes('gradient');
   };
   const started = Date.now();
   while (!ready() && Date.now() - started < 4000) {
