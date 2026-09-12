@@ -2788,7 +2788,17 @@ body.shadow-open { overflow: hidden; }
 /* ---------- الكون: أعلى المسرح ---------- */
 .sh-right { padding: 22px 20px 18px; gap: 0; }
 
-.sh-stage-top { flex: none; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+/*
+ * ⚠️ **رأسُ المسرح سطرٌ لا عمود** (WS-ST · بند ١٣): العدّادُ سطرٌ
+ *    والشريطُ سطرٌ ورقاقةُ «Aa» سطرٌ ثالث = ٦٨px. وهي تتّسع لسطرٍ
+ *    واحدٍ حتّى على ٤١٢. والشريطُ يُرسَل أسفلَهما بـ`order` — فلا
+ *    يُحذَف عنصرٌ ولا يُزحزَح في الوسم.
+ */
+.sh-stage-top {
+  flex: none; display: flex; flex-direction: row; flex-wrap: wrap;
+  align-items: center; justify-content: center; gap: 3px 10px;
+}
+.sh-stage-top .sh-bar { order: 9; flex-basis: 100%; }
 .sh-count { color: var(--sh-faint); display: flex; align-items: baseline; gap: 8px; }
 .sh-count b { color: rgba(224, 196, 138, .9); font-weight: 400; }
 
@@ -2926,10 +2936,10 @@ body.shadow-open { overflow: hidden; }
 }
 .sh-ico-next { transform: scaleX(-1); }
 
-.sh-quickpills { flex: none; display: flex; justify-content: center; gap: 2px; margin-top: 8px; }
+.sh-quickpills { flex: none; display: flex; justify-content: center; gap: 2px; margin-top: 5px; }
 .sh-quickpills button {
   font-family: var(--sh-mono); font-size: 10.5px; letter-spacing: .14em;
-  min-height: 44px; padding: 0 15px; border-radius: 3px; cursor: pointer;
+  min-height: 36px; padding: 0 13px; border-radius: 3px; cursor: pointer;
   border: 0; background: none; color: var(--sh-faint);
   direction: ltr; unicode-bidi: isolate;
 }
@@ -3062,12 +3072,19 @@ body.shadow-open { overflow: hidden; }
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 30vw;
 }
 
-.sh-stats { display: flex; gap: 32px; text-align: center; flex: none; }
+/*
+ * ⚠️ **سطرٌ واحدٌ لا ثلاثةُ أعمدة** (WS-ST · بند ١٦). كانت ثلاثةَ
+ *    أعمدةٍ رقمُها ٢٠px فوق وصفِها — ٥٥px من ارتفاع القراءة لمعلومةٍ
+ *    ثانويّة. والرقمُ نفسُه باقٍ، وقد اختصرته الهاتفُ قبلًا (WS-MB)،
+ *    فصار الاختصارُ للجميع.
+ */
+.sh-stats { display: flex; gap: 18px; align-items: baseline; text-align: center; flex: none; }
+.sh-stats > div { display: flex; align-items: baseline; gap: 5px; }
 .sh-stats b {
-  display: block; font-size: 20px; font-weight: 300;
+  display: inline; font-size: 15px; font-weight: 300;
   font-variant-numeric: tabular-nums; direction: ltr;
 }
-.sh-stats span { display: block; color: rgba(239, 231, 216, .3); margin-top: 3px; }
+.sh-stats span { display: inline; color: rgba(239, 231, 216, .3); margin-top: 0; font-size: 9px; }
 
 .sh-overview {
   min-height: 44px; padding: 0 20px; flex: none; cursor: pointer;
@@ -3201,7 +3218,14 @@ body.shadow-open { overflow: hidden; }
     font-size: calc(clamp(18px, 4.7cqw, 41px) * var(--sh-font-size, 1) * var(--font-scale, 1));
   }
   .sh-current-tr { font-size: clamp(14px, 2.6cqw, 23px); }
-  .sh-chip-w { font-size: clamp(13px, 1.95cqw, 17px); }
+  /*
+   * ⚠️ **والكلمةُ المقسَّمةُ تُقرأ لا تُلمَح** (WS-ST · بند ٧). كان
+   *    المدى `13px → 17px`، فقِستُ: على الهاتف ١٣ (القاع) وعلى اللوح
+   *    ١٣٫٧ — أي أنّ السقفَ لا يُبلَغ أبدًا في أيّ جهازٍ حقيقيّ، وكانت
+   *    الكلماتُ أصغرَ من متن الصفحة اليسرى (١٥٫٤). فرُفع القاعُ
+   *    والسقفُ معًا: ١٨ على الهاتف، ٢٢ على اللوح الواسع.
+   */
+  .sh-chip-w { font-size: clamp(18px, 2.6cqw, 22px); }
 }
 
 /* والنسبةُ الافتراضيّة للصفحتين كنسبة النموذج: 614 من 1490. */
@@ -3438,10 +3462,15 @@ body.shadow-open { overflow: hidden; }
  *    مقصوصةً تحتها وزادت فراغًا على الجهة الأخرى. المواضعُ الثابتة
  *    تُكتَب `right`/`left`، والنصُّ وحده يتبع اللغة.
  */
-.sh-right { padding: 22px 62px 18px 20px; }
+/*
+ * ⚠️ **وحشوةُ المسرح الرأسيّةُ ضُغطت** (WS-ST · بند ١٣): ٢٢/١٨ ← ١٢/١٠.
+ *    أربعون بكسلًا فوق وتحت محتوى المسرح على لوحٍ ارتفاعُه ٨٠٠ — وهي
+ *    فراغٌ لا حافّة. والحشوةُ الأفقيّةُ (٦٢ يمينًا للسكّة) كما هي.
+ */
+.sh-right { padding: 12px 62px 10px 20px; }
 
 @media (max-width: 899px) {
-  .sh-right { padding: 14px 52px 12px 12px; }
+  .sh-right { padding: 10px 52px 8px 12px; }
 }
 
 /* والرقائقُ تحت العربيّة بمسافةٍ لا تلتصق — قِيسَ التلاصقُ لا خُمِّن. */
@@ -3592,8 +3621,15 @@ body.shadow-open { overflow: hidden; }
 
 /* ---------- الهندسة · §١٩٫٣ ---------- */
 @media (min-width: 900px) {
-  .sh-topbar  { min-height: 62px; padding: 0 26px; }
-  .sh-bottom  { min-height: 78px; padding: 0 26px; }
+  /*
+   * ⚠️ **واللوحُ لا يُستثنى من الضغط** (WS-ST · بند ٢٢). قِستُ
+   *    ١٢٨٠×٨٠٠: الذيلُ **٧٨px** ورأسُ التطبيق ٦٢ والضوابطُ ١٧٢،
+   *    ومساحةُ الكلمات ١١١ — أي أنّ الأزرارَ أطولُ من الكلمات على
+   *    الجهاز الأوّل أيضًا، والجملةُ ٥٦px من ٨٠٠. والتصميمُ الأصليُّ
+   *    مقاسُه ١٦٠٠×١٠٠٠، وجهازُك ٨٠٠ — فالنِّسَبُ لا تُنقَل كما هي.
+   */
+  .sh-topbar  { min-height: 52px; padding: 0 26px; }
+  .sh-bottom  { min-height: 38px; padding: 0 26px; }
   .sh-railnav { width: 86px; }
   .sh-book    { margin: 8px 24px 6px 0; }
 
@@ -3606,10 +3642,17 @@ body.shadow-open { overflow: hidden; }
   .sh-panel    { right: 58px; width: 272px; }
 }
 
-/* زرّ التشغيل 76 · الجانبيّان 60 · بينهما 36 (§١٩٫٣). */
-.sh-transport { gap: 36px; }
-.sh-play    { width: 76px; height: 76px; }
-.sh-nav-btn { min-width: 60px; min-height: 60px; }
+/*
+ * زرُّ التشغيل · الجانبيّان · ما بينهما (§١٩٫٣).
+ *
+ * ⚠️ **ونزلت في WS-ST** (بندا ١١ و٢٢): ٧٦/٦٠/٣٦ ← ٦٤/٥٠/٢٦. والمدى
+ *    المطلوب للهاتف ٥٦–٦٤ للتشغيل و٤٤–٥٢ للتنقّل، واللوحُ يحتمل
+ *    أعلاه. وما نزل هو **قُطرُ الدائرة والفجوة** — لا هدفُ اللمس:
+ *    ستّةٌ وأربعون أدنى ما في الشاشة، وحدُّ الإصبع ٤٤.
+ */
+.sh-transport { gap: 26px; padding-block: 2px 4px; }
+.sh-play    { width: 64px; height: 64px; }
+.sh-nav-btn { min-width: 50px; min-height: 50px; }
 
 /* ══════════════════════════════════════════════════════════════
    ⚠️ الدرجُ **يُزيح** الصفحة ولا يغطّيها (§١٩٫٣)
@@ -3629,7 +3672,16 @@ body.shadow-open { overflow: hidden; }
 .sh-current-text {
   font-weight: 300;
   letter-spacing: -.004em;
-  line-height: 1.5;
+  /*
+   * ⚠️ **١٫٣٤ لا ١٫٥ (WS-ST · بند ٤).** تباعدُ المتن لا يصلح للعرض:
+   *    حرفٌ بثلاثين بكسلًا بتباعد ١٫٥ يفتح بين سطوره ١٥px فراغًا،
+   *    فتتفكّك الجملةُ الواحدةُ إلى سطورٍ متباعدة. والنصُّ الكبيرُ
+   *    يحتاج تباعدًا **أضيقَ** لا أوسع.
+   *
+   *    وقِستُ الكسب: جملةُ أربعَ عشرةَ كلمةً ٢٤٣px ← ٢١٩، والفرقُ
+   *    يذهب إلى مساحة الكلمات المقسَّمة.
+   */
+  line-height: 1.34;
   color: #fdf7ea;
 }
 
@@ -4405,9 +4457,35 @@ body.shadow-open { overflow: hidden; }
       تعليميٌّ يُقرأ مرّةً في العمر ويأخذ مكانًا كلَّ مرّة.
    ══════════════════════════════════════════════════════════════ */
 
+/*
+ * ⚠️ **والقسمةُ انعكست في WS-ST — والنصُّ أعلاه يشرح قرارًا أُلغي.**
+ *
+ *    كان: الرقائقُ مقيَّدةٌ بصفّين (`max-height: 6.2em`) والفائضُ
+ *    كلُّه للجملة. وقِستُ الأثرَ على ٤١٢×٩١٥: الرقائقُ **٩٠px**
+ *    وأربعةَ عشرَ رقاقةً فيها — **ثمانيةٌ تُرى وستٌّ مقصوصة** —
+ *    والأزرارُ حولها ٢١٣px. أي أنّ القيدَ صار حذفًا من نوعٍ آخر.
+ *
+ *    والاستدلالُ القديمُ («الرقائقُ أداةٌ مساعدة») هو ما تبيّن خطؤه:
+ *    تقسيمُ الجملة إلى كلماتٍ هو موضعُ تعلّمِ حدودِ الكلمة ونطقِها
+ *    واحدةً واحدة — **بطلٌ ثانٍ** لا حاشية. فصار النطاقُ يأخذ
+ *    الفائضَ، وتتراصُّ صفوفُه في أعلاه فيبقى الفراغُ تحت الكلمات.
+ */
 .sh-chips {
-  flex: 0 1 auto;
-  max-height: 6.2em;
+  flex: 1 1 auto;
+  /*
+   * ⚠️ **وسقفٌ نسبيٌّ لا غيابُ سقف — والغيابُ كسر اللوح.**
+   *
+   *    رفعتُ `max-height: 6.2em` إلى `none`، فقِستُ على ١٢٨٠×٨٠٠:
+   *    الرقائقُ تنمو بلا حدٍّ (`flex-grow: 1`) والبطلُ يقبل الانكماش
+   *    (`flex-shrink: 1`) — فهبطت الجملةُ إلى **٣١px**، أي سطرٌ
+   *    واحدٌ من جملةٍ من عشرين كلمة. **رفعُ قيدٍ ليس إعطاءَ حرّيّة:
+   *    من ينمو بلا حدٍّ يأكل جارَه.**
+   *
+   *    فالسقفُ صار نسبةً من المسرح لا صفّين محدودَين: تنمو الرقائقُ
+   *    إلى خُمسَي الشاشة، ولا تتجاوزها فتُجوّع الجملة.
+   */
+  max-height: 40%;
+  align-content: flex-start;
   /*
    * ⚠️ **وحدٌّ أدنى، وإلّا اختفت.** أوّلُ كتابةٍ كانت `flex: 0 1 auto`
    *    بسقفٍ بلا قاع، فقِستُ على 412×915: **الرقائقُ ارتفاعُها صفر**.
@@ -4423,8 +4501,14 @@ body.shadow-open { overflow: hidden; }
   background: rgba(217, 182, 114, .26); border-radius: 2px;
 }
 
-/* والمسرحُ يعطي الجملةَ ما يفيض — لا يقسمه بالتساوي. */
-.sh-hero { flex: 1 1 auto; }
+/*
+ * ⚠️ **والبطلُ يأخذ قدرَ جملته لا قدرَ الشاشة** (WS-ST · بند ٢٠).
+ *
+ *    كان `flex: 1 1 auto` فيمتصّ كلَّ فائض. وقِستُ جملةً من كلمةٍ
+ *    واحدة: البطلُ ٣١٦px ومحتواه ٨٩ — **٢٢٧px حفرةٌ في وسط الشاشة**.
+ *    فصار يهبط إلى مقاس محتواه، والفائضُ ينزل إلى نطاق الكلمات.
+ */
+.sh-hero { flex: 0 1 auto; justify-content: flex-start; }
 
 @media (max-height: 900px) {
   .sh-hint { display: none; }
@@ -4445,14 +4529,15 @@ body.shadow-open { overflow: hidden; }
    ══════════════════════════════════════════════════════════════ */
 
 .sh-modes {
-  display: flex; justify-content: center; gap: 4px;
-  margin: 0 auto 10px; padding: 3px;
+  display: flex; justify-content: center; gap: 2px;
+  /* ⚠️ مفتاحُ أوضاعٍ لا كتلةٌ عائمة (WS-ST · بند ١٠). */
+  margin: 0 auto 6px; padding: 2px;
   inline-size: fit-content; max-inline-size: 100%;
   border: 1px solid rgba(239, 231, 216, .1); border-radius: 5px;
   background: rgba(0, 0, 0, .2);
 }
 .sh-modes button {
-  min-height: 44px; padding: 0 15px; cursor: pointer;
+  min-height: 38px; padding: 0 13px; cursor: pointer;
   font-family: var(--sh-mono); font-size: 10.5px; letter-spacing: .1em;
   border: 0; border-radius: 3px; background: transparent;
   color: rgba(239, 231, 216, .45);
@@ -6435,8 +6520,8 @@ body.shadow-open { overflow: hidden; }
  *    بالإتقان.
  */
 .sh-prog {
-  flex: none; inline-size: min(560px, 92%); margin: 6px auto 0;
-  display: flex; flex-direction: column; gap: 5px;
+  flex: none; inline-size: min(560px, 92%); margin: 4px auto 0;
+  display: flex; flex-direction: column; gap: 3px;
 }
 .sh-prog[hidden] { display: none; }
 
@@ -7149,9 +7234,95 @@ body.shadow-open { overflow: hidden; }
    *    بعضها كان ٤٨px من ارتفاع القراءة. والرقمُ نفسُه باقٍ — تغيّر
    *    اصطفافُه لا وجودُه.
    */
-  .sh-bottom { min-height: 34px; padding: 0 8px; }
+  /*
+   * ⚠️ **وشريطُ التطبيق يتوقّف عن إنفاق ارتفاعٍ ثمين** (بند ١٧):
+   *    ٥٤ ← ٤٤. والاسمُ والمصدرُ وزرُّ المكتبة كما هي — الحشوةُ
+   *    وحدَها انكمشت. ولا تُعاد تسميةُ شيءٍ ولا يُحذَف زرّ.
+   */
+  .sh-topbar { min-height: 44px; }
+
+  .sh-bottom { min-height: 30px; padding: 0 8px; }
   .sh-stats { gap: 12px; align-items: baseline; }
   .sh-stats > div { display: flex; align-items: baseline; gap: 4px; }
   .sh-stats b { display: inline; font-size: 12px; }
   .sh-stats span { display: inline; margin-top: 0; font-size: 8px; letter-spacing: .1em; }
+
+  /* ═══════════ المسرحُ للغة لا للأزرار (WS-ST) ═══════════ */
+  /*
+   * ⚠️ **قِستُ المسرحَ رأسيًّا على ٤١٢×٩١٥، جملةً من ١٤ كلمة:**
+   *
+   *     شريطُ التطبيق ٥٤ · رأسُ المسرح ٦٨ · التقدّم ٤٥
+   *     البطلُ ٣٢٩ — منها الجملةُ **١٤٠** والترجمةُ ٤٤
+   *     رقائقُ الكلمات **٩٠** · اللافتة ١٧
+   *     الأوضاع ٥٨ · النقل ٩٤ · الرقاقات السريعة ٤٤ · الذيل ٤٠
+   *
+   *    فالأزرارُ (١٧+٥٨+٩٤+٤٤ = **٢١٣px**) تأخذ **ضعفَي ونصفَ** ما
+   *    تأخذه الكلماتُ المقسَّمة (٩٠). وأربعةَ عشرَ رقاقةً في ٩٠px
+   *    تعني **ثمانيةً تُرى وستًّا مقصوصة**. وفي البطل ١٤٥px فراغٌ
+   *    لا يحمل حرفًا.
+   *
+   * ⚠️ **وهذه التمريرةُ تعكس قرارًا كتبتُه بنفسي وشرحتُه.** فوق
+   *    `.sh-chips` مكتوبٌ: «الرقائقُ **أداةٌ مساعدة**… تُقيَّد بصفّين
+   *    ولا تنمو على حساب ما جئتَ من أجله»، والفائضُ كلُّه للجملة.
+   *    وكان استدلالًا معقولًا وخاطئًا: التقسيمُ إلى كلماتٍ **ليس
+   *    زينةً** — هو الموضع الذي تتعلّم فيه أين تبدأ الكلمة وأين
+   *    تنتهي، وتسمع كلَّ واحدةٍ وحدَها. فهو **بطلٌ ثانٍ** لا حاشية.
+   *
+   *    فصار الفائضُ يُقتسَم: البطلُ والرقائقُ ينمُوان معًا، ولكلٍّ
+   *    قاعٌ يحميه.
+   */
+  /*
+   * ⚠️ **ولا ينمو أيُّ نطاقٍ ليأكل الفراغ — الفراغُ يهبط إلى مكانٍ
+   *    واحد.**
+   *
+   *    أوّلُ كتابةٍ أعطت البطلَ والرقائقَ `flex: 1 1 auto` معًا،
+   *    فقِستُ جملةً من كلمةٍ واحدة: البطلُ ٣١٦px ومحتواه ٨٩ — أي
+   *    **٢٢٧px فراغٌ في وسط الشاشة** (بند ٢٠). ونقلُ النموّ إلى
+   *    الرقائق ينقل الحفرةَ ولا يردمها: رقاقةٌ واحدةٌ في ٤٤١px.
+   *
+   *    فالنطاقان يأخذان قدرَ محتواهما (`0 1 auto`)، والضوابطُ
+   *    تُدفَع إلى الأسفل بـ`margin-top: auto` (بند ١٢). فيجتمع
+   *    الفائضُ **فوق الضوابط** حيث لا يفصل شيئًا عن شيء.
+   */
+  .sh-right .sh-hero { min-height: 0; padding: 2px 0; }
+  /*
+   * ⚠️ **والرقائقُ هي التي تملك الفائض — لا البطلُ ولا فراغٌ مجهول.**
+   *
+   *    جرّبتُ أن أدفع الضوابطَ إلى الأسفل بـ`margin-top: auto`
+   *    فيجتمع الفائضُ فوقها. وقِستُ: مع ستّ كلماتٍ تصير الرقائقُ
+   *    ٨٦px والضوابطُ ١٥٣ — أي أنّ الأزرارَ تعود أطولَ من الكلمات،
+   *    وهو عينُ ما جاءت التمريرةُ لإلغائه.
+   *
+   *    و`align-content: flex-start` هي المفتاح: النطاقُ يكبر،
+   *    والصفوفُ تتراصّ في أعلاه، فالفراغُ يقع **تحت الكلمات وفوق
+   *    الضوابط** — نفسُ المكان الذي كان فيه، لكنّه الآن **مساحةُ
+   *    كلماتٍ جاهزةٌ** تمتلئ حين تطول الجملة بلا قصٍّ ولا تمرير.
+   */
+  .sh-right .sh-chips { min-height: 3.6em; margin-top: 8px; gap: 6px 7px; }
+  .sh-right .sh-chip {
+    padding: 7px 9px 6px; gap: 6px;
+    min-height: 38px; min-width: 44px;
+  }
+
+  /* ---------- الضوابطُ تنكمش وتهبط (بنود ١٠ و١١ و١٢) ---------- */
+  /*
+   * ⚠️ **والقاعدةُ: الضوابطُ تتبع المحتوى لا العكس** (بند ١٩). فما
+   *    ضُغط هنا زينةٌ ومساحاتٌ، لا أهدافُ لمس: زرُّ التشغيل ٥٨
+   *    (المدى المطلوب ٥٦–٦٤) والتنقّلُ ٤٦ (٤٤–٥٢)، ومفتاحُ الأوضاع
+   *    ٣٤ — وهو نفسُ حدّ مبدّل القراءة في الصفحة اليسرى.
+   */
+  .sh-right .sh-modes { margin-bottom: 5px; padding: 2px; gap: 2px; }
+  .sh-right .sh-modes button { min-height: 34px; padding: 0 12px; font-size: 10px; }
+  /* ⚠️ وحشوةُ الشريط ٨/١٠ كانت تضيف ١٨px حول زرٍّ واحد. */
+  .sh-right .sh-transport { margin-top: 5px; gap: 22px; padding-block: 2px 4px; }
+  .sh-right .sh-play { width: 58px; height: 58px; }
+  .sh-right .sh-nav-btn { min-width: 46px; min-height: 46px; }
+  .sh-right .sh-quickpills { margin-top: 4px; }
+  .sh-right .sh-quickpills button { min-height: 32px; }
+  .sh-right .sh-hint { margin-top: 5px; }
+
+  /*
+   * ورأسُ المسرح والتقدّمُ انكمشا في القاعدة العامّة لا هنا — فاللوحُ
+   * يحتاج الانكماشَ نفسَه (بند ٢٢)، وقاعدتان لشيءٍ واحدٍ تفترقان.
+   */
 }

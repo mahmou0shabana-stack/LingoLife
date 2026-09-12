@@ -551,15 +551,52 @@ describe('التشغيل · الجملة الطويلة لا تدهس ما تح�
     }
   });
 
-  it('⚠️ والرقائق مقيَّدةٌ بحدَّين — سقفٌ وقاع', () => {
-    /* السقفُ يمنعها أن تأكل المسرح، والقاعُ يمنع الهاتفَ أن يسحقها. */
-    return fetch('/css/shadow.css').then(async (r) => {
-      const css = await r.text();
-      const at = css.lastIndexOf('.sh-chips {');
-      const block = css.slice(at, at + 700);
-      expect(block.includes('max-height')).toBe(true);
-      expect(block.includes('min-height')).toBe(true);
-    });
+  it('⚠️ والرقائق مقيَّدةٌ بحدَّين — سقفٌ وقاع', async () => {
+    /*
+     * السقفُ يمنعها أن تأكل المسرح، والقاعُ يمنع الهاتفَ أن يسحقها.
+     *
+     * ⚠️ **والقصدُ باقٍ والسقفُ تغيّر في WS-ST.** كان `max-height: 6.2em`
+     *    — صفّين بالتحديد — وصار نسبةً من المسرح (`40%`)، لأنّ الصفّين
+     *    كانا يقصّان ستَّ رقائقَ من أربعَ عشرة. فالحدّان ما زالا
+     *    مطلوبَين، والرقمُ لم يكن هو الشرط.
+     *
+     * ⚠️ **وكان الحارسُ يقطع ٧٠٠ حرفٍ من آخر `.sh-chips {`.** فلمّا
+     *    أضافت WS-ST قاعدةً أخصَّ (`.sh-right .sh-chips`) صار «الآخرُ»
+     *    هو التخصيصَ لا القاعدةَ العامّة، فسقط على قاعدةٍ فيها القاعُ
+     *    وحدَه. **ونافذةُ حروفٍ من آخرِ تطابُقٍ ليست قاعدةً — هي
+     *    موضعٌ يتحرّك كلّما كُتب سطر.**
+     *
+     *    فالقياسُ الآن على **الأثر المجتمع**: كلُّ قاعدةٍ منتقيها يذكر
+     *    `.sh-chips` تُجمَع تصريحاتُها، ويُشترط فيها الحدّان.
+     */
+    const css = (await (await fetch('/css/shadow.css')).text())
+      .replace(/\/\*[\s\S]*?\*\//g, '');
+    const decls = [];
+    const re = /([^{}]+)\{([^{}]*)\}/g;
+    let m;
+    while ((m = re.exec(css))) {
+      const sels = m[1].split(',').map((s) => s.trim().replace(/\s+/g, ' '));
+      if (sels.some((s) => /(^|\s)\.sh-chips$/.test(s))) decls.push(m[2]);
+    }
+    expect(decls.length > 0).toBe(true);
+    const all = decls.join(' ');
+    expect(/max-height:\s*[^;]+/.test(all)).toBe(true);
+    expect(/min-height:\s*[^;]+/.test(all)).toBe(true);
+
+    /*
+     * ⚠️ **والشرطُ على السقف الحاسم لا على وجود سقفٍ ما.**
+     *
+     *    جرّبتُ الحارسَ بحذف `max-height: 40%` فنجح — لأنّ قاعدةً
+     *    أقدمَ تضع `30vh`، فشرطُ «يوجد سقف» لا يسقط أبدًا. **حارسٌ
+     *    لا يسقط حين تكسر ما يحرسه ليس حارسًا.**
+     *
+     *    فالشرطُ على آخرِ قاعدةٍ تحسم السقفَ: وحدتُها نسبيّةٌ إلى
+     *    المسرح (% أو vh) لا `em` — أي لا تعود إلى «صفّين بالتحديد».
+     */
+    const caps = decls.filter((d) => /max-height:/.test(d));
+    const last = /max-height:\s*([^;]+)/.exec(caps[caps.length - 1])[1].trim();
+    expect(/(%|vh)$/.test(last)).toBe(true);
+    expect(last.includes('em')).toBe(false);
   });
 });
 
