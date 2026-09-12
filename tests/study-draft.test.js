@@ -650,12 +650,22 @@ describe('الإعدادات · كل زرّ له معالِجٌ واحد', () =>
     expect(orphans).toEqual([]);
   });
 
-  it('⚠️ ولوحةُ العرض لا تُسمّى باسم نمط التكرار', () => {
-    /* الاسمان كانا `mode` كلاهما — وهو ما أعطب الترجمة بالكامل. */
-    const at = code.indexOf("id === 'display'");
-    const panel = code.slice(at, at + 700);
-    expect(panel.includes("pick('mode'")).toBe(false);
-    expect(panel.includes("pick('disp'")).toBe(true);
+  it('⚠️ وضابطُ العرض لا يُسمّى باسم نمط التكرار', () => {
+    /*
+     * الاسمان كانا `mode` كلاهما — وهو ما أعطب الترجمة بالكامل.
+     *
+     * ⚠️ **والسطحُ انتقل (WS-SCLEAN): لوحةُ السكّة صارت صفًّا في مركز
+     *    التدريب** — والقرارُ المحروسُ لم يتغيّر: `disp` للعرض،
+     *    و`mode` لنمط التكرار وحدَه. فيُفحَص حيث صار يُرسَم.
+     */
+    const at = code.indexOf("key: 'display', label: 'الترجمة'");
+    expect(at > 0).toBe(true);
+    const row = code.slice(at, at + 420);
+    expect(row.includes("act: 'disp'")).toBe(true);
+    expect(row.includes("act: 'mode'")).toBe(false);
+    /* ونمطُ التكرار يملك اسمَه في صفِّه هو. */
+    const rep = code.indexOf("key: 'repeatMode'");
+    expect(code.slice(rep, rep + 420).includes("act: 'mode'")).toBe(true);
   });
 
   it('⚠️ وحجمُ الخطّ بالبكسل لا يُكتَب في حقلِ النسبة', () => {
@@ -686,7 +696,7 @@ describe('الإعدادات · كل زرّ له معالِجٌ واحد', () =>
     }
   });
 
-  it('⚠️ ومفتاحُ الأوضاع الثلاثة على الشاشة لا في لوحة', () => {
+  it('⚠️ ومفتاحُ الأوضاع على الشاشة لا في لوحة', () => {
     expect(raw.includes('data-modes')).toBe(true);
     const at = code.indexOf('const MODES = [');
     const block = code.slice(at, code.indexOf('\n];', at));
@@ -698,10 +708,17 @@ describe('الإعدادات · كل زرّ له معالِجٌ واحد', () =>
      *    ذلك الخلط جاء العطب: الضغطُ على «كلمة» كان يُخرِج من النصّ
      *    الخارجيّ. فصارت الثلاثةُ مدَياتٍ خالصة.
      */
-    expect(ids).toEqual(['sentence', 'phrase', 'word']);
+    /*
+     * ⚠️ **وصارت أربعةً في WS-SCLEAN — والزيادةُ هي الإصلاح.** كان
+     *    «متّصل» وضعًا خامسًا يعرفه المحرّكُ وبابُه لوحةٌ في السكّة —
+     *    أي **مفتاحٌ ثانٍ لنفس الإعداد بخياراتٍ مختلفة**. وقِيس أثرُه:
+     *    تختاره من اللوحة فيُضيء المفتاحُ «جملة»، لأنّ شرطَ «جملة»
+     *    كان «ليس كلمة». فنزل إلى المفتاح، وصار الشرطُ صريحًا.
+     */
+    expect(ids).toEqual(['sentence', 'phrase', 'word', 'continuous']);
     /* وكلٌّ يقول متى هو المُختار، ويدخل بفعل. */
-    expect((block.match(/is: \(\)/g) || []).length).toBe(3);
-    expect((block.match(/enter: async/g) || []).length).toBe(3);
+    expect((block.match(/is: \(\)/g) || []).length).toBe(4);
+    expect((block.match(/enter: async/g) || []).length).toBe(4);
   });
 
   it('⚠️ وإغلاقُ العارض لا ينقل أحدًا', async () => {
@@ -959,7 +976,13 @@ describe('الصوت · المصادر تُرسَم من سجلّها', () => {
 
   it('⚠️ الحارس: لوحةُ الصوت تُرسَم من `audioChoices` لا بأسماءٍ مكتوبة', async () => {
     code = codeOnly(await (await fetch('/js/views/shadow-view.js')).text());
-    const at = code.indexOf("id === 'voice'");
+    /*
+     * ⚠️ **والسطحُ انتقل (WS-SCLEAN)**: لوحةُ الصوت في السكّة صارت
+     *    قسمَ «الصوت» في مركز التدريب. والقاعدةُ هي هي: مَن له سجلٌّ
+     *    يُرسَم منه — ولا تُكتَب قائمةُ المصادر بيدٍ بجانب
+     *    `audioChoices` التي تعرف أكثرَ منها.
+     */
+    const at = code.indexOf("key: 'audio', label: 'مصدر النطق'");
     const block = code.slice(at, at + 620);
 
     /*
@@ -1147,9 +1170,11 @@ describe('العرض · الحجم والوضوح والسبب', () => {
   });
 
   it('⚠️ وسلّمُ المقاسات ينزل تحت 36 — بلاغُك: «صغّره أكتر»', () => {
-    const at = code.indexOf("'SENTENCE SIZE'");
+    /* ⚠️ والسلّمُ انتقل إلى مركز التدريب — والرقمُ الأدنى هو المحروس. */
+    const at = code.indexOf("ccChips('fsize'");
+    expect(at > 0).toBe(true);
     const block = code.slice(at, at + 300);
-    expect(block.includes("'24'")).toBe(true);
+    expect(block.includes('24')).toBe(true);
   });
 
   it('⚠️ والنبرُ يقول كم كلمةً يعرف — الصمتُ يبدو عطلًا', () => {
@@ -1212,9 +1237,23 @@ describe('الكتاب · لكلِّ صفحةٍ خطُّها', () => {
     expect(code.includes('session.fontDocId || session.fontId')).toBe(true);
   });
 
-  it('⚠️ ومفتاحُ الخطّ معروضٌ في كلّ صفحة بلا فتح لوحة', () => {
+  it('⚠️ ولكلّ صفحةٍ خطُّها — والمسرحُ خطُّه في مركز التدريب', () => {
+    /*
+     * ⚠️ **قرارٌ نُقِض عمدًا في WS-SCLEAN.** كان لكلّ صفحةٍ مفتاحُ خطٍّ
+     *    معروضٌ دائمًا (WS36) — «بلا فتح لوحة». وبلاغُك الآن: الخطُّ
+     *    والحجمُ **إعدادان يبقيان**، ومكانُهما مركزُ التدريب لا حافّةُ
+     *    المسرح؛ ومفتاحُ المسرح كان نسخةً ثانيةً من نفس الإعداد.
+     *
+     *    **والقرارُ الأصليُّ باقٍ حيث يصحّ**: الصفحةُ اليسرى صفحةُ
+     *    قراءةٍ لها خطُّها وحقلُها (`fontDocId`) فتُبقي مفتاحَها.
+     *    والمحروسُ أنّ **الخطّين ما زالا منفصلين** وأنّ خطَّ المسرح
+     *    مضبوطٌ من مكانٍ واحد.
+     */
     expect(code.includes("fontChip('doc')")).toBe(true);
-    expect(code.includes("fontChip('stage')")).toBe(true);
+    expect(code.includes("fontChip('stage')")).toBe(false);
+    /* وخطُّ المسرح وحجمُه في مركز التدريب. */
+    expect(code.includes('data-cc-fonts')).toBe(true);
+    expect(code.includes("ccChips('fsize'")).toBe(true);
     /* والشارةُ حرفٌ بالخطّ نفسِه — الاسمُ يحتاج قراءةً والحرفُ يريك الجواب. */
     const at = code.indexOf('function fontChip');
     expect(code.slice(at, at + 320).includes('Аа')).toBe(true);
@@ -1231,8 +1270,15 @@ describe('الكتاب · لكلِّ صفحةٍ خطُّها', () => {
     const block = code.slice(at, code.indexOf('\n}', at));
     expect(block.includes("page === 'doc'")).toBe(true);
     expect(block.includes('fontDocId')).toBe(true);
-    /* والبابان كلاهما يمرّ منها. */
-    expect(code.includes("case 'font-pick':\n        return pickFont(")).toBe(true);
+    /*
+     * والبابان كلاهما يمرّ منها.
+     *
+     * ⚠️ **وصياغةُ الحالة تغيّرت لا معناها (WS-SCLEAN)**: صارت تُبلِغ
+     *    مركزَ التحكّم بعد الاختيار، فبقي النداءُ وزال شكلُ السطر.
+     *    فالمحروسُ النداءُ لا حرفيّةُ الكتابة.
+     */
+    const fp = code.indexOf("case 'font-pick'");
+    expect(code.slice(fp, fp + 220).includes('pickFont(')).toBe(true);
     const pop = code.indexOf("pop.addEventListener('click'");
     expect(code.slice(pop, pop + 260).includes('pickFont(')).toBe(true);
   });
@@ -1287,9 +1333,16 @@ describe('المقابض · تُسحَب وتُرى', () => {
 
   it('⚠️ ولافتةُ «مفيش صوت روسي» رُفعت ومعلومتُها انتقلت', () => {
     expect(code.includes('class="sh-novoice"')).toBe(false);
-    /* لا تُرمى المعلومة — تُقال حيث تُسأل: في لوحة الصوت. */
-    const at = code.indexOf("if (id === 'voice')");
-    expect(code.slice(at, at + 900).includes('مفيش صوت روسي')).toBe(true);
+    /*
+     * لا تُرمى المعلومة — تُقال حيث تُسأل.
+     *
+     * ⚠️ **والمكانُ انتقل (WS-SCLEAN)**: كان تذييلَ لوحة الصوت في
+     *    السكّة، وصار سطرَ تحذيرٍ تحت قائمةِ صوتِ الجهاز في مركز
+     *    التدريب — أي تحت الضابط الذي لا يجد ما يختاره.
+     */
+    const at = code.indexOf("key: 'voice', label: 'صوت الجهاز'");
+    expect(at > 0).toBe(true);
+    expect(code.slice(at, at + 700).includes('مفيش صوت روسي')).toBe(true);
   });
 
   it('⚠️ وصندوقُ المحادثة محدودٌ كأخويه', async () => {

@@ -1588,7 +1588,13 @@ function shell() {
                 -->
                 <div class="sh-bar" data-bar><span></span></div>
                 <span data-counter hidden></span>
-                ${raw(fontChip('stage'))}
+                <!--
+                  ⚠️ **ومفتاحُ الخطّ غادر رأسَ المسرح (WS-SCLEAN · بند ٣-ج).**
+                     الخطُّ والحجمُ إعدادان **يبقيان** لا فعلان لحظيّان،
+                     فمكانُهما مركزُ التدريب. والصفحةُ اليسرى تُبقي
+                     مفتاحَها لأنّ لها خطًّا آخرَ وحقلًا آخر
+                     (fontDocId) — لا نسخةً ثانيةً من نفس الإعداد.
+                -->
               </div>
 
               <!--
@@ -1721,14 +1727,39 @@ function shell() {
                 <button class="sh-nav-btn" data-sh="next" data-nav-next aria-label="التالي">
                   <i class="sh-ico-next"></i>
                 </button>
+                <!--
+                  ⚠️ **والتسجيلُ فعلٌ فوريٌّ — جنبَ التشغيل (بند ٢١).**
+                     كان في سكّة الأدوات وحدها، وهي سكّةٌ صار أغلبُها
+                     إعداداتٍ فبدا التسجيلُ إعدادًا. وهو ليس كذلك: تسمع
+                     الجملة، ثم تقولها، ثم تقارن — فالزرُّ يقع حيث تقع
+                     الحركة. وبابُه في السكّة باقٍ (يعمل على الكلمة
+                     والمقطع أيضًا) فلا طريقَ ضاع.
+                -->
+                <button class="sh-rec-btn" data-sh="tool" data-v="myvoice"
+                  aria-label="سجّل صوتك">🎙</button>
               </div>
 
+              <!--
+                ══════════ بابٌ واحدٌ للإعدادات (WS-SCLEAN · بندا ٤ و٢٨) ══════════
+
+                ⚠️ **كانت خمسَ رقاقاتٍ، ثلاثٌ منها إعدادٌ مكرَّر.**
+                   0.8x و×5 و1.0s كانت تفتح نفسَ الدرج على نفس القيمة
+                   — أي ثلاثةُ أبوابٍ لغرفةٍ واحدةٍ تحجز صفًّا كاملًا من
+                   المسرح، وتجعل العينَ تقرأ **إعداداتٍ** قبل أن تقرأ
+                   الروسيّة. والقيَمُ لم تُرمَ: صارت ملخّصَ مركز التدريب
+                   (بند ٢٧) يُقرأ حيث تُضبَط.
+
+                ⚠️ **و«ARABIC» لم تكن إعدادَ المسرح أصلًا**: تُظهِر
+                   ترجماتِ سطور **الصفحة اليسرى** (.sh-line .tr)،
+                   وموجودةٌ هناك باسم DICTIONARY في شريطها السفليّ.
+                   ضابطٌ لصفحةٍ أخرى يسكن هذه — فرجع لصفحته.
+
+                ⚠️ **و«MY TEXT» فعلٌ لا إعداد**، وبابُه باقٍ في سكّة
+                   الأدوات وفي NOTES بالصفحة اليسرى — وهو فعلٌ تفعله
+                   مرّةً في الجلسة، فلا يحجز صفًّا دائمًا (بند ٢٠).
+              -->
               <div class="sh-quickpills">
-                <button data-sh="drawer" data-dial="speed">${session.speed}x</button>
-                <button data-sh="drawer" data-dial="repeat">×${session.repeatCount}</button>
-                <button data-sh="drawer" data-dial="pause">${intervalLabel(session)}</button>
-                <button data-sh="toggle-tr">ARABIC</button>
-                <button data-sh="scratch-open">✎ MY TEXT</button>
+                <button class="sh-cc-open" data-sh="drawer" data-dial="speed">⚙︎ اضبط التدريب</button>
               </div>
 
               <!-- الحجاب: ضغطةٌ خارج السكّة تغلقها. -->
@@ -1790,117 +1821,331 @@ function shell() {
     </div>`;
 }
 
-/**
- * صفٌّ واحد للتحكّم: منزلق للضبط السريع، وخانة رقم للقيمة بالضبط.
+/* ================================================================== *
+ * مركزُ التدريب — المكانُ الواحدُ لكلّ إعدادٍ يبقى (WS-SCLEAN)
+ * ================================================================== *
  *
- * المنزلق وحده لا يكفي — 0.85× و0.9× بينهما بكسلان على تابلت. وخانة
- * الرقم وحدها بطيئة. الاثنان معًا على نفس القيمة: تسحب لتقترب، وتكتب
- * حين تعرف ما تريد بالضبط.
+ * ⚠️ **بلاغُك**: «شيل المتكرّر من المسرح، وخلّي اضبط التدريب هو المكان
+ *    الواحد اللي أثق فيه» — والمسرحُ كان فيه **ثلاثُ** طبقاتٍ لنفس
+ *    الإعداد: رقاقةٌ سفليّةٌ تقول `0.8x`، وأداةٌ في السكّة تقول
+ *    `▹0.8x`، ودرجٌ فيه منزلقُها. ثلاثةُ أبوابٍ لغرفةٍ واحدة.
+ *
+ * ⚠️ **والحالةُ كانت موحَّدةً أصلًا — والمشكلةُ عرضٌ لا معمار.** قِيس:
+ *    كلُّ الأبواب الثلاثة تنادي `setTuner`، و«العرض» في الدرج
+ *    والسكّة ينادي `ctx.display` نفسَه. فهذه التمريرةُ **لا تخترع
+ *    حالةً ولا مخزنًا**: كلُّ ضابطٍ هنا يُصدِر نفسَ `data-sh` الذي
+ *    كان يعمل أمس — والوحدةُ بالبناء لا بالاتّفاق.
+ *
+ *    والاستثناءان الوحيدان كانا **عطبَين حقيقيَّين** كشفهما الجرد:
+ *      · لوحةُ الصوت في السكّة ترسم `voiceOptions(...)` **بلا `select`
+ *        حاويةٍ** — أي `optgroup` عاريةٌ لا يرسمها متصفّح. ولتقرأ
+ *        المُختارَ من `s.voiceURI` وهو حقلٌ **لا يكتبه أحدٌ أبدًا**
+ *        (المكتوبُ `voiceId`). ضابطٌ لا يُرى ولا يعرف قيمته.
+ *      · ولوحةُ التكرار تقرأ المُختارَ من `s.intervalMs` والمكتوبُ
+ *        `intervalMsValue` — فلا تُضيء الوقفةُ المختارةُ أبدًا.
+ *    وكلاهما زال بزوال اللوحتين، والصحيحُ هنا بحقله.
+ *
+ * ⚠️ **والتجميعُ بالمعنى لا بالنوع** (بند ٨): «كم مرّة» تُقرأ مع
+ *    السرعة والوقفة لأنها كلُّها **تشغيل**؛ و«ما يحدث بعد العدد»
+ *    قرارٌ آخر فله صفُّه. والنادرُ والتجريبيُّ خلف «متقدّم» مطويًّا
+ *    (بند ١٨) — لا لأنّه أقلُّ أهمّيّةً، بل لأنّ مَن لا يعرفه لا
+ *    يجب أن يُسأل عنه في كلّ فتحة.
  */
-function tuner({ key, label, hint, min, max, step, value, unit = '' }) {
+
+/** شرحُ كلّ إعدادٍ — جملةٌ أو ثلاثٌ بالمصري (بندا ١٦ و١٧). */
+const CC_INFO = Object.freeze({
+  speed: 'بطّأها لو الكلام بيفوتك. النغمة مش بتتغيّر — السرعة بس.',
+  repeat: 'كام مرّة تتقال الوحدة قبل ما ينتقل للي بعدها.',
+  pause: 'الوقت اللي بيسيبلك مساحة تكرّر بصوتك قبل ما تتقال تاني.',
+  volume: 'صوت النطق جوّه التطبيق. لو واطي وانت على الآخر، الباقي من صوت الجهاز نفسه.',
+  repeatMode: 'بالعدد: يقف لمّا يخلّص العدد. مستمرّ: يفضل يكرّر لحد ما توقفه بنفسك.',
+  display: 'روسي بس: يشيل الترجمة. مع الترجمة: المصري تحت الجملة. مغطّاة: الجملة الروسية تتشوّش لحد ما تدوس عليها — تختبر نفسك بيها.',
+  stress: 'علامة النبر (ударение) فوق الحرف. تظهر على الكلمات اللي قاموسك يعرف نبرها بس — والباقي بلا علامة عشان مانخمّنش غلط.',
+  size: 'حجم الجملة الروسية على المسرح. الصفحة اليسرى ليها خطّها وحجمها لوحدها.',
+  font: 'شكل حروف الجملة الروسية. العيّنة بحروف روسية — لو الخطّ ناقص حرف هتشوفه قبل ما تختاره.',
+  sky: 'خلفيّة المسرح صورة من جهازك، وبتتخزّن عندك — تشتغل بلا إنترنت.',
+  audio: 'مين اللي بينطق: نطق آليّ من جهازك، ولا تسجيل أصليّ مربوط بالمصدر، ولا تسجيلك انت.',
+  voice: 'أصوات النطق الآليّ اللي على جهازك. لو مفيش صوت روسي، نزّله من إعدادات الجهاز ← تحويل النصّ لكلام.',
+  engine: 'محرّك النطق الآليّ. المتصفّح متاحٌ دايمًا؛ والباقي لسه مش جاهز في النسخة دي — ومكتوبٌ عليه كده.',
+});
+
+/** زرُّ شرحٍ صغيرٌ وفقرتُه — مطويّةٌ حتى تُطلَب. */
+function ccInfo(key) {
+  const text = CC_INFO[key];
+  if (!text) return { btn: '', box: '' };
+  return {
+    btn: html`<button type="button" class="sh-cc-i" data-sh="info" data-info="${key}"
+      aria-expanded="false" aria-controls="cc-i-${key}" aria-label="إيه ده؟">ⓘ</button>`,
+    box: html`<p class="sh-cc-help" id="cc-i-${key}" data-info-for="${key}" hidden>${text}</p>`,
+  };
+}
+
+/**
+ * صفُّ إعدادٍ واحد: لافتةٌ وقيمةٌ حاليّةٌ ظاهرةٌ دائمًا، وشرحٌ بالطلب.
+ *
+ * ⚠️ **والقيمةُ في اللافتة لا في الضابط** (بند ١١): «القيمةُ الحاليّة
+ *    لازم تكون واضحة» — فتُقرأ بنظرةٍ واحدةٍ من غير تفحّص أيُّ رقاقةٍ
+ *    مضيئة. وهي نفسُها ما يحدّثه `setTuner` بلا إعادة رسم (بند ٣٣).
+ */
+function ccRow({ key, label, value = '', body, valueKey }) {
+  const info = ccInfo(key);
   return html`
-    <div class="sh-tuner" data-tuner="${key}">
-      <div class="sh-tuner-head">
-        <span class="sh-tuner-lbl">${label}</span>
-        <span class="sh-tuner-box">
-          <input type="number" data-tune-num="${key}" value="${value}"
-            min="${min}" max="${max}" step="${step}" inputmode="decimal"
-            aria-label="${label}" />
-          <small>${unit}</small>
-        </span>
+    <div class="sh-cc-row" data-cc-row="${key}">
+      <div class="sh-cc-head">
+        <span class="sh-cc-lbl">${label}</span>
+        ${raw(info.btn)}
+        ${raw(value === '' ? '' : html`<b class="sh-cc-now" data-cc-val="${valueKey || key}">${value}</b>`)}
       </div>
-      <input type="range" class="sh-range" data-tune-range="${key}"
-        min="${min}" max="${max}" step="${step}" value="${value}" aria-label="${label}" />
-      <div class="sh-tuner-hint">${hint}</div>
+      ${raw(info.box)}
+      ${raw(body)}
+    </div>`;
+}
+
+/** رقائقُ اختيارٍ مضغوطة — للقيَم المعدودة (بند ١٠). */
+function ccChips(key, list, isOn, label, act = 'tune') {
+  return html`
+    <div class="sh-cc-chips" data-cc-chips="${key}">
+      ${raw(list.map((v) => html`
+        <button type="button" data-sh="${act}" data-v="${act === 'tune' ? `${key}:${v}` : v}"
+          class="${isOn(v) ? 'on' : ''}" aria-pressed="${isOn(v) ? 'true' : 'false'}"
+        >${label(v)}</button>`).join(''))}
+    </div>`;
+}
+
+/** مفتاحٌ مقطعيٌّ — لاختيارٍ من اثنين أو ثلاثة (بند ١٠). */
+function ccSeg(rows) {
+  return html`
+    <div class="sh-cc-seg">
+      ${raw(rows.map(({ act, val, main, sub, on, attr = 'v' }) => html`
+        <button type="button" data-sh="${act}" data-${attr}="${val}"
+          class="${on ? 'on' : ''}" aria-pressed="${on ? 'true' : 'false'}"
+        ><b>${main}</b>${raw(sub ? html`<small>${sub}</small>` : '')}</button>`).join(''))}
     </div>`;
 }
 
 /**
- * درج الإعدادات — ينزلق من الحافّة ويرجع مكانه.
+ * مركزُ التدريب — درجٌ ينزلق على المسرح ولا يغادره (بند ٢٥).
  *
- * كان كل هذا مبسوطًا في الصفحة اليمنى فأزاح الجملة التي تتدرّب عليها
- * إلى أسفل الشاشة. صار درجًا: يظهر حين تضبط، ويختفي حين تتدرّب.
+ * ⚠️ **والمسرحُ يبقى وراءه حيًّا**: لا تُعاد بناءُ الجلسة ولا يُلمَس
+ *    موضعُها ولا تكرارُها عند الفتح أو الإغلاق — الدرجُ عنصرٌ أختٌ
+ *    يُظهَر ويُخفى، لا شاشةٌ يُنتقَل إليها.
  */
 function settingsDrawer() {
-  const { session, voices } = ctx;
+  const { session } = ctx;
   const pauseMs = intervalMs(session);
+  const speed = Number(session.speed ?? 0.8);
+  const reps = Number(session.repeatCount ?? 5);
+  const vol = Math.round((ctx.volume ?? 1) * 100);
+  const size = Number(ctx.sizePx || DEFAULT_SIZE_PX);
+  const repeatMode = session.repeatMode === REPEAT_MODE.CONTINUOUS
+    ? REPEAT_MODE.CONTINUOUS : REPEAT_MODE.COUNT;
+  const dark = ctx.skyDark ?? SKY_DARK.def;
 
   return html`
     <div class="sh-drawer-veil" data-drawer-veil hidden></div>
-    <aside class="sh-drawer" data-drawer hidden aria-label="إعدادات التدريب">
+    <aside class="sh-drawer" data-drawer hidden aria-label="اضبط التدريب">
       <div class="sh-drawer-head">
         <b>⚙︎ اضبط التدريب</b>
         <button data-sh="drawer-close" aria-label="إغلاق">✕</button>
       </div>
 
+      <!--
+        ملخّصُ الجلسة (بند ٢٧): خمسُ قيَمٍ تُقرأ في نظرة، لا سكّةٌ
+        جانبيّةٌ أُعيد بناؤها جوّه اللوحة — لا ضابطَ فيها، إخبارٌ فقط.
+      -->
+      <div class="sh-cc-sum" data-cc-sum>
+        <span><b data-cc-val="speed">${speed}×</b><small>سرعة</small></span>
+        <span><b data-cc-val="repeat">×${reps}</b><small>تكرار</small></span>
+        <span><b data-cc-val="pause">${intervalLabel(session)}</b><small>فاصل</small></span>
+        <span><b data-cc-val="display">${DISPLAY_SHORT[ctx.display] || ''}</b><small>عرض</small></span>
+        <span><b data-cc-val="volume">${vol}%</b><small>صوت</small></span>
+      </div>
+
       <div class="sh-drawer-body">
-        ${raw(
-          tuner({
-            key: 'speed',
-            label: '🎚 السرعة',
-            hint: 'ابدأ بطيء واطلع بالتدريج. الفرق بين 0.85 و0.9 مسموع.',
-            min: RATE_MIN, max: RATE_MAX, step: 0.05,
-            value: session.speed ?? 0.8, unit: '×',
-          })
-        )}
+        <section class="sh-cc-sec">
+          <h3 class="sh-cc-h">التشغيل</h3>
 
-        ${raw(
-          tuner({
-            key: 'repeat',
-            label: '🔁 عدد التكرار',
-            hint: 'كام مرّة تتقال الجملة قبل ما ينتقل للي بعدها.',
-            min: 1, max: 99, step: 1,
-            value: session.repeatCount ?? 5, unit: 'مرّة',
-          })
-        )}
+          ${raw(ccRow({
+            key: 'speed', label: 'السرعة', value: `${speed}×`,
+            body: ccChips('speed', [0.5, 0.75, 0.85, 1, 1.25],
+              (v) => Number(speed) === Number(v), (v) => `${v}×`)
+              + html`<input type="range" class="sh-range" data-tune-range="speed"
+                min="${RATE_MIN}" max="${RATE_MAX}" step="0.05" value="${speed}"
+                aria-label="السرعة" />`,
+          }))}
 
-        ${raw(
-          tuner({
-            key: 'pause',
-            label: '⏳ الفاصل بين التكرارات',
-            hint: 'المهلة اللي بتقول فيها الجملة بصوتك. بالملّي ثانية.',
-            min: 0, max: 10000, step: 50,
-            value: pauseMs, unit: 'ms',
-          })
-        )}
+          ${raw(ccRow({
+            key: 'repeat', label: 'عدد التكرار', value: `×${reps}`,
+            body: ccChips('repeat', [1, 2, 3, 5, 7, 10, 15, 21],
+              (v) => Number(reps) === Number(v), (v) => `×${v}`)
+              + html`<label class="sh-cc-num">
+                <span>رقم بالضبط</span>
+                <input type="number" data-tune-num="repeat" value="${reps}"
+                  min="1" max="99" step="1" inputmode="numeric" aria-label="عدد التكرار" />
+              </label>`,
+          }))}
 
-        ${raw(
-          tuner({
-            key: 'volume',
-            label: '🔊 مستوى الصوت',
-            hint: '',
-            min: 0, max: 100, step: 1,
-            value: Math.round(ctx.volume * 100), unit: '%',
-          })
-        )}
+          ${raw(ccRow({
+            key: 'pause', label: 'الفاصل بين التكرارات', value: intervalLabel(session),
+            valueKey: 'pause',
+            body: ccChips('pause', [0, 500, 1000, 1500, 2000, 3000],
+              (v) => Number(pauseMs) === Number(v),
+              (v) => (v ? `${v / 1000}s` : 'بلا'))
+              + html`<input type="range" class="sh-range" data-tune-range="pause"
+                min="0" max="6000" step="50" value="${pauseMs}"
+                aria-label="الفاصل بين التكرارات" />`,
+          }))}
 
-        <div class="sh-drawer-sec">
-          <div class="sh-section-lbl">وضع العرض</div>
-          <div class="sh-seg" data-display-seg>
-            <button data-sh="display" data-val="ru">RU<small>الروسي</small></button>
-            <button data-sh="display" data-val="egy">مصري<small>الترجمة</small></button>
-            <button data-sh="display" data-val="hidden">مخفي<small>اكشفها</small></button>
+          ${raw(ccRow({
+            key: 'volume', label: 'مستوى الصوت', value: `${vol}%`,
+            body: html`<input type="range" class="sh-range" data-tune-range="volume"
+              min="0" max="100" step="1" value="${vol}" aria-label="مستوى الصوت" />`,
+          }))}
+
+          ${raw(ccRow({
+            key: 'repeatMode', label: 'بعد ما يخلّص العدد',
+            body: ccSeg([
+              { act: 'mode', attr: 'val', val: 'count', main: 'بالعدد', sub: 'يقف',
+                on: repeatMode !== REPEAT_MODE.CONTINUOUS },
+              { act: 'mode', attr: 'val', val: 'continuous', main: 'مستمرّ', sub: 'بلا توقّف',
+                on: repeatMode === REPEAT_MODE.CONTINUOUS },
+            ]),
+          }))}
+        </section>
+
+        <section class="sh-cc-sec">
+          <h3 class="sh-cc-h">العرض</h3>
+
+          <!--
+            ⚠️ **واللافتاتُ تقول ما يحدث فعلًا** (بند ١٥). كانت
+               «RU الروسي · مصري الترجمة · مخفي اكشفها» — وقِيس
+               السلوك: وضعُ الروسيّة **يشيل الترجمة**، ووضعُ «مخفي»
+               **يشوّش الجملة الروسية** والترجمةُ باقية. أي أنّ
+               الاسمَين كانا يصفان غيرَ ما يفعلان.
+          -->
+          ${raw(ccRow({
+            key: 'display', label: 'الترجمة', value: DISPLAY_SHORT[ctx.display] || '',
+            body: ccSeg([
+              { act: 'disp', val: 'egy', main: 'مع الترجمة', sub: 'مصري تحتها',
+                on: ctx.display === DISPLAY.EGY },
+              { act: 'disp', val: 'ru', main: 'روسي بس', sub: 'بلا ترجمة',
+                on: ctx.display === DISPLAY.RU },
+              { act: 'disp', val: 'hidden', main: 'مغطّاة', sub: 'دوس تكشفها',
+                on: ctx.display === DISPLAY.HIDDEN },
+            ]),
+          }))}
+
+          ${raw(ccRow({
+            key: 'stress', label: 'علامة النبر',
+            body: ccSeg([
+              { act: 'stress', val: '1', main: 'ظاهرة', on: Boolean(ctx.stress) },
+              { act: 'stress', val: '0', main: 'مخفيّة', on: !ctx.stress },
+            ]) + html`<p class="sh-cc-state" data-cc-stress-state>${stressFoot()}</p>`,
+          }))}
+
+          ${raw(ccRow({
+            key: 'size', label: 'حجم الجملة', value: `${size}px`,
+            body: ccChips('fsize', [24, 30, 36, 41, 48],
+              (v) => size === Number(v),
+              (v) => ({ 24: 'XS', 30: 'S', 36: 'M', 41: 'L', 48: 'XL' })[v], 'fsize'),
+          }))}
+
+          ${raw(ccRow({
+            key: 'font', label: 'خطّ الجملة',
+            body: html`<div class="sh-cc-fonts" data-cc-fonts>
+              ${raw(FONTS.map((f) => html`
+                <button type="button" data-sh="font-pick" data-page="stage" data-font="${f.id}"
+                  class="${ctx.font === f.id ? 'on' : ''}" lang="ru"
+                  style="font-family:${f.stack};font-style:${f.style}"
+                  aria-pressed="${ctx.font === f.id ? 'true' : 'false'}"
+                ><b>Аа</b><small>${f.label}</small></button>`).join(''))}
+            </div>`,
+          }))}
+
+          ${raw(ccRow({
+            key: 'sky', label: 'الخلفيّة',
+            body: html`<div class="sh-cc-chips">
+                <button type="button" data-sh="sky-pick">ارفع صورة…</button>
+                ${raw(ctx.sky ? html`<button type="button" data-sh="sky-clear">رجّع النجوم</button>` : '')}
+              </div>
+              <label class="sh-cc-num">
+                <span>قدّ إيه تغمق</span>
+                <b data-sky-dark-out>${dark}%</b>
+              </label>
+              <input type="range" class="sh-range" data-sky-dark-range
+                min="${SKY_DARK.min}" max="${SKY_DARK.max}" step="1" value="${dark}"
+                aria-label="عتمة الخلفيّة" />`,
+          }))}
+        </section>
+
+        <section class="sh-cc-sec">
+          <h3 class="sh-cc-h">الصوت</h3>
+
+          ${raw(ccRow({
+            key: 'audio', label: 'مصدر النطق', value: AUDIO_SHORT[ctx.audioSource] || 'آليّ',
+            valueKey: 'audio',
+            body: ccSeg(audioChoices().map((id) => ({
+              act: 'audio-src', val: id, main: AUDIO_SHORT[id] || id,
+              on: ctx.audioSource === id,
+            }))),
+          }))}
+
+          <!--
+            ⚠️ **وقائمةٌ حاويةٌ حقيقيّة، والمُختارُ من حقلِ الصوت المحفوظ.**
+               لوحةُ السكّة كانت تكتب مجموعاتَ خياراتٍ عاريةً — بلا
+               قائمةٍ حاوية، فلا يرسمها متصفّح — وتقرأ حقلًا لا يكتبه
+               أحد. فكان الضابطُ غيرَ مرئيٍّ ولا يعرف قيمتَه، وهو الآن
+               واحدٌ يعمل.
+          -->
+          ${raw(ccRow({
+            key: 'voice', label: 'صوت الجهاز',
+            body: html`<select class="sh-select" data-sh="voice-select"
+                aria-label="صوت الجهاز">${raw(voiceOptions(ctx.voices, session.voiceId))}</select>
+              ${raw(!ctx.voices?.russian?.length ? html`<p class="sh-cc-warn">مفيش صوت روسي على الجهاز — نزّله من إعدادات الجهاز ← تحويل النصّ لكلام.</p>` : '')}`,
+          }))}
+        </section>
+
+        <!--
+          ⚠️ **متقدّمٌ مطويٌّ — لا مخفيٌّ ولا مكشوف** (بند ١٨). ومحرّكاتُ
+             النطق غيرُ الجاهزة **تقول عن نفسها** بدل أن تبدو أزرارًا
+             تعمل (بند ١٩): معطّلةٌ ومكتوبٌ عليها «غير متاح حاليًا».
+             وأسماءُ الجسور والتطوير لا تظهر إلّا هنا.
+        -->
+        <details class="sh-cc-adv">
+          <summary>إعدادات متقدّمة</summary>
+          <div class="sh-cc-advbody">
+
+          ${raw(ccRow({
+            key: 'engine', label: 'محرّك النطق الآليّ',
+            body: html`<div class="sh-cc-chips" data-cc-chips="engine">
+              ${raw((ctx.ttsProviders || []).map(({ provider, availability }) => html`
+                <button type="button" data-sh="tts-provider" data-v="${provider.id}"
+                  class="${ctx.ttsProviderId === provider.id ? 'on' : ''}"
+                  ${availability.available ? '' : 'disabled'}
+                  title="${availability.reason || ''}"
+                >${provider.name}${raw(availability.available ? '' : html`<small>غير متاح حاليًا</small>`)}</button>`).join(''))}
+            </div>`,
+          }))}
+
+          <div class="sh-cc-row">
+            <div class="sh-cc-head"><span class="sh-cc-lbl">جيب النبر من ويكاموس</span></div>
+            <div class="sh-cc-chips">
+              <button type="button" data-sh="net-stress">${ctx.netStress ? 'مفعّل — اطفيه' : 'مطفي — فعّله'}</button>
+            </div>
           </div>
-        </div>
 
-        <div class="sh-drawer-sec">
-          <div class="sh-section-lbl">وضع التكرار</div>
-          <div class="sh-seg" data-repeat-seg>
-            <button data-sh="mode" data-val="count">بالعدد<small>يقف بعد العدد</small></button>
-            <button data-sh="mode" data-val="continuous">مستمرّ<small>بلا توقّف</small></button>
+          <div class="sh-cc-row">
+            <div class="sh-cc-head"><span class="sh-cc-lbl">مقارنةُ الأصوات</span></div>
+            <div class="sh-cc-chips">
+              <button type="button" data-sh="voice-lab">مختبر الأصوات A/B/C</button>
+            </div>
           </div>
-        </div>
-
-        <div class="sh-drawer-sec">
-          <div class="sh-section-lbl">الصوت المنطوق</div>
-          <select class="sh-select" data-sh="voice-select">
-            ${raw(voiceOptions(voices, session.voiceId))}
-          </select>
-        </div>
+          </div>
+        </details>
 
         <p class="sh-drawer-note">
-          الخطّ والنبر والترجمة مع النصّ نفسه — في أسفل الصفحة اليسرى،
-          جنب الكلام اللي بتقرأه.
+          خطُّ الصفحة اليسرى وحجمُها من مفتاح <b>Аа</b> أسفلها — دي صفحةُ
+          القراءة، وليها إعدادُها لوحدها.
         </p>
       </div>
     </aside>`;
@@ -2631,6 +2876,19 @@ function translationFor(segment) {
  */
 async function fetchMissingTranslation(segment) {
   if (segment.translationSnapshot) return;
+  /*
+   * ⚠️ **ولا تُلاحَق ترجمةٌ طلبتَ ألّا تراها (WS-SCLEAN · بند ١٥).**
+   *
+   *    اللافتةُ تقول «روسي بس — بلا ترجمة»، وكان سطرُ الترجمة يعرض
+   *    بعدها «مفيش ترجمة محفوظة للجملة دي — دوس هنا تفعّل الترجمة
+   *    أونلاين». أي أنّ الوضعَ يُنفَّذ (الترجمةُ لا تظهر) **ويُلحّ
+   *    عليك في نفس الوقت** بشيءٍ أخرجتَه بنفسك.
+   *
+   *    وقِيس: بعد اختيار «روسي بس» يبقى في `[data-tr]` نصُّ الدعوة.
+   *    فالشرطُ هنا لا في الرسالة: مَن لا يريد ترجمةً لا يُسأل عنها،
+   *    ومَن عاد إلى «مع الترجمة» تُطلَب له فورًا (في مُعالِج العرض).
+   */
+  if (ctx.display === DISPLAY.RU) return;
   const el = $('[data-tr]');
   if (el) el.textContent = '⟳ بنترجم…';
 
@@ -3430,14 +3688,22 @@ const TOOLS = [
   { id: 'phrase-exit', glyph: '↩', label: 'ارجع للجملة', when: () => phrase.on },
 
   /* ---- أدواتُ المسرح: دائمًا ---- */
-  { id: 'display', glyph: '◐', label: 'العرض', value: () => DISPLAY_SHORT[ctx.display] || '' },
-  { id: 'text', glyph: 'Aa', label: 'الخطّ', value: () => `${ctx.sizePx || DEFAULT_SIZE_PX}px` },
-  { id: 'speed', glyph: '▹', label: 'السرعة', value: () => `${ctx.session?.speed ?? 1}x` },
-  { id: 'repeat', glyph: '↻', label: 'التكرار', value: () => `×${ctx.session?.repeatCount ?? 1}` },
-  { id: 'voice', glyph: '◈', label: 'الصوت',
-    value: () => AUDIO_SHORT[ctx.audioSource] || 'آليّ' },
-  { id: 'mode', glyph: '⊞', label: 'PLAY MODE',
-    value: () => MODE_SHORT[player?.state?.settings?.practiceMode] || 'جملة' },
+  /*
+   * ⚠️ **وسبعُ أدواتِ إعدادٍ خرجت من هنا إلى مركز التدريب (WS-SCLEAN).**
+   *
+   *    كانت السكّةُ تحمل العرضَ والخطَّ والسرعةَ والتكرارَ والصوتَ
+   *    ووضعَ القراءة والخلفيّة — كلُّها إعداداتٌ **تبقى**، وكلُّها
+   *    موجودةٌ (أو صارت موجودةً) في الدرج. فكانت السكّةُ سكّةَ
+   *    إعداداتٍ بزيِّ أدوات: حائطٌ رأسيٌّ من سبع قيَمٍ على حافّة
+   *    المسرح، تقرؤه العينُ قبل أن تقرأ الروسيّة.
+   *
+   *    والباقي هنا **أفعالٌ وسياق**: أدواتُ الكلمة والمقطع تظهر
+   *    بحسب ما في يدك، وسجلُّ الغلط والصوتُ والتعلّمُ أفعالٌ تفتح
+   *    نافذةً وتُغلق السكّة. لا إعدادَ واحدًا يبقى في السكّة
+   *    وفي الدرج معًا — وهو القانونُ الذي يحرسه الاختبار.
+   *
+   *    والأسبابُ مكتوبةٌ فردًا فردًا في NOT_IN_RAIL تحت.
+   */
   /*
    * ⚠️ والقيمةُ تقول إن للجملة الجارية مسودّةً — فلا تُفتَح اللوحةُ لتسأل.
    *    وعلى **الجملة** وحدها: `drafted` مجموعةُ جملٍ، وسؤالُها عن كلمةٍ
@@ -3459,7 +3725,6 @@ const TOOLS = [
       if (at.chunks) return `${at.done}/${at.chunks}`;
       return at.stories > 1 ? `▤${at.stories}` : '▤';
     } },
-  { id: 'sky', glyph: '✧', label: 'الخلفيّة' },
 ];
 
 /**
@@ -3476,11 +3741,26 @@ const NOT_IN_RAIL = Object.freeze({
   'doc-fit': 'موجودة مرّتين في الورقة نفسها: فوق المستند وفي مقبض تقسيمه — والسكّة لا تكرّر',
   'doc-full': 'موجودة مرّتين في الورقة نفسها: فوق المستند وفي مقبض تقسيمه — والسكّة لا تكرّر',
   'doc-none': 'موجودة مرّتين في الورقة نفسها: فوق المستند وفي مقبض تقسيمه — والسكّة لا تكرّر',
+
+  /* WS-SCLEAN — إعداداتٌ تبقى، فمكانُها مركزُ التدريب لا حافّةُ المسرح. */
+  display: 'إعدادٌ يبقى: الترجمة والنبر في مركز التدريب — قسم العرض',
+  text: 'إعدادٌ يبقى: خطّ الجملة وحجمها في مركز التدريب — قسم العرض',
+  speed: 'إعدادٌ يبقى: السرعة في مركز التدريب — قسم التشغيل',
+  repeat: 'إعدادٌ يبقى: العدد والفاصل في مركز التدريب — قسم التشغيل',
+  voice: 'إعدادٌ يبقى: مصدر النطق وصوت الجهاز في مركز التدريب — قسم الصوت',
+  sky: 'إعدادٌ يبقى: الخلفيّة وعتمتها في مركز التدريب — قسم العرض',
+  /*
+   * ⚠️ **ووضعُ القراءة مفتاحُه على المسرح أصلًا** (جملة/مقطع/كلمة)،
+   *    فلوحتُه كانت نسخةً ثانيةً **بخياراتٍ مختلفة**: تعرض «متّصل بلا
+   *    تكرار» ولا يعرفه مفتاحُ المسرح. فاختيارُه من السكّة كان يُضيء
+   *    «جملة» على المسرح — شاشةٌ تقول غيرَ حالها. والوضعُ المتّصل
+   *    صار قرارَ «بعد ما يخلّص العدد» في مركز التدريب، وهو معناه.
+   */
+  mode: 'مفتاحُه على المسرح نفسِه — وصار فيه «متّصل» أيضًا، فلا خيارَ فُقِد',
 });
 
 /** اختصاراتٌ تُقرأ على السكّة — لا تسع اللافتةَ كاملةً. */
 const DISPLAY_SHORT = { ru: 'روسي', egy: 'مصري', hidden: 'مخفي' };
-const MODE_SHORT = { sentence: 'جملة', word: 'كلمة', continuous: 'متّصل' };
 
 /*
  * ⚠️ **WS49** — حروفُ العلّة الروسية وعلامةُ النبر المركّبة (U+0301).
@@ -3492,7 +3772,14 @@ const STRESS_MARK = '\u0301';
 
 /** حالةُ السكّة — خارج الـDOM كباقي حالات هذه الشاشة. */
 const rail = {
-  open: false, tool: 'display', word: -1,
+  /*
+   * ⚠️ **والافتراضُ «سجّل غلطة» لا «العرض» (WS-SCLEAN).** كان
+   *    `display` — وهي أداةٌ خرجت إلى مركز التدريب، فصار الافتراضُ
+   *    يشير إلى لوحةٍ لا بابَ لها. و`renderRail` تُصحّح ذلك عند أوّل
+   *    رسم، لكنّ الافتراضَ الخاطئ يعني لوحةً غيرَ متوقّعةٍ في أوّل
+   *    لمسةٍ قبل التصحيح.
+   */
+  open: false, tool: 'mistake', word: -1,
 };
 
 /**
@@ -3576,204 +3863,23 @@ function panelFor(id) {
     };
   }
 
-  if (id === 'display') {
-    return {
-      title: 'العرض',
-      /*
-       * ⚠️ **بلاغُك: «ليه النبر (ударение) مش ظاهر؟»**
-       *
-       * وهو ظاهرٌ — على ما يعرفه القاموسُ المحلّيّ وحده. والقاعدةُ
-       * مكتوبةٌ في `stress.js` منذ نقلها: «الكلماتُ غير الموجودة تُترَك
-       * بلا علامة بدل تخمين موضعٍ خاطئ — التخمينُ هنا أسوأُ من الصمت».
-       * والقاعدةُ صحيحة، **والصمتُ عنها ليس صحيحًا**: أنت ترى جملةً بلا
-       * علامةٍ واحدة فتظنّ الميزةَ معطّلة، وهي تعمل ولا تعرف كلماتِك.
-       *
-       * فصار العددُ مكتوبًا: «٣ من ٧ كلمات نعرف نبرها». `markSentence`
-       * كانت تُرجع `known` و`total` من أوّل يوم — ولم يقرأهما أحد.
-       */
-      foot: stressFoot(),
-      groups: [
-        { title: 'الترجمة', items:
-          `${pick('disp', 'ru', 'روسي فقط', ctx.display === DISPLAY.RU)}
-           ${pick('disp', 'egy', 'مصري', ctx.display === DISPLAY.EGY)}
-           ${pick('disp', 'hidden', 'مخفي', ctx.display === DISPLAY.HIDDEN)}` },
-        { title: 'النبر', items:
-          `${pick('stress', '1', 'ظاهر', Boolean(ctx.stress))}
-           ${pick('stress', '0', 'مخفي', !ctx.stress)}` },
-        /*
-         * ⚠️ **WS50 — المصدر الثاني، وكان في تطبيقك القديم.**
-         *    القاموس المدمج ٨٢ كلمة؛ وويكاموس يعرف أيّ كلمة. مطفأٌ
-         *    افتراضيًّا لأنه يُخرج الكلمة من جهازك — فالإذنُ إذنك،
-         *    كالترجمة عبر الإنترنت بالضبط.
-         */
-        { title: 'جيب النبر من ويكاموس', items:
-          `<button data-sh="net-stress">${ctx.netStress ? 'مفعّل — اطفيه' : 'مطفي — فعّله'}</button>` },
-      ],
-    };
-  }
-  if (id === 'text') {
-    return {
-      title: 'الخطّ',
-      foot: 'يخصّ النصّ الروسي وحده',
-      /*
-       * ⚠️ **بلاغُك: «خلّي إمكانية تصغير الخطّ أكتر من كده، ويكون ده
-       *    الافتراضيّ».** كان أصغرُ ما يمكن 36px وهو كبيرٌ لجملةٍ
-       *    طويلة، والافتراضُ 41. فنزل السلّمُ إلى 24 وصار الافتراضُ
-       *    30 — ومَن اختار حجمًا يبقى عليه، فالافتراضُ لا يدهس اختيارًا.
-       */
-      groups: [{ title: 'SENTENCE SIZE', items:
-        [['24', 'XS'], ['30', 'S'], ['36', 'M'], ['41', 'L'], ['48', 'XL']].map(([px, label]) =>
-          pick('fsize', px, label, Number(ctx.sizePx || DEFAULT_SIZE_PX) === Number(px))).join('') },
-      ],
-      after: fontPanelBody(),
-    };
-  }
-  if (id === 'speed') {
-    return {
-      title: 'السرعة',
-      foot: 'طبقةُ الصوت لا تتغيّر',
-      groups: [{ title: 'سرعة القراءة', items:
-        [0.5, 0.75, 0.85, 1, 1.25].map((v) =>
-          pick('tune', `speed:${v}`, `${v}x`, Number(s.speed) === v)).join('') }],
-    };
-  }
-  if (id === 'repeat') {
-    return {
-      title: 'التكرار',
-      foot: 'يخصّ الجملة الجارية',
-      groups: [
-        { title: 'كم مرّة', items: [1, 2, 3, 5, 7].map((v) =>
-          pick('tune', `repeat:${v}`, `×${v}`, Number(s.repeatCount) === v)).join('') },
-        { title: 'الوقفة بينها', items: [0, 500, 1000, 2000].map((v) =>
-          pick('tune', `pause:${v}`, v ? `${v / 1000}ث` : 'بلا', Number(s.intervalMs) === v)).join('') },
-      ],
-    };
-  }
-  if (id === 'voice') {
-    return {
-      title: 'الصوت',
-      /*
-       * ⚠️ **وهنا مكانُ «مفيش صوت روسي»** بعد أن رُفعت لافتتُها من
-       *    المسرح (WS36). المعلومةُ صحيحةٌ ونادرة، فتُقال حيث تُسأل —
-       *    في لوحة الصوت — لا في لوحةٍ تحجز رُبعَ الشاشة دائمًا لمن
-       *    لا يعنيه الأمر.
-       */
-      foot: (() => {
-        if (!ctx.voices?.russian?.length) {
-          return 'مفيش صوت روسي على الجهاز — نزّله من إعدادات الجهاز ← تحويل النصّ لكلام';
-        }
-        return ctx.humanAudioUrl ? 'تسجيلُك مربوطٌ بهذا المصدر' : 'أصواتُ جهازك — لا شيء يُحمَّل';
-      })(),
-      /*
-       * ⚠️ **تُرسَم من السجلّ لا بأسمائها.**
-       *
-       * كنتُ أكتب خيارين بيدي: `آليّ` و`أصليّ`. و`audioChoices()` —
-       * وهي المرجع — تعرف **ثلاثة**، وتضيف «تسجيلي» حين يكون هناك
-       * تسجيلٌ مربوطٌ بالمصدر. فكان التسجيلُ البشريُّ يُقرأ من
-       * القاعدة، ويُحسَب في `humanAudioUrl`، ويصله المحرّكُ — **ولا
-       * زرَّ يختاره**. بلاغُك: «الصوت البشري مش شغّال».
-       *
-       * ⚠️ **قِستُه**: تسجيلٌ مربوطٌ بـ`audio:script` وبلوبه موجود،
-       *    ولوحةُ الصوت تعرض `["tts","native"]` فقط.
-       *
-       * وهذا ثالثُ عطلٍ في هذه السلسلة من نفس النوع: **قائمةٌ
-       * مكتوبةٌ بيدٍ بجانب سجلٍّ يعرف أكثر منها.** فالقاعدة: مَن له
-       * سجلٌّ يُرسَم منه.
-       */
-      groups: [
-        { title: 'المصدر', items:
-          audioChoices().map((id) =>
-            pick('audio-src', id, AUDIO_SHORT[id] || id, ctx.audioSource === id)).join('') },
-        /*
-         * ⚠️ **مصدر النطق الآلي — بند 9 (WS41).** يختصّ هذا بأيّ
-         *    محرّكٍ ينطق حين يكون المصدرُ أعلاه «آليّ»؛ لا علاقة له
-         *    باختيار «تسجيلي/أصليّ». وحالةُ كلّ مزوّدٍ صادقةٌ من
-         *    `isAvailable()` الحقيقية — لا زرَّ تشغيلٍ ميّتًا لمزوّدٍ
-         *    غير موجود (بند 9: "Do not show dead Play buttons").
-         */
-        { title: 'محرّك النطق الآلي', items:
-          (ctx.ttsProviders || []).map(({ provider, availability }) => `
-            <button data-sh="tts-provider" data-v="${esc(provider.id)}"
-              class="${ctx.ttsProviderId === provider.id ? 'on' : ''}"
-              ${availability.available ? '' : 'disabled'}
-              title="${esc(availability.reason || '')}">
-              ${esc(provider.name)}
-            </button>`).join('') },
-      ],
-      after: `<div class="sh-pgroup"><span>صوت الجهاز</span>${voiceOptions(ctx.voices, s.voiceURI)}</div>
-        <div class="sh-pgroup"><button data-sh="voice-lab" class="btn btn-ghost">مختبر الأصوات A/B/C</button></div>`,
-    };
-  }
-  if (id === 'mode') {
-    /*
-     * ⚠️ **الفرقُ بين قراءة الجملة وقراءة الكلمة كان موجودًا ومخفيًّا.**
-     *
-     * المحرّك يعرف `PRACTICE_MODE` منذ اليوم الأوّل — جملةً وكلمةً
-     * ومتّصلًا — ولم يكن له زرّ. فكان الوضعُ يتبدّل ضمنًا حين تضغط
-     * كلمةً، ولا تعرف أنت في أيّهما أنت. وهذا هو «مفيش تناسق».
-     *
-     * فصار وضعًا **مُعلَنًا تختاره**، ويقول أيُّه مُختار.
-     */
-    const now = player?.state?.settings?.practiceMode || PRACTICE_MODE.SENTENCE;
-    return {
-      title: 'PLAY MODE',
-      foot: 'الوضعُ يقرّر ما يتكرّر: الجملة أم الكلمة',
-      groups: [{ title: 'ما الذي يُقرأ', items:
-        `${pick('mode-set', PRACTICE_MODE.SENTENCE, 'جملة كاملة', now === PRACTICE_MODE.SENTENCE)}
-         ${pick('mode-set', PRACTICE_MODE.WORD, 'كلمة كلمة', now === PRACTICE_MODE.WORD)}
-         ${pick('mode-set', PRACTICE_MODE.CONTINUOUS, 'متّصل بلا تكرار', now === PRACTICE_MODE.CONTINUOUS)}` }],
-    };
-  }
-  if (id === 'sky') {
-    /*
-     * ⚠️ **الخلفيّةُ صورتُك أنت، لا صورةٌ في المستودع.**
-     *
-     * النموذجُ يضع `cosmos.png` ملفًّا في الحزمة. وضمُّ صورةٍ بحجم
-     * فضاءٍ حقيقيّ إلى تطبيقٍ يُحمَّل على الهاتف ثمنٌ يدفعه كلُّ فتحةٍ
-     * بلا أن يختار أحد. فالصورةُ تُرفَع من جهازك مرّةً وتُخزَّن في
-     * القاعدة — تعمل بلا شبكة، وتغيّرها متى شئت، ولا تثقل الحزمة.
-     */
-    /*
-     * ⚠️ **ومنزلقُ العتمة هنا لا في درجٍ آخر (WS46)** — هذه لوحةُ
-     *    «الخلفيّة»، والعتمةُ صفةٌ من صفاتها. فيقع الضبطُ حيث تنظر
-     *    إلى ما تضبطه، وترى أثرَه على الفور خلف اللوحة نفسِها.
-     *
-     * ⚠️ **ولا يمرّ بـ`TUNERS`/`setTuner`** — تلك سكّةُ إعداداتِ
-     *    **التشغيل** (`player.updateSettings`)، وهذه صفةُ عرضٍ لا
-     *    تمسّ المحرّك. فلها معالِجُها الخاصّ على `data-sky-dark-*`،
-     *    كما لحجم الخطّ معالِجُه على `data-font-size` تمامًا.
-     */
-    const dark = ctx.skyDark ?? SKY_DARK.def;
-    return {
-      title: 'الخلفيّة',
-      foot: 'الصورة تُخزَّن على جهازك — بلا إنترنت',
-      groups: [
-        { title: 'سماء الجلسة', items:
-          `<button data-sh="sky-pick">ارفع صورة…</button>
-           ${ctx.sky ? '<button data-sh="sky-clear">رجّع النجوم</button>' : ''}` },
-        { title: 'عتمة الكون', items: `
-          <div class="sh-tuner" data-tuner="sky-dark">
-            <div class="sh-tuner-head">
-              <span class="sh-tuner-lbl">قدّ إيه تغمق</span>
-              <span class="sh-tuner-box"><b data-sky-dark-out>${dark}%</b></span>
-            </div>
-            <input type="range" class="sh-range" data-sky-dark-range
-              min="${SKY_DARK.min}" max="${SKY_DARK.max}" step="${SKY_DARK.step}"
-              value="${dark}" aria-label="عتمة الخلفيّة الكونيّة" />
-            <div class="sh-tuner-hint">٠٪ الصورة بسطوعها الأصليّ · ٤٠٪ أغمق بكتير</div>
-          </div>` },
-      ],
-    };
-  }
   /*
-   * ⚠️ **لوحٌ واحدٌ لطبقة التعلّم** (WS-SL · بند ٣): كان لوحان —
-   *    «مسودّة مذاكرة» و«قصّة الجملة» — لكلٍّ قشرتُه ورسمُه. وهما
-   *    مادّتان حول جملةٍ واحدة، فصارتا تبويبين في لوحٍ واحدٍ رأسُه
-   *    الجملةُ نفسُها (بندا ٢ و١٣).
+   * ⚠️ **وسبعُ لوحاتٍ حُذفت من هنا — لا فقدانَ وظيفةٍ واحدة (WS-SCLEAN).**
    *
-   * ⚠️ **وقشرةٌ الآن، ومحتوًى بعد قراءة**: `panelFor` متزامنة وكلُّ
-   *    أدواتها تقرأ من `ctx` الحاضر، والمادّةُ في القاعدة. فتُرسَم
-   *    القشرةُ فورًا (فلا يفتح اللوحُ على بياض) ويملؤها `renderLearn()`.
+   *    كانت `display` و`text` و`speed` و`repeat` و`voice` و`mode`
+   *    و`sky` لوحاتٍ في السكّة، وصارت أقسامًا في مركز التدريب. وقد
+   *    نُقِل معها كلُّ ما كان فيها **بالجرد لا بالذاكرة**: الترجمةُ
+   *    والنبرُ وويكاموس، والأحجامُ والخطوطُ العشرة، ورقائقُ السرعة،
+   *    والعددُ والوقفة، ومصدرُ النطق ومحرّكُه وصوتُ الجهاز ومختبرُ
+   *    الأصوات، والخلفيّةُ وعتمتُها. و«متّصل» نزل إلى مفتاح الأوضاع.
+   *
+   *    ⚠️ **والسطرُ الذي كان يقول الصدقَ لم يُرمَ**: «النبر معروف لـ٣
+   *       من ٧ كلمة» كان تذييلَ لوحة العرض، وهو جوابُ سؤالٍ حقيقيّ
+   *       («ليه النبر مش ظاهر؟»). فصار سطرَ حالةٍ تحت ضابط النبر في
+   *       مركز التدريب — تُحدّثه `syncControlCenter` مع كلّ جملة.
+   *
+   *    والبقيّةُ هنا لوحاتُ **أفعالٍ** لا إعدادات: أدواتُ الكلمة
+   *    والمقطع، والتعلّمُ، والمحفوظاتُ، والتقرير.
    */
   if (id === 'learn') {
     const at = learning.get(player?.state?.index ?? 0);
@@ -4669,14 +4775,6 @@ function currentWordText() {
 }
 
 /** جسمُ لوحة الخطّ — يُعاد استعمالُه داخل اللوحة بدل لوحةٍ ثانية. */
-function fontPanelBody() {
-  return `<div class="sh-pgroup"><span>شكل الحروف</span>
-    <div class="sh-pitems">${FONTS.map((f) => `
-      <button data-sh="font-pick" data-font="${f.id}" class="${ctx.font === f.id ? 'on' : ''}"
-              style="font-family:${f.stack};font-style:${f.style}" lang="ru">${esc(f.label)}</button>`).join('')}
-    </div></div>`;
-}
-
 /** يرسم السكّة واللوحة من السجلّ — لا من شرطٍ متفرّق. */
 function renderRail() {
   const app = document.querySelector('.shadow-app');
@@ -4702,7 +4800,7 @@ function renderRail() {
    *    ويقع **قبل** رسم الأزرار ليصحّ وسمُ `on` من أوّل مرّة.
    */
   if (!set.some((tool) => tool.id === rail.tool)) {
-    rail.tool = set[0]?.id || 'display';
+    rail.tool = set[0]?.id || 'mistake';
   }
 
   tools.innerHTML = set.map((t) => {
@@ -4969,8 +5067,13 @@ const MODES = [
      *    تكون جملةَ سكريبتٍ أو نصًّا لصقتَه أو سطرًا من مسودّة —
      *    والنطاقُ واحدٌ في الثلاثة.
      */
+    /*
+     * ⚠️ **والشرطُ صريحٌ لا بالنفي (WS-SCLEAN).** كان «ليس كلمة» —
+     *    فيُضيء «جملة» ونحن في المتّصل أو في دور المحادثة. والشرطُ
+     *    بالنفي يكسب كلَّ وضعٍ يُضاف بعده.
+     */
     is: () => !phrase.on
-      && player?.state?.settings?.practiceMode !== PRACTICE_MODE.WORD,
+      && (player?.state?.settings?.practiceMode || PRACTICE_MODE.SENTENCE) === PRACTICE_MODE.SENTENCE,
     enter: async () => { exitPhrase(); await setPractice(PRACTICE_MODE.SENTENCE); },
     paint: () => {},
   },
@@ -4989,6 +5092,29 @@ const MODES = [
     is: () => !phrase.on
       && player?.state?.settings?.practiceMode === PRACTICE_MODE.WORD,
     enter: async () => { exitPhrase(); await setPractice(PRACTICE_MODE.WORD); },
+    paint: () => {},
+  },
+  /*
+   * ⚠️ **«متّصل» نزل من لوحة السكّة إلى المفتاح نفسِه (WS-SCLEAN).**
+   *
+   *    كان وضعًا رابعًا يعرفه المحرّك، وبابُه لوحةُ «PLAY MODE» في
+   *    السكّة — أي **مفتاحٌ ثانٍ لنفس الإعداد بخياراتٍ مختلفة**.
+   *    وقِيس أثرُ ذلك: تختار «متّصل» من اللوحة، فيُضيء مفتاحُ المسرح
+   *    «جملة» — لأنّ شرطَ «جملة» كان «ليس كلمة». شاشةٌ تقول غيرَ
+   *    حالها، وهو أسوأُ من خيارٍ ناقص.
+   *
+   *    ⚠️ **ولا يُحَلّ بحذف الخيار**: المتّصلُ يمرّ على المقاطع تباعًا
+   *       بلا تكرارٍ لكلٍّ — وهو غيرُ «مستمرّ» في مركز التدريب الذي
+   *       يكرّر **الوحدةَ الواحدة** بلا نهاية. سؤالان مختلفان، فلا
+   *       يُدمَجان ولا يُلغى أحدُهما.
+   */
+  {
+    id: 'continuous',
+    label: 'متّصل',
+    hint: 'يمشي على الجمل واحدة ورا التانية بلا تكرار',
+    is: () => !phrase.on
+      && player?.state?.settings?.practiceMode === PRACTICE_MODE.CONTINUOUS,
+    enter: async () => { exitPhrase(); await setPractice(PRACTICE_MODE.CONTINUOUS); },
     paint: () => {},
   },
 ];
@@ -8235,6 +8361,73 @@ const TUNERS = {
 };
 
 /**
+ * يُحدِّث مركزَ التدريب **بلا إعادة بناء** (بندا ٢٦ و٣٣).
+ *
+ * ⚠️ **ولماذا لا نُعيد رسمَ الدرج؟** لأنّ إعادةَ البناء تُفقِد ثلاثةَ
+ *    أشياءَ لا يراها من يكتبها: موضعَ التمرير، وفتحَ «إعدادات
+ *    متقدّمة»، وأيَّ شرحٍ فتحتَه للتوّ. فتغييرُ السرعة كان سيقفل ما
+ *    فتحتَه. فالمكتوبُ هنا نصٌّ وأصنافُ حالةٍ فقط — لا innerHTML.
+ *
+ * ⚠️ **ويُنادى من نفس الأماكن التي كانت تنادي `renderRail`** — أي من
+ *    الكاتبِ الواحد لكلّ إعداد. فلا سطحَ يعرف قيمةً غيرَ التي في
+ *    الحالة، وهو ما كان يحدث فعلًا قبل اليوم: السكّةُ تقول رقمًا
+ *    والدرجُ يقول غيرَه.
+ */
+function syncControlCenter() {
+  const box = document.querySelector('[data-drawer]');
+  if (!box || !ctx) return;
+  const s = ctx.session || {};
+
+  const put = (key, text) => {
+    box.querySelectorAll(`[data-cc-val="${key}"]`)
+      .forEach((node) => { node.textContent = text; });
+  };
+  put('speed', `${Number(s.speed ?? 1)}×`);
+  put('repeat', `×${Number(s.repeatCount ?? 1)}`);
+  put('pause', intervalLabel(s));
+  put('volume', `${Math.round((ctx.volume ?? 1) * 100)}%`);
+  put('display', DISPLAY_SHORT[ctx.display] || '');
+  put('audio', AUDIO_SHORT[ctx.audioSource] || 'آليّ');
+  put('size', `${ctx.sizePx || DEFAULT_SIZE_PX}px`);
+
+  /* المضيءُ يُشتَقّ من الحالة في كلّ مرّة — لا متغيّرَ «مُختار» ثانٍ. */
+  const mark = (nodes, isOn) => nodes.forEach((node) => {
+    const on = isOn(node);
+    node.classList.toggle('on', on);
+    node.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+  const num = (node) => Number(String(node.dataset.v || '').split(':').pop());
+
+  mark(box.querySelectorAll('[data-cc-chips="speed"] button'), (n) => num(n) === Number(s.speed));
+  mark(box.querySelectorAll('[data-cc-chips="repeat"] button'), (n) => num(n) === Number(s.repeatCount));
+  mark(box.querySelectorAll('[data-cc-chips="pause"] button'), (n) => num(n) === intervalMs(s));
+  mark(box.querySelectorAll('[data-cc-chips="fsize"] button'),
+    (n) => Number(n.dataset.v) === Number(ctx.sizePx || DEFAULT_SIZE_PX));
+  mark(box.querySelectorAll('[data-sh="disp"]'), (n) => n.dataset.v === ctx.display);
+  mark(box.querySelectorAll('[data-sh="stress"]'), (n) => (n.dataset.v === '1') === Boolean(ctx.stress));
+  mark(box.querySelectorAll('[data-sh="audio-src"]'), (n) => n.dataset.v === ctx.audioSource);
+  mark(box.querySelectorAll('[data-cc-fonts] button'), (n) => n.dataset.font === ctx.font);
+  mark(box.querySelectorAll('[data-sh="mode"]'),
+    (n) => (n.dataset.val === 'continuous') === (s.repeatMode === REPEAT_MODE.CONTINUOUS));
+  mark(box.querySelectorAll('[data-cc-chips="engine"] button'), (n) => n.dataset.v === ctx.ttsProviderId);
+
+  /* والمنزلقاتُ تتبع القيمة أيضًا — لمن ضبطها من رقاقةٍ لا من سحب. */
+  const follow = (key, value) => {
+    const range = box.querySelector(`[data-tune-range="${key}"]`);
+    if (range && Number(range.value) !== Number(value)) range.value = value;
+    const field = box.querySelector(`[data-tune-num="${key}"]`);
+    if (field && Number(field.value) !== Number(value)) field.value = value;
+  };
+  follow('speed', s.speed ?? 1);
+  follow('repeat', s.repeatCount ?? 1);
+  follow('pause', intervalMs(s));
+  follow('volume', Math.round((ctx.volume ?? 1) * 100));
+
+  const state = box.querySelector('[data-cc-stress-state]');
+  if (state) state.textContent = stressFoot();
+}
+
+/**
  * يضبط قيمة من المنزلق أو من خانة الرقم.
  *
  * المنزلق وخانة الرقم يقودان نفس القيمة، فيلزم أن يتبع كلٌّ الآخر —
@@ -8264,7 +8457,7 @@ function setTuner(key, raw, { silent = false } = {}) {
   if (num && Number(num.value) !== value) num.value = value;
 
   const quick = document.querySelector(`[data-dial="${key}"]`);
-  if (quick) quick.textContent = spec.label(value);
+  if (quick && quick.dataset.sh !== 'drawer') quick.textContent = spec.label(value);
 
   /*
    * ⚠️ **ونسخةُ الشاشة تتحدّث مع القاعدة.** كان الحفظ يكتب في
@@ -8277,6 +8470,7 @@ function setTuner(key, raw, { silent = false } = {}) {
    *       أصغر — هو عيبٌ لم يُقَس.
    */
   Object.assign(ctx.session, spec.persist(value));
+  syncControlCenter();
 
   if (silent) return;
   return saveSessionSettings(ctx.session.id, spec.persist(value)).catch(() => {});
@@ -8669,12 +8863,6 @@ function toggleDrawer(open) {
   // التحريك يحتاج إطارًا بعد رفع `hidden` وإلا انتقل فورًا بلا انزلاق.
   requestAnimationFrame(() => drawer.classList.toggle('open', next));
   if (next) drawer.querySelector('input, select, button')?.focus();
-}
-
-function setSegActive(container, value) {
-  document.querySelectorAll(`${container} button`).forEach((b) => {
-    b.classList.toggle('on', b.dataset.val === value);
-  });
 }
 
 async function toggleRecording(button) {
@@ -10692,15 +10880,36 @@ function wireInteractions(main) {
       case 'copy-item':
         return copySentence();
 
+      /*
+       * ⚠️ **شرحٌ بالطلب لا فقراتٌ دائمة (بندا ١٦ و١٧).** لوحةٌ فيها
+       *    شرحٌ تحت كلّ إعدادٍ تصير جدارَ نصّ، ولوحةٌ بلا شرحٍ تصير
+       *    ألغازًا. فزرٌّ صغيرٌ لكلّ إعدادٍ يحتاج شرحًا، وفقرتُه
+       *    مطويّةٌ تحته — ولا تُغيّر إعدادًا ولا تُعيد رسمَ شيء.
+       *
+       * ⚠️ **وبُنِي عامًّا ليُعاد استعمالُه**: النصوصُ في سجلٍّ واحد
+       *    (CC_INFO) والزرُّ يشير بمفتاحه — فمركزُ الصوت غدًا يكتب
+       *    مفاتيحَه في نفس السجلّ بلا معالِجٍ جديد.
+       */
+      case 'info': {
+        const key = btn.dataset.info;
+        const box = document.querySelector(`[data-info-for="${key}"]`);
+        if (!box) return undefined;
+        box.hidden = !box.hidden;
+        btn.setAttribute('aria-expanded', box.hidden ? 'false' : 'true');
+        btn.classList.toggle('on', !box.hidden);
+        return undefined;
+      }
+
       case 'drawer':       return toggleDrawer(true);
       case 'drawer-close': return toggleDrawer(false);
 
-      case 'display': {
-        ctx.display = btn.dataset.val;
-        setSegActive('[data-display-seg]', ctx.display);
-        syncSegment();
-        return saveSessionSettings(ctx.session.id, { displayMode: ctx.display });
-      }
+      /*
+       * ⚠️ **وحالةُ `display` حُذفت — كانت مُعالِجًا ثانيًا لنفس
+       *    الإعداد (WS-SCLEAN · بند ٦).** الدرجُ كان يُصدِرها والسكّةُ
+       *    تُصدِر `disp`، وكلتاهما تكتب `ctx.display` ثم تحفظ
+       *    `displayMode` — نفسُ الشيءِ بمسارين، ويكفي أن يُصلَح أحدُهما
+       *    يومًا فيفترقا. فبقي `disp` وحدَه، ويُصدِره مركزُ التدريب.
+       */
 
       /*
        * ⚠️ **تصادمُ اسمٍ أعطبَ إعدادَ الترجمة بالكامل.**
@@ -10720,13 +10929,29 @@ function wireInteractions(main) {
         ctx.display = btn.dataset.v;
         await saveSessionSettings(ctx.session.id, { displayMode: ctx.display });
         syncSegment();
+        syncControlCenter();
+        /*
+         * ⚠️ **والعودةُ إلى الترجمة تطلبها فورًا.** `syncSegment` تكتب
+         *    المحفوظَ وحدَه؛ فمن خرج من «روسي بس» إلى «مع الترجمة»
+         *    كان يرى سطرًا فارغًا حتى ينتقل إلى جملةٍ أخرى.
+         */
+        if (ctx.display !== DISPLAY.RU) {
+          await fetchMissingTranslation(activeSegment()).catch(() => {});
+        }
         return renderRail();
       }
 
       case 'mode': {
         const mode = btn.dataset.val === 'continuous' ? REPEAT_MODE.CONTINUOUS : REPEAT_MODE.COUNT;
         player.updateSettings({ repeatMode: mode });
-        setSegActive('[data-repeat-seg]', btn.dataset.val);
+        /*
+         * ⚠️ **والحقلُ يُكتَب في نسخة الشاشة أيضًا.** كان يُحفَظ في
+         *    القاعدة و`ctx.session.repeatMode` يبقى على قيمته الأولى،
+         *    فيقرأ مركزُ التدريب ماضيًا ويُضيء الخيارَ الخطأ عند
+         *    إعادة الفتح. وهو نفسُ عطبِ `setTuner` المكتوبِ فوقها.
+         */
+        ctx.session.repeatMode = mode;
+        syncControlCenter();
         return saveSessionSettings(ctx.session.id, { repeatMode: mode });
       }
 
@@ -10775,6 +11000,7 @@ function wireInteractions(main) {
         ctx.sizePx = px;
         document.querySelector('.shadow-app')?.style.setProperty('--sh-size', `${px}px`);
         await saveSessionSettings(ctx.session.id, { sizePx: px });
+        syncControlCenter();
         return renderRail();
       }
 
@@ -10789,12 +11015,18 @@ function wireInteractions(main) {
        * فصارت تمرّ من `setAudioSource` نفسِها التي يمرّ منها زرُّ
        * الدورة في الدرج — بابٌ واحدٌ يفعل الثلاثة.
        */
-      case 'audio-src':
-        return setAudioSource(btn.dataset.v);
+      case 'audio-src': {
+        const done = await setAudioSource(btn.dataset.v);
+        syncControlCenter();
+        return done;
+      }
 
       /* محرّك النطق الآلي (WS41-E) — راجع `setTTSProvider` أعلى الملفّ. */
-      case 'tts-provider':
-        return setTTSProvider(btn.dataset.v);
+      case 'tts-provider': {
+        const done = await setTTSProvider(btn.dataset.v);
+        syncControlCenter();
+        return done;
+      }
 
       case 'voice-lab': {
         const { openVoiceLab } = await import('../modals/voice-lab.js');
@@ -10949,13 +11181,11 @@ function wireInteractions(main) {
        * وضع النصّ لا وضعٌ رابع. ⚠️ وتمرّ من `setPractice` نفسِها —
        * مكانٌ واحدٌ يكتب الوضعَ، فلا يفترق البابان بعد شهر.
        */
-      case 'mode-set': {
-        const mode = btn.dataset.v;
-        await setPractice(mode);
-        toastOk(mode === PRACTICE_MODE.WORD ? 'بيقرا كلمة كلمة' : mode === PRACTICE_MODE.CONTINUOUS ? 'بيقرا متّصل' : 'بيقرا الجملة كاملة');
-        renderModes();
-        return renderRail();
-      }
+      /*
+       * ⚠️ **وحالةُ `mode-set` حُذفت مع لوحتها (WS-SCLEAN).** كانت
+       *    البابَ الثانيَ إلى `practiceMode`؛ والبابُ الباقي هو مفتاحُ
+       *    الأوضاع على المسرح (`mode-go`) — وقد صار يعرف «متّصل».
+       */
 
       /* ---- طبقةُ تعلّم الجملة (WS-SL) ---- */
 
@@ -11188,6 +11418,7 @@ function wireInteractions(main) {
         await settings.set(SKY_KEY, blob);
         await applySky();
         toastOk('اتغيّرت خلفيّة الجلسة');
+        syncControlCenter();
         return renderRail();
       }
 
@@ -11412,19 +11643,13 @@ function wireInteractions(main) {
         return;
       }
 
-      case 'voices': {
-        const select = $('[data-sh="voice-select"]');
-        select.hidden = !select.hidden;
-        btn.classList.toggle('on', !select.hidden);
-        return;
-      }
-
-      case 'voice': {
-        const select = $('[data-sh="voice-select"]');
-        select.hidden = false;
-        select.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-        return;
-      }
+      /*
+       * ⚠️ **وحالتا `voices` و`voice` حُذفتا — لا عنصرَ يُصدِرهما
+       *    (WS-SCLEAN).** كانتا تُظهِران قائمةَ الأصوات وتُمرِّرانها
+       *    إلى الرؤية، من أيّامٍ كانت القائمةُ مطويّةً في الدرج.
+       *    والجردُ على الشاشة الحقيقيّة لم يجد زرًّا واحدًا يُصدِر
+       *    أيًّا منهما: كودٌ يعمل ولا يُنادى.
+       */
 
       /* الرسالةُ نفسُها بابٌ — راجع `fetchMissingTranslation`. */
       case 'tr-on': {
@@ -11565,8 +11790,11 @@ function wireInteractions(main) {
         return;
       }
 
-      case 'font-pick':
-        return pickFont(btn.dataset.page, btn.dataset.font);
+      case 'font-pick': {
+        const done = pickFont(btn.dataset.page, btn.dataset.font);
+        syncControlCenter();
+        return done;
+      }
 
       /*
        * ⚠️ `page-go` نُزع مع مؤشّر الصفحتين (WS-M · العطب ١) —
@@ -11578,10 +11806,21 @@ function wireInteractions(main) {
       case 'fontpop':
         return toggleFontPop(btn.dataset.page === 'doc' ? 'doc' : 'stage', btn);
 
+      /*
+       * ⚠️ **ومفتاحٌ بقيمتين كان موصولًا بمُقلِّب (WS-SCLEAN).** لوحةُ
+       *    العرض كانت تُرسل «ظاهر»/«مخفي» بقيمةٍ صريحة، والمُعالِجُ
+       *    **يقلب** الحالةَ ويهمل القيمة — فضغطُ «ظاهر» والنبرُ ظاهرٌ
+       *    كان **يخفيه**. زرٌّ يفعل عكسَ اسمه.
+       *
+       *    فصارت القيمةُ الصريحةُ تُحترَم، والقلبُ يبقى لمن لا يرسل
+       *    قيمةً (شريطُ STRESS أسفل الصفحة اليسرى).
+       */
       case 'stress': {
-        ctx.stress = !ctx.stress;
+        const want = btn.dataset.v;
+        ctx.stress = want == null ? !ctx.stress : want === '1';
         btn.classList.toggle('on', ctx.stress);
         syncSegment();
+        syncControlCenter();
         return saveSessionSettings(ctx.session.id, { showStress: ctx.stress });
       }
 
@@ -11631,11 +11870,13 @@ function wireInteractions(main) {
   main.querySelector('[data-sh="stress"]')?.classList.toggle('on', ctx.stress);
   applyFonts();
 
-  setSegActive('[data-display-seg]', ctx.display);
-  setSegActive(
-    '[data-repeat-seg]',
-    ctx.session.repeatMode === REPEAT_MODE.CONTINUOUS ? 'continuous' : 'count'
-  );
+  /*
+   * ⚠️ **ومُوفِّقٌ واحدٌ بدل مفتاحَين بالاسم (WS-SCLEAN).** كان هنا
+   *    `setSegActive` لكلّ مقطعٍ باسم حاويته؛ وصار مركزُ التدريب
+   *    يُشتَقّ كلُّه من الحالة في نداءٍ واحد — فأيُّ ضابطٍ يُضاف غدًا
+   *    يُوفَّق بلا سطرٍ جديدٍ هنا.
+   */
+  syncControlCenter();
 }
 
 /** يكتب حالة الصورة على المتغيّرات المخصّصة — مصدر واحد للحقيقة. */

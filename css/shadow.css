@@ -1236,6 +1236,230 @@
 
 .sh-drawer-sec { display: flex; flex-direction: column; gap: 8px; }
 
+/* ═══════════════════════════════════════════════════════════════════
+   مركزُ التدريب — لوحةٌ تُمسَح بالعين لا استمارةٌ تُقرأ (WS-SCLEAN)
+
+   ⚠️ **بلاغُك**: «اللوحة شغّالة بس شكلها لسه استمارةٌ طويلة».
+      والسببُ مقيسٌ لا مُستنتَج: كان كلُّ إعدادٍ صفًّا من ثلاث طبقات
+      (لافتة + منزلق + خانة رقم + سطرُ شرحٍ دائم) بارتفاعٍ ~٩٠px،
+      وأربعةُ إعداداتٍ تملأ الشاشة قبل أن يبدأ «وضع العرض».
+
+   والعلاجُ ثلاثةُ قراراتٍ لا تصغيرٌ عامّ:
+     · **الشرحُ بالطلب** — سطرُ الشرح الدائم صار زرًّا (ⓘ) وفقرةً
+       مطويّة. وهو أكبرُ ما وفّر: سطرٌ من ٢٨px تحت كلّ إعداد.
+     · **الضابطُ المناسبُ لنوعه** (بند ١٠) — رقائقُ للمعدود، ومنزلقٌ
+       للمتّصل، ومفتاحٌ مقطعيٌّ للاختيار من ثلاثة. لا مستطيلاتٌ
+       عملاقةٌ لكلّ شيء.
+     · **القيمةُ في اللافتة** — فلا حاجةَ لخانةِ رقمٍ بجانب كلّ منزلق.
+
+   ⚠️ **ولم تُصغَّر أهدافُ اللمس** (بند ٩): كلُّ ما يُلمَس ≥ ٣٦px،
+      ورقائقُ الاختيار ٣٨px، والمفتاحُ المقطعيُّ ٤٤. المضغوطُ
+      الحشوُ والفراغُ بين الأقسام، لا ما تصله بإصبعك.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* ملخّصُ الجلسة: خمسُ قيَمٍ في صفٍّ واحدٍ لاصقٍ تحت الرأس (بند ٢٧). */
+.sh-cc-sum {
+  flex: none;
+  display: flex; justify-content: space-between; gap: 4px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--sh-line);
+  background: rgba(0, 0, 0, .16);
+}
+.sh-cc-sum span { display: flex; flex-direction: column; align-items: center; gap: 2px; min-width: 0; }
+.sh-cc-sum b {
+  font-family: var(--sh-mono); font-size: 13px; color: rgba(240, 220, 176, .95);
+  direction: ltr; unicode-bidi: isolate; white-space: nowrap;
+}
+.sh-cc-sum small { font-size: 9.5px; letter-spacing: .06em; color: var(--sh-faint); }
+
+.sh-cc-sec { display: flex; flex-direction: column; gap: 14px; }
+
+.sh-cc-h {
+  margin: 0; font-size: 11px; letter-spacing: .16em;
+  font-family: var(--sh-mono); color: rgba(224, 195, 132, .92);
+  border-bottom: 1px solid rgba(217, 182, 114, .2);
+  padding-bottom: 6px;
+}
+
+.sh-cc-row { display: flex; flex-direction: column; gap: 7px; }
+
+.sh-cc-head { display: flex; align-items: center; gap: 7px; }
+.sh-cc-lbl { font-size: 13px; color: var(--sh-ink); }
+.sh-cc-now {
+  margin-inline-start: auto;
+  font-family: var(--sh-mono); font-size: 12.5px;
+  color: rgba(240, 220, 176, .95);
+  direction: ltr; unicode-bidi: isolate;
+}
+
+/* زرُّ الشرح: دائرةٌ صغيرةُ الحبر، كبيرةُ الهدف. */
+.sh-cc-i {
+  width: 22px; height: 22px; padding: 0; cursor: pointer;
+  display: grid; place-items: center;
+  border: 0; border-radius: 50%; background: transparent;
+  color: rgba(239, 231, 216, .34); font-size: 13px; line-height: 1;
+  transition: color .2s ease, background .2s ease;
+}
+.sh-cc-i:hover, .sh-cc-i.on { color: rgba(240, 220, 176, .95); background: rgba(217, 182, 114, .12); }
+
+.sh-cc-help {
+  margin: 0; padding: 8px 10px;
+  border-inline-start: 2px solid rgba(217, 182, 114, .34);
+  border-radius: 3px;
+  background: rgba(217, 182, 114, .05);
+  font-size: 12px; line-height: 1.8; color: var(--sh-mute);
+}
+.sh-cc-help[hidden] { display: none; }
+
+.sh-cc-state { margin: 0; font-size: 11.5px; line-height: 1.7; color: var(--sh-faint); }
+.sh-cc-state:empty { display: none; }
+.sh-cc-warn { margin: 0; font-size: 11.5px; line-height: 1.7; color: rgba(217, 160, 120, .9); }
+
+/* رقائقُ الاختيار — صفٌّ يلتفّ، والمُختارُ ذهبيٌّ لا مضيء. */
+.sh-cc-chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.sh-cc-chips button {
+  min-height: 38px; padding: 0 12px; cursor: pointer;
+  border: 1px solid rgba(239, 231, 216, .12); border-radius: 4px;
+  background: transparent; color: rgba(239, 231, 216, .62);
+  font-family: var(--sh-mono); font-size: 12px;
+  direction: ltr; unicode-bidi: isolate;
+  display: inline-flex; align-items: center; gap: 6px;
+  transition: border-color .2s ease, color .2s ease, background .2s ease;
+}
+.sh-cc-chips button:hover:not([disabled]) { color: var(--sh-ink); border-color: rgba(217, 182, 114, .4); }
+.sh-cc-chips button.on {
+  border-color: rgba(217, 182, 114, .55);
+  background: rgba(217, 182, 114, .12);
+  color: rgba(240, 220, 176, .98);
+}
+/* ⚠️ والمعطّلُ يقول عن نفسه: لا لونَ فعّالٍ ولا مؤشّرَ ضغط (بند ١٩). */
+.sh-cc-chips button[disabled] {
+  cursor: not-allowed; opacity: .5;
+  border-style: dashed; color: var(--sh-faint);
+}
+.sh-cc-chips button small {
+  font-size: 9.5px; letter-spacing: .04em; color: var(--sh-faint);
+  font-family: var(--sh-base);
+}
+
+/* مفتاحٌ مقطعيّ: خياراتٌ متجاورةٌ في إطارٍ واحد. */
+.sh-cc-seg {
+  display: flex; gap: 2px; padding: 2px;
+  border: 1px solid rgba(239, 231, 216, .1); border-radius: 5px;
+  background: rgba(0, 0, 0, .2);
+}
+.sh-cc-seg button {
+  flex: 1 1 0; min-width: 0; min-height: 44px; padding: 4px 6px; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px;
+  border: 0; border-radius: 3px; background: transparent;
+  color: rgba(239, 231, 216, .55);
+  transition: background .2s ease, color .2s ease;
+}
+.sh-cc-seg button b { font-size: 12.5px; font-weight: 600; }
+.sh-cc-seg button small { font-size: 9.5px; color: var(--sh-faint); }
+.sh-cc-seg button:hover { color: var(--sh-ink); }
+.sh-cc-seg button.on { background: rgba(217, 182, 114, .14); color: rgba(240, 220, 176, .98); }
+.sh-cc-seg button.on small { color: rgba(217, 182, 114, .7); }
+
+/* خانةُ رقمٍ صغيرةٌ لمن يعرف الرقمَ بالضبط (بند ١٢). */
+.sh-cc-num {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11.5px; color: var(--sh-faint);
+}
+.sh-cc-num input {
+  width: 66px; min-height: 36px; padding: 0 8px;
+  border: 1px solid rgba(239, 231, 216, .14); border-radius: 4px;
+  background: rgba(0, 0, 0, .2); color: var(--sh-ink);
+  font-family: var(--sh-mono); font-size: 13px; text-align: center;
+}
+.sh-cc-num input:focus { outline: none; border-color: var(--sh-accent); }
+.sh-cc-num b {
+  margin-inline-start: auto; font-family: var(--sh-mono);
+  font-size: 12px; color: rgba(240, 220, 176, .9);
+  direction: ltr; unicode-bidi: isolate;
+}
+
+/* شبكةُ الخطوط: العيّنةُ بحروفٍ روسيّةٍ بخطّها نفسِه. */
+.sh-cc-fonts {
+  display: grid; gap: 5px;
+  grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+}
+.sh-cc-fonts button {
+  min-height: 52px; padding: 4px; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  border: 1px solid rgba(239, 231, 216, .1); border-radius: 4px;
+  background: transparent; color: rgba(239, 231, 216, .7);
+  transition: border-color .2s ease, background .2s ease;
+}
+.sh-cc-fonts button b { font-size: 17px; line-height: 1; }
+.sh-cc-fonts button small {
+  font-size: 9px; color: var(--sh-faint); font-family: var(--sh-base);
+  text-align: center; line-height: 1.3;
+}
+.sh-cc-fonts button.on {
+  border-color: rgba(217, 182, 114, .55); background: rgba(217, 182, 114, .1);
+  color: rgba(240, 220, 176, .98);
+}
+
+/*
+ * المتقدّمُ مطويٌّ — ويقول إنّه متقدّمٌ لا مخفيّ (بند ١٨).
+ *
+ * ⚠️ **واتّهمتُ `display: flex` بكسر الطيّ — ثم قِستُ فبرِئت.**
+ *
+ *    قرأتُ ارتفاعَ محتوى «إعدادات متقدّمة» وهي مغلقةٌ فوجدتُه ١٩٦px،
+ *    فاستنتجتُ أنّ إعطاءَ `details` تخطيطًا صريحًا يُبطِل طيَّها،
+ *    وكتبتُ ذلك درسًا. **والدرسُ كان خطأ**: فحصٌ معزولٌ يقارن
+ *    `flex` بـ`block` أظهر أنّ الاثنين يُطويان سواءً بسواء.
+ *
+ *    والمكسورُ كان **مِرقابي**: المتصفّحُ الحديثُ يُخفي محتوى
+ *    `details` المغلقة بـ`content-visibility`، فتبقى صناديقُ الأبناء
+ *    مقيسةً وهي غيرُ مرسومة — فـ`getBoundingClientRect` تعطي ارتفاعًا
+ *    لشيءٍ لا يُرى. والسؤالُ الصحيح سؤالان: هل يُحسَب في طول اللوحة
+ *    (`scrollHeight`)؟ وهل يقول المتصفّحُ إنّه مرئيّ
+ *    (`checkVisibility`)؟ وقِيس بهما: مغلقةٌ ١٧٠٨ وغيرُ مرئيّة،
+ *    مفتوحةٌ ٢٠٧٣ ومرئيّة. الطيُّ يعمل.
+ *
+ *    وبقي `display: block` مع غلافٍ داخليٍّ للتراصّ — لا لأنّ الأوّل
+ *    كان عطبًا، بل لأنّه أصرحُ. **والفرقُ أنّي لا أترك في الملفّ
+ *    سببًا كاذبًا لقرارٍ صحيح.**
+ */
+.sh-cc-adv {
+  display: block;
+  border-top: 1px solid var(--sh-line);
+  padding-top: 12px;
+}
+.sh-cc-advbody { display: flex; flex-direction: column; gap: 12px; padding-top: 10px; }
+.sh-cc-adv > summary {
+  cursor: pointer; min-height: 38px; display: flex; align-items: center; gap: 8px;
+  font-size: 12px; letter-spacing: .1em; font-family: var(--sh-mono);
+  color: var(--sh-faint); list-style: none;
+}
+.sh-cc-adv > summary::-webkit-details-marker { display: none; }
+.sh-cc-adv > summary::before { content: '▸'; font-size: 10px; }
+.sh-cc-adv[open] > summary::before { content: '▾'; }
+.sh-cc-adv > summary:hover { color: var(--sh-ink); }
+
+/*
+ * ⚠️ **وعلى اللوح لا تُمَدُّ اللوحةُ فتصير صحراء** (بند ٣٠): عرضُها
+ *    مقيَّدٌ، والأقسامُ تصير عمودين حين يتّسع فيقلّ التمرير بلا أن
+ *    يتشوّه الترتيب.
+ */
+@media (min-width: 900px) {
+  .sh-drawer { width: min(460px, 42vw); }
+  .sh-cc-sec { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; align-items: start; }
+  .sh-cc-h { grid-column: 1 / -1; }
+  /*
+   * ⚠️ **وثلاثةُ خياراتٍ لا تسع نصفَ العرض.** قِيس على ١٢٨٠×٨٠٠:
+   *    «مع الترجمة» تكسّرت ثلاثةَ أسطرٍ في عمودٍ من ٢٠٠px. فالصفوفُ
+   *    العريضةُ تأخذ العرضَ كلَّه، والضيّقةُ تتجاور.
+   */
+  .sh-cc-row[data-cc-row="font"],
+  .sh-cc-row[data-cc-row="sky"],
+  .sh-cc-row[data-cc-row="voice"],
+  .sh-cc-row[data-cc-row="display"],
+  .sh-cc-row[data-cc-row="engine"] { grid-column: 1 / -1; }
+}
+
 .sh-drawer-note {
   font-size: 12px;
   line-height: 1.9;
@@ -2956,6 +3180,41 @@ body.shadow-open { overflow: hidden; }
 }
 .sh-quickpills button:hover { background: rgba(217, 182, 114, .09); color: rgba(232, 207, 154, .95); }
 
+/*
+ * بابُ مركز التدريب — واحدٌ لا خمسة (WS-SCLEAN · بندا ٤ و٢٨)
+ *
+ * ⚠️ **ويُقرأ كبابٍ لا كقيمة.** الرقاقاتُ الثلاثُ القديمةُ كانت تكتب
+ *    أرقامًا (0.8x · ×5 · 1.0s) فتُقرأ كـ**لوحةِ عدّادات** أسفل
+ *    المسرح — والعينُ تقرأ الأرقامَ قبل الروسيّة. وهذا سطرٌ واحدٌ
+ *    يقول اسمَ المكان، حبرُه خفيفٌ حتى تُطلَب.
+ */
+.sh-cc-open {
+  letter-spacing: .08em !important;
+  border: 1px solid rgba(217, 182, 114, .18) !important;
+  border-radius: 999px !important;
+  padding: 0 16px !important;
+  color: rgba(239, 231, 216, .5) !important;
+  direction: rtl !important;
+  font-family: inherit !important;
+  font-size: 12px !important;
+}
+.sh-cc-open:hover { border-color: rgba(217, 182, 114, .42) !important; }
+
+/*
+ * زرُّ التسجيل جنبَ التشغيل (بند ٢١) — أصغرُ من التنقّل، وهدفُ لمسٍ كافٍ.
+ */
+.sh-rec-btn {
+  min-width: 40px; min-height: 40px; border-radius: 50%; cursor: pointer;
+  border: 1px solid rgba(217, 182, 114, .2);
+  background: transparent; color: rgba(239, 231, 216, .5);
+  font-size: 15px; line-height: 1;
+  transition: color .25s ease, border-color .25s ease, background .25s ease;
+}
+.sh-rec-btn:hover {
+  color: rgba(240, 220, 176, .95); border-color: rgba(217, 182, 114, .45);
+  background: rgba(217, 182, 114, .08);
+}
+
 /* ---------- الحجاب وسكّة الأدوات واللوحة ---------- */
 .sh-scrim {
   position: absolute; inset: 0; z-index: 7; opacity: 0; pointer-events: none;
@@ -3004,17 +3263,29 @@ body.shadow-open { overflow: hidden; }
 .sh-rail-tools button:hover { color: var(--sh-ink); }
 .sh-rail-tools button.on { background: rgba(217, 182, 114, .1); color: rgba(240, 220, 176, .95); }
 
+/*
+ * إشارةُ حافّةٍ لا مقبضٌ مضيء (WS-SCLEAN · بندا ٢٣ و٢٤)
+ *
+ * ⚠️ **بلاغُك**: «الحدود والمقابض الكبيرة واخدة مساحة ومنظر».
+ *    وكان له إطارٌ ذهبيٌّ وهالةٌ (box-shadow) — أي أنّه يلمع أكثرَ من
+ *    الجملة التي جئتَ من أجلها. وبعد أن صار السحبُ الأفقيُّ يعمل من
+ *    أيّ نقطةٍ في المسرح (WS-SZ) لم يبقَ هو **طريقَ** التنقّل، بل
+ *    **تلميحًا** إليه ومخرجًا بديلًا.
+ *
+ * ⚠️ **وهدفُ اللمس لم يصغر**: ٤٤×٤٤ فعليّةٌ بالحشو، والحبرُ وحدَه
+ *    خفّ. تصغيرُ ما تلمسه ليس تهدئةً للشاشة.
+ */
 .sh-rail-toggle {
-  width: 36px; height: 56px; display: grid; place-items: center;
-  cursor: pointer; font-family: var(--sh-mono); font-size: 15px;
-  border-radius: 20px; margin-top: 10px;
-  border: 1px solid rgba(217, 182, 114, .34);
-  background: rgba(217, 182, 114, .06);
-  box-shadow: 0 0 18px rgba(217, 182, 114, .14);
-  color: rgba(240, 220, 176, .85); transition: all .25s ease;
+  min-width: 44px; min-height: 44px; display: grid; place-items: center;
+  cursor: pointer; font-family: var(--sh-mono); font-size: 14px;
+  border-radius: 999px; margin-top: 10px;
+  border: 0; background: transparent; box-shadow: none;
+  color: rgba(239, 231, 216, .3);
+  transition: color .25s ease, background .25s ease;
 }
+.sh-rail-toggle:hover { color: rgba(240, 220, 176, .9); background: rgba(217, 182, 114, .08); }
 .shadow-app.is-rail .sh-rail-toggle {
-  border-color: rgba(217, 182, 114, .5); background: rgba(217, 182, 114, .12); box-shadow: none;
+  color: rgba(240, 220, 176, .95); background: rgba(217, 182, 114, .1);
 }
 
 .sh-panel {
@@ -5975,7 +6246,7 @@ body.shadow-open { overflow: hidden; }
      تملأ الصورُ العرضَ بدل عمودٍ ضيّقٍ وهامشين فارغين. */
 .sh-well-grid {
   display: grid; gap: 6px;
-  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
 }
 .sh-well-grid .sh-well-img {
   inline-size: 100%; block-size: auto; aspect-ratio: 1; margin: 0;
