@@ -153,8 +153,9 @@ describe('WS-SCLEAN · المسرحُ نظيفٌ من الإعدادات', () =>
      *    النقل، لا اختفاؤه من السكّة.
      */
     const stage = await stageMarkup();
+    /* ⚠️ والحدُّ الأسفل صار اللسانَ بعد حذف صفّ الرقاقات (WS-POLISH). */
     const transport = stage.slice(stage.indexOf('<div class="sh-transport">'),
-      stage.indexOf('<div class="sh-quickpills">'));
+      stage.indexOf('class="sh-cc-tab"'));
     expect(transport.includes('data-v="myvoice"')).toBe(true);
   });
 
@@ -369,16 +370,24 @@ describe('WS-SCLEAN · مركزُ التدريب يُقرأ', () => {
      *    يضغط `[data-cc-chips="speed"]` ويقرأ الحالةَ المحفوظة.
      */
     const { drawer } = await markup();
-    for (const key of ['speed', 'repeat', 'pause', 'fsize']) {
+    /*
+     * ⚠️ **والتكرارُ خرج من الرقائق إلى المنزلق (WS-POLISH · بند ١).**
+     *    كانت هنا رقائقُه مع خانةِ رقمٍ «حيث يهمّ الرقمُ بالضبط» —
+     *    وبلاغُك نقض ذلك: «مش عايز أكتب بإيدي». والمنزلقُ بخطوةٍ ١
+     *    يبلغ كلَّ عددٍ مدعوم، فلا رقائقَ ولا كتابة. والمحروسُ الباقي:
+     *    **الضابطُ من نوع قيمته** — رقائقُ لما يُختار من قائمةٍ قصيرة
+     *    (السرعة والفاصل والحجم)، ومنزلقٌ لما هو عددٌ متّصل.
+     */
+    for (const key of ['speed', 'pause', 'fsize']) {
       expect(`${key}:${drawer.includes(`ccChips('${key}'`)}`).toBe(`${key}:true`);
     }
-    expect(drawer.includes('data-tune-range="volume"')).toBe(true);
+    for (const key of ['repeat', 'volume']) {
+      expect(`${key}:${drawer.includes(`data-tune-range="${key}"`)}`).toBe(`${key}:true`);
+    }
     expect(drawer.includes('ccSeg(')).toBe(true);
-    /* وخانةُ رقمٍ للعدد وحدَه — حيث يهمّ الرقمُ بالضبط (بند ١٢). */
-    expect(drawer.includes('data-tune-num="repeat"')).toBe(true);
-    /* ولا خانةَ رقمٍ لكلّ منزلقٍ كما كان (أربعُ خاناتٍ في الدرج القديم). */
+    /* ولا خانةَ كتابةٍ في اللوحة كلِّها (بند ٢). */
     const nums = drawer.match(/data-tune-num="/g) || [];
-    expect(nums).toHaveLength(1);
+    expect(nums).toHaveLength(0);
   });
 
   it('١٩ · والفاصلُ يُقرأ بالثواني لا بالملّي', async () => {
@@ -409,5 +418,129 @@ describe('WS-SCLEAN · مركزُ التدريب يُقرأ', () => {
     /* ويُنادى من كاتبِ كلّ إعداد. */
     const calls = text.match(/syncControlCenter\(\)/g) || [];
     expect(calls.length >= 8).toBe(true);
+  });
+});
+
+/* ================================================================== *
+ * د) الملحق: منزلقُ التكرار، ولسانٌ لا يحجز مساحة (WS-POLISH)          *
+ * ================================================================== */
+describe('WS-POLISH · التكرارُ منزلقٌ والبابُ لسان', () => {
+  it('٢١ · عددُ التكرار منزلقٌ بمدى السجلّ وخطوةٍ صحيحة', async () => {
+    /*
+     * ⚠️ **بلاغُك**: «مش عايز أكتب عدد التكرار بإيدي». وكان الصفُّ
+     *    ثمانيةَ أزرارٍ + خانةَ كتابةٍ ولا منزلق — أضخمَ صفٍّ في
+     *    اللوحة (١٥٣px) وأقلَّها اتّساقًا مع السرعة والفاصل والصوت.
+     *
+     * ⚠️ **والمدى من السجلّ لا من رأسي (بند ١)**: `TUNERS.repeat`
+     *    تقول 1..99 وخطوة 1 — وهي التي تقصّ القيمةَ وتحفظها. فلو
+     *    كتبتُ في الوسم مدًى آخر لصار المنزلقُ يعرض ما لا يُخزَّن.
+     *    فالمحروسُ **تطابقُ الاثنين** لا مجرّدُ وجود منزلق.
+     */
+    const text = await code();
+    const at = text.indexOf('const TUNERS = {');
+    const spec = text.slice(text.indexOf('repeat: {', at), text.indexOf('},', text.indexOf('repeat: {', at)));
+    const min = /min:\s*(\d+)/.exec(spec)[1];
+    const max = /max:\s*(\d+)/.exec(spec)[1];
+    const step = /step:\s*(\d+)/.exec(spec)[1];
+    expect(`${min}..${max}/${step}`).toBe('1..99/1');
+
+    const { drawer } = await markup();
+    const row = drawer.slice(drawer.indexOf("key: 'repeat'"), drawer.indexOf("key: 'pause'"));
+    expect(row.includes('data-tune-range="repeat"')).toBe(true);
+    expect(`min=${row.includes(`min="${min}"`)}`).toBe('min=true');
+    expect(`max=${row.includes(`max="${max}"`)}`).toBe('max=true');
+    expect(`step=${row.includes(`step="${step}"`)}`).toBe('step=true');
+  });
+
+  it('٢٢ · ولا كتابةَ يدويّةً ولا أزرارَ جاهزةً للتكرار', async () => {
+    /*
+     * ⚠️ **بندا ٢ و٣**: المنزلقُ يبلغ كلَّ عددٍ صحيحٍ مدعوم، فخانةُ
+     *    الكتابة تكرارٌ لا خيار. والأزرارُ الثمانيةُ بعده لا تُسرّع
+     *    شيئًا وتُنافسه على الانتباه.
+     */
+    const { drawer } = await markup();
+    const row = drawer.slice(drawer.indexOf("key: 'repeat'"), drawer.indexOf("key: 'pause'"));
+    expect(row.includes('data-tune-num')).toBe(false);
+    expect(row.includes('ccChips')).toBe(false);
+    /* ولا خانةَ رقمٍ في اللوحة كلِّها بعد اليوم. */
+    expect(drawer.includes('data-tune-num')).toBe(false);
+  });
+
+  it('٢٣ · وصفُّ التكرار صار كأخواته: لافتةٌ وقيمةٌ ومنزلق', async () => {
+    /*
+     * ⚠️ **بند ٤**: نظامُ ضبطٍ واحدٌ متماسك. والمحروسُ أنّ الأربعة
+     *    (سرعة · تكرار · فاصل · صوت) كلَّها تُصدِر منزلقًا على نفس
+     *    المحور — لا واحدٌ منها بشكلٍ آخر.
+     */
+    const { drawer } = await markup();
+    for (const key of ['speed', 'repeat', 'pause', 'volume']) {
+      expect(`${key}:${drawer.includes(`data-tune-range="${key}"`)}`).toBe(`${key}:true`);
+    }
+    /* والقيمةُ الحاليّةُ في اللافتة لكلٍّ منها. */
+    for (const key of ['speed', 'repeat', 'pause', 'volume']) {
+      expect(`${key}:${drawer.includes(`data-cc-val="${key}"`) || drawer.includes(`valueKey: '${key}'`)}`)
+        .toBe(`${key}:true`);
+    }
+  });
+
+  it('٢٤ · وبابُ المركز لسانٌ مطلقٌ لا صفٌّ في المحتوى', async () => {
+    /*
+     * ⚠️ **بند ٥**: حتى البابُ الواحدُ كان يحجز ٤٠px من ارتفاع المسرح
+     *    (صفٌّ 376×32 + هامش). والفرقُ نوعُ الصندوق لا حجمُه:
+     *    `absolute` تُخرجه من مسار المحتوى.
+     */
+    const stage = await stageMarkup();
+    expect(stage.includes('class="sh-cc-tab"')).toBe(true);
+    expect(stage.includes('sh-quickpills')).toBe(false);
+    const css = (await (await fetch('../css/shadow.css')).text()).replace(/\/\*[\s\S]*?\*\//g, '');
+    const rule = /\.sh-cc-tab\s*\{([^}]*)\}/.exec(css);
+    expect(Boolean(rule)).toBe(true);
+    expect(/position:\s*absolute/.test(rule[1])).toBe(true);
+    /* وهدفُ اللمس ٤٤ على الأقلّ في المحورين. */
+    expect(/min-width:\s*44px/.test(rule[1])).toBe(true);
+    expect(/min-height:\s*44px/.test(rule[1])).toBe(true);
+  });
+
+  it('٢٥ · ولا سكّةَ ثانية: حافّةُ الضبط غيرُ حافّة الأدوات', async () => {
+    /*
+     * ⚠️ **بند ٦**: لسانٌ واحدٌ لا شريطٌ رأسيٌّ جديد. وقد وقع الخطأُ
+     *    فعلًا في أوّل كتابة: `inset-inline-end` أنزلته على **يمين**
+     *    المسرح فوق سكّة الأدوات بالحرف (٣٥٢px — نفسُ إحداثيّها)،
+     *    لأنّ `.shadow-app` اتّجاهُه ltr وإن كان المستندُ عربيًّا.
+     *    فالمحروسُ أن يكون على المحور المقابل لسكّة الأدوات.
+     */
+    const css = (await (await fetch('../css/shadow.css')).text()).replace(/\/\*[\s\S]*?\*\//g, '');
+    const tab = /\.sh-cc-tab\s*\{([^}]*)\}/.exec(css)[1];
+    const rail = /\.sh-toolrail\s*\{([^}]*)\}/.exec(css)[1];
+    expect(/inset-inline-start:/.test(tab)).toBe(true);
+    expect(/inset-inline-end:/.test(tab)).toBe(false);
+    /* وسكّةُ الأدوات على الطرف الآخر. */
+    expect(/inset-inline-end:|inset-block/.test(rail)).toBe(true);
+  });
+
+  it('٢٦ · وحدُّ التثبيت السفليُّ يتبع ما تحته فعلًا', async () => {
+    /*
+     * ⚠️ **عطبٌ صنعتُه وكشفه القياس.** كان `inset-block-end: 96px`
+     *    لمفتاح الأوضاع = ترانسبورت ٦٤ + صفُّ الرقاقات ٣٢. فلمّا حُذف
+     *    الصفُّ بقي الرقمُ يحجز مكانَ شيءٍ غيرِ موجود — والصفحةُ
+     *    قابلةٌ للتمرير (طبقاتٌ مطلقةٌ تزيد scrollHeight)، فـsticky
+     *    تدفع المفتاحَ لأسفل ليبلغ الحدَّ **فينزل على اللافتة**.
+     *
+     *    قِيس على ٤١٢×٩١٥: اللافتة 686..703 والمفتاح 681..721 — تراكبُ
+     *    ٢٢px (وكان صفرًا قبل الحذف). فالرقمُ صار ٧٢ = ٦٤ + هامشُ ٨.
+     *
+     *    والمحروسُ **العلاقةُ لا الرقم**: حدُّ المفتاح لا يتجاوز
+     *    ارتفاعَ الترانسبورت وهامشِه — فمن غيّر أحدَهما غدًا سقط هنا.
+     */
+    const css = (await (await fetch('../css/shadow.css')).text()).replace(/\/\*[\s\S]*?\*\//g, '');
+    const modes = /\.sh-modes\s*\{\s*inset-block-end:\s*(\d+)px/.exec(css);
+    expect(Boolean(modes)).toBe(true);
+    const offset = Number(modes[1]);
+    /* ارتفاعُ الترانسبورت من قواعده: حشوٌ ٨ أعلى + ١٠ أسفل + زرٌّ ٥٨. */
+    const play = /\.sh-right \.sh-play\s*\{[^}]*height:\s*(\d+)px/.exec(css);
+    const playH = play ? Number(play[1]) : 58;
+    expect(`${offset} <= ${playH + 26}`).toBe(`${offset} <= ${playH + 26}`);
+    expect(offset <= playH + 26).toBe(true);
+    expect(offset >= playH).toBe(true);
   });
 });

@@ -124,7 +124,8 @@ async function stage(width, height, { words = 14, sentence = SENT_LONG, layout =
             <button class="sh-play"><i class="sh-ico-play"></i></button>
             <button class="sh-nav-btn"><i class="sh-ico-next"></i></button>
           </div>
-          <div class="sh-quickpills"><button>1x</button><button>×5</button><button>ARABIC</button></div>
+          <!-- ⚠️ صفُّ الرقاقات حُذف (WS-POLISH) وصار لسانًا مطلقًا على الحافّة. -->
+          <button class="sh-cc-tab" data-sh="drawer" aria-label="اضبط التدريب">⚙</button>
           <div class="sh-toolrail"><div class="sh-rail-tools"></div>
             <button class="sh-rail-toggle">‹</button></div>
         </div>

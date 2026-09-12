@@ -117,7 +117,8 @@ async function stageAt(width, height, { words = 14 } = {}) {
             <button class="sh-play"><i class="sh-ico-play"></i></button>
             <button class="sh-nav-btn"><i class="sh-ico-next"></i></button>
           </div>
-          <div class="sh-quickpills"><button>1x</button><button>×5</button><button>ARABIC</button></div>
+          <!-- ⚠️ صفُّ الرقاقات حُذف (WS-POLISH) وصار لسانًا مطلقًا على الحافّة. -->
+          <button class="sh-cc-tab" data-sh="drawer" aria-label="اضبط التدريب">⚙</button>
           <div class="sh-toolrail"><div class="sh-rail-tools"></div>
             <button class="sh-rail-toggle">‹</button></div>
         </div>
@@ -155,7 +156,13 @@ async function stageAt(width, height, { words = 14 } = {}) {
     doc, win, cs, H, iframe,
     stageH: H('.sh-right'),
     chipsH: H('.sh-chips'),
-    controlsH: H('.sh-hint') + H('.sh-modes') + H('.sh-transport') + H('.sh-quickpills'),
+    /*
+     * ⚠️ **وصفُّ الرقاقات خرج من الحساب (WS-POLISH)**: حُذف من المسرح
+     *    وصار لسانًا **مطلقَ الموضع** — فلا يُجمَع في ارتفاع الضوابط
+     *    لأنّه لا يقتطع من المحتوى شيئًا. وجمعُه كان سيُبقي ٣٢px
+     *    وهميّةً في كلّ مقارنة.
+     */
+    controlsH: H('.sh-hint') + H('.sh-modes') + H('.sh-transport'),
     heroH: H('.sh-hero'),
     sentenceH: H('.sh-current-text'),
     footerH: H('.sh-bottom'),
@@ -359,7 +366,13 @@ describe('WS-ST · ضوابطُ أصغرَ لا ضوابطَ مكسورة', () =
      */
     const f = await stageAt(412, 915);
     expect(f.box('.sh-modes button').h >= 30).toBe(true);
-    expect(f.box('.sh-quickpills button').h >= 30).toBe(true);
+    /*
+     * ⚠️ **واللسانُ بدل الرقاقات (WS-POLISH)**: الصفُّ حُذف، والبابُ
+     *    صار مقبضًا على الحافّة — وحدُّ الإصبع يُحرَس عليه هو: ٤٤×٤٤
+     *    كاملةً وإن كان حبرُه ١٣px.
+     */
+    expect(f.box('.sh-cc-tab').h >= 44).toBe(true);
+    expect(f.box('.sh-cc-tab').w >= 44).toBe(true);
     expect(f.box('.sh-chip').h >= 36).toBe(true);
     f.close();
   });
@@ -434,7 +447,7 @@ describe('WS-ST · عشرون كلمةً تبقى مستعملة', () => {
   it('١٦ · وأصنافُ الإطار أصنافُ الراسم نفسِه', async () => {
     const src = await (await fetch('../js/views/shadow-view.js')).text();
     for (const cls of ['sh-stage-top', 'sh-count', 'sh-prog', 'sh-hero', 'sh-current-text',
-      'sh-current-tr', 'sh-chips', 'sh-hint', 'sh-modes', 'sh-transport', 'sh-quickpills',
+      'sh-current-tr', 'sh-chips', 'sh-hint', 'sh-modes', 'sh-transport', 'sh-cc-tab',
       'sh-toolrail', 'sh-play', 'sh-nav-btn']) {
       expect(src).toContain(cls);
     }
