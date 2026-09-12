@@ -544,3 +544,195 @@ describe('WS-POLISH · التكرارُ منزلقٌ والبابُ لسان', (
     expect(offset >= playH).toBe(true);
   });
 });
+
+/* ================================================================== *
+ * هـ) الملحقُ الثاني: مايكٌ واحدٌ، وخطٌّ يُجرَّب، وتكرارٌ يُقرأ (WS-MIC)  *
+ * ================================================================== */
+describe('WS-MIC · لا مايكَ مكرّرًا ولا خطَّ ثانٍ ولا عدّادَ ثانٍ', () => {
+  it('٢٧ · الميكروفونُ فعلٌ ببابٍ واحد: شريطُ النقل', async () => {
+    /*
+     * ⚠️ **قِيس قبل الحذف**: زرُّ السكّة وزرُّ شريط النقل يُصدِران
+     *    الوسمَ نفسَه بالحرف (`tool`/`myvoice`)، فيمرّان بنفس الدالّة
+     *    إلى نفس النافذة — لا سلوكَ فريدًا يُنقَل أوّلًا.
+     */
+    const text = await code();
+    const start = text.indexOf('const TOOLS = [');
+    const registry = text.slice(start, text.indexOf('\n];', start));
+    expect(registry.includes("id: 'myvoice'")).toBe(false);
+
+    /* والبابُ الباقي في شريط النقل، ويُصدِر نفسَ الفعل. */
+    const stage = await stageMarkup();
+    const transport = stage.slice(stage.indexOf('<div class="sh-transport">'),
+      stage.indexOf('class="sh-cc-tab"'));
+    expect(transport.includes('data-v="myvoice"')).toBe(true);
+    expect(transport.includes('data-sh="tool"')).toBe(true);
+
+    /* ولا نسخةَ ثانيةً في كروم المسرح الدائم. */
+    const doors = stage.match(/data-v="myvoice"/g) || [];
+    expect(doors).toHaveLength(1);
+
+    /* وسببُ الخروج مكتوبٌ في السجلّ كأخواته. */
+    const src = await source();
+    const rail = src.slice(src.indexOf('const NOT_IN_RAIL = Object.freeze({'),
+      src.indexOf('});', src.indexOf('const NOT_IN_RAIL = Object.freeze({')));
+    expect(/myvoice:/.test(rail)).toBe(true);
+  });
+
+  it('٢٨ · ومعاينةُ الخطّ بابٌ ثانٍ لنفس الإعداد لا إعدادٌ ثانٍ', async () => {
+    /*
+     * ⚠️ **بند ٥**: لا `quickFont` بجانب خطّ مركز التدريب. والمحروسُ
+     *    شيئان: أنّ الزرَّ يُصدِر فعلَ الاختيار نفسَه، وأنّه لا حقلَ
+     *    حالةٍ ثانيًا في الملفّ كلِّه.
+     */
+    const text = await code();
+    expect(/quickFont|fontQuick|qFontState/.test(text)).toBe(false);
+    /* الكاتبُ الوحيدُ لخطّ المسرح. */
+    const writes = text.match(/ctx\.font = /g) || [];
+    expect(writes).toHaveLength(1);
+    /* واللوحةُ السريعةُ تُبنى من نفس الدالّة — لا منبثقةٌ ثانية. */
+    const pops = text.match(/className = quick \? 'sh-fontpop sh-fontpop-quick' : 'sh-fontpop'/g) || [];
+    expect(pops).toHaveLength(1);
+    const stage = await stageMarkup();
+    expect(stage.includes('data-sh="qfont"')).toBe(true);
+  });
+
+  it('٢٩ · وخياراتُ المعاينة ٣–٥ من عائلاتٍ مختلفة وكلُّها سيريليّة', async () => {
+    /*
+     * ⚠️ **بند ٣**: أنفعُ ٣–٥. والاختيارُ واحدٌ من كلّ عائلةٍ ليكون
+     *    السؤالُ «مطبعيٌّ أم كرّاسةٌ أم يد» لا «أيُّ مائلٍ أرقّ».
+     *
+     * ⚠️ **والتغطيةُ شرطٌ لا تفصيل**: خطٌّ بلا سيريليّةٍ يُرسَم
+     *    باحتياطيٍّ فتكذب العيّنةُ على العين — والسجلّ يقول أيُّها يغطّي.
+     */
+    const text = await code();
+    const list = /const QUICK_FONTS = Object\.freeze\(\[([^\]]+)\]\)/.exec(text);
+    expect(Boolean(list)).toBe(true);
+    const ids = [...list[1].matchAll(/'([a-z]+)'/g)].map((m) => m[1]);
+    expect(ids.length >= 3 && ids.length <= 5).toBe(true);
+
+    const fonts = await (await fetch('../js/services/shadow/fonts.js')).text();
+    const forms = ids.map((id) => {
+      const at = fonts.indexOf(`id: '${id}'`);
+      expect(`${id}:${at > 0}`).toBe(`${id}:true`);
+      const row = fonts.slice(at, at + 260);
+      return {
+        form: (/form: '([a-z]+)'/.exec(row) || [])[1],
+        style: (/style: '([a-z]+)'/.exec(row) || [])[1],
+        cyr: /cyrillic: true/.test(row),
+      };
+    });
+    expect(forms.every((f) => f.cyr)).toBe(true);
+    /*
+     * ⚠️ **والتنوّعُ يُقاس بـ«العائلة + الميل» لا بالعائلة وحدَها.**
+     *    أوّلُ شرطٍ لي طلب عائلةً مختلفةً لكلّ خيار، فسقط على خمسةٍ في
+     *    أربع عائلات — والسجلُّ لا يفرّق بين «بزوائد» و«بلا زوائد»:
+     *    كلتاهما `print`. وحذفُ أحدهما كان سيُفقِد الخيارَ الوحيدَ
+     *    بلا زوائد، أي يُفقِر المقارنةَ لإرضاء شرطٍ كتبتُه أنا.
+     *
+     *    فالمحروسُ ما يعنيه البند: أن تكون الخياراتُ **أنواعًا** لا
+     *    ظلالًا — عائلاتُ السجلّ كلُّها ممثَّلةٌ، ولا خيارَين يتطابقان
+     *    في العائلة والميل معًا.
+     */
+    const families = await (async () => {
+      const all = [...fonts.matchAll(/form: '([a-z]+)'/g)].map((m) => m[1]);
+      return new Set(all).size;
+    })();
+    expect(new Set(forms.map((f) => f.form)).size).toBe(families);
+    const kinds = forms.map((f) => `${f.form}/${f.style}`);
+    expect(new Set(kinds).size).toBe(ids.length);
+  });
+
+  it('٣٠ · واللوحةُ السريعةُ تبقى مفتوحةً بعد الاختيار وحدَها', async () => {
+    /*
+     * ⚠️ **بند ٤**: المقارنةُ أن ترى أ ثمّ ب على جملتك بلا إعادة فتح.
+     *    واللوحةُ الكاملةُ تُقفَل كما كانت — هناك تستقرّ، وهنا تجرّب.
+     */
+    const text = await code();
+    const at = text.indexOf('function pickFont');
+    const body = text.slice(at, text.indexOf('\n}', at));
+    expect(/if \(fontPop\?\.dataset\.quick !== '1'\) closeFontPop\(\)/.test(body)).toBe(true);
+  });
+
+  it('٣١ · والكلماتُ المقسَّمةُ تتبع خطَّ القراءة', async () => {
+    /*
+     * ⚠️ **عطبٌ قائمٌ كشفه البند ٤**: لا `font-family` على رقاقة
+     *    الكلمة إطلاقًا — فتُرسَم الروسيّةُ المقسَّمةُ بخطّ التطبيق
+     *    العربيّ مهما اخترتَ. فنصفُ ما تقارنه لا يتغيّر.
+     *
+     *    ومتغيّرٌ لا نمطٌ سطريّ: الرقائقُ يُعاد بناؤها مع كلّ مقطع.
+     */
+    const css = (await (await fetch('../css/shadow.css')).text()).replace(/\/\*[\s\S]*?\*\//g, '');
+    const rule = /\.sh-chip-w\s*\{([^}]*)\}/.exec(css);
+    expect(Boolean(rule)).toBe(true);
+    expect(/font-family:\s*var\(--sh-ru-font/.test(rule[1])).toBe(true);
+    /* والمتغيّرُ يُكتَب من خطّ المسرح وحدَه. */
+    const text = await code();
+    const writes = text.match(/setProperty\('--sh-ru-font'/g) || [];
+    expect(writes).toHaveLength(1);
+    const at = text.indexOf("setProperty('--sh-ru-font'");
+    expect(text.slice(at - 200, at).includes('fontById(ctx.font)')).toBe(true);
+  });
+
+  it('٣٢ · وعدّادُ التكرار ظاهرٌ ومن حالةٍ واحدةٍ مع الشريط', async () => {
+    /*
+     * ⚠️ **بندا ٨ و١٠**: الشريطُ الأصفرُ يبقى، ومعه رقمٌ — والاثنان
+     *    من `paintRepetition` وحدَها. فلا يمكن أن يقول أحدُهما «٥ من
+     *    ٢٠» والآخرُ نسبةً لشيءٍ آخر.
+     */
+    const stage = await stageMarkup();
+    expect(stage.includes('data-counter')).toBe(true);
+    /* ولم يبقَ مخفيًّا. */
+    expect(/data-counter\s+hidden/.test(stage)).toBe(false);
+    expect(stage.includes('data-bar')).toBe(true);
+
+    const text = await code();
+    /*
+     * كاتبٌ واحدٌ لنصّ العدّاد ولعرض الشريط.
+     *
+     * ⚠️ **والعدُّ على الوصول إلى العنصر لا على اسم متغيّرٍ محلّيّ.**
+     *    أوّلُ كتابةٍ عدَّت `counter.textContent` — فطفرةٌ تكتب
+     *    `c2.textContent` نجت منها (وأمسكها حارسٌ آخر بالمصادفة).
+     *    ومَن أراد كاتبًا ثانيًا فلا بدّ أن **يسأل عن العنصر** أوّلًا،
+     *    فالسؤالُ هو ما يُعَدّ: مرّةً واحدةً في دالّة الطلاء.
+     */
+    const counterQueries = text.match(/\[data-counter\]/g) || [];
+    expect(counterQueries).toHaveLength(1);
+    const barQueries = text.match(/\[data-bar\] > span/g) || [];
+    expect(barQueries).toHaveLength(1);
+    const at = text.indexOf('function paintRepetition');
+    expect(at > 0).toBe(true);
+    const body = text.slice(at, text.indexOf('\n}', at));
+    expect(body.includes('counter.textContent')).toBe(true);
+    expect(body.includes('bar.style.width')).toBe(true);
+    /* والرقمان من نفس المصدر: تكرارُ المحرّك وهدفُ إعداداته. */
+    expect(body.includes('player?.state?.repetition')).toBe(true);
+    expect(/settings\.repeatCount/.test(body)).toBe(true);
+  });
+
+  it('٣٣ · والمستمرُّ يقول ∞ ولا يختلق مقامًا', async () => {
+    /* ⚠️ بند ١٢: لا مقامَ للمستمرّ، فلا يُكتَب رقمٌ كاذبٌ مكانه. */
+    const text = await code();
+    const at = text.indexOf('function paintRepetition');
+    const body = text.slice(at, text.indexOf('\n}', at));
+    expect(body.includes('∞')).toBe(true);
+    expect(/REPEAT_MODE\.CONTINUOUS/.test(body)).toBe(true);
+  });
+
+  it('٣٤ · ويُنادى من كلّ سببٍ يغيّر الرقمَ أو المقام', async () => {
+    /*
+     * ⚠️ **بند ١٦**: «٣ / ٢٠» تكذب إن صار الهدفُ ١٠ ولم يُعَد الرسم.
+     *    والأسبابُ أربعة: دورةٌ جديدة، وتبديلُ وحدة، وتغييرُ الهدف،
+     *    وتغييرُ نمط التكرار (ونطاقُ التدريب يبدّل الوحدةَ أيضًا).
+     */
+    const text = await code();
+    const calls = text.match(/paintRepetition\(\)/g) || [];
+    /* التعريفُ + أربعةُ مواضعَ على الأقلّ. */
+    expect(calls.length >= 5).toBe(true);
+    /* وفي مُعالِج الدورة نفسِه. */
+    const at = text.indexOf("case 'repeat':");
+    expect(text.slice(at, at + 400).includes('paintRepetition()')).toBe(true);
+    /* وعند تغيير الهدف من مركز التدريب. */
+    const tuner = text.indexOf('function setTuner');
+    expect(text.slice(tuner, text.indexOf('\n}\n', tuner)).includes('paintRepetition()')).toBe(true);
+  });
+});

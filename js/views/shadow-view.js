@@ -1586,8 +1586,23 @@ function shell() {
                      والشُّرَط تقول ذلك **وتُنقَر**: كل شرطةٍ جملة، تضغطها
                      فتقفز إليها. رقمٌ صار قائمة — كقاعدة المختبر.
                 -->
+                <!--
+                  ══════════ تقدّمُ التكرار: شريطٌ ورقمٌ من حالةٍ واحدة ══════════
+
+                  ⚠️ **العدّادُ كان مكتوبًا ومخفيًّا (WS-MIC · بنود ٨-١٦).**
+                     الوسمُ موجودٌ منذ زمنٍ مُخفًى بالسمة، والرسمُ يكتب فيه
+                     «٣ / ٢٠» مع كلّ دورة — أي أنّ الرقمَ كان يُحسَب
+                     ويُرمى. فبلاغُك «الشريط لوحده مش كفاية في التكرار
+                     العالي» لم يكن يطلب ميزةً جديدة بل **إظهارَ** ما
+                     يُحسَب أصلًا.
+
+                  ⚠️ **والاثنان من رقمٍ واحد**: دالّةُ الطلاءِ تكتب
+                     النصَّ وعرضَ الشريط في نداءٍ واحدٍ من حالة المحرّك،
+                     فلا يفترقان أبدًا (بند ١٠) — ولا عدّادَ ثانيًا في
+                     الشاشة يُحدَّث بمعزل.
+                -->
+                <span class="sh-reps sh-mono" data-counter></span>
                 <div class="sh-bar" data-bar><span></span></div>
-                <span data-counter hidden></span>
                 <!--
                   ⚠️ **ومفتاحُ الخطّ غادر رأسَ المسرح (WS-SCLEAN · بند ٣-ج).**
                      الخطُّ والحجمُ إعدادان **يبقيان** لا فعلان لحظيّان،
@@ -1793,6 +1808,22 @@ function shell() {
                 <span class="sh-rail-ctx sh-mono" data-rail-ctx>تدريب</span>
                 <div class="sh-rail-tools" data-rail-tools></div>
                 <div class="sh-grow"></div>
+                <!--
+                  ⚠️ **معاينةُ الخطّ في موضع الميكروفون المحذوف (WS-MIC · ٢-٤).**
+                     بلاغُك: «عايز أشوف الخطوط بسرعة وأنا شايف الجملة».
+                     ولوحةُ الخطّ الكاملةُ في مركز التدريب — عشرةُ خطوطٍ
+                     في أقسام — وهي للاختيار المستقرّ لا للمقارنة
+                     السريعة: تفتحها فتحجب المسرحَ، وتختار فتُقفَل.
+
+                     فهذا بابٌ ثانٍ إلى **نفس الإعداد** لا إعدادٌ ثانٍ:
+                     يُصدِر فعلَ اختيار الخطّ نفسَه الذي يُصدره المركز،
+                     فيكتب حقلَ خطّ المسرح ويحفظه — ولا حالةَ «خطٍّ
+                     سريع» في مكانٍ آخر. وتبقى اللوحةُ مفتوحةً بعد الاختيار
+                     لتقارن أ ثمّ ب ثمّ ج والجملةُ أمامك.
+                -->
+                <button class="sh-qfont" data-sh="qfont"
+                  aria-label="جرّب خطوطًا للجملة" aria-haspopup="true" aria-expanded="false"
+                ><span data-qfont-sample lang="ru">Аа</span></button>
                 <button class="sh-rail-toggle" data-sh="rail" aria-label="افتح الأدوات">‹</button>
               </div>
 
@@ -2565,12 +2596,13 @@ function handleEvent(event) {
       break;
 
     case 'repeat': {
-      const s = player.state.settings;
-      const counting = s.repeatMode === REPEAT_MODE.COUNT;
-      const counter = $('[data-counter]');
-      const bar = $('[data-bar] > span');
-      if (counter) counter.textContent = counting ? `${event.repetition} / ${s.repeatCount}` : `×${event.repetition}`;
-      if (bar) bar.style.width = counting ? `${Math.min(100, (event.repetition / s.repeatCount) * 100)}%` : '100%';
+      /*
+       * ⚠️ **حسابٌ واحدٌ في مكانٍ واحد.** كان الرقمُ والشريطُ يُحسبان
+       *    هنا سطرًا سطرًا، ويُصفَّران في `syncSegment` بصيغةٍ أخرى
+       *    («—» و0%) — أي تعبيرَين عن نفس الحقيقة في موضعين. فصارا
+       *    نداءً واحدًا يقرأ حالةَ المحرّك.
+       */
+      paintRepetition();
       card?.classList.add('speaking');
       card?.classList.remove('your-turn');
       highlightWord(event.wordIndex);
@@ -2624,12 +2656,24 @@ function handleEvent(event) {
         ?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'smooth' });
       break;
 
-    case 'words-complete': {
-      // مرّ على كلمات الجملة كلها — يعود العدّ للجملة لا للكلمة.
-      const done = $('[data-counter]');
-      if (done) done.textContent = '—';
+    case 'words-complete':
+      /*
+       * مرّ على كلمات الجملة كلها — يعود العدّ للجملة لا للكلمة.
+       *
+       * ⚠️ **وكان يكتب شَرطةً بيده، فيفترق الرقمُ عن الشريط (WS-MIC).**
+       *    هذه الحالةُ كانت تضع «—» في العدّاد **ولا تمسّ الشريط**،
+       *    فيبقى الشريطُ على آخر عرضٍ له ويقول الرقمُ «لا أعرف» —
+       *    وهو بالحرف ما يمنعه البندُ ١٠. ولم يكن ظاهرًا لأنّ العدّادَ
+       *    كان مخفيًّا؛ فإظهارُه كشف الافتراق.
+       *
+       *    وأمسكه حارسُ «كاتبٌ واحد» بعد أن صار يعدّ **السؤالَ عن
+       *    العنصر** لا اسمَ متغيّرٍ محلّيّ — وهو عطبٌ قائمٌ لا جديد.
+       *
+       *    والعلاجُ عرضٌ لا دلالة (بند ١٧): يُقرأ تكرارُ المحرّك بعد
+       *    اكتمال مرور الكلمات كما هو، فيتّفق الاثنان على رقمٍ واحد.
+       */
+      paintRepetition();
       break;
-    }
 
     case 'segment-complete':
       persistSegment(event);
@@ -2762,10 +2806,13 @@ function syncSegment() {
   if (pos) pos.textContent = String(index - from + 1);
   const posTotal = $('[data-pos-total]');
   if (posTotal) posTotal.textContent = String(to - from + 1).padStart(2, '0');
-  const counter = $('[data-counter]');
-  if (counter) counter.textContent = '—';
-  const bar = $('[data-bar] > span');
-  if (bar) bar.style.width = '0%';
+  /*
+   * ⚠️ **و«٠ / ٢٠» أصدقُ من «—» (بند ١٤).** الوحدةُ الجديدةُ لم
+   *    تُكرَّر بعد، وذلك رقمٌ لا فراغ. و`player.state.repetition`
+   *    صُفِّرت في المحرّك عند الانتقال، فالدالّةُ تقرأ الصفرَ منه ولا
+   *    نخترع تقدّمًا (بند ١٥).
+   */
+  paintRepetition();
 
   document.querySelectorAll('[data-line]').forEach((node) => {
     const isCurrent = Number(node.dataset.line) === index;
@@ -3698,7 +3745,6 @@ const TOOLS = [
    *    `currentTarget()`، فإن كنتَ في مقطعٍ فالمقطع، وإن كنتَ ماسكًا
    *    كلمةً فالكلمة، وإلّا فالجملة.
    */
-  { id: 'myvoice', glyph: '🎙', label: 'صوتي' },
   /* ---- المقطع الجزئيّ: بابُه من كلمةٍ ممسوكة، وأدواتُه بعد التحديد ---- */
   {
     id: 'phrase-begin',
@@ -3779,6 +3825,24 @@ const NOT_IN_RAIL = Object.freeze({
   'doc-fit': 'موجودة مرّتين في الورقة نفسها: فوق المستند وفي مقبض تقسيمه — والسكّة لا تكرّر',
   'doc-full': 'موجودة مرّتين في الورقة نفسها: فوق المستند وفي مقبض تقسيمه — والسكّة لا تكرّر',
   'doc-none': 'موجودة مرّتين في الورقة نفسها: فوق المستند وفي مقبض تقسيمه — والسكّة لا تكرّر',
+
+  /*
+   * ⚠️ **والميكروفونُ الجانبيُّ خرج — نسخةٌ ثانيةٌ لنفس الفعل (WS-MIC).**
+   *
+   *    قِيس قبل الحذف: زرُّ السكّة وزرُّ شريط النقل **يُصدِران الوسمَ
+   *    نفسَه بالحرف** (`data-sh="tool"` و`data-v="myvoice"`)، فيمرّان
+   *    بـ`pickTool('myvoice')` نفسِها إلى نفس النافذة ونفس نظام
+   *    التسجيل — لا سلوكَ فريدًا في أحدهما يُنقَل قبل الحذف.
+   *
+   *    والباقي هو الأسفل: التسجيلُ فعلٌ تفعله **بعد** أن تسمع وقبل أن
+   *    تقارن، فمكانُه حيث تقع الحركة (WS-SCLEAN · بند ٢١). وحُرِّر
+   *    موضعُ السكّة لمعاينةِ الخطّ السريعة.
+   *
+   *    ⚠️ ويبقى زرٌّ ثالثٌ **داخل** لوحة «تعلّم من الجملة» — وهو ليس
+   *       كروم مسرحٍ دائمًا بل فعلٌ سياقيٌّ على مقطعِ التعلّم الجاري،
+   *       ويمرّ بنفس الباب. فلا يُعَدّ تكرارًا لسطحٍ دائم.
+   */
+  myvoice: 'فعلٌ واحدٌ ببابٍ واحد: زرُّ التسجيل في شريط النقل',
 
   /* WS-SCLEAN — إعداداتٌ تبقى، فمكانُها مركزُ التدريب لا حافّةُ المسرح. */
   display: 'إعدادٌ يبقى: الترجمة والنبر في مركز التدريب — قسم العرض',
@@ -5166,6 +5230,8 @@ let modeTicket = 0;
 /** يضبط وضعَ المحرّك ويحفظه — مكانٌ واحدٌ يكتب `practiceMode`. */
 async function setPractice(mode) {
   player.updateSettings({ practiceMode: mode });
+  /* ⚠️ والوحدةُ التي تُكرَّر تغيّرت (جملةٌ ← كلمة)، فالعدّادُ يتبعها (بند ١٤). */
+  paintRepetition();
   document.querySelector('.shadow-app')
     ?.classList.toggle('is-wordmode', mode === PRACTICE_MODE.WORD);
   await saveSessionSettings(ctx.session.id, { practiceMode: mode }).catch(() => {});
@@ -8509,12 +8575,53 @@ function setTuner(key, raw, { silent = false } = {}) {
    */
   Object.assign(ctx.session, spec.persist(value));
   syncControlCenter();
+  /* ⚠️ والمقامُ يتبع الهدفَ حالًا: «٣ / ٢٠» تكذب إن صار الهدفُ ١٠ (بند ١٦). */
+  if (key === 'repeat') paintRepetition();
 
   if (silent) return;
   return saveSessionSettings(ctx.session.id, spec.persist(value)).catch(() => {});
 }
 
 
+
+/**
+ * تقدّمُ التكرار — رقمًا وشريطًا، من **حالة المحرّك وحدَها**.
+ *
+ * ⚠️ **ولا عدّادَ ثانيًا للواجهة (بند ١٠).** الرقمُ والشريطُ يُشتقّان
+ *    في نداءٍ واحدٍ من `player.state.repetition` وإعداداتِ المحرّك، فلا
+ *    يمكن أن يقول أحدُهما «٥ من ٢٠» والآخرُ ٢٥٪ لشيءٍ آخر.
+ *
+ * ⚠️ **ومعنى الرقم مكتوبٌ لأنّه ليس واحدًا بديهيًّا**: المحرّكُ يزيد
+ *    `repetition` **في أوّل** كلّ دورةٍ ثمّ ينطق. فـ«٣ / ٢٠» تقول
+ *    «الثالثةُ تُقال الآن» — أي أنّ اثنتين تمّتا. والانتقالُ من ٢ إلى
+ *    ٣ يقع **لحظةَ انتهاء الثانية** بالضبط، فالرقمُ يتقدّم مرّةً لكلّ
+ *    تكرارٍ مكتمل ولا يتقدّم لأنّ التشغيلَ بدأ (بند ٩). ولم تُلمَس
+ *    دلالةُ شيء (بند ١٧) — هذا عرضٌ لِما كان يُحسَب.
+ *
+ * ⚠️ **والمستمرُّ لا مقامَ له، فلا يُختلَق** (بند ١٢): `∞` تقول الحقّ،
+ *    والشريطُ يملأ لأنّ «كم بقي» سؤالٌ بلا جواب هناك.
+ *
+ * ⚠️ **ويُنادى من أربعة مواضع** لأنّ الرقمَ يتغيّر لأربعة أسباب: دورةٌ
+ *    جديدة، وتبديلُ وحدة، وتغييرُ الهدف من مركز التدريب، وتغييرُ نمط
+ *    التكرار. وبغير الثالث يبقى «٣ / ٢٠» مكتوبًا والهدفُ صار ١٠ (بند ١٦).
+ */
+function paintRepetition() {
+  const counter = $('[data-counter]');
+  const bar = $('[data-bar] > span');
+  if (!counter && !bar) return;
+
+  const settings = player?.state?.settings || {};
+  const done = Number(player?.state?.repetition ?? 0);
+  const target = Number(settings.repeatCount ?? ctx?.session?.repeatCount ?? 1);
+  const counting = settings.repeatMode !== REPEAT_MODE.CONTINUOUS;
+
+  if (counter) counter.textContent = counting ? `${done} / ${target}` : `${done} / ∞`;
+  if (bar) {
+    bar.style.width = counting
+      ? `${Math.min(100, target > 0 ? (done / target) * 100 : 0)}%`
+      : `${done > 0 ? 100 : 0}%`;
+  }
+}
 
 /* ------------------------------------------------------------------ *
  * تتبّعُ الصفحة الجارية على الشاشة الضيّقة (WS38 · نُزع مؤشّرُه في WS-M)
@@ -8715,21 +8822,62 @@ function pickFont(page, fontId) {
   if (doc) ctx.fontDoc = fontId;
   else ctx.font = fontId;
   applyFonts();
-  closeFontPop();
+  /*
+   * ⚠️ **واللوحةُ السريعةُ تبقى مفتوحة — وهي عينُ الميزة (بند ٤).**
+   *    المقارنةُ أن ترى «أ» ثمّ «ب» ثمّ «ج» على جملتك نفسِها بلا أن
+   *    تُعيد فتحَ القائمة في كلّ مرّة. واللوحةُ الكاملةُ تُقفَل كما
+   *    كانت: هناك أنت تستقرّ على خطّ، وهنا تجرّب.
+   *
+   *    و`applyFonts` تُعيد رسمَ حالةِ كلّ زرّ اختيار — فالحلقةُ الذهبيّةُ
+   *    تتبع الاختيارَ واللوحةُ مفتوحةٌ بلا سطرٍ إضافيّ.
+   */
+  if (fontPop?.dataset.quick !== '1') closeFontPop();
   return saveSessionSettings(ctx.session.id, doc ? { fontDocId: fontId } : { fontId });
 }
 
-function toggleFontPop(page, anchor) {
-  const already = fontPop?.dataset.page === page;
+/**
+ * خطوطُ المعاينة السريعة — **واحدٌ من كلّ عائلة** لا خمسةٌ من واحدة.
+ *
+ * ⚠️ **والمقارنةُ بين أنواعِ قراءةٍ لا بين ظلالِ نوعٍ واحد.** في
+ *    السجلّ عشرةُ خطوطٍ، خمسةٌ منها مطبعيّةٌ يفرّق بينها حرفٌ مائلٌ أو
+ *    زائدةٌ أرقّ — ومَن يقارن بسرعةٍ وهو ينظر إلى جملته يريد الجواب
+ *    عن سؤالٍ أكبر: مطبعيٌّ أم كرّاسةٌ أم خطُّ يد؟ فواحدٌ من كلّ
+ *    عائلةٍ يجيب في خمس نظرات، والعشرةُ كلُّها في مركز التدريب لمن
+ *    أراد أن يستقرّ على واحد.
+ *
+ * ⚠️ وكلُّها مُغطّاةٌ للسيريلية (`cyrillic: true` في السجلّ) — فلا
+ *    عيّنةَ تُرسَم بخطٍّ احتياطيٍّ فتكذب على العين.
+ */
+const QUICK_FONTS = Object.freeze(['noto', 'philosopher', 'marck', 'caveat', 'system']);
+
+/**
+ * لوحةُ الخطّ — كاملةً أو سريعة.
+ *
+ * ⚠️ **ولا لوحةَ ثانية.** كان يكفي أن أكتب منبثقةً جديدةً للمعاينة
+ *    السريعة، فتصير نسختان من التثبيت بالشاشة ومن الانقلاب لأعلى ومن
+ *    الإغلاق بالضغط خارجها — وتفترقان بعد شهر. فالفرقُ **وسمٌ**:
+ *    `quick` يقصّ القائمةَ ويُبقيها مفتوحةً بعد الاختيار.
+ */
+function toggleFontPop(page, anchor, { quick = false } = {}) {
+  const already = fontPop?.dataset.page === page && fontPop?.dataset.quick === (quick ? '1' : '');
   closeFontPop();
   if (already) return undefined;
 
   const current = page === 'doc' ? ctx.fontDoc : ctx.font;
   const pop = document.createElement('div');
-  pop.className = 'sh-fontpop';
+  pop.className = quick ? 'sh-fontpop sh-fontpop-quick' : 'sh-fontpop';
   pop.dataset.page = page;
-  pop.innerHTML = fontsByForm()
-    .map((group) => `
+  pop.dataset.quick = quick ? '1' : '';
+  pop.innerHTML = quick
+    ? QUICK_FONTS.map((id) => fontById(id)).map((f) => `
+        <button data-sh="font-pick" data-page="${page}" data-font="${f.id}"
+                class="${f.id === current ? 'on' : ''}"
+                aria-pressed="${f.id === current ? 'true' : 'false'}"
+                aria-label="${esc(f.label)}" title="${esc(f.label)}">
+          <span lang="ru" style="font-family:${f.stack};font-style:${f.style}">Аа</span>
+        </button>`).join('')
+    : fontsByForm()
+      .map((group) => `
       <div class="sh-fontpop-g">${esc(group.label)}</div>
       ${group.fonts.map((f) => `
         <button data-sh="font-pick" data-page="${page}" data-font="${f.id}"
@@ -8737,7 +8885,7 @@ function toggleFontPop(page, anchor) {
           <span style="font-family:${f.stack};font-style:${f.style}">Аа</span>
           <b>${esc(f.label)}</b>
         </button>`).join('')}`)
-    .join('');
+      .join('');
 
   /*
    * ⚠️ **مثبَّتةٌ بالشاشة لا بالصفحة** — بلاغُك: «القايمة نفسها مش
@@ -8775,6 +8923,16 @@ function toggleFontPop(page, anchor) {
 
 /** يُبقي الشارتين مطابقتين لخطَّي الصفحتين. */
 function paintFontChips() {
+  /*
+   * ⚠️ **وعيّنةُ زرّ المعاينة بالخطّ الجاري.** زرٌّ مكتوبٌ بـАа بخطٍّ
+   *    ثابتٍ يخبرك أنّ هناك خطوطًا، ولا يقول **أيَّها أنت فيه الآن**.
+   */
+  const sample = $('[data-qfont-sample]');
+  if (sample) {
+    const f = fontById(ctx.font);
+    sample.style.fontFamily = f.stack;
+    sample.style.fontStyle = f.style;
+  }
   for (const [page, id] of [['stage', ctx.font], ['doc', ctx.fontDoc]]) {
     const chip = $(`[data-sh="fontpop"][data-page="${page}"] span`);
     if (!chip) continue;
@@ -8827,6 +8985,21 @@ function applyFonts() {
 
   const app = document.querySelector('.shadow-app');
   if (app) {
+    /*
+     * ⚠️ **ورقائقُ الكلمات لم تكن تتبع خطَّ القراءة أصلًا (WS-MIC · بند ٤).**
+     *
+     *    `applyFont` تكتب أنماطًا **سطريّةً** على عنصرٍ بعينه، وهي
+     *    تصلح للجملة وسطورِ الورقة؛ والرقائقُ يُعيد `renderWords`
+     *    بناءَها مع كلّ مقطعٍ فتضيع الأنماطُ السطريّة. وقِيس: لا
+     *    `font-family` على `.sh-chip-w` إطلاقًا — فتُرسَم الكلماتُ
+     *    الروسيّةُ بخطّ التطبيق العربيّ مهما اخترتَ.
+     *
+     *    فالخطُّ يُنشَر متغيّرًا على جذر التطبيق: يتبعه كلُّ نصٍّ روسيٍّ
+     *    في المسرح مهما أُعيد بناؤه، ومصدرُه واحدٌ (`ctx.font`).
+     */
+    const ru = fontById(ctx.font);
+    app.style.setProperty('--sh-ru-font', ru.stack);
+    app.style.setProperty('--sh-ru-style', ru.style);
     app.style.setProperty('--sh-font-size', ctx.fontSize);
     /*
      * ⚠️ **ودرجةُ البكسل تُطبَّق هنا أيضًا.** كانت تُكتَب عند الضغط
@@ -10624,7 +10797,9 @@ function wireInteractions(main) {
     if (!fontPop) return;
     if (event.target.closest('.sh-fontpop')) return;
     if (event.target.closest('[data-sh="fontpop"]')) return;
+    if (event.target.closest('[data-sh="qfont"]')) return;
     closeFontPop();
+    document.querySelector('[data-sh="qfont"]')?.setAttribute('aria-expanded', 'false');
   }, wired());
 
   // السحب يطبّق فورًا بلا كتابة في القاعدة؛ الحفظ عند رفع الإصبع.
@@ -10991,6 +11166,7 @@ function wireInteractions(main) {
          */
         ctx.session.repeatMode = mode;
         syncControlCenter();
+        paintRepetition();
         return saveSessionSettings(ctx.session.id, { repeatMode: mode });
       }
 
@@ -11844,6 +12020,14 @@ function wireInteractions(main) {
       /* مفتاحُ الخطّ الصغير المعروض دائمًا على كلّ صفحة. */
       case 'fontpop':
         return toggleFontPop(btn.dataset.page === 'doc' ? 'doc' : 'stage', btn);
+
+      /* معاينةٌ سريعةٌ لخطّ المسرح — نفسُ اللوحة بوسم `quick`. */
+      case 'qfont': {
+        const open = fontPop?.dataset.quick !== '1';
+        toggleFontPop('stage', btn, { quick: true });
+        btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+        return undefined;
+      }
 
       /*
        * ⚠️ **ومفتاحٌ بقيمتين كان موصولًا بمُقلِّب (WS-SCLEAN).** لوحةُ
