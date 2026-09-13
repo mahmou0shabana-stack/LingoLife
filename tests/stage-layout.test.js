@@ -88,6 +88,38 @@ async function stageAt(width, height, { words = 14, layout = '', rec = false } =
     <link rel="stylesheet" href="${new URL('../css/shadow.css', location.href).href}">
     <style>
       html,body{margin:0;height:100%}
+      /*
+       * ⚠️ **شريطُ تمريرٍ لا يحجز عرضًا — كما على الجهاز.**
+       *    قِيس في التطبيق على ١٢٨٠×٨٠٠: clientWidth ٥٠٣ وoffsetWidth
+       *    ٥٠٣ — أي أنّ شريطَ التمرير طبقةٌ عائمةٌ لا تقتطع. أمّا الإطارُ
+       *    فيرسم شريطًا كلاسيكيًّا يأكل ١٥px، وظهورُه متأرجحٌ لأنّ
+       *    ارتفاعَ المحتوى على حافّة الفيض — فينزاح مركزُ الصندوق
+       *    ٧٫٥px بين قياسةٍ وأخرى.
+       *
+       *    وأثرُه مقيسٌ: حارسا التوسيط سقطا في تشغيلاتِ طفرةٍ لا تمسّ
+       *    التخطيطَ أصلًا (طفرةُ ملكيّةِ المؤشّر)، ومرّةً هذا ومرّةً ذاك
+       *    — وتبدُّلُ الساقط بين تشغيلين هو توقيعُ الأداةِ لا العطب.
+       *
+       *    ⚠️ وكتبتُ اسمَ الخاصّيّة أوّلَ مرّةٍ بين علامتَي اقتباسٍ
+       *       خلفيّتين — **داخلَ قالبٍ نصّيّ** — فانتهى القالبُ عندها
+       *       وسقط الملفُّ كلُّه بـmissing ) after argument list. وهو
+       *       الفخُّ المكتوبُ بحرفه في تعليقٍ أسفلَ هذا بأسطر، ووقعتُ
+       *       فيه للمرّة العاشرة في هذا المستودع.
+       */
+      .sh-page::-webkit-scrollbar{width:0;height:0}
+      /*
+       * ⚠️ **ولا انتقالاتٍ في إطار القياس — وهذا أصلُ تذبذبٍ طاردتُه طويلًا.**
+       *    حشوةُ المسرح على اللوح لها انتقالٌ ٤٥٠ms (يُزيح الدرجُ الصفحةَ
+       *    بسلاسة). فكان الإطارُ يقيس أحيانًا **في منتصف الانتقال**:
+       *    قِيست الحشوةُ 25.1983px/40.0208px بدل 34/54 — ونسبتُهما واحدةٌ
+       *    (٠٫٧٤١) أي لقطةٌ من الطريق. فينزاح مركزُ الصندوق ٣px ويسقط
+       *    حارسُ التوسيط في طفرةٍ لا تمسّ التخطيطَ أصلًا.
+       *
+       *    ومراقبةُ أبعاد الصفحة لم تُمسكه: الحشوةُ تتغيّر والعرضُ
+       *    والارتفاعُ ثابتان. فالعلاجُ أن تُطفأ الانتقالاتُ هنا — القياسُ
+       *    يريد الحالةَ المستقرّة لا الطريقَ إليها.
+       */
+      *,*::before,*::after{transition:none !important}
       /* هيكلُ الصفحة: شريطٌ ومسرحٌ وذيل، بارتفاعٍ محدَّدٍ كالتطبيق. */
       .shadow-app{display:flex;flex-direction:column;height:100%}
       .sh-body{flex:1 1 auto;min-height:0;display:flex}
@@ -140,8 +172,12 @@ async function stageAt(width, height, { words = 14, layout = '', rec = false } =
           </div>
           <!-- ⚠️ صفُّ الرقاقات حُذف (WS-POLISH) وصار لسانًا مطلقًا على الحافّة. -->
           <button class="sh-cc-tab" data-sh="drawer" aria-label="اضبط التدريب">⚙</button>
+          <!-- ⚠️ وزرُّ معاينة الخطّ في الإطار كما هو في الراسم: هو أقربُ
+               أزرارِ السكّة إلى صفّ الأوضاع، فبدونه يحرس فحصُ التراكب
+               نصفَ الجوار. -->
           <div class="sh-toolrail"><div class="sh-rail-tools"></div>
-            <button class="sh-rail-toggle">‹</button></div>
+            <button class="sh-qfont" data-sh="qfont"><span lang="ru">Аа</span></button>
+            <button class="sh-rail-toggle" data-sh="rail">‹</button></div>
         </div>
       </div></div></div>
       <div class="sh-bottom"><div class="sh-stats">
@@ -159,6 +195,37 @@ async function stageAt(width, height, { words = 14, layout = '', rec = false } =
   const t0 = Date.now();
   while (!ready() && Date.now() - t0 < 4000) {
     await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 16)));
+  }
+  /*
+   * ⚠️ **ثمّ يُنتظَر أن يسكن التخطيطُ لا أن تصل الورقةُ فقط.**
+   *
+   *    سقط حارسا التوسيط (١٨ و٢٠) في ثلاث تشغيلاتِ طفرةٍ من أربع
+   *    بأرقامٍ لا علاقةَ لها بالطفرة: ‎٧٫٣ ثمّ ‎٤٫٩ — ونصفُ الفارق نصفُ
+   *    عرضِ شريط تمريرٍ كلاسيكيّ. وقِيس في التطبيق نفسِه بتبديل
+   *    `z-index` حيًّا بين ٩ و١٣: **لا يتغيّر بكسل** (clientWidth ٥٠٣
+   *    والفارقُ ‎−٠٫٢ في الحالتين). فالتذبذبُ من الإطار لا من الشاشة:
+   *    الخطوطُ تصل بعد أوّل رسمٍ فيطول المحتوى فيظهر شريطُ التمرير،
+   *    فتقع القياسةُ على جانبَي تلك اللحظة.
+   *
+   *    فالانتظارُ على **سكون الأبعاد** نفسِها: عرضٌ وارتفاعٌ ومحتوًى
+   *    لا تتغيّر ثلاثَ إطاراتٍ متتالية. حدٌّ أعلى مقصوصٌ كي لا يعلّق
+   *    الفحصُ إن لم تسكن أبدًا.
+   */
+  await (doc.fonts?.ready ?? Promise.resolve());
+  const dims = () => {
+    const el = doc.querySelector('.sh-right');
+    if (!el) return '';
+    /* والحشوةُ في الرقابة كذلك: تتغيّر بلا أن يتغيّر عرضٌ أو ارتفاع. */
+    const s2 = iframe.contentWindow.getComputedStyle(el);
+    return `${el.clientWidth}×${el.clientHeight}×${el.scrollHeight}`
+      + `×${s2.paddingLeft}×${s2.paddingRight}`;
+  };
+  let last = dims(); let still = 0; const t1 = Date.now();
+  while (still < 3 && Date.now() - t1 < 3000) {
+    await new Promise((r) => requestAnimationFrame(r));
+    const now = dims();
+    still = (now === last) ? still + 1 : 0;
+    last = now;
   }
   await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
 
@@ -534,17 +601,29 @@ describe('WS-FONT-TRANSPORT · التوسيطُ يُقاس', () => {
    */
   const TOL = 1;
 
+  /*
+   * ⚠️ **والرسالةُ تحمل أرقامَها.** «متوقّع true ووُجد false» لا يقول
+   *    أانزاح الزرُّ أم انزاح الصندوقُ من تحته. فتُضَمّ إليها عرضُ
+   *    الصندوق المرسوم وعرضُه الخارجيّ: إن اختلفا فشريطُ تمريرٍ حجز
+   *    عرضًا — وهو أوّلُ ما أضلّني مرّتين.
+   */
+  const centreReport = (f) => {
+    const st = f.doc.querySelector('.sh-right');
+    const off = Math.round(f.playOffset() * 10) / 10;
+    return `${Math.abs(off) <= TOL}:${off} (client=${st.clientWidth} offset=${Math.round(st.getBoundingClientRect().width)})`;
+  };
+
   it('١٧ · زرُّ التشغيل وسطُ المسرح على الهاتف', async () => {
     const f = await stageAt(412, 915, { layout: 'single', rec: true });
-    const off = f.playOffset();
-    expect(`${Math.abs(off) <= TOL}:${Math.round(off * 10) / 10}`).toBe('true:0');
+    const got = centreReport(f);
+    expect(got).toBe(`true:0 ${got.split(' ').slice(1).join(' ')}`);
     f.close();
   });
 
   it('١٨ · وعلى اللوح كذلك', async () => {
     const f = await stageAt(1280, 800, { layout: 'two', rec: true });
-    const off = f.playOffset();
-    expect(`${Math.abs(off) <= TOL}:${Math.round(off * 10) / 10}`).toBe('true:0');
+    const got = centreReport(f);
+    expect(got).toBe(`true:0 ${got.split(' ').slice(1).join(' ')}`);
     f.close();
   });
 
@@ -747,6 +826,152 @@ describe('WS-77 · ما يطفو للقراءة لا يملك اللمسة', () 
     const { host } = toastOver(f.doc, f.doc.querySelector('.sh-play').getBoundingClientRect());
     await f.settle();
     expect(f.win.getComputedStyle(host).pointerEvents).toBe('none');
+    f.close();
+  });
+});
+
+/* ================================================================== *
+ * ز) مقبضُ السكّة يملك لمستَه — WS-RAIL-HIT                            *
+ * ================================================================== */
+describe('WS-RAIL-HIT · المقبضُ يملك قرصَه', () => {
+  /*
+   * ⚠️ **ما قِيس قبل تغيير رقم** (٤١٢×٩١٥):
+   *
+   *     المقبض ٣٦٠..٤٠٤ × ٨١١..٨٥٥ · شريطُ النقل ٢٢..٣٩٠ × ٧٩٧..٨٦١
+   *     التراكب ٣٠×٤٤px · ومركزُ المقبض يملكه `div.sh-transport`
+   *     ومن ١٤٥ نقطةً داخل قرصه: **٤٠ له و١٠٥ للشريط**
+   *     ولمسُه لا يفتح السكّةَ ولا يُغلقها (false → false → false)
+   *
+   *   وعلى اللوح ١٤٥/١٤٥ قبل وبعد — لا تراكبَ هناك أصلًا.
+   *
+   *   والسارقُ **فراغٌ**: صندوقُ الشريط يمتدّ بعرض المسرح وz-index له
+   *   ١٢ وللسكّة ٩. فرُفعت السكّةُ إلى ١٣ — ولا شيءَ غيرَه.
+   *
+   * ⚠️ **والقرصُ لا المستطيل**: المقبضُ `border-radius: 999px`، فأربعُ
+   *    زوايا مستطيله ليست منه ولا يقصدها إصبع. فيُقاس ما يرسمه فقط —
+   *    وإلّا حرسنا زوايا لا وجودَ لها وقلنا «٢٤ من ٢٨» عن ملكيّةٍ تامّة.
+   */
+  /*
+   * ⚠️ **والإطارُ لا يُنتج التراكبَ من تلقائه — فيُنتَج صراحةً.**
+   *    سكّةُ التطبيق فيها أربعةُ أزرار، فمجموعتُها المتوسّطةُ تنزل حتّى
+   *    يقع مقبضُها في نطاق شريط النقل. وسكّةُ الإطار أقصر، فيقف
+   *    المقبضُ في منتصف العمود بعيدًا عن الشريط — وحارسٌ يقيس هناك
+   *    **يمرّ وإن عاد العطب**. قِستُه بطفرةٍ: أعدتُ z-index إلى ٩
+   *    فبقي الحارسُ أخضر. فأُنزل المقبضُ إلى قاع السكّة كما هو على
+   *    الجهاز، **ويُشترَط وقوعُ التراكب** قبل قياس الملكيّة — فإن غاب
+   *    التراكبُ سقط الحارسُ بدل أن يمرّ فارغًا.
+   */
+  const dropHandleToBottom = (f) => {
+    const rail = f.doc.querySelector('.sh-toolrail');
+    rail.style.justifyContent = 'flex-end';
+    rail.style.paddingBottom = '0px';
+  };
+
+  const overlapsTransport = (f) => {
+    const a = f.doc.querySelector('.sh-rail-toggle').getBoundingClientRect();
+    const b = f.doc.querySelector('.sh-transport').getBoundingClientRect();
+    const ox = Math.min(a.right, b.right) - Math.max(a.left, b.left);
+    const oy = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
+    return { ox: Math.round(ox), oy: Math.round(oy), yes: ox > 0 && oy > 0 };
+  };
+
+  const discOwnership = (f) => {
+    const t = f.doc.querySelector('.sh-rail-toggle');
+    const r = t.getBoundingClientRect();
+    const cx = r.left + r.width / 2; const cy = r.top + r.height / 2;
+    const rad = Math.min(r.width, r.height) / 2;
+    let inside = 0; let mine = 0; const thieves = {};
+    for (let dx = 1; dx < r.width; dx += 3) {
+      for (let dy = 1; dy < r.height; dy += 3) {
+        const x = Math.round(r.left + dx); const y = Math.round(r.top + dy);
+        if (Math.hypot(x - cx, y - cy) > rad - 1.5) continue;
+        inside += 1;
+        const el = f.doc.elementFromPoint(x, y);
+        if (el && (el === t || t.contains(el))) mine += 1;
+        else {
+          const k = el ? `${el.tagName.toLowerCase()}.${(el.className || '').toString().trim().split(/\s+/)[0]}` : '—';
+          thieves[k] = (thieves[k] || 0) + 1;
+        }
+      }
+    }
+    const centre = f.doc.elementFromPoint(Math.round(cx), Math.round(cy));
+    return {
+      inside, mine, thieves,
+      centreMine: Boolean(centre && (centre === t || t.contains(centre))),
+      centre: centre ? `${centre.tagName.toLowerCase()}.${(centre.className || '').toString().trim().split(/\s+/)[0]}` : '—',
+    };
+  };
+
+  it('٢٦ · كلُّ نقطةٍ يرسمها المقبضُ يملكها — على الهاتف', async () => {
+    const f = await stageAt(412, 915, { layout: 'single', rec: true });
+    dropHandleToBottom(f);
+    await f.settle();
+    const over = overlapsTransport(f);
+    expect(`تراكبٌ=${over.yes} (${over.ox}×${over.oy})`).toBe(`تراكبٌ=true (${over.ox}×${over.oy})`);
+    const d = discOwnership(f);
+    /* الفحصُ يفحص نفسَه: قرصٌ بلا نقاطٍ يمرّ بلا أن يحرس. */
+    expect(d.inside > 100).toBe(true);
+    expect(`${d.mine}/${d.inside} ${JSON.stringify(d.thieves)}`)
+      .toBe(`${d.inside}/${d.inside} {}`);
+    expect(`مركزُه=${d.centre}`).toBe('مركزُه=button.sh-rail-toggle');
+    f.close();
+  });
+
+  it('٢٧ · وعلى اللوح كذلك', async () => {
+    const f = await stageAt(1280, 800, { layout: 'two', rec: true });
+    dropHandleToBottom(f);
+    await f.settle();
+    const d = discOwnership(f);
+    expect(d.inside > 100).toBe(true);
+    expect(`${d.mine}/${d.inside} ${JSON.stringify(d.thieves)}`)
+      .toBe(`${d.inside}/${d.inside} {}`);
+    expect(`مركزُه=${d.centre}`).toBe('مركزُه=button.sh-rail-toggle');
+    f.close();
+  });
+
+  it('٢٨ · ولا زرَّ من السكّة يتراكب مع ضابطٍ من المسرح', async () => {
+    /*
+     * ⚠️ **وهذا هو الشرطُ الذي أباح الرفعَ.** رفعُ السكّة فوق الشريط
+     *    مقبولٌ **لأنّ** أزرارَها لا تلامس زرًّا من أزراره: تبدأ من
+     *    ٣٥٨ (هاتفًا) و١٢٠٣ (لوحًا)، وأقصى ضابطٍ في المسرح ينتهي عند
+     *    ٣٣٣ و١١٧٥. فإن زحف أحدُ الطرفين يومًا صار الرفعُ سرقةً
+     *    جديدةً مكانَ القديمة — ويسقط هذا الحارسُ قبل أن تُلمَس شاشة.
+     */
+    for (const [w, h, layout] of [[412, 915, 'single'], [1280, 800, 'two']]) {
+      const f = await stageAt(w, h, { layout, rec: true });
+      /* والمقبضُ في قاعه كما على الجهاز — وإلّا قيس الجوارُ في غير موضعه. */
+      f.doc.querySelector('.sh-toolrail').style.justifyContent = 'flex-end';
+      f.doc.querySelector('.sh-toolrail').style.paddingBottom = '0px';
+      await f.settle();
+      const box = (el) => el.getBoundingClientRect();
+      const label = (el) => `${el.tagName.toLowerCase()}.${(el.className || '').toString().trim().split(/\s+/)[0] || '∅'}`;
+      const railKids = [...f.doc.querySelectorAll('.sh-toolrail button')];
+      const stageCtrls = [...f.doc.querySelectorAll('.sh-transport > *, .sh-modes button, .sh-cc-tab')];
+      expect(railKids.length > 0 && stageCtrls.length > 0).toBe(true);
+      const clashes = [];
+      for (const k of railKids) {
+        for (const c of stageCtrls) {
+          const a = box(k); const bb = box(c);
+          if (Math.min(a.right, bb.right) - Math.max(a.left, bb.left) > 0
+            && Math.min(a.bottom, bb.bottom) - Math.max(a.top, bb.top) > 0) {
+            clashes.push(`${label(k)}×${label(c)}`);
+          }
+        }
+      }
+      expect(`${w}:${clashes.join(',')}`).toBe(`${w}:`);
+      f.close();
+    }
+  });
+
+  it('٢٩ · والسكّةُ نفسُها لا تلتقط شيئًا — أزرارُها وحدَها', async () => {
+    /*
+     * الرفعُ آمنٌ ما دامت الحاويةُ لا تستقبل مؤشّرًا: عمودٌ بعرض ٤٨px
+     * وبطول المسرح لو التقط لأكل حافّةَ القراءة كلَّها.
+     */
+    const f = await stageAt(412, 915, { layout: 'single', rec: true });
+    expect(f.cs('.sh-toolrail').pointerEvents).toBe('none');
+    const toggle = f.win.getComputedStyle(f.doc.querySelector('.sh-rail-toggle'));
+    expect(toggle.pointerEvents).toBe('auto');
     f.close();
   });
 });
