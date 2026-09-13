@@ -77,6 +77,14 @@ async function stageAt(width, height, { words = 14, layout = '', rec = false } =
     <meta name="viewport" content="width=device-width">
     <link rel="stylesheet" href="${new URL('../css/tokens.css', location.href).href}">
     <link rel="stylesheet" href="${new URL('../css/base.css', location.href).href}">
+    <!--
+      ⚠️ **وورقةُ المكوّنات تُحمَّل هنا مع الظلّ — لأنّ الإشعارَ منها**
+         (WS-77). الإطارُ كان يحمّل ثلاثًا، والتطبيقُ يحمّل ثنتَي عشرة.
+         وما دام المحروسُ «هل يسرق ما يطفو لمسةَ ما تحته؟» فلا بدّ أن
+         يكون السارقُ المحتمَل موجودًا بقواعده. وأُعيد قياسُ الحرّاس
+         الاثنين والعشرين بعد إضافتها فلم يتغيّر رقمٌ واحد.
+    -->
+    <link rel="stylesheet" href="${new URL('../css/components.css', location.href).href}">
     <link rel="stylesheet" href="${new URL('../css/shadow.css', location.href).href}">
     <style>
       html,body{margin:0;height:100%}
@@ -616,5 +624,129 @@ describe('WS-FONT-TRANSPORT · التوسيطُ يُقاس', () => {
       expect(`${w}:${rec.r <= rail.l}`).toBe(`${w}:true`);
       f.close();
     }
+  });
+});
+
+/* ================================================================== *
+ * و) الإشعارُ يُقرأ ولا يُلمَس — العطبُ ٧٧                              *
+ * ================================================================== */
+describe('WS-77 · ما يطفو للقراءة لا يملك اللمسة', () => {
+  /*
+   * ⚠️ **ما قِيس قبل تغيير سطرٍ واحد** (لمسٌ حقيقيٌّ على ٤١٢×٩١٥):
+   *
+   *   إنشاءُ جلسةٍ من نافذة «اختار الجمل» ينتهي بـ`toastOk('N جملة
+   *   جاهزة')` ثم `navigate` إلى المسرح. والإشعارُ يقف أسفلَ الشاشة —
+   *   حيث يقف شريطُ النقل — ٣٫٢ ثوانٍ. فقِيس مَن يستقبل لمسةَ مركز
+   *   زرّ التشغيل في تلك اللحظة:
+   *
+   *       span ‹ div.toast ‹ div.toast-host      «٣ جملة جاهزة»
+   *
+   *   خمسٌ من خمس دورات. وبعد الإصلاح: `i.sh-ico-play` خمسٌ من خمس
+   *   **والإشعارُ ما يزال معروضًا** — أي أنّ اللمسةَ تعبره لا أنّه غاب.
+   *
+   * ⚠️ **وليس العطبُ في مستمعي الظلّ.** عُدّت من المحرّك نفسِه
+   *    (`getEventListeners`): ثلاثةُ مستمعي نقرٍ على `#app-main` قبل
+   *    الإنشاء وثلاثةٌ بعده في كلّ دورة. فحبلُ `AbortController` سليم،
+   *    ولو صدّقتُ العَرَضَ («يشتغل من تاني ضغطة») لأصلحتُ ما ليس مكسورًا.
+   *
+   * ⚠️ **والمحروسُ ملكيّةُ النقطة لا نصُّ قاعدةٍ في CSS.** يُبنى إشعارٌ
+   *    حقيقيٌّ بأصنافه فوق زرّ التشغيل بالضبط، ثم يُسأل المتصفّح: مَن
+   *    يملك هذه النقطة؟ — وهو نفسُ الفحص الذي يجريه عند اللمس.
+   */
+
+  /** يضع إشعارًا حقيقيًّا فوق مستطيلٍ بعينه، ويردّ عناصرَه. */
+  const toastOver = (doc, rect, { action = false } = {}) => {
+    const host = doc.createElement('div');
+    host.className = 'toast-host';
+    /* الموضعُ يُفرَض ليقع التراكبُ حتمًا — والتراكبُ نفسُه مقيسٌ في
+       التطبيق (المسبار أعلاه)، والمحروسُ هنا ما يحدث **حين** يقع. */
+    /*
+     * ⚠️ **و`inset: auto` قبل كلّ شيء — وإلّا وُضع الإشعارُ في مكانٍ
+     *    آخر.** `.toast-host` تكتب `inset-inline: 0` و`bottom`، فحين
+     *    أضفتُ `left` و`width` صار الصندوقُ **مُفرَطَ التقييد**
+     *    (left + width + right)، والمستندُ `rtl` — فيُهمل المتصفّحُ
+     *    `left` لا `right`. فوقف الإشعارُ على حافّة الشاشة اليمنى ولم
+     *    يغطِّ الزرَّ، وسقط الحارسُ على **موضعٍ** لا على ملكيّةِ نقطة.
+     *    (وهو نفسُ درسِ لسان الإعدادات في WS-POLISH: المنطقيُّ يتبع
+     *    الاتّجاه، والمواضعُ الثابتةُ تُكتَب صريحةً.)
+     *
+     * ⚠️ و`padding: 0` كذلك: الحاويةُ تحشو ١٦px جانبًا فتضيق الحبّةُ
+     *    عن الزرّ.
+     */
+    host.style.cssText = 'position:fixed;inset:auto;padding:0;'
+      + `left:${rect.left}px;top:${rect.top}px;`
+      + `width:${rect.width}px;height:${rect.height}px;`;
+    const node = doc.createElement('div');
+    node.className = 'toast ok';
+    node.style.cssText = 'width:100%;height:100%;margin:0;';
+    const text = doc.createElement('span');
+    text.textContent = '3 جملة جاهزة';
+    node.append(text);
+    let act = null;
+    if (action) {
+      act = doc.createElement('button');
+      act.className = 'toast-action';
+      act.textContent = 'تراجع';
+      node.append(act);
+    }
+    host.append(node);
+    doc.body.append(host);
+    return { host, node, act };
+  };
+
+  it('٢٣ · إشعارٌ فوق شريط النقل لا يسرق لمسةَ زرّ التشغيل', async () => {
+    const f = await stageAt(412, 915, { layout: 'single', rec: true });
+    const play = f.doc.querySelector('.sh-play');
+    const r = play.getBoundingClientRect();
+    const { node } = toastOver(f.doc, r);
+    await f.settle();
+
+    /* أوّلًا: الإشعارُ **يغطّي مركزَ الزرّ** فعلًا — وإلّا كان الحارسُ
+       فارغًا يمرّ على كلّ حال. والمركزُ هو ما يُفحَص عند اللمس. */
+    const cx = Math.round(r.left + r.width / 2);
+    const cy = Math.round(r.top + r.height / 2);
+    const tr = node.getBoundingClientRect();
+    const covers = tr.left <= cx && tr.right >= cx && tr.top <= cy && tr.bottom >= cy;
+    expect(`يغطّي=${covers}`).toBe('يغطّي=true');
+
+    /* ثمّ: مَن يملك تلك النقطة؟ — والرسالةُ تسمّي السارقَ إن وُجد. */
+    const hit = f.doc.elementFromPoint(cx, cy);
+    const who = hit ? `${hit.tagName.toLowerCase()}.${(hit.className || '').toString().trim().split(/\s+/)[0] || '∅'}` : 'لا شيء';
+    expect(`${Boolean(hit && (hit === play || play.contains(hit)))} (${who})`)
+      .toBe(`true (${who})`);
+    f.close();
+  });
+
+  it('٢٤ · وزرُّ «تراجع» وحدَه يستعيد اللمسةَ داخل الإشعار', async () => {
+    /*
+     * ⚠️ **وهذا نصفُ الحارس لا زينتُه.** «التراجع» هو السببُ الوحيدُ
+     *    المشروعُ الذي جعل الإشعارَ يستقبل لمسًا أصلًا — ومُعالَجةٌ
+     *    تُطفئ اللمسَ على الإشعار كلِّه تقتل التراجعَ عن حذفٍ وقع
+     *    لتوّه. فالحارسان يمسكان الطرفين: الجسمُ يعبر، والزرُّ يمسك.
+     */
+    const f = await stageAt(412, 915, { layout: 'single', rec: true });
+    const play = f.doc.querySelector('.sh-play');
+    const { act } = toastOver(f.doc, play.getBoundingClientRect(), { action: true });
+    await f.settle();
+    const ar = act.getBoundingClientRect();
+    expect(ar.width > 0 && ar.height > 0).toBe(true);
+    const hit = f.doc.elementFromPoint(
+      Math.round(ar.left + ar.width / 2), Math.round(ar.top + ar.height / 2)
+    );
+    expect(Boolean(hit && (hit === act || act.contains(hit)))).toBe(true);
+    f.close();
+  });
+
+  it('٢٥ · وحاويةُ الإشعارات لا تملك لمسةً بحالٍ', async () => {
+    /*
+     * الحاويةُ تمتدّ بعرض الشاشة كلِّه وترتفع فوق كلّ شيء
+     * (`--z-toast: 90`). فلو ملكت المؤشّرَ يومًا لَما احتجنا إشعارًا
+     * أصلًا كي يموت ما تحتها — يكفي وجودُها.
+     */
+    const f = await stageAt(412, 915, { layout: 'single', rec: true });
+    const { host } = toastOver(f.doc, f.doc.querySelector('.sh-play').getBoundingClientRect());
+    await f.settle();
+    expect(f.win.getComputedStyle(host).pointerEvents).toBe('none');
+    f.close();
   });
 });
