@@ -175,6 +175,12 @@ async function stageAt(width, height, { words = 14, layout = '', rec = false } =
           <!-- ⚠️ وزرُّ معاينة الخطّ في الإطار كما هو في الراسم: هو أقربُ
                أزرارِ السكّة إلى صفّ الأوضاع، فبدونه يحرس فحصُ التراكب
                نصفَ الجوار. -->
+          <!-- ⚠️ وطبقاتُ الزينة الثلاثُ كما في الراسم: بلا وجودها يحرس
+               فحصُ «الزينةُ لا تلتقط لمسًا» فراغًا. -->
+          <div class="sh-plate" aria-hidden="true"></div>
+          <div class="sh-stars-far" aria-hidden="true"></div>
+          <div class="sh-stars-near" aria-hidden="true"></div>
+          <div class="sh-sky-dim" aria-hidden="true"></div>
           <div class="sh-toolrail"><div class="sh-rail-tools"></div>
             <button class="sh-qfont" data-sh="qfont"><span lang="ru">Аа</span></button>
             <button class="sh-rail-toggle" data-sh="rail">‹</button></div>
@@ -973,5 +979,80 @@ describe('WS-RAIL-HIT · المقبضُ يملك قرصَه', () => {
     const toggle = f.win.getComputedStyle(f.doc.querySelector('.sh-rail-toggle'));
     expect(toggle.pointerEvents).toBe('auto');
     f.close();
+  });
+});
+
+/* ================================================================== *
+ * ح) جِلدُ الكون: مظهرٌ بلا منطق — WS-COSMIC-UI                       *
+ * ================================================================== */
+describe('WS-COSMIC-UI · الجِلدُ لا يحمل حالةً', () => {
+  /*
+   * ⚠️ **المحروسُ هنا حدُّ التمريرة نفسُه**: حزمةُ التصميم نموذجٌ فيه
+   *    حالتُه المحلّيّة (playing · active · liked · saved · repeat ·
+   *    mode · pos) ومُعالِجاتُه الوهميّة. ونقلُ سطرٍ واحدٍ منها إلى
+   *    الإنتاج يعني حالةً ثانيةً للتشغيل أو للوضع — وهو بالضبط ما
+   *    منعته التمريراتُ الأربعُ قبل هذه.
+   */
+  it('٣٠ · لا وسمَ نموذجٍ ولا حالتَه في شيفرة الشاشة', async () => {
+    const src = await (await fetch('../js/views/shadow-view.js')).text();
+    const css = await (await fetch('../css/shadow.css')).text();
+    /* وسومُ محرّك العرض في الحزمة — لا مكانَ لها في تطبيقٍ بلا بناء. */
+    for (const token of ['sc-if', 'x-dc', 'DCLogic', 'hint-placeholder-val', 'data-dc-']) {
+      expect(`${token}:${src.includes(token) || css.includes(token)}`).toBe(`${token}:false`);
+    }
+    /* وجملةُ النموذج المطبوعة لا تُكتَب في مصدرٍ ولا في نمط. */
+    expect(src.includes('Во время проверки')).toBe(false);
+    expect(css.includes('Во время проверки')).toBe(false);
+  });
+
+  it('٣١ · وطبقاتُ الزينة لا تلتقط لمسةً واحدة', async () => {
+    /*
+     * ⚠️ **وهذا أكثرُ ما كسر هذه الشاشةَ مرّتين**: طبقةٌ لا تُرى تسرق
+     *    أوّلَ لمسة (الإشعارُ في WS-77 · وصندوقُ النقل الفارغُ في
+     *    WS-RAIL-HIT). فالجِلدُ يُضيف صورةً وتدرّجاتٍ — ويجب أن تبقى
+     *    كلُّها **شفّافةً للمؤشّر**، وإلّا صار الجمالُ عطبًا.
+     */
+    const f = await stageAt(412, 915, { layout: 'single', rec: true });
+    for (const sel of ['.sh-plate', '.sh-stars-far', '.sh-stars-near', '.sh-sky-dim']) {
+      expect(`${sel}:${f.cs(sel).pointerEvents}`).toBe(`${sel}:none`);
+    }
+    /* والأهمُّ سلوكًا: نقطةُ الجملة ونقطةُ التشغيل لمن يملكهما. */
+    const owns = (sel) => {
+      const el = f.doc.querySelector(sel);
+      const r = el.getBoundingClientRect();
+      const hit = f.doc.elementFromPoint(Math.round(r.left + r.width / 2), Math.round(r.top + r.height / 2));
+      return Boolean(hit && (hit === el || el.contains(hit)));
+    };
+    expect(`تشغيل:${owns('.sh-play')}`).toBe('تشغيل:true');
+    f.close();
+  });
+
+  it('٣٢ · وأصولُ الجِلد موجودةٌ تُقرأ', async () => {
+    /*
+     * ⚠️ مسارٌ مكسورٌ في CSS لا يُسقِط شيئًا: الصورةُ لا تظهر والشاشةُ
+     *    تبقى «تعمل». فيُسأل الخادمُ عن كلّ أصلٍ يذكره النمط.
+     */
+    const css = await (await fetch('../css/shadow.css')).text();
+    const used = [...css.matchAll(/url\('\.\.\/(assets\/shadow\/[^']+)'\)/g)].map((m) => m[1]);
+    expect(used.length >= 5).toBe(true);
+    for (const path of [...new Set(used)]) {
+      const res = await fetch(`../${path}`);
+      expect(`${path}:${res.ok}`).toBe(`${path}:true`);
+    }
+  });
+
+  it('٣٣ · واللوحةُ خفيفةٌ — لا تعود إلى ميغابايتين', async () => {
+    /*
+     * ⚠️ **الأصلُ القديم ٢٫٠MB PNG وهو أثقلُ ملفٍّ في التطبيق.** صار
+     *    ١٠١KB WebP بنفس المقاس المفيد. والحارسُ يقيس **الحجمَ
+     *    المنقول** لا اسمَ الملفّ: أيُّ عودةٍ إلى صورةٍ ثقيلةٍ تسقط هنا،
+     *    مهما كان اسمُها أو امتدادُها.
+     */
+    const css = await (await fetch('../css/shadow.css')).text();
+    const plate = /\.sh-plate\s*\{[^}]*url\('\.\.\/(assets\/shadow\/[^']+)'\)/.exec(css);
+    expect(Boolean(plate)).toBe(true);
+    const blob = await (await fetch(`../${plate[1]}`)).blob();
+    const kb = Math.round(blob.size / 1024);
+    expect(`${plate[1]} ${kb <= 400}`).toBe(`${plate[1]} true`);
   });
 });
