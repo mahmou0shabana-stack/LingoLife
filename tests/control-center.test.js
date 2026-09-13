@@ -594,52 +594,102 @@ describe('WS-MIC · لا مايكَ مكرّرًا ولا خطَّ ثانٍ ول
     expect(pops).toHaveLength(1);
     const stage = await stageMarkup();
     expect(stage.includes('data-sh="qfont"')).toBe(true);
+    /*
+     * ⚠️ **وكاتبُ القرص واحدٌ كذلك (WS-FONT-TRANSPORT).** حقلُ الحالة
+     *    الواحدُ لا يكفي: لو حفظ بابٌ منهما تحت مفتاحٍ آخر لعاد
+     *    الخطّان يفترقان بعد إعادة التحميل وحدَها — وهو أسوأُ العطبين
+     *    لأنّه لا يظهر إلّا بعد أن تُغلق الشاشة وتعود.
+     */
+    const saves = text.match(/\{\s*fontId\s*\}/g) || [];
+    expect(saves).toHaveLength(1);
+    const picks = text.match(/function pickFont/g) || [];
+    expect(picks).toHaveLength(1);
+    /*
+     * ⚠️ **وأسطحُ الخطّ ثلاثةٌ لا اثنان — وهذا صحيحٌ ما دام السجلُّ
+     *    واحدًا.** غيرُ مركزِ التدريب واللوحةِ المنبثقة هناك لوحةُ
+     *    الصفحة اليسرى (`fontPanel`). والمحروسُ أنّ كلَّ سطحٍ منها
+     *    يُبنى من السجلّ: `fontsByForm()` مرّتين و`FONTS.map` مرّة،
+     *    وصفرُ قوائمَ مكتوبةٍ بيد (يحرسه الحارسُ ٢٩).
+     */
+    const byForm = text.match(/fontsByForm\(\)/g) || [];
+    expect(byForm).toHaveLength(2);
+    const fromRegistry = text.match(/FONTS\.map\(/g) || [];
+    expect(fromRegistry).toHaveLength(1);
   });
 
-  it('٢٩ · وخياراتُ المعاينة ٣–٥ من عائلاتٍ مختلفة وكلُّها سيريليّة', async () => {
+  it('٢٩ · واللوحةُ السريعةُ تعرض السجلَّ كاملًا — لا خُمسَه المكتوبَ بيد', async () => {
     /*
-     * ⚠️ **بند ٣**: أنفعُ ٣–٥. والاختيارُ واحدٌ من كلّ عائلةٍ ليكون
-     *    السؤالُ «مطبعيٌّ أم كرّاسةٌ أم يد» لا «أيُّ مائلٍ أرقّ».
+     * ⚠️ **وهذا الحارسُ يُلغي شرطًا كتبتُه أنا قبل تمريرةٍ واحدة.**
+     *    كان هنا `QUICK_FONTS` — خمسةُ معرِّفاتٍ «واحدٌ من كلّ عائلة»
+     *    — وكان الحارسُ يشترط أن تبقى ٣–٥ متنوّعة. والشرطُ كان يحرس
+     *    **قرارًا خاطئًا** بدقّة: مَن يفتح المعاينةَ وخطُّه الحاليُّ
+     *    خارجَ الخمسة لا يجده، ولا يعرف أنّ ثمّةَ ما لا يُرى. فالعبرةُ
+     *    أنّ حارسًا يحرس اختصارًا يُثبّت العطبَ ولا يكشفه.
      *
-     * ⚠️ **والتغطيةُ شرطٌ لا تفصيل**: خطٌّ بلا سيريليّةٍ يُرسَم
-     *    باحتياطيٍّ فتكذب العيّنةُ على العين — والسجلّ يقول أيُّها يغطّي.
+     * ⚠️ **والمحروسُ الآن: مصدرٌ واحدٌ لا نسختان.** لا يُعَدُّ عددٌ في
+     *    اللوحة (فالعددُ يتبع السجلَّ ويكبر معه)، بل يُمنَع وجودُ
+     *    **قائمةٍ ثانيةٍ** أصلًا: كلُّ عرضٍ للخطوط يمرّ بـ`fontsByForm()`
+     *    أو `FONTS`، ولا معرِّفَ خطٍّ مكتوبٌ بيدٍ في الشاشة إلّا
+     *    الافتراضُ الذي يسقط إليه الجلسةُ حين لا خطَّ محفوظًا لها.
      */
     const text = await code();
-    const list = /const QUICK_FONTS = Object\.freeze\(\[([^\]]+)\]\)/.exec(text);
-    expect(Boolean(list)).toBe(true);
-    const ids = [...list[1].matchAll(/'([a-z]+)'/g)].map((m) => m[1]);
-    expect(ids.length >= 3 && ids.length <= 5).toBe(true);
+    expect(/QUICK_FONTS/.test(text)).toBe(false);
 
+    /* والمعرِّفاتُ تُقرأ من سجلّ الخطوط وحدَه — لا من سجلّ العائلات فوقه. */
     const fonts = await (await fetch('../js/services/shadow/fonts.js')).text();
-    const forms = ids.map((id) => {
-      const at = fonts.indexOf(`id: '${id}'`);
-      expect(`${id}:${at > 0}`).toBe(`${id}:true`);
-      const row = fonts.slice(at, at + 260);
-      return {
-        form: (/form: '([a-z]+)'/.exec(row) || [])[1],
-        style: (/style: '([a-z]+)'/.exec(row) || [])[1],
-        cyr: /cyrillic: true/.test(row),
-      };
-    });
-    expect(forms.every((f) => f.cyr)).toBe(true);
+    const list = fonts.slice(fonts.indexOf('export const FONTS = Object.freeze(['),
+      fonts.indexOf('export const FONTS_HREF'));
+    const ids = [...list.matchAll(/id: '([a-z]+)'/g)].map((m) => m[1]);
+    expect(ids.length >= 8).toBe(true);
+
     /*
-     * ⚠️ **والتنوّعُ يُقاس بـ«العائلة + الميل» لا بالعائلة وحدَها.**
-     *    أوّلُ شرطٍ لي طلب عائلةً مختلفةً لكلّ خيار، فسقط على خمسةٍ في
-     *    أربع عائلات — والسجلُّ لا يفرّق بين «بزوائد» و«بلا زوائد»:
-     *    كلتاهما `print`. وحذفُ أحدهما كان سيُفقِد الخيارَ الوحيدَ
-     *    بلا زوائد، أي يُفقِر المقارنةَ لإرضاء شرطٍ كتبتُه أنا.
-     *
-     *    فالمحروسُ ما يعنيه البند: أن تكون الخياراتُ **أنواعًا** لا
-     *    ظلالًا — عائلاتُ السجلّ كلُّها ممثَّلةٌ، ولا خيارَين يتطابقان
-     *    في العائلة والميل معًا.
+     * كلُّ ذكرٍ لمعرِّف خطٍّ في الشاشة يجب أن يكون سطرَ ارتدادٍ عن
+     * جلسةٍ بلا خطّ — وأيُّ قائمةٍ جديدةٍ تُكتَب بيدٍ تسقط هنا فورًا.
      */
-    const families = await (async () => {
-      const all = [...fonts.matchAll(/form: '([a-z]+)'/g)].map((m) => m[1]);
-      return new Set(all).size;
-    })();
-    expect(new Set(forms.map((f) => f.form)).size).toBe(families);
-    const kinds = forms.map((f) => `${f.form}/${f.style}`);
-    expect(new Set(kinds).size).toBe(ids.length);
+    const stray = [];
+    for (const id of ids) {
+      for (const m of text.matchAll(new RegExp(`'${id}'`, 'g'))) {
+        const from = text.lastIndexOf('\n', m.index) + 1;
+        const line = text.slice(from, text.indexOf('\n', m.index));
+        if (!/session\.font(Id|DocId)/.test(line)) stray.push(`${id}: ${line.trim()}`);
+      }
+    }
+    expect(stray.join(' | ')).toBe('');
+
+    /* واللوحتان — الكاملةُ والسريعةُ — من نداءٍ واحدٍ لا نداءين. */
+    const at = text.indexOf('function toggleFontPop');
+    const body = text.slice(at, text.indexOf('\nfunction ', at + 10));
+    const calls = body.match(/fontsByForm\(\)/g) || [];
+    expect(calls).toHaveLength(1);
+    /* ولا قصَّ للقائمة: `quick` يقصّ الاسمَ عن الزرّ لا الخطوطَ عن القائمة. */
+    expect(/fontsByForm\(\)\s*\.\s*(slice|filter|splice)/.test(body)).toBe(false);
+    expect(/group\.fonts\s*\.\s*(slice|filter|splice)/.test(body)).toBe(false);
+
+    /* ومركزُ التدريب من السجلّ نفسِه. */
+    const { drawer } = await markup();
+    expect(/FONTS\.map\(/.test(drawer)).toBe(true);
+  });
+
+  it('٢٩ب · وطولُ اللوحة يُحَلّ بالتمرير داخلها لا بقصّ الخطوط', async () => {
+    /*
+     * ⚠️ **العطبُ البديلُ لو غاب هذا**: قائمةٌ كاملةٌ في لوحةٍ بلا سقفٍ
+     *    تخرج عن الشاشة، فتختفي آخرُ الخطوط بلا أن يشتكيَ شيء — وهو
+     *    نفسُ عطبِ «خمسةٍ فقط» بثوبٍ آخر. فالسقفُ من الشاشة والتمريرُ
+     *    داخلها شرطُ أن يبقى كلُّ مسجَّلٍ **قابلًا للوصول**.
+     */
+    const css = (await (await fetch('../css/shadow.css')).text()).replace(/\/\*[\s\S]*?\*\//g, '');
+    const rule = /\.sh-fontpop-quick\s*\{([^}]*)\}/.exec(css);
+    expect(Boolean(rule)).toBe(true);
+    /* سقفٌ منسوبٌ إلى الشاشة — لا رقمٌ مطلقٌ يكبر عن هاتفٍ قصير. */
+    const cap = /max-block-size:\s*([^;]+);/.exec(rule[1]);
+    expect(Boolean(cap)).toBe(true);
+    expect(/vh/.test(cap[1])).toBe(true);
+    /* ولا `none` — وهو ما كانت عليه يوم كانت خمسةً في صفّ. */
+    expect(/none/.test(cap[1])).toBe(false);
+    /* والتمريرُ موروثٌ من اللوحة الأمّ، ولا يتسرّب إلى المسرح تحتها. */
+    const base = /\.sh-fontpop\s*\{([^}]*)\}/.exec(css);
+    expect(/overflow-y:\s*auto/.test(base[1])).toBe(true);
+    expect(/overscroll-behavior:\s*contain/.test(base[1])).toBe(true);
   });
 
   it('٣٠ · واللوحةُ السريعةُ تبقى مفتوحةً بعد الاختيار وحدَها', async () => {

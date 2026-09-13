@@ -8836,27 +8836,29 @@ function pickFont(page, fontId) {
 }
 
 /**
- * خطوطُ المعاينة السريعة — **واحدٌ من كلّ عائلة** لا خمسةٌ من واحدة.
- *
- * ⚠️ **والمقارنةُ بين أنواعِ قراءةٍ لا بين ظلالِ نوعٍ واحد.** في
- *    السجلّ عشرةُ خطوطٍ، خمسةٌ منها مطبعيّةٌ يفرّق بينها حرفٌ مائلٌ أو
- *    زائدةٌ أرقّ — ومَن يقارن بسرعةٍ وهو ينظر إلى جملته يريد الجواب
- *    عن سؤالٍ أكبر: مطبعيٌّ أم كرّاسةٌ أم خطُّ يد؟ فواحدٌ من كلّ
- *    عائلةٍ يجيب في خمس نظرات، والعشرةُ كلُّها في مركز التدريب لمن
- *    أراد أن يستقرّ على واحد.
- *
- * ⚠️ وكلُّها مُغطّاةٌ للسيريلية (`cyrillic: true` في السجلّ) — فلا
- *    عيّنةَ تُرسَم بخطٍّ احتياطيٍّ فتكذب على العين.
- */
-const QUICK_FONTS = Object.freeze(['noto', 'philosopher', 'marck', 'caveat', 'system']);
-
-/**
  * لوحةُ الخطّ — كاملةً أو سريعة.
  *
  * ⚠️ **ولا لوحةَ ثانية.** كان يكفي أن أكتب منبثقةً جديدةً للمعاينة
  *    السريعة، فتصير نسختان من التثبيت بالشاشة ومن الانقلاب لأعلى ومن
  *    الإغلاق بالضغط خارجها — وتفترقان بعد شهر. فالفرقُ **وسمٌ**:
- *    `quick` يقصّ القائمةَ ويُبقيها مفتوحةً بعد الاختيار.
+ *    `quick` يُبقي اللوحةَ مفتوحةً بعد الاختيار ويقصّ الاسمَ عن الزرّ
+ *    (عيّنةٌ وحدَها في شبكةٍ مضغوطة) — **ولا يقصّ القائمة**.
+ *
+ * ⚠️ **ولا قائمةَ ثانية (WS-FONT-TRANSPORT · بند ١).** كان هنا
+ *    `QUICK_FONTS` — خمسةُ معرِّفاتٍ مكتوبةٍ بيدي «واحدٌ من كلّ
+ *    عائلة». وكان الاختصارُ منطقيًّا على الورق وكاذبًا على الجهاز:
+ *    مَن يفتح المعاينةَ يريد **خطَّه هو**، وخطُّه قد يكون واحدًا من
+ *    الخمسة الغائبة، فيفتح اللوحةَ فلا يجده ولا يعرف أنّ هناك ما لا
+ *    يُرى. والأسوأ أنّ قائمةً مكتوبةً بيدٍ تُنسى: يُضاف خطٌّ إلى
+ *    السجلّ فيظهر في مركز التدريب ويغيب هنا بلا أن يشتكيَ أحد.
+ *
+ *    فالمصدرُ واحدٌ الآن: `fontsByForm()` — هي نفسُها التي تبني اللوحةَ
+ *    الكاملة، ومن `FONTS` نفسِها التي يبني منها مركزُ التدريب. وما
+ *    يكبر بها يكبر بالثلاثة معًا.
+ *
+ * ⚠️ **والطولُ يُحَلّ بالتمرير داخلها لا بقصّ القائمة**: عشرةُ خطوطٍ
+ *    في أربع عائلاتٍ ≈ ٢٧٠px، وسقفُها `min(52vh, 340px)` — فإن ضاقت
+ *    الشاشةُ مُرِّرت هي، ولا يكبر المسرحُ ولا يُحجَز له فراغٌ دائم.
  */
 function toggleFontPop(page, anchor, { quick = false } = {}) {
   const already = fontPop?.dataset.page === page && fontPop?.dataset.quick === (quick ? '1' : '');
@@ -8868,24 +8870,18 @@ function toggleFontPop(page, anchor, { quick = false } = {}) {
   pop.className = quick ? 'sh-fontpop sh-fontpop-quick' : 'sh-fontpop';
   pop.dataset.page = page;
   pop.dataset.quick = quick ? '1' : '';
-  pop.innerHTML = quick
-    ? QUICK_FONTS.map((id) => fontById(id)).map((f) => `
+  pop.innerHTML = fontsByForm()
+    .map((group) => `
+      <div class="sh-fontpop-g">${esc(group.label)}</div>
+      ${group.fonts.map((f) => `
         <button data-sh="font-pick" data-page="${page}" data-font="${f.id}"
                 class="${f.id === current ? 'on' : ''}"
                 aria-pressed="${f.id === current ? 'true' : 'false'}"
                 aria-label="${esc(f.label)}" title="${esc(f.label)}">
           <span lang="ru" style="font-family:${f.stack};font-style:${f.style}">Аа</span>
-        </button>`).join('')
-    : fontsByForm()
-      .map((group) => `
-      <div class="sh-fontpop-g">${esc(group.label)}</div>
-      ${group.fonts.map((f) => `
-        <button data-sh="font-pick" data-page="${page}" data-font="${f.id}"
-                class="${f.id === current ? 'on' : ''}" title="${esc(f.label)}">
-          <span style="font-family:${f.stack};font-style:${f.style}">Аа</span>
-          <b>${esc(f.label)}</b>
+          ${quick ? '' : `<b>${esc(f.label)}</b>`}
         </button>`).join('')}`)
-      .join('');
+    .join('');
 
   /*
    * ⚠️ **مثبَّتةٌ بالشاشة لا بالصفحة** — بلاغُك: «القايمة نفسها مش
@@ -8911,7 +8907,16 @@ function toggleFontPop(page, anchor, { quick = false } = {}) {
 
   document.body.append(pop);
   const box = anchor.getBoundingClientRect();
-  const H = Math.min(pop.scrollHeight + 16, window.innerHeight * 0.46);
+  /*
+   * ⚠️ **وارتفاعُها يُقاس لا يُحسَب.** كان السطرُ يقدّره بـ
+   *    `scrollHeight + 16` مقصوصًا على `innerHeight * 0.46` — أي أنّه
+   *    يُعيد كتابة سقفِ الـCSS رقمًا ثانيًا في مكانٍ ثانٍ. ولوحةُ
+   *    المعاينةِ السريعةِ صار لها سقفٌ آخرُ الآن (`min(52vh,340px)`)،
+   *    فالرقمان يفترقان ويقرّر الانقلابُ لأعلى بارتفاعٍ لا وجود له.
+   *    والصندوقُ مرسومٌ بالفعل بعد `append` وسقفُه مطبَّقٌ عليه —
+   *    فقياسُه يصدق على الحالتين بلا ثابتٍ مكرَّر.
+   */
+  const H = pop.offsetHeight;
   const below = window.innerHeight - box.bottom - 10;
   const top = below >= H ? box.bottom + 6 : Math.max(8, box.top - H - 6);
   const left = Math.min(Math.max(8, box.left), window.innerWidth - pop.offsetWidth - 8);

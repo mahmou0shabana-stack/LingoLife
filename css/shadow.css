@@ -48,6 +48,9 @@
   --sh-ar: #c9b184;        /* §19.2 — الترجمة العربيّة */
   --sh-glow: rgba(217, 182, 114, .45);
 
+  /* عرضُ سكّة الأدوات — أساسٌ تُبدّله المقاسات، ويقرؤه صفُّ النقل. */
+  --sh-railw: 56px;
+
   /* ---- الورقة: ألوانُها مستقلّةٌ عن الكون، فلا يُقرأ عليها بلونه ---- */
   --sh-paper: #f8f1de;
   --sh-paper-2: #eaddc2;
@@ -1612,12 +1615,81 @@
 
 /* ─────────────── أزرار التشغيل ─────────────── */
 
+/*
+ * ══════════════════════════════════════════════════════════════════
+ * ⚠️ **زرُّ التشغيل في وسط المسرح — قياسًا لا ترتيبًا في الوسم**
+ *    (WS-FONT-TRANSPORT · بند ٢)
+ *
+ *    كان الصفُّ `flex` بـ`justify-content: center`، وكان الظنُّ أنّ
+ *    الابنَ الأوسطَ في الوسم هو الأوسطُ في العين. **وقِيس فلم يكن**:
+ *
+ *        ٤١٢×٩١٥ · وسطُ المسرح ٢٠٦ · وسطُ زرّ التشغيل ١٧١ · فارق ‎−٣٥
+ *        ١٢٨٠×٨٠٠ · وسطُ المسرح ١٠٠٤٫٨ · وسطُ الزرّ ٩٦١٫٨ · فارق ‎−٤٣
+ *
+ *    وللفارق سببان لا واحد، وكلاهما مقيس:
+ *
+ *    ١) **الميكروفونُ ابنٌ رابع.** `justify-content: center` توسّط
+ *       المجموعةَ كلَّها (سابق·تشغيل·تالي·تسجيل)، فكلُّ ما يُضاف إلى
+ *       طرفٍ يدفع الوسطَ إلى الطرف الآخر بنصف عرضه: ‎(٤٤+٢٢)÷٢ ≈ ‎٣١px.
+ *       وهو دفعٌ **صامت**: لا يبدو عطبًا في الوسم ولا في القاعدة.
+ *
+ *    ٢) **حشوةُ المسرح غيرُ متماثلة** (سكّةُ الأدوات محجوزةٌ يمينًا):
+ *       فصندوقُ المحتوى مركزُه يسارَ مركزِ المسرح بنصف الفارق —
+ *       ‎٤px على الهاتف و‎١٠px على اللوح.
+ *
+ *    فالعلاجُ شبكةٌ لا `flex`: خمسةُ أعمدة، طرفاها `minmax(0,1fr)`
+ *    متساويان بالتعريف، وبينهما سابق·تشغيل·تالي. والتشغيلُ في العمود
+ *    الأوسط، فيصير وسطُه وسطَ الصندوق **هندسةً** — والميكروفونُ ينزل
+ *    في العمود الخامس فلا يزن في الميزان. ولو غاب الميكروفونُ يومًا
+ *    بقي التوسيطُ صحيحًا: عمودٌ فارغٌ يقابل عمودًا فارغًا.
+ *
+ *    ثمّ يُزاح الصندوقُ كلُّه بفارق الحشوتين ليصير وسطُه وسطَ
+ *    **المسرح** لا وسطَ المحتوى — وهو ما تراه العين. والإزاحةُ
+ *    `margin-left` فيزيائيّةٌ صريحة: السكّةُ يمينٌ ثابتٌ لا «نهايةُ
+ *    سطر»، و`.shadow-app` تحسب `ltr` والمستندُ `rtl` — فالمنطقيُّ
+ *    هنا يكذب مرّتين (درسُ WS-POLISH: لسانُ الإعدادات وقف على السكّة).
+ *
+ *    ⚠️ **ولا طبقةَ شفّافةً جديدة**: الصندوقُ هو الصندوقُ نفسُه (بل
+ *       أضيق بمقدار الإزاحة)، شفّافُ الخلفيّة، بلا أبناءٍ مطلقين —
+ *       فلا شيءَ يسرق لمسةً ولا سحبةً أفقيّة.
+ *
+ *    ⚠️ **والمقابضُ العائمةُ خارج الحساب أصلًا** (لسانُ الإعدادات
+ *       وسكّةُ الأدوات): كلاهما `position: absolute/fixed` فلا يدفع
+ *       صفَّ النقل. قِيس بإخفائهما: الفارقُ لم يتحرّك (‎−٣٥ قبل
+ *       وبعد) — والحارسُ يُثبّت ذلك كي لا يعود أحدُهما إلى التدفّق.
+ * ══════════════════════════════════════════════════════════════════ */
 .sh-transport {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto auto minmax(0, 1fr);
   align-items: center;
-  justify-content: center;
+  justify-items: center;
   gap: 28px;
   flex: 0 0 auto;
+  margin-left: calc(var(--sh-padr, 0px) - var(--sh-padl, 0px));
+}
+/* أوّلُ الأزرار يبدأ من العمود الثاني — والأوّلُ فراغٌ يقابل الخامس. */
+.sh-transport > :first-child { grid-column: 2; }
+/*
+ * والميكروفونُ يلتصق بأوّل عموده — ويتنحّى عن السكّة بقدرِ تجاوزها.
+ *
+ * ⚠️ **وهذا عطبٌ صنعتُه أنا في هذه التمريرة، وقِيس قبل أن يُصلَح.**
+ *    كان الميكروفونُ ابنًا رابعًا في `flex` فيقف في وسط المجموعة
+ *    (٢٩٠..٣٣٠ على ٤١٢×٩١٥)، ولمّا خرج من الميزان تبع `تالي` إلى
+ *    اليمين ٣٥px فصار ٣٢٥..٣٦٥ — **ومقبضُ السكّة يبدأ عند ٣٦٠**.
+ *    خمسةُ بكسلاتٍ من زرَّين يُلمَسان فوق بعضهما.
+ *
+ *    والسببُ ليس الشبكةَ بل تفاوتًا قائمًا: السكّةُ تحجز من حشوة
+ *    المسرح ١٦px على الهاتف وعرضُها الفعليُّ ٤٨ — يجوز للنصّ أن يمرّ
+ *    تحت فراغها، ولا يجوز لزرٍّ أن يقف تحت زرّها. فالتنحّي بالفارق
+ *    نفسِه: ‎٤٨−١٦ = ٣٢px على الهاتف، و‎٥٨−٥٤ = ٤px على اللوح، وصفرٌ
+ *    حيث تكفي الحصّة. رقمٌ يتبع المقاسَين معًا فلا يشيخ.
+ *
+ *    ولا أثرَ له على التوسيط: العمودُ الخامس `1fr` يقابل الأوّلَ
+ *    مهما تحرّك ساكنُه داخله.
+ */
+.sh-transport > .sh-rec-btn {
+  justify-self: start;
+  margin-left: calc(-1 * max(0px, var(--sh-railw, 0px) - var(--sh-padr, 0px)));
 }
 
 .sh-nav-btn {
@@ -3312,9 +3384,13 @@ body.shadow-open { overflow: hidden; }
  */
 .shadow-app.is-rail .sh-scrim { opacity: 1; }
 
+/* ⚠️ وعرضُها متغيّرٌ لأنّ الميكروفونَ في صفّ النقل يتنحّى عنها بقدرِ
+   ما تتجاوز به حصّتَها المحجوزة من حشوة المسرح (انظر `.sh-rec-btn`
+   في قواعد الشبكة). فلو بقي العرضُ رقمًا محلّيًّا هنا لتغيّر يومًا
+   ووقف الزرّان أحدُهما على الآخر بلا أن يشتكيَ شيء. */
 .sh-toolrail {
   position: absolute; inset-inline-end: 0; inset-block: 0; z-index: 9;
-  width: 56px; display: flex; flex-direction: column; align-items: center;
+  width: var(--sh-railw, 56px); display: flex; flex-direction: column; align-items: center;
   justify-content: center; padding: 14px 4px; pointer-events: none;
 }
 .sh-toolrail > * { pointer-events: auto; }
@@ -3461,7 +3537,8 @@ body.shadow-open { overflow: hidden; }
   .sh-crumb b { max-width: 46vw; }
   .sh-streak { display: none; }
   .sh-right { padding: 14px 12px 12px; }
-  .sh-toolrail { width: 48px; }
+  .shadow-app { --sh-railw: 48px; }
+  .sh-toolrail { width: var(--sh-railw); }
   .sh-panel { inset-inline-end: 48px; width: min(260px, 66vw); top: 6%; bottom: 6%; }
   .sh-bottom { min-height: 60px; padding: 0 12px; gap: 10px; }
   .sh-still, .sh-overview { display: none; }
@@ -3539,7 +3616,8 @@ body.shadow-open { overflow: hidden; }
   .sh-book { margin: 0 24px 14px; }
   .sh-topbar { min-height: 62px; padding: 0 26px; }
   .sh-bottom { min-height: 78px; padding: 0 26px; }
-  .sh-toolrail { width: 58px; }
+  .shadow-app { --sh-railw: 58px; }
+  .sh-toolrail { width: var(--sh-railw); }
   .sh-panel { right: 58px; width: 272px; top: 12%; bottom: 12%; }
 }
 
@@ -3838,10 +3916,32 @@ body.shadow-open { overflow: hidden; }
  *    أربعون بكسلًا فوق وتحت محتوى المسرح على لوحٍ ارتفاعُه ٨٠٠ — وهي
  *    فراغٌ لا حافّة. والحشوةُ الأفقيّةُ (٦٢ يمينًا للسكّة) كما هي.
  */
-.sh-right { padding: 12px 62px 10px 20px; }
+/*
+ * ⚠️ **والحشوتان الأفقيّتان صارتا متغيّرَين — لا تجميلًا بل لأنّ زرَّ
+ *    التشغيل يُوسَّط بهما (WS-FONT-TRANSPORT · بند ٢).**
+ *
+ *    حشوةُ المسرح غيرُ متماثلة: اليمينُ يحجز سكّةَ الأدوات (٦٢/٥٤/١٦
+ *    بحسب المقاس) واليسارُ حافّةٌ عاديّة. فصندوقُ المحتوى **ليس**
+ *    صندوقَ المسرح: مركزُه يزيح يسارًا بنصف الفارق. وكلُّ ما يتوسّط
+ *    بـ`justify-content: center` يتوسّط في صندوق المحتوى — أي يبدو
+ *    مائلًا عن وسط المسرح الذي تراه العين. **قِيس على ٤١٢×٩١٥: وسطُ
+ *    المسرح ٢٠٦ ووسطُ صندوق المحتوى ٢٠٢. وعلى ١٢٨٠×٨٠٠: ١٠٠٤٫٨
+ *    مقابل ٩٩٥.**
+ *
+ *    فالقيمتان تُكتَبان مرّةً واحدةً هنا وتُشتَقّ منهما الحشوةُ
+ *    ونُصفُ الفارق معًا — رقمان لا يمكن أن يفترقا. ومَن غيّر الحشوةَ
+ *    غدًا حرّك التوسيطَ معها بلا أن يعرف أنّه فعل.
+ */
+.sh-right {
+  --sh-padl: 20px; --sh-padr: 62px;
+  padding: 12px var(--sh-padr) 10px var(--sh-padl);
+}
 
 @media (max-width: 899px) {
-  .sh-right { padding: 10px 52px 8px 12px; }
+  .sh-right {
+    --sh-padl: 12px; --sh-padr: 52px;
+    padding: 10px var(--sh-padr) 8px var(--sh-padl);
+  }
 }
 
 /* والرقائقُ تحت العربيّة بمسافةٍ لا تلتصق — قِيسَ التلاصقُ لا خُمِّن. */
@@ -4009,7 +4109,8 @@ body.shadow-open { overflow: hidden; }
   .sh-right { flex: 1 1 0; }
   .sh-spine { min-inline-size: 24px; }
 
-  .sh-toolrail { width: 58px; }
+  .shadow-app { --sh-railw: 58px; }
+  .sh-toolrail { width: var(--sh-railw); }
   .sh-panel    { right: 58px; width: 272px; }
 }
 
@@ -4033,9 +4134,17 @@ body.shadow-open { overflow: hidden; }
    ══════════════════════════════════════════════════════════════ */
 @media (min-width: 900px) {
   .sh-right {
-    padding: 22px 54px 18px 34px;
+    --sh-padl: 34px; --sh-padr: 54px;
+    padding: 22px var(--sh-padr) 18px var(--sh-padl);
     transition: padding .45s cubic-bezier(.2, .7, .2, 1);
   }
+  /*
+   * ⚠️ **والمتغيّرُ لا يتبع الدرجَ عمدًا.** الحشوةُ تقفز إلى ٣١٨px
+   *    ليُزاح المسرحُ من تحت الدرج، ولو تبعها `--sh-padr` لانزاح زرُّ
+   *    التشغيل ١٣٢px يمينًا — أي **إلى تحت الدرج نفسِه**. فالمتغيّرُ
+   *    يعني «عرضُ السكّة المحجوز»، لا «كم يزيح الدرجُ الصفحة»: وبفتح
+   *    الدرج يتوسّط الزرُّ فيما بقي من المسرح كما كان يفعل دائمًا.
+   */
   .shadow-app.is-rail .sh-right { padding-right: 318px; }
 }
 
@@ -5395,32 +5504,48 @@ body.shadow-open { overflow: hidden; }
 
    ⚠️ **نفسُ اللوحةِ بوسم**: كلُّ ما يخصّ التثبيتَ بالشاشة والانقلابَ
       لأعلى والإغلاقَ بالضغط خارجها مشتركٌ — وهذه القواعدُ تقصّ
-      الشكلَ فقط: صفٌّ واحدٌ من خمس عيّناتٍ بلا لافتاتٍ ولا عنوان.
+      الشكلَ فقط: عيّناتٌ بلا أسماءٍ في شبكةٍ مضغوطة.
 
-   ⚠️ **ولا تُغطّي الجملة**: مصدرُها زرٌّ في حافّة المسرح السفلى،
-      وعرضُها عرضُ خمسِ عيّنات — فتفتح تحت الزرّ بعيدًا عن البطل. وإن
-      ضاق ما تحتها انقلبت لأعلى بحسابٍ قائمٍ في الرسم، لا بقاعدةٍ هنا.
+   ⚠️ **وصارت شبكةً لا صفًّا واحدًا (WS-FONT-TRANSPORT · بند ١).**
+      كان الصفُّ الأفقيُّ حبّةَ زجاجٍ تسع خمسًا — وهو شكلٌ فرض على
+      المنطق قائمةً مقصوصةً بيدي. والقائمةُ الآن كاملةٌ من السجلّ
+      (عشرةُ خطوطٍ في أربع عائلات)، فالشكلُ يتبعها: خمسةُ أعمدةٍ
+      بعرض ٤٤px، ولافتةُ العائلة تمتدّ على العرض كلِّه.
+
+   ⚠️ **والطولُ يُحَلّ بالتمرير هنا لا بتكبير المسرح**: سقفٌ من
+      الشاشة (`min(52vh, 340px)`) و`overflow-y: auto` — فالمقارنةُ
+      تبقى فوق الجملة، والمسرحُ لا يُزاح ولا يُحجَز له فراغٌ دائم.
+      و`overscroll-behavior: contain` كي لا يتسرّب تمريرُ اللوحةِ
+      إلى الصفحة تحتها فتقفز الجملةُ وأنت تقارن.
    ═══════════════════════════════════════════════════════════════════ */
 .sh-fontpop-quick {
   inline-size: auto;
-  max-block-size: none;
-  display: flex; gap: 4px;
-  padding: 6px;
-  border-radius: 999px;
+  display: grid;
+  grid-template-columns: repeat(5, 44px);
+  gap: 2px 4px;
+  max-block-size: min(52vh, 340px);
+  padding: 6px 8px;
+  border-radius: 16px;
   border-color: rgba(217, 182, 114, .2);
   /* زجاجٌ: يُرى المسرحُ خلفه فلا يبدو شاشةً أخرى. */
   background: rgba(10, 14, 24, .72);
   backdrop-filter: blur(10px);
   box-shadow: 0 10px 26px -12px rgba(0, 0, 0, .7);
 }
+/* لافتةُ العائلة سطرٌ كاملٌ فوق عيّناتها — تقسيمُ السجلّ نفسُه. */
+.sh-fontpop-quick .sh-fontpop-g {
+  grid-column: 1 / -1;
+  padding: 6px 2px 0;
+}
+.sh-fontpop-quick .sh-fontpop-g:first-child { padding-top: 2px; }
 .sh-fontpop-quick button {
-  min-width: 44px; min-height: 44px; padding: 0;
+  inline-size: 44px; min-width: 44px; min-height: 44px; padding: 0;
   display: grid; place-items: center; cursor: pointer;
   border: 1px solid transparent; border-radius: 50%;
   background: transparent; color: rgba(239, 231, 216, .72);
   transition: border-color .2s ease, color .2s ease, background .2s ease;
 }
-.sh-fontpop-quick button span { font-size: 17px; line-height: 1; }
+.sh-fontpop-quick button span { font-size: 17px; line-height: 1; min-inline-size: 0; }
 .sh-fontpop-quick button:hover { color: var(--sh-ink); }
 /* ⚠️ والذهبيُّ للمُختار وحدَه (بند ٦) — لا حلقةَ على الكلّ. */
 .sh-fontpop-quick button.on {
@@ -5667,7 +5792,13 @@ body.shadow-open { overflow: hidden; }
 }
 
 /* والصفحةُ اليمنى لم تعد تحتاج هامشًا للسكّة فوق عرضٍ كامل. */
-.sh-book[data-layout="single"] .sh-page.sh-right { padding-inline-end: 16px; }
+/* ⚠️ والمتغيّرُ يُكتَب معها لا بعدها: التوسيطُ يُشتَقّ منه (انظر
+   `--sh-padr` فوق `.sh-right`)، فلو تُرك على قيمةٍ أعرضَ لظنَّ الصفُّ
+   أنّ تحته سكّةً لا وجودَ لها فانزاح يمينًا. */
+.sh-book[data-layout="single"] .sh-page.sh-right {
+  --sh-padr: 16px;
+  padding-inline-end: var(--sh-padr);
+}
 
 /*
  * ⚠️ **WS44 — إلّا صفَّ الرأس: فيه عنصرٌ محاذًى لآخر اليمين.**
@@ -7337,6 +7468,12 @@ body.shadow-open { overflow: hidden; }
   .sh-book { margin: 0 6px 6px; }
   .sh-book::after { display: none; }
   .sh-page { padding: 10px var(--sh-pagepad, 8px) var(--sh-pagepad, 8px); }
+  /* والمسرحُ يُعلن حشوتَيه الأفقيّتين كما هما — لا ليغيّرهما بل ليُشتقَّ
+     منهما توسيطُ زرّ التشغيل (انظر `.sh-transport`). */
+  .sh-right {
+    --sh-padl: var(--sh-pagepad, 8px); --sh-padr: var(--sh-pagepad, 8px);
+    padding: 10px var(--sh-padr) var(--sh-pagepad, 8px) var(--sh-padl);
+  }
 
   /* ---------- ٢) نطاقان يصيران نطاقًا ---------- */
   /*
@@ -7923,6 +8060,32 @@ body.shadow-open { overflow: hidden; }
   .sh-right .sh-modes button { min-height: 34px; padding: 0 12px; font-size: 10px; }
   /* ⚠️ وحشوةُ الشريط ٨/١٠ كانت تضيف ١٨px حول زرٍّ واحد. */
   .sh-right .sh-transport { margin-top: 5px; gap: 22px; padding-block: 2px 4px; }
+  /*
+   * ⚠️ **وعلى ٣٦٠px الفجوةُ نفسُها تأكل تنحّيَ الميكروفون — قِيس بعد
+   *    التغيير لا قبله.** خلوصُه عن السكّة يساوي بالضبط «عرضَ العمود
+   *    الجانبيّ ناقصَ عرضِ الزرّ»: على ٤١٢ العمودُ ٦٥ فالخلوصُ ٢٥،
+   *    وعلى ٣٦٠ يضيق العمودُ إلى ٣٩ فيصير ‎−١ — تلامسٌ صنعتُه هذه
+   *    التمريرة (كان قبلها ٢px خلوصًا). والعمودُ يضيق لأنّ الفجواتِ
+   *    الأربعَ (٨٨px) تأكل من مسرحٍ عرضُه ٣٤٨.
+   *
+   *    فتُضيَّق الفجوةُ وحدَها على أضيق الشاشات: ١٨ تُعيد العمودَ إلى
+   *    ٤٧ والخلوصَ إلى ٧. ولا يمسّ ذلك التوسيطَ (الفجواتُ متساويةٌ
+   *    فيبقى الوسطُ وسطًا) ولا حجمَ ملموسٍ واحد.
+   *
+   * ⚠️ **وعلى ٣٢٠px يبقى تلامسٌ — وهو سابقٌ لا جديد.** قِيس على الأصل
+   *    قبل التمريرة: تراكبُ ١٨px؛ وبعدها ١٣. أي أنّ الركنَ هناك ضيّقٌ
+   *    أصلًا ولا يتّسع لأربعة أزرارٍ وسكّةٍ مع تشغيلٍ في الوسط. ولم
+   *    يُلاحَق هنا لأنّه ليس مقاسَ جهازٍ من أجهزتك، والملاحقةُ تعني
+   *    فجوةً أضيقَ أو زرًّا أصغرَ — قرارٌ يحتاج جهازًا يُرى عليه.
+   *
+   * ⚠️ **والانتقاءُ `.sh-right .sh-transport` لا `.sh-transport`**:
+   *    كتبتُها أوّلَ مرّةٍ بانتقاءٍ أضعفَ فوق، فابتلعها هذا السطرُ
+   *    نفسُه ولم تتغيّر بكسلٌ واحد — وقِيس فظننتُ القاعدةَ خاطئةً وهي
+   *    صحيحةٌ في مكانٍ لا يصلها.
+   */
+  @media (max-width: 370px) {
+    .sh-right .sh-transport { gap: 18px; }
+  }
   .sh-right .sh-play { width: 58px; height: 58px; }
   .sh-right .sh-nav-btn { min-width: 46px; min-height: 46px; }
   .sh-right .sh-hint { margin-top: 5px; }

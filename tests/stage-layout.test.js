@@ -44,7 +44,19 @@ const CHIP = (w) => `<button class="sh-chip"><span class="sh-chip-w">${w}</span>
  * ⚠️ والرقائقُ يرسمها جافاسكربت في التطبيق، فتُكتَب هنا بيدٍ —
  *    وحارسُ الختام يربط كلَّ صنفٍ منها بالمصدر.
  */
-async function stageAt(width, height, { words = 14 } = {}) {
+/*
+ * ⚠️ **وخياران زِيدا لحرس التوسيط (WS-FONT-TRANSPORT)، لا للزينة:**
+ *
+ *    `layout` — التطبيقُ يضع `data-layout` على الكتاب، وعليه تتوقّف
+ *    حشوةُ المسرح اليمنى (١٦px في الصفحة الواحدة مقابل حجزِ السكّة في
+ *    الصفحتين). وبغيره يقيس الإطارُ حشوةً متماثلةً لا وجودَ لها في
+ *    التطبيق — فيقول إنّ التوسيطَ سليمٌ وهو مائلٌ على الجهاز.
+ *
+ *    `rec` — وزرُّ التسجيل ابنٌ رابعٌ في شريط النقل منذ WS-SCLEAN، وهو
+ *    **سببُ الميل الأكبر**. فإطارٌ بثلاثة أبناءٍ يخفي العطبَ الذي
+ *    جاء الحارسُ من أجله.
+ */
+async function stageAt(width, height, { words = 14, layout = '', rec = false } = {}) {
   const iframe = document.createElement('iframe');
   iframe.setAttribute('aria-hidden', 'true');
   iframe.style.cssText = `position:fixed;inset-block-start:-20000px;inset-inline-start:0;
@@ -93,7 +105,7 @@ async function stageAt(width, height, { words = 14 } = {}) {
     -->
     <div class="shadow-app" style="--sh-size:30px;--sh-len:.9">
       <div class="sh-topbar"><span class="sh-diamond"></span><b>LingoLife</b></div>
-      <div class="sh-body"><div class="sh-book"><div class="sh-pages">
+      <div class="sh-body"><div class="sh-book" ${layout ? `data-layout="${layout}"` : ''}><div class="sh-pages">
         <div class="sh-page sh-right">
           <div class="sh-stage-top">
             <div class="sh-mono sh-count"><b>2</b> / <span>04</span> SENTENCES</div>
@@ -116,6 +128,7 @@ async function stageAt(width, height, { words = 14 } = {}) {
             <button class="sh-nav-btn"><i class="sh-ico-prev"></i></button>
             <button class="sh-play"><i class="sh-ico-play"></i></button>
             <button class="sh-nav-btn"><i class="sh-ico-next"></i></button>
+            ${rec ? '<button class="sh-rec-btn" data-sh="tool" data-v="myvoice">\u{1F399}</button>' : ''}
           </div>
           <!-- ⚠️ صفُّ الرقاقات حُذف (WS-POLISH) وصار لسانًا مطلقًا على الحافّة. -->
           <button class="sh-cc-tab" data-sh="drawer" aria-label="اضبط التدريب">⚙</button>
@@ -184,6 +197,33 @@ async function stageAt(width, height, { words = 14 } = {}) {
       const r = el.getBoundingClientRect();
       return { w: Math.round(r.width), h: Math.round(r.height) };
     },
+    /* مستطيلٌ فيزيائيٌّ كامل — للتوسيط لا يكفي العرضُ والارتفاع. */
+    rect: (sel) => {
+      const el = doc.querySelector(sel);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return { l: r.left, r: r.right, w: r.width, cx: (r.left + r.right) / 2 };
+    },
+    /*
+     * الفارقُ بين وسط زرّ التشغيل ووسط المسرح — بالبكسل، بإشارته.
+     *
+     * ⚠️ **والمسرحُ يُقاس بصندوقه المرسوم لا بحدّه الخارجيّ.** شريطُ
+     *    التمرير الكلاسيكيُّ يأكل من يمين الصندوق ولا يُرسَم عليه شيءٌ
+     *    من المسرح — فوسطُ ما تراه العينُ وسطُ `client`. وقِيس الفرق:
+     *    الحدُّ الخارجيُّ يقول ‎٤٫٩ والمرسومُ يقول صفرًا، والفارقُ نصفُ
+     *    عرضِ الشريط بالضبط. وعلى الجهاز شريطُ التمرير طبقةٌ عائمةٌ لا
+     *    تحجز عرضًا (قِيس في المسبار: الحدّان متطابقان والفارقُ صفر)،
+     *    فالقياسان يتّفقان هناك ويفترقان في الإطار وحدَه — ولو حرستُ
+     *    الحدَّ الخارجيَّ لحرستُ شريطَ تمريرِ سطحِ المكتب لا التوسيط.
+     */
+    playOffset: () => {
+      const st = doc.querySelector('.sh-right');
+      const sb = st.getBoundingClientRect();
+      const pb = doc.querySelector('.sh-play').getBoundingClientRect();
+      const drawnCx = sb.left + st.clientLeft + st.clientWidth / 2;
+      return (pb.left + pb.right) / 2 - drawnCx;
+    },
+    settle: () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))),
     overflowX: doc.documentElement.scrollWidth > doc.documentElement.clientWidth,
     close: () => iframe.remove(),
   };
@@ -464,5 +504,117 @@ describe('WS-ST · عشرون كلمةً تبقى مستعملة', () => {
      */
     const bare = (await css()).replace(/\/\*[\s\S]*?\*\//g, '');
     expect(/max-height:\s*6\.2em/.test(bare)).toBe(false);
+  });
+});
+
+/* ================================================================== *
+ * هـ) زرُّ التشغيل في وسط المسرح — قياسًا لا ترتيبًا (WS-FONT-TRANSPORT) *
+ * ================================================================== */
+describe('WS-FONT-TRANSPORT · التوسيطُ يُقاس', () => {
+  /*
+   * ⚠️ **ما قِيس قبل تغيير سطرٍ واحد** (والفارقُ سالبٌ أي إلى اليسار):
+   *
+   *     ٤١٢×٩١٥  · المسرح ٦..٤٠٦ وسطُه ٢٠٦   · التشغيل ١٧١   · ‎−٣٥
+   *     ١٢٨٠×٨٠٠ · المسرح ٧٥٤..١٢٥٦ وسطُه ١٠٠٤٫٨ · التشغيل ٩٦١٫٨ · ‎−٤٣
+   *
+   *   سببان: ابنٌ رابعٌ في صفٍّ يتوسّط مجموعتَه (الميكروفون)، وحشوةٌ
+   *   غيرُ متماثلةٍ تجعل صندوقَ المحتوى غيرَ صندوق المسرح.
+   *
+   * ⚠️ **والحدُّ بكسلٌ واحد لا «تقريبًا في الوسط»**: نصفُ بكسلٍ لا
+   *    تراه العين، وثلاثون تراها فورًا — وبين الحدَّين لا شيءَ يستحقّ
+   *    التساهل، فالرقمُ الذي يُسمَح به اليوم يصير أرضيّةَ الغد.
+   */
+  const TOL = 1;
+
+  it('١٧ · زرُّ التشغيل وسطُ المسرح على الهاتف', async () => {
+    const f = await stageAt(412, 915, { layout: 'single', rec: true });
+    const off = f.playOffset();
+    expect(`${Math.abs(off) <= TOL}:${Math.round(off * 10) / 10}`).toBe('true:0');
+    f.close();
+  });
+
+  it('١٨ · وعلى اللوح كذلك', async () => {
+    const f = await stageAt(1280, 800, { layout: 'two', rec: true });
+    const off = f.playOffset();
+    expect(`${Math.abs(off) <= TOL}:${Math.round(off * 10) / 10}`).toBe('true:0');
+    f.close();
+  });
+
+  it('١٩ · وسابقٌ وتالٍ متناظران حولَه', async () => {
+    /*
+     * التوسيطُ وحدَه لا يكفي: زرٌّ في الوسط وجاراه إلى جهةٍ واحدةٍ
+     * تركيبٌ أعرجُ وإن صدق الحساب. والقراءةُ المطلوبة: سابق · تشغيل ·
+     * تالي.
+     */
+    for (const [w, h, layout] of [[412, 915, 'single'], [1280, 800, 'two']]) {
+      const f = await stageAt(w, h, { layout, rec: true });
+      const play = f.rect('.sh-play');
+      const kids = [...f.doc.querySelectorAll('.sh-transport > .sh-nav-btn')];
+      const [a, b] = kids.map((el) => el.getBoundingClientRect());
+      const left = Math.min(a.left, b.left) < play.l ? a : b;
+      const right = left === a ? b : a;
+      const gapL = play.l - left.right;
+      const gapR = right.left - play.r;
+      expect(`${w}:${Math.abs(gapL - gapR) <= TOL}`).toBe(`${w}:true`);
+      expect(`${w}:${left.right < play.l && right.left > play.r}`).toBe(`${w}:true`);
+      f.close();
+    }
+  });
+
+  it('٢٠ · واللسانُ والسكّةُ لا يشاركان في الحساب', async () => {
+    /*
+     * ⚠️ **بند ٢ صراحةً**: «لسانُ الإعدادات وسكّةُ الأدوات يجب ألّا
+     *    يدفعا شريطَ النقل». وهما اليومَ مطلقا الموضع فلا يدفعان —
+     *    والحارسُ يقيس ذلك **بإخفائهما**: لو عاد أحدُهما إلى التدفّق
+     *    يومًا تحرّك الزرُّ عند إخفائه، ويسقط هذا هنا.
+     */
+    for (const [w, h, layout] of [[412, 915, 'single'], [1280, 800, 'two']]) {
+      const f = await stageAt(w, h, { layout, rec: true });
+      const before = f.playOffset();
+      const tab = f.doc.querySelector('.sh-cc-tab');
+      const rail = f.doc.querySelector('.sh-toolrail');
+      tab.style.display = 'none';
+      rail.style.display = 'none';
+      await f.settle();
+      const without = f.playOffset();
+      tab.style.display = '';
+      rail.style.display = '';
+      await f.settle();
+      const after = f.playOffset();
+      expect(`${w}:${Math.round(without * 10) / 10}`).toBe(`${w}:${Math.round(before * 10) / 10}`);
+      expect(`${w}:${Math.round(after * 10) / 10}`).toBe(`${w}:${Math.round(before * 10) / 10}`);
+      f.close();
+    }
+  });
+
+  it('٢١ · وزرُّ التسجيل خارج ميزان التوسيط', async () => {
+    /*
+     * ⚠️ **وهذا هو العطبُ الأصليُّ بعينه**: قبل التمريرة كان وجودُ
+     *    الميكروفون يزيح التشغيلَ ٣١px. فالمحروسُ أنّ المسرحَ بميكروفونٍ
+     *    والمسرحَ بلا ميكروفونٍ يضعان الزرَّ في **الموضع نفسِه** — أي
+     *    أنّ أيَّ زرٍّ يُزاد غدًا في الطرف لن يحرّك الوسط.
+     */
+    const withRec = await stageAt(412, 915, { layout: 'single', rec: true });
+    const bare = await stageAt(412, 915, { layout: 'single', rec: false });
+    expect(Math.round(withRec.playOffset() * 10) / 10)
+      .toBe(Math.round(bare.playOffset() * 10) / 10);
+    withRec.close();
+    bare.close();
+  });
+
+  it('٢٢ · ولا يقف الميكروفونُ تحت مقبضِ السكّة', async () => {
+    /*
+     * ⚠️ **عطبٌ صنعتُه هذه التمريرةُ وقِيس قبل أن يُصلَح**: بخروج
+     *    الميكروفون من الميزان تبع `تالي` يمينًا ٣٥px فصار ٣٢٥..٣٦٥
+     *    ومقبضُ السكّة يبدأ عند ٣٦٠ — خمسةُ بكسلاتٍ من زرَّين يُلمَسان
+     *    فوق بعضهما. والتنحّي بقدرِ تجاوز السكّة لحصّتها المحجوزة.
+     */
+    for (const [w, h, layout] of [[412, 915, 'single'], [1280, 800, 'two'], [360, 800, 'single']]) {
+      const f = await stageAt(w, h, { layout, rec: true });
+      const rec = f.rect('.sh-rec-btn');
+      const rail = f.rect('.sh-toolrail');
+      expect(`${w}:${rec.r <= rail.l}`).toBe(`${w}:true`);
+      f.close();
+    }
   });
 });
