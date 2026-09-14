@@ -255,17 +255,19 @@ describe('WS-SZ · للمسرح تقسيمٌ لا ترتيبُ تراكم', () =
     const short = a.pctTop('.sh-right .sh-current-tr');
     const long = b.pctTop('.sh-right .sh-current-tr');
     a.close(); b.close();
-    expect(Math.abs(long - short) < 12).toBe(true);
+    /* ⚠️ والأرقامُ تُقال في الرسالة: حارسٌ يقول «false» يبدأ تحقيقًا من الصفر. */
+    expect(`ثبات ${Math.abs(long - short) < 12} · قصيرة ${Math.round(short)} · طويلة ${Math.round(long)}`)
+      .toBe(`ثبات true · قصيرة ${Math.round(short)} · طويلة ${Math.round(long)}`);
     /* ووسطُ المسرح لا ثلثُه الأعلى. */
-    expect(short > 33 && short < 60).toBe(true);
-    expect(long > 33 && long < 60).toBe(true);
+    expect(`قصيرة ${short > 33 && short < 60}`).toBe('قصيرة true');
+    expect(`طويلة ${long > 33 && long < 60}`).toBe('طويلة true');
   });
 
   it('٢ · الكلماتُ تقف في النصف الأسفل ولو كانت كلمتين', async () => {
     const s = await stage(412, 915, { words: 2, sentence: SENT_SHORT });
     const top = s.chipRowsTopPct;
     s.close();
-    expect(top > 50).toBe(true);
+    expect(`أعلى الرقاقات ${Math.round(top)} > ٥٠`).toBe(`أعلى الرقاقات ${Math.round(top)} ${top > 50 ? '>' : '≤'} ٥٠`);
   });
 
   it('٣ · والنصفُ الأسفلُ ليس فراغًا: آخرُ صفٍّ يتجاوز ٦٠٪ من المسرح', async () => {
@@ -276,7 +278,7 @@ describe('WS-SZ · للمسرح تقسيمٌ لا ترتيبُ تراكم', () =
     const s = await stage(412, 915, { words: 2, sentence: SENT_SHORT });
     const bottom = s.chipRowsBottomPct;
     s.close();
-    expect(bottom > 60).toBe(true);
+    expect(`أسفل الرقاقات ${Math.round(bottom)} > ٦٠`).toBe(`أسفل الرقاقات ${Math.round(bottom)} ${bottom > 60 ? '>' : '≤'} ٦٠`);
   });
 
   it('٤ · الجملةُ أضخمُ من تقسيمها — قصيرةً كانت أو طويلة', async () => {
