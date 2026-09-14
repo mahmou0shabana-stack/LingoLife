@@ -8215,7 +8215,21 @@ body.shadow-open { overflow: hidden; }
  *    الصريح، والقصُّ لا يطاله — فيُقرأ المقطعُ المنبور بلا لبس.
  */
 .sh-current-text {
-  background: linear-gradient(176deg, #ffffff 0%, #f2f9ff 40%, #dbecfb 76%, #c2dcf4 100%);
+  background-image: linear-gradient(176deg, #ffffff 0%, #f2f9ff 40%, #dbecfb 76%, #c2dcf4 100%);
+  /*
+   * ⚠️ **`local` لا `scroll` — وإلّا انفصل الذهبُ عن الأبيض بصريًّا.**
+   *
+   *    الجملةُ مُمرِّرٌ بنفسها (overflow-y: auto)، وبياضُها **ليس لونًا**
+   *    بل تدرّجٌ مقصوصٌ على الحرف. والخلفيّةُ بـ`scroll` (وهو الأصل)
+   *    تُثبَّت على **صندوق العنصر** ولا تتبع محتواه حين يُمرَّر — بينما
+   *    النبرُ لونٌ حقيقيٌّ على مدًى فيتحرّك مع النصّ. فيرتفع الذهبُ
+   *    وحدَه ويبقى البياضُ مكانَه: «النبر ينفصل عن كلمته».
+   *
+   *    ⚠️ **ولا يُمسَك هذا بـ`getBoundingClientRect`**: التخطيطُ يقول إنّ
+   *       الاثنين تحرّكا بنفس المقدار (قِيس −١١١px للأبيض و−١١١ للذهب)،
+   *       والعطبُ في **الطلاء** لا في التخطيط. فقِيس باللقطة لا بالمستطيل.
+   */
+  background-attachment: local;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;

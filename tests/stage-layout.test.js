@@ -35,6 +35,19 @@ const css = async () => {
 const SENT = 'Необходи́мо учи́тывать после́дствия вскры́тия, проверя́ть '
   + 'тре́бования процеду́ры и то́лько по́сле э́того принима́ть оконча́тельное реше́ние.';
 
+/*
+ * ⚠️ **جملةٌ طويلةٌ بنبرٍ حقيقيٍّ في مدياتٍ** (WS-HEROSCROLL): النبرُ في
+ *    الشاشة ليس حرفًا مركَّبًا بل `span.sh-stress` يكتبه `markSentence` —
+ *    وله لونٌ حقيقيّ، بينما بياضُ الجملة تدرّجٌ مقصوصٌ على الحرف. وعليه
+ *    يقوم فحصُ «هل يسافر البياضُ مع النصّ»، فلا يصحّ إطارٌ بلا مديات.
+ */
+const GOLD = (w) => `<span class="sh-stress">${w}</span>`;
+const SENT_LONG = `Во вр${GOLD('е')}мя пров${GOLD('е')}рки оборудования мы `
+  + `обсужд${GOLD('а')}ли визу${GOLD('а')}льное состо${GOLD('я')}ние систем `
+  + `и реш${GOLD('и')}ли, что необход${GOLD('и')}мо подгот${GOLD('о')}вить `
+  + `подр${GOLD('о')}бный отчёт о всех н${GOLD('а')}йденных пробл${GOLD('е')}мах, `
+  + `потом${GOLD('у')} что руков${GOLD('о')}дство х${GOLD('о')}чет поним${GOLD('а')}ть.`;
+
 const CHIP = (w) => `<button class="sh-chip"><span class="sh-chip-w">${w}</span>`
   + '<span class="sh-chip-bar"><i></i></span></button>';
 
@@ -56,7 +69,8 @@ const CHIP = (w) => `<button class="sh-chip"><span class="sh-chip-w">${w}</span>
  *    **سببُ الميل الأكبر**. فإطارٌ بثلاثة أبناءٍ يخفي العطبَ الذي
  *    جاء الحارسُ من أجله.
  */
-async function stageAt(width, height, { words = 14, layout = '', rec = false, tools = 2 } = {}) {
+async function stageAt(width, height,
+  { words = 14, layout = '', rec = false, tools = 2, sentence = SENT } = {}) {
   const iframe = document.createElement('iframe');
   iframe.setAttribute('aria-hidden', 'true');
   iframe.style.cssText = `position:fixed;inset-block-start:-20000px;inset-inline-start:0;
@@ -168,7 +182,7 @@ async function stageAt(width, height, { words = 14, layout = '', rec = false, to
           <div class="sh-hero">
             <div class="sh-hero-top"><span class="sh-current-tools">
               <button>🔖</button><button>⧉</button><button>♡</button></span></div>
-            <div class="sh-current-text" lang="ru" dir="ltr">${SENT}</div>
+            <div class="sh-current-text" lang="ru" dir="ltr">${sentence}</div>
             <div class="sh-current-tr" dir="rtl">ترجمةٌ قصيرةٌ للجملة</div>
           </div>
           <div class="sh-chips">${chips}</div>
@@ -1264,5 +1278,105 @@ describe('WS-VPOLISH · أعلى أهدأ وجملةٌ أعلى', () => {
       f.close();
       expect(`أدوات ${tools}: تراكب ${dx && dy}`).toBe(`أدوات ${tools}: تراكب false`);
     }
+  });
+});
+
+/* ================================================================== *
+ * ح) WS-HEROSCROLL — الجملةُ الطويلةُ تُمرَّر، والنبرُ لا يفارق حرفَه     *
+ * ================================================================== */
+describe('WS-HEROSCROLL · تمريرُ الجملة ووحدةُ الطباعة', () => {
+  it('٤١ · الجملةُ القصيرةُ لا تُمرَّر بلا داعٍ', async () => {
+    /*
+     * ⚠️ المطلوبُ تمريرٌ **عند الحاجة فقط**: جملةٌ تسعُ نطاقَها تبقى
+     *    ثابتةً، فلا شريطَ ولا مطّاطيّةَ ولا إصبعٌ يجرّ ما لا يتحرّك.
+     */
+    const f = await stageAt(412, 915, { words: 6, sentence: 'Да, коне́чно.' });
+    const t = f.doc.querySelector('.sh-current-text');
+    const over = t.scrollHeight > t.clientHeight + 1;
+    f.close();
+    expect(`تفيض؟ ${over}`).toBe('تفيض؟ false');
+  });
+
+  it('٤٢ · والطويلةُ تفيض وتملك مُمرِّرَها وحدَها', async () => {
+    /*
+     * ⚠️ **والمُمرِّرُ للجملة لا للمسرح**: لو ورثه أبٌ لتحرّكت الترجمةُ
+     *    والرقاقاتُ وشريطُ النقل معها — وهو المنهيُّ عنه صراحةً.
+     */
+    for (const [w, h] of [[412, 915], [320, 720], [1280, 800]]) {
+      const f = await stageAt(w, h, { sentence: SENT_LONG });
+      const t = f.doc.querySelector('.sh-current-text');
+      const cs = f.win.getComputedStyle(t);
+      const over = t.scrollHeight > t.clientHeight + 1;
+      const owns = cs.overflowY === 'auto' || cs.overflowY === 'scroll';
+      /*
+       * ⚠️ **ولا يُشترَط أن يكون كلُّ أبٍ غيرَ قابلٍ للتمرير** — جرّبتُه
+       *    فسقط الحارسُ على `div.sh-page`: المسرحُ نفسُه يفيض رأسيًّا
+       *    (٨٦١>٨٢٥ هاتفًا) وهو **سابقٌ** لهذه التمريرة ومُبلَّغٌ عنه.
+       *
+       *    والمطلوبُ ليس أن يعجز الأبُ عن التمرير، بل **ألّا تصل إليه
+       *    السحبةُ أصلًا**: فالجملةُ أعمقُ مُمرِّرٍ تحت الإصبع، و
+       *    `overscroll-behavior: contain` تمنع تسلسلَ التمرير إلى أبٍ
+       *    حين تبلغ الجملةُ حدَّها. وهو المقيسُ حيًّا: بعد سحبةٍ حقيقيّة
+       *    بقي كلُّ أبٍ عند scrollTop صفر، ولم تتحرّك الترجمةُ ولا
+       *    الرقاقاتُ ولا شريطُ النقل بكسلًا.
+       */
+      const contain = cs.overscrollBehaviorY === 'contain' || cs.overscrollBehavior === 'contain';
+      f.close();
+      expect(`${w}: تفيض ${over} · تملكه ${owns} · تحتوي السلسلة ${contain}`)
+        .toBe(`${w}: تفيض true · تملكه true · تحتوي السلسلة true`);
+    }
+  });
+
+  it('٤٣ · وبياضُ الجملة يسافر مع النصّ لا مع صندوقه', async () => {
+    /*
+     * ⚠️ **العطبُ الذي بلّغتَ عنه، وسببُه حرفٌ واحد.**
+     *
+     *    بياضُ الجملة ليس لونًا بل تدرّجٌ مقصوصٌ على الحرف
+     *    (`background-clip: text` مع `color: transparent`)، والنبرُ
+     *    `span.sh-stress` بلونٍ حقيقيّ. والخلفيّةُ بالأصل
+     *    `background-attachment: scroll` — أي مثبَّتةٌ على **صندوق
+     *    العنصر** لا تتبع محتواه حين يُمرَّر. فإذا مُرِّرت الجملةُ ارتفع
+     *    النبرُ مع النصّ وبقي البياضُ مكانَه: «النبر بينفصل عن كلمته».
+     *
+     *    ⚠️ **ولا يمسكه قياسُ المستطيلات**: قِيس بلمسٍ حقيقيٍّ فكان
+     *       الأبيضُ −١١١px والذهبُ −١١١px — أي أنّ **التخطيطَ سليم**
+     *       والعطبَ في **الطلاء** وحدَه. ولم يظهر إلّا في اللقطة.
+     *       فالحارسُ يقيس الآليّةَ لأنّ الأثرَ لا يُقاس من الشيفرة:
+     *       متى كان العنصرُ مُمرِّرًا وبياضُه خلفيّةٌ مقصوصةٌ على الحرف،
+     *       وجب أن تكون خلفيّتُه `local`.
+     */
+    const f = await stageAt(412, 915, { sentence: SENT_LONG });
+    const t = f.doc.querySelector('.sh-current-text');
+    const cs = f.win.getComputedStyle(t);
+    const clipped = (cs.webkitBackgroundClip || cs.backgroundClip) === 'text';
+    const scroller = cs.overflowY === 'auto' || cs.overflowY === 'scroll';
+    const local = cs.backgroundAttachment === 'local';
+    const marks = t.querySelectorAll('.sh-stress').length;
+    f.close();
+    expect(`مقصوص ${clipped} · مُمرِّر ${scroller} · نبرات ${marks > 3}`)
+      .toBe('مقصوص true · مُمرِّر true · نبرات true');
+    expect(`يسافر مع النصّ: ${!clipped || !scroller || local}`)
+      .toBe('يسافر مع النصّ: true');
+  });
+
+  it('٤٤ · ولا يخصم أحدٌ المحورَ الأفقيَّ من فوق الجملة', async () => {
+    /*
+     * ⚠️ **`touch-action` يُتقاطَع صعودًا لا يُورَث** — الدرسُ المكتوب
+     *    فوق الرقاقة في الورقة. فلو كتب أحدٌ `none` أو `pan-y` على
+     *    الجملة أو على أبٍ من آبائها لمات قلبُ الصفحة لكلّ إصبعٍ يبدأ
+     *    فوق الجملة، وهي تشغل وسطَ المسرح.
+     */
+    const f = await stageAt(412, 915, { sentence: SENT_LONG });
+    let el = f.doc.querySelector('.sh-current-text');
+    const blockers = [];
+    while (el && el !== f.doc.documentElement) {
+      const ta = f.win.getComputedStyle(el).touchAction;
+      if (ta === 'none' || ta === 'pan-y' || ta === 'pan-y pinch-zoom') {
+        blockers.push(`${el.tagName.toLowerCase()}.${String(el.className).trim().split(/\s+/)[0] || '∅'}=${ta}`);
+      }
+      el = el.parentElement;
+    }
+    f.close();
+    expect(`خاصمون: ${blockers.join(',')}`).toBe('خاصمون: ');
   });
 });
