@@ -241,3 +241,106 @@ describe('WS-DFP · اتباعٌ وتثبيت', () => {
     expect(/\.sh-panel-head button \{[^}]*width: 44px; height: 44px/.test(css)).toBe(true);
   });
 });
+
+/* ================================================================== *
+ * WS-LDFP — مسوّدةُ الصفحة اليسرى: تتبع الجملةَ، ولها 📌 خاصٌّ بها      *
+ * ================================================================== */
+describe('WS-LDFP · مسوّدةُ الصفحة لا لوحُ الشادوينج', () => {
+  it('١٤ · إعادةُ الرسم تستعيد موضعَك الحيّ لا الرقمَ المخزَّن', async () => {
+    /*
+     * ══════════════════════════════════════════════════════════════
+     * ⚠️ **وهنا كان بلاغُك بحرفه — في السطح الآخر** (WS-LDFP)
+     * ══════════════════════════════════════════════════════════════
+     *
+     * `refScroll` لا تُكتَب إلّا في `keepWellScroll` — أي عند **تبديل
+     * تبويب**. وأنت لا تبدّل تبويبًا وأنت تقرأ: تضغط «التالي».
+     * و`syncSegment` تُعيد رسمَ هذا المنبع مع كلّ نقلة، فيُفرَض على
+     * المحتوى الجديدِ الرقمُ المخزَّن — **صفرٌ** في العادة.
+     *
+     * قِيس على ١٢٨٠×٨٠٠ في تبويب «مسوّدة» بعد تمريرٍ يدويّ إلى ٧٠٪:
+     * خمسُ نقلاتٍ وسابقتان، و`scrollTop` **صفرٌ في كلّها**، والمرئيُّ
+     * دائمًا «الجملة الأساسية» — أي أوّلُ الوثيقة.
+     *
+     * ⚠️ **والفرقُ بين بابين**: الدخولُ إلى تبويبٍ يستحقّ الرقمَ
+     *    المخزَّن (تعود إلى «القواعد» فتجدها حيث تركتَها)، وإعادةُ
+     *    الرسم لنفس التبويب لا تستحقّه — موضعُك الحيُّ هو الحقيقة.
+     */
+    const src = await view();
+    const body = bodyOf(src, 'function restoreWellScroll(');
+    expect(`يفرّق بين البابين: ${/live \? liveWellTop : \(refScroll\.get\(well\) \|\| 0\)/.test(body)}`)
+      .toBe('يفرّق بين البابين: true');
+    expect(`ومحدودٌ بالمدى: ${/Math\.max\(0, Math\.min\(/.test(body)}`).toBe('ومحدودٌ بالمدى: true');
+    const wells = bodyOf(src, 'async function renderWells()');
+    expect(`يعرف أنّها إعادةُ رسم: ${/const sameWell = drawnWell === well;/.test(wells)}`)
+      .toBe('يعرف أنّها إعادةُ رسم: true');
+    expect(`ويستعيد الحيَّ عندها: ${/restoreWellScroll\(\{ live: sameWell \}\)/.test(wells)}`)
+      .toBe('ويستعيد الحيَّ عندها: true');
+  });
+
+  it('١٥ · والاتباعُ يكشف بطاقةَ الهدف في المسوّدة — بمِرساتها القائمة', async () => {
+    /*
+     * ⚠️ **ولا هُويّةَ تُخترَع**: `draftCardHtml` تكتب `data-dw-target`
+     *    وتضع `is-now` على بطاقة الهدف الجاري منذ WS-DI. فالصنفُ هو
+     *    الهُويّةُ نفسُها، ولا حالةَ هدفٍ ثانية.
+     *
+     * ⚠️ **وهدفٌ بلا بطاقةٍ يُبقي موضعَك**: قِيس أنّ ثمانيَ بطاقاتٍ
+     *    وحدَها تُرسَم مقابل أربعةٍ وعشرين هدفَ تدريب — فثُلثا الأهداف
+     *    لا قسمَ لها هنا. والقاعدةُ حينئذٍ صونُ موضع القراءة، **لا**
+     *    القفزُ إلى أوّل الوثيقة.
+     */
+    const src = await view();
+    const reveal = bodyOf(src, 'function revealWellTarget()');
+    expect(`يلتقط بالمِرساة القائمة: ${/querySelector\('\.dw-card\.is-now'\)/.test(reveal)}`)
+      .toBe('يلتقط بالمِرساة القائمة: true');
+    expect(`ولا يُصفّر عند الغياب: ${/if \(!card\) \{[\s\S]{0,160}?wellPendingReveal[\s\S]{0,40}?return;/.test(reveal)}`)
+      .toBe('ولا يُصفّر عند الغياب: true');
+    expect(`ويحاذي الرأسَ عند الطول: ${/b\.height > v\.height/.test(reveal)}`)
+      .toBe('ويحاذي الرأسَ عند الطول: true');
+    /* ولا يعمل على تبويبٍ لستَ فيه — فلا يُحرَّك «القواعد» ولا «النصّ». */
+    expect(`محبوسٌ في تبويبه: ${/well !== 'draft'\) return;/.test(reveal)}`)
+      .toBe('محبوسٌ في تبويبه: true');
+  });
+
+  it('١٦ · وزرّان مستقلّان: سطحان، وموضعا قراءةٍ لا يلتقيان', async () => {
+    /*
+     * ⚠️ **ورايةٌ واحدةٌ للاثنين كانت ستجعل تثبيتَ أحدهما يُجمّد
+     *    الآخر** بلا أن تطلب. فلكلّ سطحٍ رايتُه وتذكرتُه وطلبُه
+     *    المعلَّق — والاسمُ يفرّق: `pinned` للوح الأيمن، و`wellPinned`
+     *    لمسوّدة الصفحة.
+     */
+    const src = await view();
+    expect(src).toContain('let wellPinned = false;');
+    expect(src).toContain('let pinned = false;');
+    const toggle = bodyOf(src, 'function toggleWellPin()');
+    expect(`لا يمسّ رايةَ اللوح: ${/[^l]\bpinned = /.test(toggle)}`).toBe('لا يمسّ رايةَ اللوح: false');
+    expect(`يكشف عند الفكّ: ${/if \(!wellPinned\) revealWellTarget\(\)/.test(toggle)}`)
+      .toBe('يكشف عند الفكّ: true');
+    expect(`وتذكرةٌ عند القلب: ${/wellRevealTicket \+= 1/.test(toggle)}`)
+      .toBe('وتذكرةٌ عند القلب: true');
+    /* والزرّان اثنان في الوسم، كلٌّ باسم فعله. */
+    expect((src.match(/data-sh="pin-well"/g) || []).length >= 2).toBe(true);
+    expect((src.match(/data-sh="pin-draft"/g) || []).length >= 2).toBe(true);
+    const draw = bodyOf(src, 'function renderWellPin()');
+    expect(`يُخفى خارجَ تبويبه: ${/hidden = well !== 'draft'/.test(draw)}`)
+      .toBe('يُخفى خارجَ تبويبه: true');
+    expect(`وحالتُه مقروءة: ${/aria-pressed/.test(draw)}`).toBe('وحالتُه مقروءة: true');
+  });
+
+  it('١٧ · والتثبيتُ يوقف الكشفَ وحدَه — لا التمريرَ باليد ولا الرسم', async () => {
+    /*
+     * ⚠️ **ولا `overflow: hidden` ولا منعُ حدث** — شرطُك الصريح.
+     *    الكشفُ وحدَه يُشترَط، والمحتوى يُرسَم كما كان.
+     */
+    const src = await view();
+    const wells = bodyOf(src, 'async function renderWells()');
+    expect(`الكشفُ مشروطٌ بالتثبيت: ${/if \(!wellPinned\) requestAnimationFrame\(\(\) => revealWellTarget\(\)\)/.test(wells)}`)
+      .toBe('الكشفُ مشروطٌ بالتثبيت: true');
+    const toggle = bodyOf(src, 'function toggleWellPin()');
+    expect(`يجمّد التمرير: ${/overflow|preventDefault|touchAction/.test(toggle)}`)
+      .toBe('يجمّد التمرير: false');
+    /* وحجمُ زرّه لا يدفع جيرانَه في رأس الورشة. */
+    const css = await (await fetch('../css/shadow.css')).text();
+    expect(/\.sh-pgbtns \.sh-pin-well \{[^}]*padding: 2px 6px/.test(css)).toBe(true);
+    expect(/\.sh-pgbtns \.sh-pin-well::after \{[^}]*inset-inline: calc\(\(44px/.test(css)).toBe(true);
+  });
+});

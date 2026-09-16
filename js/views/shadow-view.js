@@ -1435,6 +1435,16 @@ function shell() {
                             aria-label="كبّر لوحة المراجع" aria-pressed="false">⛶</button>
                     <button data-sh="ref-fold" data-ref-fold
                             aria-label="اطوِ لوحة المراجع" aria-expanded="true">▾</button>
+                    <!--
+                      ⚠️ **زرُّ تثبيتِ المسوّدة — في رأس الورشة القائم**
+                         (WS-LDFP): لا شريطَ أدواتٍ جديد، ولا زرَّ
+                         «اتباعٍ» ثانٍ. ويُخفى إلّا في تبويب «مسوّدة»
+                         لأنّه يثبّت قراءتَها هي. وهو **غيرُ** زرِّ لوح
+                         الشادوينج: سطحان، وموضعا قراءةٍ لا يلتقيان.
+                    -->
+                    <button class="sh-pin sh-pin-well" data-sh="pin-well" type="button" hidden
+                      aria-pressed="false" aria-label="ثبّت موضع القراءة"
+                      title="ثبّت موضع القراءة"><span aria-hidden="true">📌</span></button>
                     <button data-sh="doc" data-fit="fit">FIT</button>
                     <button data-sh="doc" data-fit="full">FULL</button>
                   </span>
@@ -7885,6 +7895,9 @@ let refView = null;
  */
 const refScroll = new Map();
 
+/** آخرُ تبويبٍ رُسم فعلًا — يفرّق بين الدخول وإعادة الرسم. */
+let drawnWell = '';
+
 /** مقبضُ عارض الملفّ الحيّ — واحدٌ لا واحدٌ لكلّ رسم. */
 let pdfView = null;
 
@@ -7906,6 +7919,18 @@ async function renderWells() {
   const tabs = $('[data-well-tabs]');
   const body = $('[data-well-body]');
   if (!tabs || !body || !ctx?.scene) return;
+
+  /*
+   * ⚠️ **الفرقُ بين «دخلتُ التبويب» و«أُعيد رسمُه وأنا فيه».** الأوّلُ
+   *    يستحقّ الرقمَ المخزَّن، والثاني يستحقّ موضعَك الحيّ. و`openWell`
+   *    تكتب `well` **قبل** أن تنادي هذه، فيُقارَن بما رُسم آخرَ مرّة.
+   */
+  const sameWell = drawnWell === well;
+  drawnWell = well;
+  if (sameWell) {
+    const live = wellScroller();
+    if (live) liveWellTop = live.scrollTop;
+  }
 
   /* ⚠️ العارضُ القديم يموت قبل أن يُمحى عنصرُه — وإلّا بقي عاملُه حيًّا. */
   dropPdfView();
@@ -7939,7 +7964,8 @@ async function renderWells() {
     /* ⚠️ و`renderFaces` هي مَن تكشف `[data-doc-source]` — لا سطرٌ هنا
      *    يكشفه ثم يعود `show()` فيخفيه لأن الوجه المختار صورة. */
     renderFaces();
-    restoreWellScroll();
+    renderWellPin();
+    restoreWellScroll({ live: sameWell });
     return;
   }
   /* منبعٌ آخر يملأ اللوح: الوجوهُ تختفي معًا. */
@@ -7962,7 +7988,16 @@ async function renderWells() {
 
   /* ما يحتاج شجرةً مقيسةً يُركَّب الآن لا في `draw`. */
   await chosen.mount?.(counts[well]);
-  restoreWellScroll();
+  /*
+   * ⚠️ **وإعادةُ رسمٍ لنفس التبويب تستعيد موضعَك الحيّ لا المخزَّن** —
+   *    راجع الشرحَ فوق `restoreWellScroll`. ثمّ يقع الكشفُ فوق ذلك إن
+   *    كان الاتباعُ عاملًا: أوّلًا تُستعاد الأرضيّةُ، ثمّ نُقفز عنها.
+   */
+  restoreWellScroll({ live: sameWell });
+  if (well === 'draft') {
+    renderWellPin();
+    if (!wellPinned) requestAnimationFrame(() => revealWellTarget());
+  }
 }
 
 /* ------------------------------------------------------------------ */
@@ -7987,12 +8022,112 @@ function keepWellScroll() {
  *    فارتفاعُ المحتوى لحظةَ الإسناد أصغرُ من الحقيقيّ — والمتصفّحُ
  *    يقصّ `scrollTop` إلى الممكن حينها فتعود إلى الأعلى. وهذا بالضبط
  *    ما يمنعه البندُ 53: «لا تقفز إلى الأعلى».
+ *
+ * ══════════════════════════════════════════════════════════════════
+ * ⚠️ **وهنا كان بلاغُك بحرفه** (WS-LDFP)
+ * ══════════════════════════════════════════════════════════════════
+ *
+ * `refScroll` لا تُكتَب إلّا في `keepWellScroll` — أي **عند تبديل
+ * تبويب** وحدَه. وأنت لا تبدّل تبويبًا وأنت تقرأ: تضغط «التالي».
+ * و`syncSegment` تُعيد رسمَ هذا المنبع مع كلّ نقلة (`well === 'draft'`)،
+ * فيُستبدَل المحتوى ثمّ يُفرَض عليه الرقمُ المخزَّن — **صفرٌ** في العادة.
+ *
+ * قِيس على ١٢٨٠×٨٠٠ في تبويب «مسوّدة» بالصفحة اليسرى، بعد تمريرٍ
+ * يدويٍّ إلى ٧٠٪ من المدى (٢٦٧٠):
+ *
+ *     بدءًا      مسوّدة = ٠   والمرئيُّ «الجملة الأساسية»
+ *     التالي ١   مسوّدة = ٠   والمرئيُّ «الجملة الأساسية»
+ *     … خمسُ نقلاتٍ وسابقتان — **صفرٌ في كلّها**
+ *
+ * أي أنّ الصفحةَ تعود إلى أوّلها في كلّ نقلة، ولا تكشف قسمَ هدفك أبدًا.
+ *
+ * ⚠️ **والفرقُ بين بابين**: تبديلُ التبويب يستحقّ الرقمَ المخزَّن (عدتَ
+ *    إلى «القواعد» فتجدها حيث تركتَها)، وإعادةُ الرسم لنفس التبويب
+ *    لا تستحقّه — موضعُك الحيُّ هو الحقيقة. فيُفرَّق بينهما صراحةً.
  */
-function restoreWellScroll() {
+function restoreWellScroll({ live = false } = {}) {
   const box = wellScroller();
   if (!box) return;
-  const at = refScroll.get(well) || 0;
-  requestAnimationFrame(() => { box.scrollTop = at; });
+  const at = live ? liveWellTop : (refScroll.get(well) || 0);
+  requestAnimationFrame(() => {
+    box.scrollTop = Math.max(0, Math.min(at, box.scrollHeight - box.clientHeight));
+    if (live) liveWellTop = box.scrollTop;
+  });
+}
+
+/** موضعُ القراءة الحيُّ في لوح المستند — يعبر إعادةَ الرسم. */
+let liveWellTop = 0;
+
+/*
+ * ══════════════════════════════════════════════════════════════════
+ * 📌 تثبيتُ قراءةِ مسوّدةِ الصفحة — زرُّها هي، لا زرُّ لوح الشادوينج
+ * ══════════════════════════════════════════════════════════════════
+ *
+ * ⚠️ **حالتان مستقلّتان عمدًا**: `pinned` أعلاه تخصّ لوحَ الشادوينج
+ *    الأيمن (WS-DFP)، وهذه تخصّ مسوّدةَ الصفحة اليسرى. سطحان مختلفان
+ *    لكلٍّ موضعُ قراءةٍ خاصٌّ به — وتوحيدُهما في رايةٍ واحدةٍ كان
+ *    سيجعل تثبيتَ أحدهما يُجمّد الآخر بلا أن تطلب.
+ */
+let wellPinned = false;
+
+/** تذكرةُ كشفٍ خاصّةٌ بهذا السطح — لا تشارك تذكرةَ اللوح الأيمن. */
+let wellRevealTicket = 0;
+
+/** هدفٌ طُلب كشفُه هنا ولم تُرسَم بطاقتُه بعد. */
+let wellPendingReveal = '';
+
+/**
+ * يكشف بطاقةَ الهدف الجاري في مسوّدة الصفحة — بأقلّ حركةٍ تكفي.
+ *
+ * ⚠️ **والمِرساةُ قائمةٌ من قبل**: `draftCardHtml` تكتب
+ *    `data-dw-target` وتضع `is-now` على بطاقة الهدف الجاري. فلا
+ *    هُويّةَ تُخترَع ولا حالةَ هدفٍ ثانية — والصنفُ هو الهُويّةُ نفسُها.
+ *
+ * ⚠️ **ولا يُقفَز إلى أوّل الوثيقة حين تغيب البطاقة**: غيابُها يعني
+ *    رسمًا لم يصل أو هدفًا لا قسمَ له — لا «ابدأ من أوّله». فيُترَك
+ *    موضعُ قراءتك ويُحفَظ الطلب.
+ */
+function revealWellTarget() {
+  const box = wellScroller();
+  if (!box || well !== 'draft') return;
+  const mine = (wellRevealTicket += 1);
+  const card = box.querySelector('.dw-card.is-now');
+  if (!card) {
+    wellPendingReveal = activeTargetId || '';
+    return;
+  }
+  wellPendingReveal = '';
+  const b = card.getBoundingClientRect();
+  const v = box.getBoundingClientRect();
+  if (b.top < v.top) box.scrollTop -= Math.ceil(v.top - b.top);
+  else if (b.bottom > v.bottom) {
+    /* بطاقةٌ أطولُ من النافذة تُحاذَى من رأسها — القراءةُ تبدأ من أوّله. */
+    if (b.height > v.height) box.scrollTop -= Math.ceil(v.top - b.top);
+    else box.scrollTop += Math.ceil(b.bottom - v.bottom);
+  }
+  box.scrollTop = Math.max(0, Math.min(box.scrollTop, box.scrollHeight - box.clientHeight));
+  if (mine === wellRevealTicket) liveWellTop = box.scrollTop;
+}
+
+/** يرسم زرَّ تثبيت المسوّدة في رأس ورشة المراجع. */
+function renderWellPin() {
+  const btn = $('[data-sh="pin-well"]');
+  if (!btn) return;
+  btn.hidden = well !== 'draft';
+  btn.classList.toggle('on', wellPinned);
+  btn.setAttribute('aria-pressed', wellPinned ? 'true' : 'false');
+  const label = wellPinned ? 'ارجع لمتابعة الجملة' : 'ثبّت موضع القراءة';
+  btn.setAttribute('aria-label', label);
+  btn.setAttribute('title', label);
+}
+
+/** يقلب تثبيتَ المسوّدة — وفكُّه يكشف الهدفَ **الجاري** فورًا. */
+function toggleWellPin() {
+  wellPinned = !wellPinned;
+  /* كشفٌ بدأ قبل الضغطة لا يقع بعدها. */
+  wellRevealTicket += 1;
+  renderWellPin();
+  if (!wellPinned) revealWellTarget();
 }
 
 /**
@@ -11711,6 +11846,10 @@ function wireInteractions(main) {
        */
       case 'pin-draft':
         return togglePin();
+
+      /* ⚠️ وزرٌّ آخرُ لسطحٍ آخر — لا يشاركه رايةً ولا موضعًا. */
+      case 'pin-well':
+        return toggleWellPin();
 
       case 'tool':
         return pickTool(btn.dataset.v);
