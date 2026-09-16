@@ -26,13 +26,67 @@
  */
 
 import { generatedAudio } from '../../../db/repositories.js';
-import { normalizeRussian } from '../../../utils/normalization.js';
 
-/** تطبيعٌ بسيط: مسافات موحّدة، بلا حالة أحرف — النطق لا يتغيّر بالتنسيق. */
-function normalizeForCache(text, language) {
-  const collapsed = (text || '').trim().replace(/\s+/g, ' ');
-  return language && language.startsWith('ru') ? normalizeRussian(collapsed) : collapsed.toLowerCase();
+/**
+ * ═══════════════════════════════════════════════════════════════
+ * ⚠️ **مفتاحُ الذاكرة كان يمحو النطقَ الذي جاء ليحفظه** (WS-VC1B)
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * كان هنا `normalizeRussian(collapsed)` — وهي دالّةُ **بحثٍ وفهرسة**
+ * تُسقط النبرَ وتطوي `ё` إلى `е`. قِيس على التنفيذ القائم قبل أن
+ * يُغيَّر سطر، بمفاتيحَ محسوبةٍ لا باستنتاجٍ من قراءة الدالّة:
+ *
+ *     за́мок  → d7f345cf56e4  ┐ نفسُ المفتاح — والمعنيان: قصرٌ وقُفل
+ *     замо́к  → d7f345cf56e4  ┘
+ *     всё    → 61bf4befaa0f  ┐ نفسُ المفتاح — والمعنيان: كلُّ شيءٍ والجميع
+ *     все    → 61bf4befaa0f  ┘
+ *     «Э́то за́мок…» / «Э́то замо́к…» → ab5dccbe3ef7  ┐ وعلى مستوى الجملة أيضًا
+ *
+ * وشاهدٌ موجَبٌ في نفس القياس: «Все пришли́» و«Всё пришло́» يختلفان في
+ * أكثرَ من النبر فخرجا متمايزَين — فالمسبارُ يرى الفرقَ حيث يوجد، ثمّ
+ * يشهد بأنه معدومٌ في الثلاثة الأولى.
+ *
+ * ⚠️ **ولا تُصلَح `normalizeRussian` نفسُها.** هي صحيحةٌ حيث تعمل:
+ *    البحثُ ومطابقةُ الكلمات وذاكرةُ اللغة تريد «согласова́ние» و
+ *    «согласование» كيانًا واحدًا (راجع رأسَها — عطبٌ قِيس وأُصلح).
+ *    فالعلاجُ هنا **تطبيعٌ خاصٌّ بالذاكرة**، أضيقُ ما يكفي.
+ *
+ * وما يفعله هذا التطبيع، ولا شيءَ غيره:
+ *   · NFC — فتمثيلان يونيكوديّان لنفس الحرف يلتقيان: حرفُ الــe
+ *     الروسيُّ متبوعًا بـU+0308 والحرفُ المركّبُ U+0451 مفتاحُهما واحد،
+ *     وكذلك U+0438 مع U+0306 والمركّب U+0439. وهذا توحيدُ **ترميزٍ**
+ *     لا توحيدُ نطقٍ — والفرقُ أنّ الأوّل لا يُسقِط حرفًا ولا علامةً.
+ *   · قصُّ الأطراف وطيُّ تتابع المسافات إلى واحدة — لا محرّكَ يغيّر
+ *     نطقَه لمسافتين بدل واحدة، وهو السلوكُ القائم أصلًا.
+ *
+ * وما لا يفعله — عمدًا:
+ *   · لا يُسقط نبرًا.           · لا يطوي `ё` إلى `е`.
+ *   · لا يُزيل ترقيمًا (الفاصلةُ والنقطةُ تصنعان وقفًا مسموعًا).
+ *   · **ولا يوحّد حالةَ الأحرف.** كان يفعل (`toLowerCase`)، ولا يفعل
+ *     الآن: محرّكاتٌ كثيرةٌ تتهجّى الأحرفَ الكبيرةَ حرفًا حرفًا
+ *     («СССР» ≠ «ссср»). وشرطُك: لا يُفترَض أن متشابهَين بصريًّا
+ *     ينطقان سواءً عند كلّ مزوّد. والخسارةُ إعادةُ استعمالٍ أقلُّ عند
+ *     اختلاف الحالة — وهي الجهةُ الآمنة: **إخفاقُ ذاكرةٍ ثمّ توليدٌ
+ *     صحيحٌ خيرٌ من إصابةٍ تُعيد نطقًا خاطئًا**.
+ */
+function normalizeSynthesisInput(text) {
+  return String(text ?? '').normalize('NFC').trim().replace(/\s+/g, ' ');
 }
+
+/**
+ * إصدارُ صيغةِ المفتاح — بادئةٌ ظاهرةٌ في المفتاح المخزَّن نفسِه.
+ *
+ * ⚠️ **ولماذا في المفتاح لا في الهاش وحدَه؟** لأن الصفوفَ القديمةَ
+ *    (هاشٌ عارٍ من ٦٤ خانة) يجب أن تبقى **مقروءةً ومميَّزةً** في
+ *    المخزن: لا تُحذَف، ولا تُرقَّى صامتةً إلى الصيغة الجديدة، ولا
+ *    يستطيع البحثُ الجديد أن يُصيبها مصادفةً. ولو خُبِّئ الإصدارُ
+ *    داخل الهاش لَانفصلت الصفوفُ فعلًا لكنّها صارت غيرَ مميَّزةٍ
+ *    بالنظر — ومطلبُك أن تُوثَّق آثارُها في التخزين.
+ *
+ * ⚠️ **وترقيةٌ صامتةٌ مستحيلةٌ بنيويًّا**: مفتاحُ الصفّ القديم لا
+ *    يساوي أيَّ مفتاحٍ جديد، فهو لا يُقرأ ولا يُكتَب فوقه.
+ */
+const KEY_FORMAT = 'a2';
 
 async function sha256Hex(text) {
   const bytes = new TextEncoder().encode(text);
@@ -47,8 +101,14 @@ async function sha256Hex(text) {
  *    كائنًا يُسلسَل هنا — فترتيب مفاتيح كائنٍ غير مضمونٍ بين نداءين،
  *    ونصٌّ صريحٌ من المستدعي أضمن حتميّةً وأبسط تصحيحًا.
  *
+ * ⚠️ **وهويّةُ النموذج تدخل المفتاح قبل التوليد لا بعده.** ما يُعرَف
+ *    بعد عودة المزوّد لا يصلح للمفتاح — المفتاحُ يُحسَب ليُسأل به،
+ *    والسؤالُ سابقٌ للجواب. فتُقرأ من المزوّد نفسِه (`modelId`
+ *    و`modelVersion`، اختياريّان في العقد) لا من نتيجته.
+ *
  * @param {{text: string, language?: string, providerId: string,
- *   voiceId?: string|null, model?: string|null, settingsKey?: string}} input
+ *   voiceId?: string|null, model?: string|null, modelVersion?: string|null,
+ *   settingsKey?: string}} input
  */
 export async function computeCacheKey({
   text,
@@ -56,12 +116,16 @@ export async function computeCacheKey({
   providerId,
   voiceId = null,
   model = null,
+  modelVersion = null,
   settingsKey = '',
 }) {
   if (!providerId) throw new Error('providerId مطلوب لحساب مفتاح الذاكرة');
-  const normalizedText = normalizeForCache(text, language);
-  const raw = [normalizedText, language, providerId, model || '', voiceId || '', settingsKey].join('');
-  const cacheKey = await sha256Hex(raw);
+  const normalizedText = normalizeSynthesisInput(text);
+  const raw = [
+    KEY_FORMAT, normalizedText, language, providerId,
+    model || '', modelVersion || '', voiceId || '', settingsKey,
+  ].join('');
+  const cacheKey = `${KEY_FORMAT}-${await sha256Hex(raw)}`;
   return { cacheKey, normalizedText };
 }
 
@@ -86,10 +150,14 @@ export async function getCachedAudio(cacheKey) {
  *    لا يمنع التوليد — منعُ التوليد المكرَّر مسؤوليّة المستدعي: يسأل
  *    الذاكرة أولًا (بند CRITICAL أعلاه)، ولا يولّد إلا عند غيابٍ حقيقي.
  *
+ * ⚠️ **والصفُّ يحفظ الهويّةَ التي دخلت مفتاحَه بعينها** — لا هويّةً
+ *    أخرى تُقرأ من مكانٍ آخر. صفٌّ يقول «نموذجي كذا» ومفتاحُه لا يعرفه
+ *    كذبةٌ مرتّبة: يُطمئنك عند الفحص وهو يتقاسم مفتاحًا مع غيره.
+ *
  * @param {{cacheKey: string, normalizedText: string, providerId: string,
- *   voiceId: string|null, model: string|null, language: string,
- *   settingsKey: string, mimeType: string, duration: number|null,
- *   blob: Blob, provenance: string}} entry
+ *   voiceId: string|null, model: string|null, modelVersion?: string|null,
+ *   language: string, settingsKey: string, mimeType: string,
+ *   duration: number|null, blob: Blob, provenance: string}} entry
  */
 export async function putGeneratedAudio(entry) {
   const now = Date.now();
@@ -99,6 +167,7 @@ export async function putGeneratedAudio(entry) {
     providerId: entry.providerId,
     voiceId: entry.voiceId ?? null,
     model: entry.model ?? null,
+    modelVersion: entry.modelVersion ?? null,
     language: entry.language || 'ru',
     settingsKey: entry.settingsKey || '',
     mimeType: entry.mimeType || entry.blob?.type || 'audio/wav',
@@ -148,8 +217,32 @@ export async function clearGeneratedCache() {
  */
 export async function synthesizeWithCache({ provider, text, language = 'ru', voiceId = null, speed = 1 }) {
   const settingsKey = `speed=${speed ?? ''}`;
+  /*
+   * ══════════ هويّةُ النموذج — ما يُعرَف، لا ما يُتمنّى (WS-VC1B) ══════════
+   *
+   * ⚠️ **كان هنا `result.metadata?.model` — قراءةٌ ميتة.** جردُ V0.1
+   *    وجدها، والعقدُ يؤكّدها: `TTSResult` في `types.js` **ليس فيه
+   *    حقلُ `metadata` أصلًا**، ولا مزوّدٌ في المستودع يُرجعه. فكانت
+   *    تساوي `null` في كلّ نداءٍ منذ كُتبت.
+   *
+   * ⚠️ **وأسوأُ من موتها موضعُها**: كانت تُقرأ من **نتيجة** التوليد،
+   *    والمفتاحُ يُحسَب **قبله**. فلو امتلأت يومًا لَخزّنت الصفَّ تحت
+   *    مفتاحٍ لا يعرف النموذجَ الذي كُتب فيه — أي نموذجان يتقاسمان
+   *    مفتاحًا واحدًا، وهو بعينه العطبُ المطلوب منعُه.
+   *
+   * ⚠️ **ولا يُختلَق اسمٌ ولا إصدار.** تُقرأ من المزوّد نفسِه، وهو
+   *    معروفٌ قبل التوليد. ولا مزوّدٍ في هذا البناء يعلنهما اليوم:
+   *    Piper يشتقّ مسارَ نموذجه من `voiceId` (وهو في المفتاح أصلًا)
+   *    ولا يقرأ إصدارًا؛ وجسرُ XTTS عقدُه `/health` يردّ «ok» وحدها
+   *    بلا نموذجٍ ولا إصدار؛ والمتصفّحُ لا يمرّ من هنا إطلاقًا. فالقيمةُ
+   *    `null` صادقةً — **وهذا حدٌّ مُبلَّغٌ لا ثغرةٌ مُخفاة**: ما دام
+   *    المزوّدُ لا يعلن إصدارًا، لا يستطيع المفتاحُ أن يفصل بين
+   *    إصدارين منه. ويوم يعلنه، يفصل بلا تغييرٍ آخر.
+   */
+  const model = provider.modelId ?? null;
+  const modelVersion = provider.modelVersion ?? null;
   const { cacheKey, normalizedText } = await computeCacheKey({
-    text, language, providerId: provider.id, voiceId, settingsKey,
+    text, language, providerId: provider.id, voiceId, model, modelVersion, settingsKey,
   });
 
   const hit = await getCachedAudio(cacheKey);
@@ -160,7 +253,7 @@ export async function synthesizeWithCache({ provider, text, language = 'ru', voi
   if (result.audioBlob) {
     await putGeneratedAudio({
       cacheKey, normalizedText, providerId: provider.id, voiceId,
-      model: result.metadata?.model ?? null, language, settingsKey,
+      model, modelVersion, language, settingsKey,
       mimeType: result.audioBlob.type, duration: result.duration,
       blob: result.audioBlob, provenance: result.provenance,
     }).catch(() => {});

@@ -109,6 +109,22 @@ export const PROVENANCE = Object.freeze({
  * @property {string} id — معرّفٌ فريد، إنجليزي، مستقرّ (يُخزَّن في الإعدادات).
  * @property {string} name — اسمٌ للعرض.
  * @property {string} type — أحد PROVIDER_TYPE.
+ * @property {string|null} [modelId] — اسمُ النموذج المولِّد، إن كان
+ *   للمزوّد نموذجٌ **يعرفه قبل التوليد**. يدخل مفتاحَ ذاكرة الصوت
+ *   (`audio-cache.js`) فلا يتقاسم نموذجان ملفًّا واحدًا.
+ *
+ *   ⚠️ **اختياريٌّ لأنه غيرُ معروفٍ لكلّ مزوّد — لا تحسّبًا لصورةٍ
+ *      مستقبليّة** (راجع «لا حقول زائدة» أعلاه). ولا مزوّدٍ في هذا
+ *      البناء يعلنه اليوم: المتصفّحُ لا يمرّ بالذاكرة أصلًا، وPiper
+ *      يشتقّ مسارَ نموذجه من `voiceId` وهو في المفتاح، وجسرُ XTTS
+ *      عقدُه لا يحمل حقلَ نموذج. **فلا يُختلَق اسمٌ لملء الحقل**:
+ *      غيابُه حدٌّ مُبلَّغ، واختلاقُه كذبةٌ تدخل المفتاح.
+ * @property {string|null} [modelVersion] — إصدارُ ذلك النموذج، إن كان
+ *   له مصدرٌ موثوقٌ في إعداد المزوّد أو زمنِ تشغيله. يفصل بين إصدارين
+ *   غيرِ متوافقين فلا يُعاد صوتُ الأوّل تحت الثاني.
+ *
+ *   ⚠️ **ولا يُكتَب إلّا عن مصدرٍ حقيقيّ.** «إصدارٌ مُقدَّر» أسوأُ من
+ *      لا إصدار: يمنح ثقةً في فصلٍ لم يقع.
  * @property {() => Promise<{available: boolean, status: string, reason: string}>} isAvailable
  * @property {() => Promise<{id: string, name: string, language: string}[]>} getVoices
  * @property {(request: TTSRequest) => Promise<TTSResult>} synthesize
