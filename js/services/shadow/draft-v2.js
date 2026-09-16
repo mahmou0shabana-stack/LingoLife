@@ -511,6 +511,26 @@ export function parseDraftV2(text) {
     flat.push(...recallUnits(one, { before: true }));
     flat.push(one);
     flat.push(...recallUnits(one, { before: false }));
+    /*
+     * ⚠️ **وعائلةُ الجذر تُنطَق — في موضعها من المسودّة لا في ذيلها**
+     *    (WS-DRAFT-CONTENT). المسودّةُ تعرضها بين القلب وأمثلته، فهذا
+     *    موضعُها في تسلسل التدريب أيضًا: قلبٌ ← استرجاعُه ← عائلتُه ←
+     *    أمثلتُه. ولا تُلحَق كلُّها في الآخر فتنفصل عمّا تشرحه.
+     *
+     * ⚠️ **وسطرٌ بلا روسيٍّ لا يصير هدفًا**: المحلّلُ يقبل عربيًّا
+     *    سائبًا في هذا القسم (`{ ru: '', ar }`) وهو ترجمةٌ بلا متبوع.
+     *
+     * ⚠️ **و`parent` يفصل بصمتَه عن بصمة القلب** — كما في الشريط: قد
+     *    تتكرّر نفسُ العائلة تحت قلبين، فلولا الأبُ لتشاركا هُويّةً
+     *    واحدةً وحالةَ «خلصت» معها.
+     */
+    for (const root of one.roots) {
+      if (!root.ru) continue;
+      flat.push({
+        ...blank(), role: ROLE.ROOT_FAMILY, ru: root.ru, ar: root.ar || '',
+        parent: one.ru, family: one.family,
+      });
+    }
     for (const ex of one.examples) {
       flat.push({
         ...blank(), role: ROLE.EXAMPLE, ru: ex.ru, ar: ex.ar,

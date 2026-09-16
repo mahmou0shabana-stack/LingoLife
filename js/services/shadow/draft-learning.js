@@ -30,6 +30,7 @@ export const GROUP_LABEL = Object.freeze({
   [ROLE.EXPANSION]: 'التدرّج',
   [ROLE.VARIATION]: 'التكرارات',
   [ROLE.FULL_BUILD]: 'إعادة البناء',
+  [ROLE.ROOT_FAMILY]: 'الجذر والعيلة',
   [ROLE.EXAMPLE]: 'الأمثلة',
 });
 
@@ -41,7 +42,9 @@ export const GROUP_LABEL = Object.freeze({
  */
 export const GROUP_ORDER = Object.freeze([
   ROLE.MICRO_CORE, ROLE.RECALL_CUE, ROLE.RECALL_ANSWER,
-  ROLE.EXPANSION, ROLE.VARIATION, ROLE.FULL_BUILD, ROLE.EXAMPLE,
+  ROLE.EXPANSION, ROLE.VARIATION, ROLE.FULL_BUILD,
+  /* والعائلةُ قبل الأمثلة — كترتيب المسودّة نفسِها. */
+  ROLE.ROOT_FAMILY, ROLE.EXAMPLE,
 ]);
 
 /**

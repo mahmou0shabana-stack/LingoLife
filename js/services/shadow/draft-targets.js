@@ -65,6 +65,23 @@ export const ROLE = Object.freeze({
    *    النُّطق. ولا تُعَدّ قلبًا — ولذلك دورٌ خاصٌّ لا `MICRO_CORE`.
    */
   RECALL_ANSWER: 'recall_answer',
+  /*
+   * ⚠️ **والجذرُ والعيلةُ صارا دورًا بعد أن كانا سقالةً** (WS-DRAFT-CONTENT).
+   *
+   *    بلاغُك: «الجذر والعِلّة موجودةٌ في المسودّة ومش بقدر أتدرّب على
+   *    نطقها». وهو حقٌّ: كانت تُحلَّل إلى `roots` — حقلٌ محمولٌ على
+   *    القلب — ولا تصير هدفًا أبدًا.
+   *
+   *    والمنعُ كان مقصودًا ومكتوبًا في `draft-v2.js`: «سطرٌ روسيٌّ فيه
+   *    عائلةُ كلمةٍ ليس جملةً تُنطَق… ولولا هذا العنوانُ لَصار هدفَ نُطقٍ
+   *    وضخّم عدَّ القلوب». والخوفُ صحيحٌ في محلّه — لكنّه خوفٌ من
+   *    **العدّاد** لا من النُّطق.
+   *
+   *    فالحلُّ هو حلُّ الاسترجاع نفسُه (WS-DI): دورٌ يدخل التدريبَ ولا
+   *    يدخل `SPEECH_ROLES`. فالقلوبُ تبقى سبعةً في الشارة، والعائلةُ
+   *    تُنطَق. لا عدَّ تضخّم ولا بابَ أُغلق.
+   */
+  ROOT_FAMILY: 'root_family',
   EXPANSION: 'expansion',
   VARIATION: 'variation',
   FULL_BUILD: 'full_build',
@@ -112,8 +129,19 @@ export const OPTIONAL_SPEECH_ROLES = Object.freeze(new Set([ROLE.EXAMPLE]));
  */
 export const RECALL_ROLES = Object.freeze(new Set([ROLE.RECALL_CUE, ROLE.RECALL_ANSWER]));
 
-/** كلُّ ما يدخل الشادوينج افتراضيًّا — قلوبٌ وأسئلةٌ وإجابات. */
-export const PRACTICE_ROLES = Object.freeze(new Set([...SPEECH_ROLES, ...RECALL_ROLES]));
+/**
+ * عائلةُ الجذر: تُنطَق ولا تُعَدّ قلبًا (WS-DRAFT-CONTENT).
+ *
+ * ⚠️ **ومجموعةٌ ثالثةٌ لا توسيعُ `SPEECH_ROLES`** — لنفس السبب المكتوب
+ *    فوق `RECALL_ROLES` بحرفه: `counts.speech` يبني عليها شارةَ «كم
+ *    قلبًا»، فلو دخلتها العائلةُ لقال العدّادُ عن سبعةِ قلوبٍ أربعةَ عشرَ.
+ */
+export const ROOT_ROLES = Object.freeze(new Set([ROLE.ROOT_FAMILY]));
+
+/** كلُّ ما يدخل الشادوينج افتراضيًّا — قلوبٌ وأسئلةٌ وإجاباتٌ وعائلاتُ جذور. */
+export const PRACTICE_ROLES = Object.freeze(new Set([
+  ...SPEECH_ROLES, ...RECALL_ROLES, ...ROOT_ROLES,
+]));
 
 /** ما لا يُنطَق أبدًا — سقالةٌ تُعرَض ولا تُقرأ (بندا ١٢ و٤٤). */
 export const isSpeechRole = (role) => SPEECH_ROLES.has(role);

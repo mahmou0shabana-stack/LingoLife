@@ -9113,9 +9113,37 @@ function applyFonts() {
   applyFont($('[data-text]'), ctx.font);
   document.querySelectorAll('.sh-line [data-line-text]')
     .forEach((node) => applyFont(node, ctx.fontDoc));
-  /* والأصلُ في لوحة المصدر يتبع صفحتَه أيضًا. */
-  document.querySelectorAll('[data-origin-text], .sh-origin-line')
-    .forEach((node) => applyFont(node, ctx.fontDoc));
+  /*
+   * ══════════ النصُّ الكاملُ يتبع خطَّ القراءة (WS-DRAFT-CONTENT-FONT) ══════════
+   *
+   * ⚠️ **بلاغُك**: «أبدّل خطَّ القراءة فيتغيّر البطلُ والرقاقاتُ ويبقى
+   *    النصُّ الكاملُ كما هو».
+   *
+   * ⚠️ **والسببُ مُحدَّدٌ ومقيس: مُنتقٍ ميّت.** كان السطرُ يطلب
+   *    `[data-origin-text], .sh-origin-line` — وهما **اسمان لا يُنتِجهما
+   *    الراسمُ أصلًا**. والذي يُرسَم في لوحة الأصل ثلاثةٌ غيرُهما:
+   *    `.sh-origin-sent` (جملًا) و`.sh-origin-said` (أدوارًا) و
+   *    `.sh-origin-raw` (نصًّا خامًا). فلم يكن أحدُها يتلقّى خطًّا قطُّ،
+   *    فورث خطَّ التطبيق. قِيس حيًّا على ١٢٨٠×٨٠٠:
+   *
+   *        البطل  Philosopher · الرقاقة Philosopher
+   *        سطرُ النصّ Noto Serif      ← يتبع خطَّ الصفحة (fontDocId)
+   *        الأصلُ الكامل  **Inter**   ← لا يتبع شيئًا
+   *
+   *    ومُنتقٍ لا يطابق شيئًا لا يُخطئ بصوتٍ عالٍ: يمرّ صامتًا.
+   *
+   * ⚠️ **ويتبع `ctx.font` لا `ctx.fontDoc`** — بطلبك صراحةً: «نفسُ خطّ
+   *    القراءة المعتمَد الذي للبطل والرقاقات». فالمصدرُ واحدٌ (`fontId`)
+   *    والسجلُّ واحدٌ والكاتبُ واحد. ولم تُنشَأ حالةُ خطٍّ ثانية.
+   *
+   * ⚠️ **وسطورُ النصّ تبقى على `fontDocId`** كما كانت — ذاك إعدادٌ قائمٌ
+   *    له مفتاحُه في الصفحة اليسرى منذ WS-SCLEAN، ولم يطلب أحدٌ نقضَه.
+   *
+   * ⚠️ **ولا يطال العربيّةَ شيء**: هذه العناصرُ الثلاثةُ وحدَها، وكلُّها
+   *    `lang="ru"` ولا تحوي إلّا روسيًّا. ولم يُلمَس حاوٍ يجمع اللغتين.
+   */
+  document.querySelectorAll('.sh-origin-sent, .sh-origin-said, .sh-origin-raw')
+    .forEach((node) => applyFont(node, ctx.font));
   paintFontChips();
 
   const app = document.querySelector('.shadow-app');
