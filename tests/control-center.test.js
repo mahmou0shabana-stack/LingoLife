@@ -507,15 +507,21 @@ describe('WS-POLISH · التكرارُ منزلقٌ والبابُ لسان', (
      *    فعلًا في أوّل كتابة: `inset-inline-end` أنزلته على **يمين**
      *    المسرح فوق سكّة الأدوات بالحرف (٣٥٢px — نفسُ إحداثيّها)،
      *    لأنّ `.shadow-app` اتّجاهُه ltr وإن كان المستندُ عربيًّا.
-     *    فالمحروسُ أن يكون على المحور المقابل لسكّة الأدوات.
+     *
+     * ⚠️ **وسكّةُ الأدوات رُفعت** (WS-TOOLS-LAYOUT · بند ٤) — فلم يعد
+     *    هناك طرفٌ آخرُ يُقاس إليه. والبندُ نفسُه لم يمت: «لا سكّةَ
+     *    ثانية» صار يعني أنّ ما على الحافّة اليسرى **عمودٌ واحد**،
+     *    أي أنّ العنقودَ ولسانَ الضبط يتشاركان نفسَ المحور ولا يقف
+     *    أحدُهما على المحور المقابل فيصنع عمودين.
      */
     const css = (await (await fetch('../css/shadow.css')).text()).replace(/\/\*[\s\S]*?\*\//g, '');
     const tab = /\.sh-cc-tab\s*\{([^}]*)\}/.exec(css)[1];
-    const rail = /\.sh-toolrail\s*\{([^}]*)\}/.exec(css)[1];
+    const edge = /\.sh-edge\s*\{([^}]*)\}/.exec(css)[1];
     expect(/inset-inline-start:/.test(tab)).toBe(true);
     expect(/inset-inline-end:/.test(tab)).toBe(false);
-    /* وسكّةُ الأدوات على الطرف الآخر. */
-    expect(/inset-inline-end:|inset-block/.test(rail)).toBe(true);
+    /* والعنقودُ على نفس المحور — لا على المقابل. */
+    expect(/inset-inline-start:/.test(edge)).toBe(true);
+    expect(/inset-inline-end:/.test(edge)).toBe(false);
   });
 
   it('٢٦ · وحدُّ التثبيت السفليُّ يتبع ما تحته فعلًا', async () => {

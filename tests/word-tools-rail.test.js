@@ -62,7 +62,9 @@ describe('WS-DV4 · الحجابُ يُرى ولا يُمسك', () => {
   it('٣ · واللمسُ خارجَها يُغلقها — كما كان الحجابُ يفعل', async () => {
     const src = await view();
     expect(src).toContain('if (rail.open');
-    expect(src).toContain("!event.target.closest('.sh-toolrail')");
+    /* ⚠️ والسكّةُ صارت عنقودَ الحافّة (WS-TOOLS-LAYOUT · بند ٤) — والشرطُ
+          هو هو: لا يُغلَق اللوحُ بلمسةٍ على بابٍ من أبوابه. */
+    expect(src).toContain("!event.target.closest('.sh-edge')");
     expect(src).toContain("!event.target.closest('.sh-panel')");
   });
 

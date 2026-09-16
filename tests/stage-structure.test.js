@@ -105,13 +105,16 @@ async function stage(width, height, { words = 14, sentence = SENT_LONG, layout =
             <div class="sh-mono sh-count"><b>2</b> / <span>04</span> SENTENCES</div>
             <div class="sh-bar"></div>
             <span class="sh-fontchip-mini">Aa</span>
+            <button class="sh-current-lbl">الأصل</button>
+            <span class="sh-current-tools">
+              <button>🔖</button><button>⧉</button><button>♡</button></span>
           </div>
           <div class="sh-prog"><div class="sh-prog-head"><span class="sh-prog-sec">الجلسة</span>
             <span class="sh-prog-pos"><b>2</b> / 4</span></div>
             <div class="sh-prog-bar"><span class="sh-prog-fill"></span></div></div>
           <div class="sh-hero">
-            <div class="sh-hero-top"><span class="sh-current-tools">
-              <button>🔖</button><button>⧉</button><button>♡</button></span></div>
+            <!-- عنقودُ الجملة صعد إلى رأس المسرح (WS-TOOLS-LAYOUT · بندا ٦ و٧). -->
+            <div class="sh-hero-top"><p class="sh-phrase-lbl" hidden></p></div>
             <div class="sh-current-text" lang="ru" dir="ltr">${sentence}</div>
           </div>
           <div class="sh-current-tr" dir="rtl">ترجمةٌ قصيرةٌ للجملة</div>
@@ -126,8 +129,13 @@ async function stage(width, height, { words = 14, sentence = SENT_LONG, layout =
           </div>
           <!-- ⚠️ صفُّ الرقاقات حُذف (WS-POLISH) وصار لسانًا مطلقًا على الحافّة. -->
           <button class="sh-cc-tab" data-sh="drawer" aria-label="اضبط التدريب">⚙</button>
-          <div class="sh-toolrail"><div class="sh-rail-tools"></div>
-            <button class="sh-rail-toggle">‹</button></div>
+          <!-- والسكّةُ الطوليّةُ رُفعت — عنقودٌ عائمٌ فوق اللسان، وأدواتٌ في اللوح. -->
+          <div class="sh-edge">
+            <button class="sh-edge-btn" data-sh="tool" data-v="learn"><span>✦</span></button>
+            <button class="sh-qfont sh-edge-btn" data-sh="qfont"><span lang="ru">Аа</span></button>
+          </div>
+          <aside class="sh-panel"><div class="sh-panel-head"><span class="sh-mono">الأدوات</span></div>
+            <div class="sh-rail-tools"></div><div class="sh-panel-body"></div></aside>
         </div>
       </div></div></div>
       <div class="sh-bottom"><div class="sh-stats">

@@ -46,7 +46,16 @@ const SENT_LONG = `Во вр${GOLD('е')}мя пров${GOLD('е')}рки обо
   + `обсужд${GOLD('а')}ли визу${GOLD('а')}льное состо${GOLD('я')}ние систем `
   + `и реш${GOLD('и')}ли, что необход${GOLD('и')}мо подгот${GOLD('о')}вить `
   + `подр${GOLD('о')}бный отчёт о всех н${GOLD('а')}йденных пробл${GOLD('е')}мах, `
-  + `потом${GOLD('у')} что руков${GOLD('о')}дство х${GOLD('о')}чет поним${GOLD('а')}ть.`;
+  + `потом${GOLD('у')} что руков${GOLD('о')}дство х${GOLD('о')}чет поним${GOLD('а')}ть, `
+  /*
+   * ⚠️ **وأُطيلت في WS-TOOLS-LAYOUT**: بعد استرداد حشوة السكّة وإسقاط
+   *    رأسِ بطلٍ فارغ صار البطلُ يسع ما كان يفيض عليه — فقِيس على
+   *    ١٢٨٠×٨٠٠ «تفيض false» وحارسُ التمرير يمرّ على جملةٍ لا تُمرَّر.
+   *    وجملةٌ لا تفيض لا تحرس تمريرًا. فأُطيلت حتّى تفيض على المقاسين.
+   */
+  + `как${GOLD('и')}е и́менно измен${GOLD('е')}ния тр${GOLD('е')}буются в `
+  + `техн${GOLD('и')}ческой документ${GOLD('а')}ции и в раб${GOLD('о')}чих `
+  + `инстр${GOLD('у')}кциях для ка́ждого подраздел${GOLD('е')}ния.`;
 
 const CHIP = (w) => `<button class="sh-chip"><span class="sh-chip-w">${w}</span>`
   + '<span class="sh-chip-bar"><i></i></span></button>';
@@ -171,17 +180,26 @@ async function stageAt(width, height,
       <div class="sh-topbar"><span class="sh-diamond"></span><b>LingoLife</b></div>
       <div class="sh-body"><div class="sh-book" ${layout ? `data-layout="${layout}"` : ''}><div class="sh-pages">
         <div class="sh-page sh-right">
+          <!--
+            ⚠️ **وعنقودُ الجملة في رأس المسرح كما في الراسم** (WS-TOOLS-LAYOUT ·
+               بندا ٦ و٧): صعد من رأس البطل إلى هنا. وإطارٌ يضعه حيث كان
+               يحرس ترتيبًا لم يعد قائمًا — وهو أسوأُ من ألّا يحرس.
+          -->
           <div class="sh-stage-top">
-            <div class="sh-mono sh-count"><b>2</b> / <span>04</span> SENTENCES</div>
+            <div class="sh-mono sh-count"><b>2</b> / <span>04</span> SENTENCES
+              <span class="sh-dim">جاهز</span></div>
+            <span class="sh-reps sh-mono">3 / 20</span>
             <div class="sh-bar"></div>
-            <span class="sh-fontchip-mini">Aa</span>
+            <button class="sh-current-lbl">الأصل</button>
+            <span class="sh-current-tools">
+              <button>🔖</button><button>⧉</button><button>♡</button></span>
           </div>
           <div class="sh-prog"><div class="sh-prog-head"><span class="sh-prog-sec">الجلسة</span>
             <span class="sh-prog-pos"><b>2</b> / 4</span></div>
             <div class="sh-prog-bar"><span class="sh-prog-fill"></span></div></div>
           <div class="sh-hero">
-            <div class="sh-hero-top"><span class="sh-current-tools">
-              <button>🔖</button><button>⧉</button><button>♡</button></span></div>
+            <!-- ولم يبقَ في رأس البطل إلّا شريطُ المقطع — وهو مخفيٌّ إلّا داخله. -->
+            <div class="sh-hero-top"><p class="sh-phrase-lbl" hidden></p></div>
             <div class="sh-current-text" lang="ru" dir="ltr">${sentence}</div>
             <div class="sh-current-tr" dir="rtl">ترجمةٌ قصيرةٌ للجملة</div>
           </div>
@@ -205,10 +223,24 @@ async function stageAt(width, height,
           <div class="sh-stars-far" aria-hidden="true"></div>
           <div class="sh-stars-near" aria-hidden="true"></div>
           <div class="sh-sky-dim" aria-hidden="true"></div>
-          <div class="sh-toolrail"><span class="sh-rail-ctx sh-mono">تدريب</span>
-            <div class="sh-rail-tools">${railTools}</div><div class="sh-grow"></div>
-            <button class="sh-qfont" data-sh="qfont"><span lang="ru">Аа</span></button>
-            <button class="sh-rail-toggle" data-sh="rail">‹</button></div>
+          <!--
+            ⚠️ **السكّةُ الطوليّةُ رُفعت** (WS-TOOLS-LAYOUT · بند ٤)، ومكانَها
+               عنقودٌ عائمٌ على الحافّة السفليّة اليسرى فوق لسان الضبط،
+               وصفُّ أدوات السياق داخل رأس اللوح.
+          -->
+          <div class="sh-edge">
+            <button class="sh-edge-btn" data-sh="tool" data-v="learn"><span>✦</span
+              ><i class="sh-edge-val">3/8</i></button>
+            <button class="sh-qfont sh-edge-btn" data-sh="qfont"><span lang="ru">Аа</span></button>
+          </div>
+          <aside class="sh-panel">
+            <div class="sh-panel-head"><span class="sh-mono">الأدوات</span>
+              <button data-sh="rail-close">✕</button></div>
+            <div class="sh-rail-tools">${railTools}</div>
+            <div class="sh-panel-rule"></div>
+            <div class="sh-panel-body"></div>
+            <div class="sh-panel-foot sh-mono"></div>
+          </aside>
         </div>
       </div></div></div>
       <div class="sh-bottom"><div class="sh-stats">
@@ -556,12 +588,20 @@ describe('WS-ST · ضوابطُ أصغرَ لا ضوابطَ مكسورة', () =
   });
 
   it('١٢ · ورأسُ المسرح سطرٌ لا ثلاثة', async () => {
-    /* بند ١٣: العدّادُ ورقاقةُ «Aa» يتّسعان لسطرٍ واحد. */
+    /*
+     * بند ١٣: ساكنو الرأس يتّسعون لسطرٍ واحد.
+     *
+     * ⚠️ **وكان يقيس رقاقةَ «Aa» — وقد غادرت الرأسَ منذ WS-SCLEAN**
+     *    (الخطُّ إعدادٌ يبقى فمكانُه مركزُ التدريب). فبقي الإطارُ وحدَه
+     *    يرسمها، والحارسُ يحرس شبحًا لا تراه الشاشة. ولمّا صُحِّح
+     *    الإطارُ في WS-TOOLS-LAYOUT سقط الحارسُ بـnull — وهو صدقُه
+     *    الأوّل منذ زمن. فيُعاد إلى ساكني الرأس الحقيقيّين.
+     */
     const f = await stageAt(412, 915);
     expect(f.cs('.sh-stage-top').flexDirection).toBe('row');
     const count = f.doc.querySelector('.sh-count').getBoundingClientRect();
-    const chip = f.doc.querySelector('.sh-fontchip-mini').getBoundingClientRect();
-    expect(Math.abs(count.top - chip.top) < 40).toBe(true);
+    const tools = f.doc.querySelector('.sh-current-tools').getBoundingClientRect();
+    expect(Math.abs(count.top - tools.top) < 40).toBe(true);
     f.close();
   });
 });
@@ -593,22 +633,36 @@ describe('WS-ST · عشرون كلمةً تبقى مستعملة', () => {
     f.close();
   });
 
-  it('١٥ · وسكّةُ الأدوات لا تقتطع من عرض القراءة', async () => {
+  it('١٥ · وضوابطُ الحافّة لا تقتطع من عرض القراءة', async () => {
     /*
-     * ⚠️ **بند ١٥**: السكّةُ تطفو على الحافّة ولا تحجز عمودًا. وهي
-     *    كذلك قبل التمريرة — قِستُ فكانت مطلقةً بعرض ٤٨. فالحارسُ
-     *    يمنع انحدارًا لا يُدَّعي إصلاحًا.
+     * ⚠️ **بند ١٥ — وقد صار أقوى بعد رفع السكّة** (WS-TOOLS-LAYOUT).
+     *    كان يقيس أنّ السكّةَ مطلقةٌ فلا تحجز عمودًا في التدفّق. وهي
+     *    مرفوعةٌ اليوم، **لكنّها كانت تحجز عرضًا بطريقٍ آخر**: حشوةُ
+     *    المسرح اليمنى ٦٢px مقابل يسرى ٢٠. قِيس على ١٢٨٠×٨٠٠ عرضَ
+     *    قراءةٍ ٤١٤٫٥ ← **٤٣٤٫٥**، وعلى ٤١٢×٩١٥ ‏٣٧٦ ← **٣٨٤**.
+     *
+     *    فالمحروسُ أمران: أنّ كلَّ ضابطٍ على الحافّة مطلقُ الموضع،
+     *    وأنّ الحشوتين **متساويتان** — أي لا حصّةَ محجوزةً لغائب.
      */
-    const f = await stageAt(412, 915);
-    expect(f.cs('.sh-toolrail').position).toBe('absolute');
-    f.close();
+    for (const [w, h, layout] of [[412, 915, 'single'], [1280, 800, 'two']]) {
+      const f = await stageAt(w, h, { layout });
+      expect(f.cs('.sh-edge').position).toBe('absolute');
+      expect(f.cs('.sh-cc-tab').position).toBe('absolute');
+      const cs = f.cs('.sh-page.sh-right');
+      const l = Math.round(parseFloat(cs.paddingLeft));
+      const r = Math.round(parseFloat(cs.paddingRight));
+      f.close();
+      expect(`${w}: يسار ${l} = يمين ${r}`).toBe(`${w}: يسار ${l} = يمين ${l}`);
+    }
   });
 
   it('١٦ · وأصنافُ الإطار أصنافُ الراسم نفسِه', async () => {
     const src = await (await fetch('../js/views/shadow-view.js')).text();
     for (const cls of ['sh-stage-top', 'sh-count', 'sh-prog', 'sh-hero', 'sh-current-text',
       'sh-current-tr', 'sh-chips', 'sh-hint', 'sh-modes', 'sh-transport', 'sh-cc-tab',
-      'sh-toolrail', 'sh-play', 'sh-nav-btn']) {
+      /* ⚠️ `sh-toolrail` خرجت من القائمة لأنّها خرجت من الراسم
+            (WS-TOOLS-LAYOUT · بند ٤)، ومكانَها عنقودُ الحافّة. */
+      'sh-edge', 'sh-panel', 'sh-play', 'sh-nav-btn']) {
       expect(src).toContain(cls);
     }
     /* والرقاقةُ يرسمها جافاسكربت بهذين الصنفين. */
@@ -704,7 +758,8 @@ describe('WS-FONT-TRANSPORT · التوسيطُ يُقاس', () => {
       const f = await stageAt(w, h, { layout, rec: true });
       const before = f.playOffset();
       const tab = f.doc.querySelector('.sh-cc-tab');
-      const rail = f.doc.querySelector('.sh-toolrail');
+      /* ⚠️ والسكّةُ صارت عنقودَ الحافّة — نفسُ الشرط على الساكن الجديد. */
+      const rail = f.doc.querySelector('.sh-edge');
       tab.style.display = 'none';
       rail.style.display = 'none';
       await f.settle();
@@ -761,7 +816,7 @@ describe('WS-FONT-TRANSPORT · التوسيطُ يُقاس', () => {
     for (const [w, h, layout] of [[412, 915, 'single'], [1280, 800, 'two'], [360, 800, 'single']]) {
       const f = await stageAt(w, h, { layout, rec: true });
       const rec = f.doc.querySelector('.sh-rec-btn').getBoundingClientRect();
-      const hits = [...f.doc.querySelectorAll('.sh-toolrail button')]
+      const hits = [...f.doc.querySelectorAll('.sh-edge button')]
         .map((b) => b.getBoundingClientRect())
         .filter((r) => Math.max(rec.left, r.left) < Math.min(rec.right, r.right)
                     && Math.max(rec.top, r.top) < Math.min(rec.bottom, r.bottom));
@@ -926,14 +981,39 @@ describe('WS-RAIL-HIT · المقبضُ يملك قرصَه', () => {
    *    الجهاز، **ويُشترَط وقوعُ التراكب** قبل قياس الملكيّة — فإن غاب
    *    التراكبُ سقط الحارسُ بدل أن يمرّ فارغًا.
    */
+  /*
+   * ══════════ ورثةُ المقبض (WS-TOOLS-LAYOUT · بند ٤) ══════════
+   *
+   * ⚠️ **المقبضُ زال — والدرسُ لم يزل.** كان حارسا ٢٦ و٢٧ يقيسان أنّ
+   *    `.sh-rail-toggle` يملك كلَّ نقطةٍ يرسمها، لأنّ صندوقَ شريط النقل
+   *    كان يبتلع ثلثيه (z-index ١٢ مقابل ٩). والمقبضُ غابَ اليومَ،
+   *    و**عنقودُ الحافّة يقف في نفس الشريط السفليّ** فيرث الخطرَ حرفيًّا.
+   *
+   * ⚠️ **ولا يُشطَب حارسٌ لأنّ ساكنَه تبدّل.** لو شُطِب لعاد العطبُ مع
+   *    أوّل ضابطٍ يُوضَع على الحافّة — وقد وقع مرّتين قبله (لسانُ
+   *    الإعدادات في WS-POLISH، ثمّ المقبضُ في WS-RAIL-HIT).
+   */
   const dropHandleToBottom = (f) => {
-    const rail = f.doc.querySelector('.sh-toolrail');
-    rail.style.justifyContent = 'flex-end';
-    rail.style.paddingBottom = '0px';
+    /*
+     * ⚠️ **والطفرةُ تُنزِل العنقودَ إلى نطاق الشريط صراحةً**: هو فوقه
+     *    بـ٢px خلوصًا في الشاشة، والإطارُ قد يضعه أعلى قليلًا — وحارسٌ
+     *    يقيس حيث لا تراكبَ يمرّ وإن عاد العطب (دَرْسُ الطفرة z-index ٩).
+     */
+    /*
+     * ⚠️ **وتُزاح بالتحويل لا بإحداثيٍّ مطلق**: كتبتُ أوّلًا
+     *    `top: <إحداثيّ الشاشة>` فوقع العنقودُ خارجَ المسرح (قِيس:
+     *    مركزُه صار `div.sh-bottom`) — لأنّ حاويَه المرجعيَّ ليس الشاشةَ
+     *    بل أقربَ سلفٍ موضَّع. والفارقُ النسبيُّ لا يحتاج معرفةَ الحاوي.
+     */
+    const edge = f.doc.querySelector('.sh-edge');
+    const tr = f.doc.querySelector('.sh-transport').getBoundingClientRect();
+    const box = edge.getBoundingClientRect();
+    const dy = (tr.top + tr.height / 2) - (box.top + box.height / 2);
+    edge.style.transform = `translateY(${Math.round(dy)}px)`;
   };
 
   const overlapsTransport = (f) => {
-    const a = f.doc.querySelector('.sh-rail-toggle').getBoundingClientRect();
+    const a = f.doc.querySelector('.sh-edge .sh-qfont').getBoundingClientRect();
     const b = f.doc.querySelector('.sh-transport').getBoundingClientRect();
     const ox = Math.min(a.right, b.right) - Math.max(a.left, b.left);
     const oy = Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top);
@@ -941,7 +1021,7 @@ describe('WS-RAIL-HIT · المقبضُ يملك قرصَه', () => {
   };
 
   const discOwnership = (f) => {
-    const t = f.doc.querySelector('.sh-rail-toggle');
+    const t = f.doc.querySelector('.sh-edge .sh-qfont');
     const r = t.getBoundingClientRect();
     const cx = r.left + r.width / 2; const cy = r.top + r.height / 2;
     const rad = Math.min(r.width, r.height) / 2;
@@ -978,7 +1058,13 @@ describe('WS-RAIL-HIT · المقبضُ يملك قرصَه', () => {
     expect(d.inside > 100).toBe(true);
     expect(`${d.mine}/${d.inside} ${JSON.stringify(d.thieves)}`)
       .toBe(`${d.inside}/${d.inside} {}`);
-    expect(`مركزُه=${d.centre}`).toBe('مركزُه=button.sh-rail-toggle');
+    /*
+     * ⚠️ **والمركزُ يُنسَب بالاحتواء لا بالاسم**: المقبضُ القديمُ كان
+     *    حرفًا عاريًا، ووارثُه يلفّ رمزَه في `span` — فـ`elementFromPoint`
+     *    تعيد الابنَ، وهو الزرُّ نفسُه في كلّ ما يهمّ اللمس. ومقارنةُ
+     *    الاسم كانت تحرس بنيةَ الزرّ الداخليّة لا ملكيّةَ اللمسة.
+     */
+    expect(`مركزُه لي=${d.centreMine} (${d.centre})`).toBe(`مركزُه لي=true (${d.centre})`);
     f.close();
   });
 
@@ -990,7 +1076,13 @@ describe('WS-RAIL-HIT · المقبضُ يملك قرصَه', () => {
     expect(d.inside > 100).toBe(true);
     expect(`${d.mine}/${d.inside} ${JSON.stringify(d.thieves)}`)
       .toBe(`${d.inside}/${d.inside} {}`);
-    expect(`مركزُه=${d.centre}`).toBe('مركزُه=button.sh-rail-toggle');
+    /*
+     * ⚠️ **والمركزُ يُنسَب بالاحتواء لا بالاسم**: المقبضُ القديمُ كان
+     *    حرفًا عاريًا، ووارثُه يلفّ رمزَه في `span` — فـ`elementFromPoint`
+     *    تعيد الابنَ، وهو الزرُّ نفسُه في كلّ ما يهمّ اللمس. ومقارنةُ
+     *    الاسم كانت تحرس بنيةَ الزرّ الداخليّة لا ملكيّةَ اللمسة.
+     */
+    expect(`مركزُه لي=${d.centreMine} (${d.centre})`).toBe(`مركزُه لي=true (${d.centre})`);
     f.close();
   });
 
@@ -1017,7 +1109,7 @@ describe('WS-RAIL-HIT · المقبضُ يملك قرصَه', () => {
       const f = await stageAt(w, h, { layout, rec: true, tools });
       const box = (el) => el.getBoundingClientRect();
       const label = (el) => `${el.tagName.toLowerCase()}.${(el.className || '').toString().trim().split(/\s+/)[0] || '∅'}`;
-      const railKids = [...f.doc.querySelectorAll('.sh-toolrail button')];
+      const railKids = [...f.doc.querySelectorAll('.sh-edge button')];
       const stageCtrls = [...f.doc.querySelectorAll('.sh-transport > *, .sh-modes button, .sh-cc-tab')];
       expect(railKids.length > 0 && stageCtrls.length > 0).toBe(true);
       const clashes = [];
@@ -1035,15 +1127,16 @@ describe('WS-RAIL-HIT · المقبضُ يملك قرصَه', () => {
     }
   });
 
-  it('٢٩ · والسكّةُ نفسُها لا تلتقط شيئًا — أزرارُها وحدَها', async () => {
+  it('٢٩ · والحاويةُ العائمةُ لا تلتقط شيئًا — أزرارُها وحدَها', async () => {
     /*
-     * الرفعُ آمنٌ ما دامت الحاويةُ لا تستقبل مؤشّرًا: عمودٌ بعرض ٤٨px
-     * وبطول المسرح لو التقط لأكل حافّةَ القراءة كلَّها.
+     * الرفعُ آمنٌ ما دامت الحاويةُ لا تستقبل مؤشّرًا: صندوقٌ عائمٌ فوق
+     * المسرح لو التقط لأكل ما تحته من الحافّة بلا أن يشتكيَ شيء.
+     * والشرطُ انتقل من السكّة إلى وارثها بلا أن يلين (WS-TOOLS-LAYOUT).
      */
     const f = await stageAt(412, 915, { layout: 'single', rec: true });
-    expect(f.cs('.sh-toolrail').pointerEvents).toBe('none');
-    const toggle = f.win.getComputedStyle(f.doc.querySelector('.sh-rail-toggle'));
-    expect(toggle.pointerEvents).toBe('auto');
+    expect(f.cs('.sh-edge').pointerEvents).toBe('none');
+    const btn = f.win.getComputedStyle(f.doc.querySelector('.sh-edge .sh-qfont'));
+    expect(btn.pointerEvents).toBe('auto');
     f.close();
   });
 });
@@ -1196,87 +1289,109 @@ describe('WS-VPOLISH · أعلى أهدأ وجملةٌ أعلى', () => {
     }
   });
 
-  it('٣٧ · أدواتُ الجملة تحاذي الجملةَ لا زاويةَ المسرح', async () => {
+  it('٣٧ · أدواتُ الجملة في رأس المسرح الثابت لا في البطل المُمرَّر', async () => {
     /*
-     * ⚠️ **قِيس قبلُ: +٨٩px** — كانت `space-between` بحشوةٍ يمينيّةٍ ٥٢px
-     *    تُخلي مكانًا للسكّة، فتُدفَع الأزرارُ إلى الطرف.
+     * ⚠️ **قِيس قبلُ (WS-VPOLISH): +٨٩px** — كانت `space-between` بحشوةٍ
+     *    يمينيّةٍ ٥٢px تُخلي مكانًا للسكّة، فتُدفَع الأزرارُ إلى الطرف.
+     *    فوُسِّطت على الجملة، وكان ذلك صحيحًا **يومَ كانت في البطل**.
      *
-     * ⚠️ **والمحاذاةُ على الجملة لا على المسرح**: حشوةُ المسرح غيرُ
-     *    متماثلةٍ فمركزُ المحتوى ليس مركزَ الإطار. والمقصودُ أن تبدوَ
-     *    الأدواتُ أدواتِ الجملة — فالمرجعُ الجملةُ نفسُها.
+     * ⚠️ **وقد صار البطلُ يُمرَّر** (WS-HEROSCROLL). فشرطُك السادس:
+     *    «fixed compact top cluster tied to stage chrome, not hero
+     *    scroll». والمحاذاةُ على مركز الجملة لم تعد هي المطلوب — بل
+     *    **ألّا تكون داخلَ ما يُمرَّر أصلًا**. فالحارسُ يقيس النَّسَب:
+     *    الأزرارُ في رأس المسرح، ورأسُ المسرح ليس في البطل.
      */
     for (const [w, h] of [[412, 915], [1280, 800]]) {
       const f = await stageAt(w, h);
-      const text = f.rect('.sh-current-text');
-      const tools = f.rect('.sh-current-tools');
-      const delta = Math.round(tools.cx - text.cx);
+      const tools = f.doc.querySelector('.sh-current-tools');
+      const inTop = Boolean(tools.closest('.sh-stage-top'));
+      const inHero = Boolean(tools.closest('.sh-hero'));
+      const lbl = f.doc.querySelector('.sh-current-lbl');
+      const lblTop = Boolean(lbl.closest('.sh-stage-top'));
       f.close();
-      expect(`${w}: انحراف ${Math.abs(delta) <= 8}`).toBe(`${w}: انحراف true`);
+      expect(`${w}: رأسٌ ${inTop} بطلٌ ${inHero} شارةٌ ${lblTop}`)
+        .toBe(`${w}: رأسٌ true بطلٌ false شارةٌ true`);
     }
   });
 
-  it('٣٨ · السكّةُ في السكون عنقودٌ قصيرٌ لا عمودٌ بطول المسرح', async () => {
+  it('٣٨ · ولا عمودَ أدواتٍ بطول المسرح — ولا في السكون ولا بكلمةٍ ممسوكة', async () => {
     /*
-     * ⚠️ **قِيس قبلُ**: أزرارُ السكّة تمتدّ من ٩٤ إلى ٨٥٥ على ٤١٢×٩١٥ —
-     *    ٧٦١px أي ٩٢٪ من المسرح، لأداتين ومعاينةِ خطٍّ ومقبض.
+     * ⚠️ **قِيس قبلُ**: السكّةُ ٤٨×٨٢٥ على ٤١٢×٩١٥ و٥٨×٦٩٠ على اللوح —
+     *    أي عمودٌ بطول المسرح كلِّه قائمٌ دائمًا. وهو نصُّ شكواك.
      *
-     * ⚠️ **ويُقاس امتدادُ ما يُرسَم لا ارتفاعُ الحاوية**: الحاويةُ شفّافةٌ
-     *    بطول المسرح دائمًا (inset-block: 0) — فقياسُها يقيس صندوقًا لا
+     * ⚠️ **ويُقاس امتدادُ ما يُرسَم لا ارتفاعُ الحاوية** (درسُ WS-VPOLISH):
+     *    الحاويةُ كانت شفّافةً بطول المسرح، فقياسُها يقيس صندوقًا لا
      *    يراه أحد. المرئيُّ هو أوّلُ زرٍّ إلى آخرِ زرّ.
+     *
+     * ⚠️ **والشرطُ على الحالين معًا**: الرصُّ في السكون وحدَه كان يمرّ
+     *    على عمودِ الاثنتي عشرةَ أداةً — ولذلك صارت الأدواتُ في اللوح
+     *    لا على الحافّة، فلا يوجد عددٌ يُعيد العمود.
      */
     for (const [w, h] of [[412, 915], [1280, 800]]) {
-      const f = await stageAt(w, h);
-      const st = f.doc.querySelector('.sh-page.sh-right').getBoundingClientRect();
-      const btns = [...f.doc.querySelectorAll('.sh-toolrail button')]
-        .map((b) => b.getBoundingClientRect());
-      const span = Math.max(...btns.map((r) => r.bottom)) - Math.min(...btns.map((r) => r.top));
-      const share = Math.round((span / st.height) * 100);
-      f.close();
-      expect(`${w}: ${share}٪ ≤ ٣٥٪`).toBe(`${w}: ${share}٪ ${share <= 35 ? '≤' : '>'} ٣٥٪`);
+      for (const tools of [2, 12]) {
+        const f = await stageAt(w, h, { tools });
+        const st = f.doc.querySelector('.sh-page.sh-right').getBoundingClientRect();
+        const btns = [...f.doc.querySelectorAll('.sh-edge button, .sh-cc-tab')]
+          .map((b) => b.getBoundingClientRect());
+        const span = Math.max(...btns.map((r) => r.bottom)) - Math.min(...btns.map((r) => r.top));
+        const share = Math.round((span / st.height) * 100);
+        f.close();
+        expect(`${w}/${tools}: ${share}٪ ≤ ٣٥٪`)
+          .toBe(`${w}/${tools}: ${share}٪ ${share <= 35 ? '≤' : '>'} ٣٥٪`);
+      }
     }
   });
 
-  it('٣٩ · وبكلمةٍ ممسوكة تعود السكّةُ عمودًا داخلَ المسرح', async () => {
+  it('٣٩ · وأدواتُ الكلمة في رأس اللوح لا على حافّة المسرح', async () => {
     /*
-     * ⚠️ **الرصُّ للسكون وحدَه.** عمودُ الاثنتي عشرةَ أداةً لا يسعه
-     *    الرصُّ: قِيس أنّه يخرج من أعلى المسرح على اللوح (بدايتُه ١٨
-     *    والمسرحُ يبدأ ٦٠) إن بقي مرصوصًا فوق شريط النقل. فالحارسُ
-     *    يشترط أمرين معًا: أن يعود عمودًا طويلًا، وأن يبقى **داخل**
-     *    المسرح — وهو ما سقط حين رُصّ بلا شرط.
+     * ⚠️ **ولم تُحذَف أداةٌ — تغيّر أبوها** (WS-TOOLS-LAYOUT · بند ٥).
+     *    اثنتا عشرةَ أداةً بكلمةٍ ممسوكة، وكلُّها ما تزال تُرسَم. والفرقُ
+     *    أنّها صارت داخلَ اللوح الذي لا يُفتَح إلّا على كلمةٍ أو مقطع،
+     *    **وخارجَ جسمه** لأنّ الجسمَ يُهدَم بـinnerHTML مع كلّ رسم.
+     *
+     * ⚠️ **وصفٌّ يلتفّ لا عمود**: العمودُ كان يخرج من أعلى المسرح على
+     *    اللوح (بدايتُه ١٨ والمسرحُ يبدأ ٦٠) — فيُقاس أنّه صار أعرضَ
+     *    من أن يكون عمودًا، وأنّه داخلَ اللوح لا على حافّة الشاشة.
      */
     for (const [w, h] of [[412, 915], [1280, 800]]) {
       const f = await stageAt(w, h, { tools: 12 });
-      const st = f.doc.querySelector('.sh-page.sh-right').getBoundingClientRect();
-      const btns = [...f.doc.querySelectorAll('.sh-toolrail button')]
-        .map((b) => b.getBoundingClientRect());
-      const top = Math.min(...btns.map((r) => r.top));
-      const bottom = Math.max(...btns.map((r) => r.bottom));
-      const share = Math.round(((bottom - top) / st.height) * 100);
-      const inside = top >= st.top - 1 && bottom <= st.bottom + 1;
+      const row = f.doc.querySelector('.sh-rail-tools');
+      const inPanel = Boolean(row.closest('.sh-panel'));
+      const inBody = Boolean(row.closest('.sh-panel-body'));
+      const r = row.getBoundingClientRect();
+      const btns = [...row.querySelectorAll('button')].map((b) => b.getBoundingClientRect());
+      const perRow = btns.filter((b) => Math.abs(b.top - btns[0].top) < 2).length;
       f.close();
-      expect(`${w}: طويلٌ ${share >= 50} وداخلٌ ${inside}`).toBe(`${w}: طويلٌ true وداخلٌ true`);
+      expect(`${w}: لوحٌ ${inPanel} جسمٌ ${inBody} صفٌّ ${perRow >= 4} أعرضُ ${r.width > r.height}`)
+        .toBe(`${w}: لوحٌ true جسمٌ false صفٌّ true أعرضُ true`);
     }
   });
 
-  it('٤٠ · والميكروفونُ بعيدٌ عن المقبض في الحالين', async () => {
+  it('٤٠ · والميكروفونُ انزاح يمينًا ولا يلامس عنقودَ الحافّة', async () => {
     /*
-     * ⚠️ **إزاحةُ الميكروفون اليسرى ليست زينة**: كُتبت في
-     *    WS-FONT-TRANSPORT لتُبعده عن المقبض بعد أن لامسه بخمسة بكسلات.
-     *    فلمّا رُفع المقبضُ عن نطاق النقل رُفعت معه — **بنفس الشرط**.
-     *    وبغير هذا الشرط قِيس تراكبٌ أفقيٌّ −٥px ورأسيٌّ ٣٧ بكلمةٍ
-     *    ممسوكة: العطبُ نفسُه عائدًا.
+     * ⚠️ **إزاحتُه اليسرى ماتت بموت سببها** (WS-FONT-TRANSPORT): كانت
+     *    `margin-left` سالبًا مشتقًّا من عرض السكّة ليُبعده عن مقبضها
+     *    بعد أن لامسه بخمسة بكسلات. ولا سكّةَ ولا مقبض.
      *
-     * ⚠️ **والخلوصُ يكفي في أحد المحورين**: الزرّان قد يتجاوران أفقيًّا
-     *    ما داما في نطاقين رأسيّين مفترقين — وهو حالُ السكون بعد الرفع.
+     * ⚠️ **وبدلها دفعةٌ يمينًا كما طلبتَ** (بند ٩). قِيس على الجهاز:
+     *    التشغيل → الميكروفون ٩٠ ← **١٠٤** على ٤١٢×٩١٥، و١٠٢ ← ١١٦
+     *    على اللوح، و٨٢ ← ٩٦ على ٣٢٠×٧٢٠.
+     *
+     * ⚠️ **والعنقودُ في الجهة المقابلة** — فيُقاس الأمران معًا: إزاحةٌ
+     *    موجبةٌ فعلًا، وصفرُ تراكبٍ مع أيّ زرٍّ على الحافّة في الحالين.
      */
     for (const tools of [2, 12]) {
       const f = await stageAt(412, 915, { rec: true, tools });
-      const mic = f.doc.querySelector('.sh-rec-btn').getBoundingClientRect();
-      const handle = f.doc.querySelector('.sh-rail-toggle').getBoundingClientRect();
-      const dx = Math.max(mic.left, handle.left) < Math.min(mic.right, handle.right);
-      const dy = Math.max(mic.top, handle.top) < Math.min(mic.bottom, handle.bottom);
+      const mic = f.doc.querySelector('.sh-rec-btn');
+      const push = parseFloat(f.win.getComputedStyle(mic).marginLeft);
+      const m = mic.getBoundingClientRect();
+      const clash = [...f.doc.querySelectorAll('.sh-edge button, .sh-cc-tab')]
+        .map((b) => b.getBoundingClientRect())
+        .filter((r) => Math.max(m.left, r.left) < Math.min(m.right, r.right)
+                    && Math.max(m.top, r.top) < Math.min(m.bottom, r.bottom));
       f.close();
-      expect(`أدوات ${tools}: تراكب ${dx && dy}`).toBe(`أدوات ${tools}: تراكب false`);
+      expect(`أدوات ${tools}: يمينًا ${push > 0} تراكب ${clash.length}`)
+        .toBe(`أدوات ${tools}: يمينًا true تراكب 0`);
     }
   });
 });
@@ -1378,5 +1493,226 @@ describe('WS-HEROSCROLL · تمريرُ الجملة ووحدةُ الطباعة
     }
     f.close();
     expect(`خاصمون: ${blockers.join(',')}`).toBe('خاصمون: ');
+  });
+});
+
+/* ================================================================== *
+ * ط) WS-TOOLS-LAYOUT — رفعُ السكّة الطوليّة وتجميعُ الأدوات            *
+ * ================================================================== */
+describe('WS-TOOLS-LAYOUT · لا عمودَ دائمًا، ولا فعلَ ضاع', () => {
+  it('٤٥ · لا سكّةَ ولا مقبضَ ولا لافتةً رأسيّةً في الشاشة', async () => {
+    /*
+     * ⚠️ **شكواك بحرفها**: «أزله من هذا الشكل الحالي». وقِيس قبلُ على
+     *    ٤١٢×٩١٥: السكّةُ ٤٨×٨٢٥ — أي ٩٢٪ من طول المسرح لأداتين في
+     *    السكون. وعلى ١٢٨٠×٨٠٠: ٥٨×٦٩٠.
+     *
+     * ⚠️ **ويُقاس على الوسم وعلى الورقة معًا**: عنصرٌ يُحذَف وقواعدُه
+     *    تبقى تُقرأ كأنّها تصف الشاشة — وهو ما أعمى خطَّ النصّ الكامل
+     *    تمريرةً كاملة (WS-DRAFT-FONT). فلا يكفي أن يغيب من الشجرة.
+     */
+    const f = await stageAt(412, 915, { tools: 12 });
+    const n = (sel) => f.doc.querySelectorAll(sel).length;
+    expect(`${n('.sh-toolrail')}/${n('.sh-rail-toggle')}/${n('.sh-rail-ctx')}`).toBe('0/0/0');
+    f.close();
+    const src = await (await fetch('../js/views/shadow-view.js')).text();
+    const css = await (await fetch('../css/shadow.css')).text();
+    /* التعليقاتُ تُشطَب أوّلًا — القبرُ يذكر اسمَ صاحبه بحقّ. */
+    const bare = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/<!--[\s\S]*?-->/g, '');
+    for (const dead of ['sh-toolrail', 'sh-rail-toggle', 'sh-rail-ctx', '--sh-railw']) {
+      expect(`${dead} حيٌّ في الشيفرة: ${bare(src).includes(dead)}`).toBe(`${dead} حيٌّ في الشيفرة: false`);
+      expect(`${dead} حيٌّ في الورقة: ${bare(css).includes(dead)}`).toBe(`${dead} حيٌّ في الورقة: false`);
+    }
+  });
+
+  it('٤٦ · وحصّةُ العرض المحجوزةُ لها استُرِدّت — الحشوتان متساويتان', async () => {
+    /*
+     * ⚠️ **شرطُك**: «No permanent stage width/padding reserved for it.»
+     *    وقِيس قبلُ: ٤١٢×٩١٥ حشوة ٨/**١٦** وعرضُ قراءةٍ ٣٧٦،
+     *    و١٢٨٠×٨٠٠ حشوة ٣٤/**٥٤** وعرضٌ ٤١٤٫٥.
+     *    وبعدُ: ٨/٨ ← ٣٨٤، و٣٤/٣٤ ← ٤٣٤٫٥.
+     *
+     * ⚠️ **ومُنتقٍ أضيقُ يفوز صامتًا**: التجاوزُ العامُّ في آخر الورقة
+     *    كان صحيحًا ولم يصل، لأنّ قاعدةَ النموذج المفرد أضيق. والفرقُ
+     *    لا يظهر إلّا في القياس — لا في قراءة الورقة.
+     */
+    for (const [w, h, layout] of [[412, 915, 'single'], [320, 720, 'single'], [1280, 800, 'two']]) {
+      const f = await stageAt(w, h, { layout });
+      const cs = f.cs('.sh-page.sh-right');
+      const l = Math.round(parseFloat(cs.paddingLeft));
+      const r = Math.round(parseFloat(cs.paddingRight));
+      f.close();
+      expect(`${w}: ${l}/${r}`).toBe(`${w}: ${l}/${l}`);
+    }
+  });
+
+  it('٤٧ · وزرُّ التشغيل يبقى في وسط المسرح بعد الاسترداد', async () => {
+    /*
+     * ⚠️ **وهذا ما كانت الحشوةُ غيرُ المتماثلة تشتريه**: شريطُ النقل
+     *    يُزاح بفارق الحشوتين ليصير وسطُه وسطَ **المسرح** لا وسطَ صندوق
+     *    المحتوى. فلمّا تساوت الحشوتان صار الفارقُ صفرًا — ولو بقي
+     *    أحدُهما بلا الآخر لانزاح الزرُّ. رقمان لا يمكن أن يفترقا.
+     */
+    for (const [w, h, layout] of [[412, 915, 'single'], [320, 720, 'single'], [1280, 800, 'two']]) {
+      const f = await stageAt(w, h, { layout, rec: true });
+      const off = Math.abs(f.playOffset());
+      f.close();
+      expect(`${w}: انحراف ${off <= 1}`).toBe(`${w}: انحراف true`);
+    }
+  });
+
+  it('٤٨ · وصفٌّ لا ساكنَ فيه لا يحجز ارتفاعًا فوق الجملة', async () => {
+    /*
+     * ⚠️ **قِيس بعد النقل مباشرةً فكان أسوأ**: فوق النصّ الروسيّ
+     *    ١٢٧٫٦ ← **١٤١٫١** على ٤١٢×٩١٥. والسببان: رأسُ البطل بقي
+     *    يحجز ٢٦+٤ لشريطِ مقطعٍ مخفيّ، ورأسُ المسرح التفَّ سطرًا ثانيًا.
+     *    فعُولجا، وصار **١١٤٫٤** — أي أقلَّ من الأساس بـ١٣٫٢.
+     *
+     * ⚠️ **والشرطُ على ابنٍ غيرِ مخفيّ لا على صنفٍ ولا على حالة**: فمتى
+     *    ظهر الشريطُ عاد الصفُّ بارتفاعه من تلقائه.
+     */
+    const f = await stageAt(412, 915);
+    const top = f.doc.querySelector('.sh-hero-top');
+    expect(f.win.getComputedStyle(top).display).toBe('none');
+    const lbl = top.querySelector('.sh-phrase-lbl');
+    lbl.hidden = false;
+    lbl.textContent = 'при рабо́те';
+    await f.settle();
+    const back = f.win.getComputedStyle(top).display;
+    f.close();
+    expect(`يعود بساكنه: ${back !== 'none'}`).toBe('يعود بساكنه: true');
+  });
+
+  it('٤٩ · ورأسُ المسرح سطرٌ واحدٌ — العدُّ يتقلّص ولا يدفع', async () => {
+    /*
+     * ⚠️ **وجُرِّب سببٌ سببًا**: رفعُ `margin-inline-start: auto` عن حبّة
+     *    التكرار لم يغيّر شيئًا (٥٨٫٧)، وقلبُ الترتيب لم يغيّر (٦٠).
+     *    والذي غيّر: إخفاءُ كلمة الحال من العدّاد ← **٣٢**. فالفاعلُ
+     *    **عرضُ العدّاد الطبيعيّ** لا الترتيبُ ولا الهوامش.
+     *
+     * ⚠️ **ولم يُخفَ شيء**: العدّادُ صار قابلًا للتقلّص فيقتسم السطرَ
+     *    ولا يكسره — والحالُ ما تزال مكتوبةً كاملة.
+     */
+    for (const [w, h] of [[412, 915], [320, 720], [1280, 800]]) {
+      const f = await stageAt(w, h);
+      /*
+       * ⚠️ **والصفوفُ تُحسَب بتقاطع المدى الرأسيّ لا بقسمةِ `top`.**
+       *    قسمتُ أوّلًا على ستّة فقلتُ «صفّان» وهما صفٌّ واحد: الاصطفافُ
+       *    على خطّ القاعدة يجعل عدّادًا بـ١١px وزرًّا بـ٢٦ يبدآن من
+       *    ارتفاعين (٥٩ و٥٥) وهما على سطرٍ واحدٍ فعلًا. وهو الدرسُ
+       *    المكتوبُ بحرفه في حارس الذيل (١١)، ووقعتُ فيه ثانيةً.
+       */
+      const kids = [...f.doc.querySelectorAll('.sh-stage-top > *')]
+        .filter((e) => !e.classList.contains('sh-bar'))
+        .map((e) => e.getBoundingClientRect())
+        .filter((r) => r.height > 0)
+        .sort((a, c) => a.top - c.top);
+      const rows = [];
+      for (const r of kids) {
+        const last = rows[rows.length - 1];
+        if (last && Math.min(last.bottom, r.bottom) - Math.max(last.top, r.top) > 0) {
+          last.top = Math.min(last.top, r.top);
+          last.bottom = Math.max(last.bottom, r.bottom);
+        } else rows.push({ top: r.top, bottom: r.bottom });
+      }
+      const grow = f.cs('.sh-stage-top .sh-count').flexBasis;
+      f.close();
+      expect(`${w}: صفوف ${rows.length} · قاعُ العدّاد ${grow}`).toBe(`${w}: صفوف 1 · قاعُ العدّاد 0px`);
+    }
+  });
+
+  it('٥٠ · وعنقودُ الحافّة فوق لسان الضبط لا بجانبه', async () => {
+    /*
+     * ⚠️ **شرطُك الرابع**: «compact bottom-left cluster above Settings».
+     *    وبجانبه يصير صفًّا ثانيًا على الحافّة — وهو ما جاء البندُ
+     *    السادسُ في WS-POLISH ليمنعه («لا سكّةَ ثانية»).
+     *
+     * ⚠️ **وموضعُه مشتقٌّ من اللسان لا مُختارٌ بالنظر**: لو تغيّر رقمُ
+     *    اللسان غدًا تحرّك العنقودُ معه.
+     */
+    for (const [w, h] of [[412, 915], [1280, 800]]) {
+      const f = await stageAt(w, h);
+      /*
+       * ⚠️ **و`f.rect` لا تحمل محورًا رأسيًّا** — تعيد `l/r/w/cx` وحدَها
+       *    (كُتبت للتوسيط الأفقيّ). فقراءةُ `.bottom` منها تعطي
+       *    `undefined`، و`undefined <= رقم` تساوي false دائمًا: حارسٌ
+       *    يرسب على شاشةٍ سليمة. فيُقرأ المستطيلُ كاملًا من مصدره.
+       */
+      const e = f.doc.querySelector('.sh-edge').getBoundingClientRect();
+      const g = f.doc.querySelector('.sh-cc-tab').getBoundingClientRect();
+      const above = e.bottom <= g.top + 1;
+      const sameCol = Math.abs((e.left + e.right) / 2 - (g.left + g.right) / 2) <= 6;
+      f.close();
+      expect(`${w}: فوقه ${above} وعمودٌ واحد ${sameCol}`).toBe(`${w}: فوقه true وعمودٌ واحد true`);
+    }
+  });
+
+  it('٥١ · وأدواتُ السياق خارجَ جسم اللوح — فلا يهدمها إعادةُ بنائه', async () => {
+    /*
+     * ⚠️ **وهذا ليس ترتيبًا جماليًّا**: جسمُ اللوح يُكتَب بـinnerHTML مع
+     *    كلّ رسم (راجع `renderRail`)، فلو كان الصفُّ داخلَه لهُدم وأُعيد
+     *    بناؤه مع كلّ نقلةٍ ومع كلّ تبديلِ أداة — ولسقط معه موضعُ
+     *    تمرير اللوح الذي أُصلح في الطور الأوّل.
+     *
+     * ⚠️ **والمحاكاةُ هي الفحص**: يُكتَب في الجسم كما يفعل الراسم، ثمّ
+     *    يُسأل: أبقيَ الصفُّ؟
+     */
+    const f = await stageAt(412, 915, { tools: 12 });
+    const before = f.doc.querySelectorAll('.sh-rail-tools button').length;
+    f.doc.querySelector('.sh-panel-body').innerHTML = '<div>محتوًى جديد</div>';
+    await f.settle();
+    const after = f.doc.querySelectorAll('.sh-rail-tools button').length;
+    f.close();
+    expect(`${before} ← ${after}`).toBe(`${before} ← ${before}`);
+
+    /*
+     * ⚠️ **والفحصُ أعلاه وحدَه لا يحرس شيئًا — وقد أثبتَته طفرة.**
+     *    نقلتُ الصفَّ في `shadow-view.js` إلى داخل جسم اللوح فبقي
+     *    الحارسُ أخضرَ: لأنّه يقيس **إطارَ الاختبار** الذي أكتبه بيدي،
+     *    لا الوسمَ الذي يُشحَن. فالإطارُ يُظهر **لماذا** يُهدَم، والمصدرُ
+     *    يُسأل **أين هو فعلًا**.
+     */
+    const src = await (await fetch('../js/views/shadow-view.js')).text();
+    const aside = src.slice(src.indexOf('<aside class="sh-panel"'),
+      src.indexOf('</aside>', src.indexOf('<aside class="sh-panel"')));
+    const row = aside.indexOf('data-rail-tools');
+    const body = aside.indexOf('data-panel-body');
+    expect(`الصفُّ موجودٌ في اللوح: ${row >= 0}`).toBe('الصفُّ موجودٌ في اللوح: true');
+    expect(`قبل الجسم: ${row < body}`).toBe('قبل الجسم: true');
+    /* ولا يقع داخل وسم الجسم نفسِه — الجسمُ يُغلَق قبل أن يبدأ الصفّ. */
+    expect(/data-panel-body><\/div>/.test(aside.replace(/\s+/g, ''))).toBe(true);
+  });
+
+  it('٥٢ · وسجّلُ الغلط غادر سجلَّ الأدوات إلى مركز التدريب', async () => {
+    /*
+     * ⚠️ **شرطُك الثالث**. والسببُ أنّ سجلَّ الأدوات صار **سياقيًّا**:
+     *    يُرسَم في رأس لوحٍ لا يُفتَح إلّا على كلمةٍ أو مقطع. وسجّلُ
+     *    الغلط بلا شرط (لا when له) — فلو بقي لظهر فعلٌ عامٌّ في صفٍّ
+     *    خاصٍّ بما في يدك.
+     *
+     * ⚠️ **ولا نسخةَ منطقٍ ثانية**: زرُّ الدرج يُصدِر نفسَ data-sh وdata-v،
+     *    فيدخل `pickTool` ويصل إلى `openErrorCapture` بالحرف.
+     *
+     * ⚠️ **وقيمةُ `rail.tool` الابتدائيّةُ تبعته**: مُنتقٍ يشير إلى غائبٍ
+     *    هو الموتُ الصامتُ نفسُه — وقد وقع مرّتين باسمين (display ثمّ mistake).
+     */
+    const src = await (await fetch('../js/views/shadow-view.js')).text();
+    const reg = src.slice(src.indexOf('const TOOLS = ['), src.indexOf('\n];', src.indexOf('const TOOLS = [')));
+    expect(`في السجلّ: ${/\bid:\s*'mistake'/.test(reg)}`).toBe('في السجلّ: false');
+    expect(src).toContain('data-sh="tool" data-v="mistake"');
+    expect(`الافتراضُ غائب: ${/tool:\s*'mistake'/.test(src)}`).toBe('الافتراضُ غائب: false');
+    /* وفعلُه ما يزال موصولًا بمعالِجه الوحيد. */
+    expect(/id === 'mistake'[\s\S]{0,200}openErrorCapture\(\)/.test(src)).toBe(true);
+  });
+
+  it('٥٣ · ولا مُنتقٍ ميّتٌ في حارس الإغلاق بلمسةٍ خارج اللوح', async () => {
+    /*
+     * ⚠️ **والمُنتقي الميّتُ في حارسٍ أسوأُ من الميّت في نمط**: لا يُخطئ
+     *    بصوتٍ عالٍ، بل يُغلِق اللوحَ تحت إصبعك حين تلمس «تعلّم» أو
+     *    «Аа» وهو مفتوح. فالسكّةُ في القائمة استُبدلت بوارثها.
+     */
+    const src = await (await fetch('../js/views/shadow-view.js')).text();
+    expect(src).toContain("!event.target.closest('.sh-edge')");
+    expect(src).toContain("!event.target.closest('.sh-panel')");
+    expect(src).toContain("!event.target.closest('.sh-cc-tab')");
   });
 });
