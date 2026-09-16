@@ -3490,6 +3490,40 @@ body.shadow-open { overflow: hidden; }
   width: 44px; height: 44px; margin-inline-end: -12px; border: 0;
   background: none; color: var(--sh-faint); font-size: 13px; cursor: pointer;
 }
+/*
+ * ══════════════════════════════════════════════════════════════
+ * 📌 زرُّ تثبيت القراءة — واحدٌ بحالتين (WS-DFP)
+ * ══════════════════════════════════════════════════════════════
+ *
+ * ⚠️ **ولا هامشَ سالبًا له.** القاعدةُ فوق تسحب أزرارَ الرأس ١٢px
+ *    إلى الخارج ليعانق زرُّ الإغلاق الحافّة — وهي مكتوبةٌ لزرٍّ واحد.
+ *    فلمّا صار في الرأس زرّان، كان السالبُ يجعل هذا يركب على ذاك
+ *    فيسرق نصفَ لمساته. وهو الدرسُ نفسُه المكتوب فوق حبّة الأوضاع:
+ *    **العدوانُ يقع على الحافّة لا في المركز**.
+ *
+ * ⚠️ **وهدفُ اللمس ٤٤ كاملًا** كما كلُّ أزرار هذا التطبيق — والحبرُ
+ *    وحدَه هو ما يصغر حين يخفت.
+ */
+.sh-pin {
+  margin-inline-end: 0;
+  border-radius: 12px;
+  opacity: .55;
+  transition: opacity .18s ease, background-color .18s ease, box-shadow .18s ease;
+}
+.sh-pin:hover { opacity: .85; }
+/*
+ * ⚠️ **والحالةُ المثبَّتةُ تُقرَأ بلمحة**: ذهبٌ خافتٌ خلفَه وخيطٌ ذهبيٌّ
+ *    حولَه — من نفس عائلة «المختار» في حبّة الأوضاع، فلا لغةَ لونٍ
+ *    ثانية. ولا وميضَ ولا حركة: اللوحُ للقراءة.
+ */
+.sh-pin.on {
+  opacity: 1;
+  background: rgba(217, 182, 114, .16);
+  box-shadow: inset 0 0 0 1px rgba(255, 203, 110, .55);
+  color: #f2dcab;
+}
+.sh-pin[hidden] { display: none; }
+
 .sh-panel-rule { height: 1px; background: linear-gradient(90deg, transparent, rgba(217, 182, 114, .22), transparent); }
 .sh-panel-body { flex: 1; overflow-y: auto; padding: 6px 8px 16px; }
 

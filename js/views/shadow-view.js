@@ -1860,6 +1860,16 @@ function shell() {
               <aside class="sh-panel" data-panel-host>
                 <div class="sh-panel-head">
                   <span class="sh-mono" data-panel-title></span>
+                  <!--
+                    ⚠️ **زرٌّ واحدٌ بحالتين، ومكانُه رأسُ اللوح** (WS-DFP):
+                       خارجَ جسم اللوح فلا يُهدَم مع كلّ رسم، وفي الشريط
+                       القائم فلا شريطَ أدواتٍ جديد. ويُخفى حين تكون
+                       الأداةُ المفتوحةُ غيرَ «تعلّم» — فلا معنى لتثبيت
+                       قراءةٍ في لوحٍ بلا أهداف.
+                  -->
+                  <button class="sh-pin" data-sh="pin-draft" type="button" hidden
+                    aria-pressed="false" aria-label="ثبّت موضع القراءة"
+                    title="ثبّت موضع القراءة"><span aria-hidden="true">📌</span></button>
                   <button data-sh="rail-close" aria-label="اقفل">✕</button>
                 </div>
                 <!--
@@ -5108,6 +5118,13 @@ function renderRail() {
     body.scrollTop = panelKeep;
   }
 
+  /*
+   * ⚠️ **وزرُّ التثبيت يُرسَم هنا أيضًا لا في `renderLearn` وحدَها**:
+   *    تلك لا تُنادى إلّا على أداة «تعلّم»، فبتبديلِ الأداة أو إغلاق
+   *    اللوح كان الزرُّ يبقى معروضًا على لوحٍ لا أهدافَ فيه.
+   */
+  renderPin();
+
   /* ⚠️ محتوًى من القاعدة يأتي بعد القشرة — ولا يُنتظَر هنا، فالرسمُ
         متزامنٌ ولا يجوز أن تتأخّر السكّةُ كلُّها على قراءة. */
   if (rail.tool === 'learn') renderLearn().catch(() => {});
@@ -5800,6 +5817,43 @@ let activeTargetId = '';
 let panelKeep = 0;
 let revealedTargetId = '';
 
+/*
+ * ══════════════════════════════════════════════════════════════════
+ * 📌 تثبيتُ موضع القراءة — زرٌّ واحدٌ بحالتين (WS-DFP)
+ * ══════════════════════════════════════════════════════════════════
+ *
+ * بلاغُك: «عايز اللوح يتبع الجملة، وساعاتٍ عايزه يفضل مكانه وأنا
+ * بقرأ». وهما سلوكان لا ثالثَ لهما، فزرٌّ واحدٌ يكفي — لا مُنتقي أوضاع
+ * ولا زرَّان.
+ *
+ * ⚠️ **والتثبيتُ يوقف الكشفَ التلقائيّ وحدَه** — لا الرسمَ ولا تبدّلَ
+ *    الهدف ولا الإبراز ولا الصوت. واللوحُ يبقى قابلًا للتمرير باليد:
+ *    فلا `overflow: hidden` ولا منعَ لحدثِ عجلةٍ أو لمسة. «ثبِّت يدَك
+ *    على التمرير، لا رقمًا في `scrollTop`».
+ *
+ * ⚠️ **وحالةٌ جلسيّةٌ في الشاشة لا في القاعدة**: لا مخزنَ جديد ولا
+ *    إعدادَ دائم — التثبيتُ قرارُ لحظةِ قراءةٍ لا تفضيلٌ يُحفَظ. ويُعاد
+ *    إلى «يتبع» عند فتح لوحٍ لمسودّةٍ أخرى (أدناه)، فلا يُورَّث قرارُ
+ *    وثيقةٍ إلى غيرها.
+ */
+let pinned = false;
+
+/*
+ * تذكرةُ الكشف — تمنع كشفًا بائتًا من تحريك اللوح بعد أن تغيّر الحال.
+ *
+ * ⚠️ **رقمٌ لا رايةٌ منطقيّة** — الدرسُ نفسُه المكتوب في `speakScope`
+ *    وفي `speaker-adapter.js`: رايةٌ واحدةٌ يمحوها الطلبُ الثاني فيعود
+ *    الأوّلُ حيًّا. وهنا المعنى: كشفٌ طُلب قبل ضغطة 📌 لا يقع بعدها،
+ *    وكشفٌ لهدفٍ غادرتَه لا يسحب اللوحَ إليه.
+ */
+let revealTicket = 0;
+
+/** هدفٌ طُلب كشفُه ولم تكن بطاقتُه مرسومةً بعد — يُكشَف حين تصل. */
+let pendingReveal = '';
+
+/** آخرُ مسودّةٍ فُتح عليها اللوح — لتصفير التثبيت عند تبدّل الوثيقة. */
+let pinnedForDraft = '';
+
 /**
  * نسبُ المقطع الفعّال إلى مسودّته وهدفِه — **بمعرّفاتٍ ثابتة**.
  *
@@ -6120,28 +6174,117 @@ async function renderLearn() {
    */
   const panelBody = $('[data-panel-body]');
   if (panelBody) {
+    /*
+     * ⚠️ **والتثبيتُ يُصفَّر عند تبدّل الوثيقة لا عند تبدّل الهدف.**
+     *    قرارُك «ابقَ مكانك» يخصّ ما تقرأه الآن؛ ومسودّةٌ أخرى نصٌّ
+     *    آخرُ لم تقرأ منه شيئًا بعد، فالافتراضُ فيها «اتبع».
+     */
+    if (openDraftId && openDraftId !== pinnedForDraft) {
+      pinnedForDraft = openDraftId;
+      pinned = false;
+    }
     panelBody.scrollTop = panelKeep;
-    if (activeTargetId && activeTargetId !== revealedTargetId) {
-      const now = panelBody.querySelector('.sh-chunk.is-now');
-      if (now) {
-        /*
-         * ⚠️ **الإزاحةُ تُحسَب ولا تُفوَّض إلى `scrollIntoView`.** جرّبتُ
-         *    `block: 'nearest'` فبقي الهدفُ مقصوصًا بكسلٍ واحد: للّوح
-         *    حشوةٌ سفليّةٌ (١٦px) و`scrollIntoView` يحاذي صندوقَ الحشو
-         *    بينما العينُ (والحارس) تقيس صندوق الحدّ. والحسابُ صريحٌ
-         *    يعطي نفسَ «أقلّ حركةٍ تكشف» بلا هذا الالتباس.
-         */
-        const box = now.getBoundingClientRect();
-        const view = panelBody.getBoundingClientRect();
-        /* ⚠️ و`ceil`: المستطيلاتُ كسريّةٌ و`scrollTop` يُقرَّب، فبقي الهدفُ
-             مقصوصًا بكسلٍ واحدٍ حين طُرح الفرقُ كما هو. */
-        if (box.top < view.top) panelBody.scrollTop -= Math.ceil(view.top - box.top);
-        else if (box.bottom > view.bottom) panelBody.scrollTop += Math.ceil(box.bottom - view.bottom);
-      }
+    if (activeTargetId
+      && (activeTargetId !== revealedTargetId || pendingReveal === activeTargetId)) {
+      /*
+       * ⚠️ **والهدفُ يُسجَّل مكشوفًا ولو كان اللوحُ مثبَّتًا** — وإلّا
+       *    لَتراكمت كشوفٌ مؤجَّلة، فيقفز اللوحُ عند فكّ التثبيت إلى
+       *    أوّل هدفٍ مرّ لا إلى الجاري. وشرطُك: «لا يُعاد تشغيلُ كلّ
+       *    نقلةٍ وقعت أثناء التثبيت — الجاري وحدَه هو المهمّ».
+       */
       revealedTargetId = activeTargetId;
-      panelKeep = panelBody.scrollTop;
+      if (!pinned) revealNow(panelBody);
+      else panelKeep = panelBody.scrollTop;
     }
   }
+  renderPin();
+}
+
+/**
+ * يكشف الهدفَ الجاري بأقلّ حركةٍ تكفي — وهو قلبُ «الاتباع».
+ *
+ * ⚠️ **الإزاحةُ تُحسَب ولا تُفوَّض إلى `scrollIntoView`.** جرّبتُ
+ *    `block: 'nearest'` فبقي الهدفُ مقصوصًا بكسلٍ واحد: للّوح حشوةٌ
+ *    سفليّةٌ (١٦px) و`scrollIntoView` يحاذي صندوقَ الحشو بينما العينُ
+ *    (والحارس) تقيس صندوق الحدّ. والحسابُ صريحٌ يعطي نفسَ «أقلّ حركةٍ
+ *    تكشف» بلا هذا الالتباس.
+ *
+ * ⚠️ **ولا يُقفَز إلى أوّل الوثيقة حين لا تُوجَد بطاقة.** بطاقةٌ غائبةٌ
+ *    تعني هدفًا لم يُرسَم بعد — لا تعني «ابدأ من أوّله». فيُترَك موضعُ
+ *    قراءتك كما هو، وتُسجَّل الهُويّةُ في `pendingReveal` ليُكشَف حين
+ *    يصل رسمُها. وهو شرطُك: «لا يُستبدَل بأوّل الوثيقة هدفٌ مجهول».
+ */
+function revealNow(panelBody) {
+  const body = panelBody || $('[data-panel-body]');
+  if (!body || !activeTargetId) return;
+  const mine = (revealTicket += 1);
+  /*
+   * ⚠️ **ويُلتقَط بصنف «الجاري» لا بمُنتقٍ يُبنى من معرّف.** أوّلُ
+   *    كتابةٍ بنت مُنتقيًا نصّيًّا ومعه دالّةُ هروب، وفيها تعبيرٌ
+   *    نمطيٌّ يحوي علامةَ اقتباس — فخلط ذلك **قارئَ المصدر في
+   *    الاختبارات**: يرى الاقتباسَ فيظنّه نصًّا، فيبتلع نهاياتِ
+   *    تعليقاتٍ بعده، فسقطت خمسةُ حرّاسٍ لا علاقةَ لها بالتمرير
+   *    (وضعُ التدريب، والصوت، والخطّ، واسمُ الصفحة). والصنفُ
+   *    `is-now` تكتبه `chunkCardHtml` من `activeTargetId` نفسِه،
+   *    فهو الهُويّةُ ذاتُها بلا بناءِ نصّ — ويُتحقَّق منه صراحةً أدناه.
+   */
+  const now = body.querySelector('.sh-chunk.is-now');
+  if (!now || now.dataset.target !== activeTargetId) {
+    /* لا بطاقةَ بعد — يُحفَظ الطلبُ ولا يُمَسّ موضعُ القراءة. */
+    pendingReveal = activeTargetId;
+    return;
+  }
+  pendingReveal = '';
+  const box = now.getBoundingClientRect();
+  const view = body.getBoundingClientRect();
+  /* ⚠️ و`ceil`: المستطيلاتُ كسريّةٌ و`scrollTop` يُقرَّب، فبقي الهدفُ
+       مقصوصًا بكسلٍ واحدٍ حين طُرح الفرقُ كما هو. */
+  if (box.top < view.top) body.scrollTop -= Math.ceil(view.top - box.top);
+  else if (box.bottom > view.bottom) {
+    /*
+     * ⚠️ **وبطاقةٌ أطولُ من النافذة تُحاذَى من رأسها لا من ذيلها.**
+     *    محاذاةُ الذيل تدفع أوّلَ سطرٍ فيها خارجَ الرؤية — فتقع عينُك
+     *    في منتصف شرحٍ لم تقرأ مطلعَه. والقراءةُ تبدأ من أوّله.
+     */
+    if (box.height > view.height) body.scrollTop -= Math.ceil(view.top - box.top);
+    else body.scrollTop += Math.ceil(box.bottom - view.bottom);
+  }
+  /* ⚠️ والحدُّ: لا موضعَ سالبٌ ولا يتجاوز المدى — وإلّا قصّه المتصفّحُ بلا خبر. */
+  body.scrollTop = Math.max(0, Math.min(body.scrollTop, body.scrollHeight - body.clientHeight));
+  if (mine === revealTicket) panelKeep = body.scrollTop;
+}
+
+
+/**
+ * يرسم زرَّ التثبيت في رأس اللوح — زرٌّ واحدٌ بحالتين.
+ *
+ * ⚠️ **والاسمُ المقروءُ يصف الفعلَ التالي لا الحالةَ الراهنة** — وهو
+ *    عرفُ هذا التطبيق في كلّ زرٍّ قالب (راجع «اسمع/أوقف»). و`aria-pressed`
+ *    تحمل الحالةَ نفسَها، فلا لبس.
+ */
+function renderPin() {
+  const btn = $('[data-sh="pin-draft"]');
+  if (!btn) return;
+  btn.hidden = !(rail.open && rail.tool === 'learn');
+  btn.classList.toggle('on', pinned);
+  btn.setAttribute('aria-pressed', pinned ? 'true' : 'false');
+  btn.setAttribute('aria-label', pinned ? 'ارجع لمتابعة الجملة' : 'ثبّت موضع القراءة');
+  btn.setAttribute('title', pinned ? 'ارجع لمتابعة الجملة' : 'ثبّت موضع القراءة');
+}
+
+/**
+ * يقلب التثبيت — وفكُّه يكشف **الهدفَ الجاري** لا الذي كان وقتَ التثبيت.
+ *
+ * ⚠️ **ويُقرأ الهدفُ من مصدره لحظتَها** (`activeTargetId` الذي تكتبه
+ *    `renderLearn` من نسب المقطع) — فلا حالةَ هدفٍ ثانيةٌ تُنشأ هنا،
+ *    ولا يُعاد تشغيلُ نقلاتٍ مضت.
+ */
+function togglePin() {
+  pinned = !pinned;
+  /* ⚠️ وكشفٌ معلَّقٌ بدأ قبل الضغطة لا يقع بعدها: التذكرةُ تتقدّم. */
+  revealTicket += 1;
+  renderPin();
+  if (!pinned) revealNow();
 }
 
 /**
@@ -11560,6 +11703,14 @@ function wireInteractions(main) {
       case 'rail-close':
         rail.open = false;
         return renderRail();
+
+      /*
+       * ⚠️ **ولا يُعاد رسمُ اللوح هنا**: التثبيتُ لا يغيّر محتوًى ولا
+       *    هدفًا — يغيّر مَن يملك التمرير. وإعادةُ الرسم كانت ستهدم
+       *    جسمَ اللوح وتُعيد بناءه بلا سبب، وتلك أغلى من قلبِ راية.
+       */
+      case 'pin-draft':
+        return togglePin();
 
       case 'tool':
         return pickTool(btn.dataset.v);
