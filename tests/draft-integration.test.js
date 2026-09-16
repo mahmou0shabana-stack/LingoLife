@@ -26,7 +26,7 @@
 import { describe, it, expect } from './test-runner.js';
 import { parseDraftV2, isDraftV2, CHAIN_PARENT } from '../js/services/shadow/draft-v2.js';
 import {
-  ROLE, isSpeechRole, isPracticeRole, RECALL_ROLES, PRACTICE_ROLES, SPEECH_ROLES,
+  ROLE, isSpeechRole, isPracticeRole, RECALL_ROLES, PRACTICE_ROLES, SPEECH_ROLES, ROOT_ROLES,
   reconcileTargets,
 } from '../js/services/shadow/draft-targets.js';
 import {
@@ -144,11 +144,29 @@ describe('WS-DI · الجذرُ والإحساس سقالةٌ تُعرَض ول�
     expect(one.ar).toBe('وإحنا بنشتغل على التوثيق الفني');
   });
 
-  it('٣ · ولا يصيران هدفَي نُطقٍ ولا يضخّمان عدَّ القلوب', async () => {
+  it('٣ · القالبُ لا يُنطَق، والعائلةُ تُنطَق ولا تُعَدُّ قلبًا', async () => {
+    /*
+     * ⚠️ **أُعيد توجيهُ هذا الحارس في WS-DRAFT-CONTENT — لا أُسكِت.**
+     *
+     *    كان يشترط ألّا يكون «الجذر والعيلة» هدفًا أصلًا، وكان ذلك
+     *    صحيحًا يومَ كُتب: القرارُ المكتوبُ في `draft-v2.js` أنّ العائلة
+     *    «سقالةٌ لا هدف» خوفًا من تضخيم عدّ القلوب.
+     *
+     *    وطلبتَ صراحةً أن تصير قابلةً للنُّطق: «موجودة في المسودّة ومش
+     *    بقدر أتدرّب على نطقها». فالقرارُ تبدّل — والخوفُ الذي وُلد منه
+     *    الحارسُ **ما زال محروسًا**، لكن في محلّه الصحيح: لا في منع
+     *    الهدف، بل في منع دخوله `SPEECH_ROLES`.
+     *
+     *    فالمحروسُ الآن ثلاثة: العائلةُ هدفٌ · ودورُها ليس قلبًا ·
+     *    وعددُ القلوب لم يتحرّك. والقالبُ (`при + предложный`) يبقى
+     *    خارجًا — صيغةٌ نحويّةٌ لا جملةٌ تُقال، ولم يطلب أحدٌ نُطقَها.
+     */
     const rus = read().targets.map((one) => one.ru);
-    expect(rus.includes('рабо́та · рабо́чий · обраба́тывать')).toBe(false);
+    expect(rus.includes('рабо́та · рабо́чий · обраба́тывать')).toBe(true);
     expect(rus.includes('при + предложный')).toBe(false);
     expect(pick(ROLE.MICRO_CORE)).toHaveLength(2);
+    const fam = read().targets.filter((one) => one.ru === 'рабо́та · рабо́чий · обраба́тывать');
+    expect(fam.every((one) => one.role === ROLE.ROOT_FAMILY)).toBe(true);
   });
 
   it('٤ · وترجمةُ الجملة الأساسيّة تُقرأ كذلك', async () => {
@@ -251,9 +269,16 @@ describe('WS-DI · أسئلةُ الاسترجاع تُنطَق ولا تُعَ�
      *    يعدّ ما يدخل الشادوينج — وهما رقمان لا رقم.
      */
     const model = learnModelSync({ text: V3 });
+    /*
+     * ⚠️ **وهذا هو بيتُ القصيد بعد WS-DRAFT-CONTENT**: `speech` لم يتحرّك
+     *    (٥ كما كان) رغم دخول عائلات الجذر التدريبَ — لأنّها ليست قلبًا.
+     *    و`units` وحدَه هو الذي زاد، وهو المقصود: عددُ ما يدخل الشادوينج.
+     *    فالرقمان ما زالا رقمين — وهو شرطُ المالك بحرفه.
+     */
     expect(model.counts.speech).toBe(5);
     expect(model.counts.recall).toBe(7);
-    expect(model.counts.units).toBe(12);
+    expect(model.counts.units).toBe(12 + (model.counts.byRole[ROLE.ROOT_FAMILY] || 0));
+    expect((model.counts.byRole[ROLE.ROOT_FAMILY] || 0) > 0).toBe(true);
     expect(model.counts.byRole[ROLE.MICRO_CORE]).toBe(2);
 
     const sum = sentenceSummary(model);
@@ -271,7 +296,10 @@ describe('WS-DI · أسئلةُ الاسترجاع تُنطَق ولا تُعَ�
     expect(able.some((one) => one.role === ROLE.EXAMPLE)).toBe(false);
     /* والأدوارُ الدلاليّةُ بابُها الخاصّ — فلا يُخلَط العدّان في الكود. */
     expect(coreTargets(model.targets).every((one) => isSpeechRole(one.role))).toBe(true);
-    expect(PRACTICE_ROLES.size).toBe(SPEECH_ROLES.size + RECALL_ROLES.size);
+    /* ⚠️ ومجموعةٌ ثالثةٌ صارت في التدريب (عائلةُ الجذر) — والجمعُ يقولها
+         صراحةً حتّى لا يُضاف دورٌ رابعٌ يومًا بلا أن ينتبه أحد. */
+    expect(PRACTICE_ROLES.size)
+      .toBe(SPEECH_ROLES.size + RECALL_ROLES.size + ROOT_ROLES.size);
   });
 
   it('١٤ · والعربيُّ سندٌ بصريٌّ لا يدخل نُطقَ الروسيّ', async () => {
