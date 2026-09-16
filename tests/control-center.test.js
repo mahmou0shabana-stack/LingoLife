@@ -221,15 +221,27 @@ describe('WS-SCLEAN · مصدرٌ واحدٌ للحقيقة', () => {
      * ⚠️ كان `mode-set` (لوحةُ السكّة) و`mode-go` (مفتاحُ المسرح)
      *    بابَين لنفس الإعداد **بخياراتٍ مختلفة** — واللوحةُ تعرض
      *    «متّصل» ولا يعرفه المفتاح، فيُضيء المفتاحُ «جملة» وأنت في
-     *    المتّصل. فبقي المفتاحُ وحدَه وفيه الأوضاعُ الأربعة.
+     *    المتّصل. فبقي المفتاحُ وحدَه.
+     *
+     * ⚠️ **وصارت ثلاثةً في WS-FINAL-VISUAL — والنقصُ هو الإصلاح.**
+     *    وهذا نقضٌ لقراري في WS-SCLEAN، فيُكتَب صراحةً: جرّدتُ المحرّكَ
+     *    قبل أن أرفعه، بشاهدٍ موجَبٍ وآخرَ سالب، فكان «متّصل» و«جملة»
+     *    **متطابقين حرفًا بحرف** في المنطوق والأحداث والفهرس — بينما
+     *    وضعُ الكلمة يفترق عنهما (فالمسبارُ يرى الفرقَ حين يوجد).
+     *    و`PRACTICE_MODE.CONTINUOUS` لا تُقرأ في المحرّك ولا مرّةً واحدة.
+     *
+     *    فالذي رُفع لم يكن ميزةً بل رابعَ خيارٍ يقول ما لا يفعل — وهو
+     *    العيبُ الذي جاء هذا الحارسُ نفسُه ليمنعه.
      */
     const text = await code();
     expect(text.includes("case 'mode-set'")).toBe(false);
     const start = text.indexOf('const MODES = [');
     const registry = text.slice(start, text.indexOf('\n];', start));
-    for (const id of ['sentence', 'phrase', 'word', 'continuous']) {
+    for (const id of ['sentence', 'phrase', 'word']) {
       expect(`${id}:${registry.includes(`id: '${id}'`)}`).toBe(`${id}:true`);
     }
+    const bare = registry.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(`continuous:${bare.includes("id: 'continuous'")}`).toBe('continuous:false');
     /* والكاتبُ الوحيدُ `setPractice`. */
     const writes = text.match(/player\.updateSettings\(\{ practiceMode/g) || [];
     expect(writes).toHaveLength(1);

@@ -69,6 +69,40 @@ export function normalizeAudioSource(value) {
   return Object.values(AUDIO_SOURCE).includes(value) ? value : AUDIO_SOURCE.MINE;
 }
 
+/**
+ * ══════════ «متّصل» يُقرأ فيعود «جملة» (WS-FINAL-VISUAL · بند ٢) ══════════
+ *
+ * ⚠️ **وهذا ليس حذفَ ميزة — لأنّه لم يكن ميزةً قطّ.** قبل أن يُرفَع من
+ *    المفتاح جُرِّد المحرّكُ نفسُه بشاهدٍ موجَبٍ وآخرَ سالب:
+ *
+ *      وضعٌ      المنطوقُ في ١٫٨ ثانية                    الفهرس  الأحداث
+ *      جملة     ١، ١، ٢                                 ١      seek#1
+ *      متّصل     ١، ١، ٢  ← **الحرفُ نفسُه**              ١      seek#1
+ *      كلمة     يختلف، ويقف عند الفهرس ٠                 ٠      word-select
+ *
+ *    الشاهدُ الموجَبُ (وضعُ الكلمة) يُثبت أنّ المسبارَ **يستطيع** أن يرى
+ *    فرقًا حين يوجد — ثمّ يشهد بأن لا فرقَ بين «متّصل» و«جملة» أصلًا.
+ *    وقراءةُ المصدر تؤكّده: `practiceMode === CONTINUOUS` **لا تُقرأ في
+ *    المحرّك ولا مرّةً واحدة**. المحرّكُ يفرّق بين `WORD` و`MY_ROLE` وما
+ *    عداهما سواء.
+ *
+ * ⚠️ **والذي يمشي على الجمل بلا تكرارٍ حقلٌ آخر**: `repeatMode` في مركز
+ *    التدريب (سطر «بعد ما يخلّص العدد» → مستمرّ). فهو قائمٌ ولم يُمَسّ،
+ *    والقدرةُ التي كان الاسمُ يَعِد بها لم تكن تحته بل تحته اسمٌ آخر.
+ *
+ * ⚠️ **ولا تُرمى `MY_ROLE`**: ليست على المفتاح لكنّها مقروءةٌ في المحرّك
+ *    (`isMyTurn`) ويكتبها زرٌّ في شاشة المحادثة. فالتطبيعُ يطوي
+ *    **المهجورَ وحدَه**، ولا يمسّ ما يعمل.
+ *
+ * ⚠️ **وهو المسلكُ نفسُه الذي سلكه `normalizeAudioSource`** حين صار
+ *    `human` يعني `mine`: تُقرأ القيمةُ القديمةُ فتُعاد جديدةً، بلا
+ *    ترقيةِ بياناتٍ ولا لمسِ سجلّ. جلستُك المحفوظةُ تُفتَح وتعمل.
+ */
+export function normalizePracticeMode(value) {
+  if (value === 'continuous') return PRACTICE_MODE.SENTENCE;
+  return Object.values(PRACTICE_MODE).includes(value) ? value : PRACTICE_MODE.SENTENCE;
+}
+
 /** حدود الفاصل بالملّي ثانية — للإدخال الحرّ. */
 export const INTERVAL_MIN_MS = 0;
 export const INTERVAL_MAX_MS = 10000;
@@ -142,7 +176,12 @@ export function createPlaybackController({
     intervalUnit: settings.intervalUnit ?? 's',
     intervalSteps: settings.intervalSteps ?? 2,
     intervalMsValue: settings.intervalMsValue ?? null,
-    practiceMode: settings.practiceMode ?? PRACTICE_MODE.SENTENCE,
+    /*
+     * ⚠️ **ويُطبَّع هنا لا في الشاشة** — فالمحرّكُ بابُ كلّ داخل: الجلسةُ
+     *    المحفوظةُ والاختبارُ والشاشةُ يمرّون منه. ولو طُبِّع في الشاشة
+     *    وحدَها بقي لكلّ مستدعٍ آخرَ بابٌ يدخل منه القديمُ بلا حارس.
+     */
+    practiceMode: normalizePracticeMode(settings.practiceMode),
     autoAdvance: settings.autoAdvance ?? true,
     volume: settings.volume ?? 1,
     /**
@@ -813,6 +852,15 @@ export function createPlaybackController({
     /** يعدّل الإعدادات أثناء التشغيل بلا إعادة تشغيل الجلسة. */
     updateSettings(changes) {
       config = { ...config, ...changes };
+      /*
+       * ⚠️ **ويُطبَّع هنا أيضًا وإلّا دخل القديمُ من الباب الخلفيّ**:
+       *    البناءُ ليس المدخلَ الوحيد — الشاشةُ تكتب الإعداداتِ حيّةً،
+       *    فلو مرّ «متّصل» من هنا لعاد إلى الحالة بعد أن طُرد من البناء.
+       *    وهو نفسُ العطب الذي يُكرّره كلُّ تطبيعٍ يُكتَب في مكانٍ واحد.
+       */
+      if ('practiceMode' in changes) {
+        config.practiceMode = normalizePracticeMode(changes.practiceMode);
+      }
       emit('settings', { settings: { ...config } });
     },
 

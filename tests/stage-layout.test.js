@@ -498,12 +498,30 @@ describe('WS-ST · الشاشةُ للغة', () => {
  * ب) الطباعة والقراءة                                                 *
  * ================================================================== */
 describe('WS-ST · الكلمةُ تُقرأ والجملةُ تهيمن', () => {
-  it('٥ · الكلمةُ المقسَّمةُ ١٧px فأكثر', async () => {
-    /* بند ٧: كانت ١٣ — أصغرَ من متن الصفحة اليسرى. */
+  it('٥ · الكلمةُ المقسَّمةُ فوق متن الصفحة اليسرى', async () => {
+    /*
+     * بند ٧: كانت ١٣ — أصغرَ من متن الصفحة اليسرى. فرُفعت إلى ١٧.
+     *
+     * ⚠️ **والقاعُ نزل إلى ١٦ بطلبك** (WS-FINAL-VISUAL · بند ١): «reduce
+     *    Russian text size slightly, approximately 5–8%». و١٦ من ١٧ هي
+     *    ‎−٥٫٩٪ — داخلَ مداك.
+     *
+     * ⚠️ **ولا يُشطَب الحارسُ لأنّ رقمَه تبدّل.** ما كان يحرسه ليس الرقمَ
+     *    بل **الترتيب**: ألّا تصير الكلمةُ المفردةُ أصغرَ من سطرٍ في
+     *    الصفحة اليسرى (١٥٫٤) — وهو المكتوبُ في سببه يومَ رُفعت. فالقاعُ
+     *    يصير ذلك المتنَ نفسَه، مقروءًا من الشاشة لا مكتوبًا رقمًا.
+     *
+     * ⚠️ **والسقفُ ١٨٫٨ لا ١٧** — وقد كتبتُ ١٧ أوّلًا فسقط الحارسُ على
+     *    شاشةٍ سليمة. القاعدةُ العريضةُ `clamp` سقفُها ٢٠px منذ WS-BG،
+     *    و٢٠ × ‎.94 = ١٨٫٨ بالضبط. فالمدى هو المدى القديمُ مضروبًا في
+     *    نسبةِ الخفض — لا رقمان اختُرعا.
+     */
     for (const [w, h] of [[412, 915], [1280, 800]]) {
       const f = await stageAt(w, h);
-      expect(parseFloat(f.cs('.sh-chip-w').fontSize) >= 17).toBe(true);
+      const chip = parseFloat(f.cs('.sh-chip-w').fontSize);
       f.close();
+      expect(`${w}: ${chip} في المدى`)
+        .toBe(`${w}: ${chip} ${chip >= 15.5 && chip <= 18.8 ? 'في' : 'خارج'} المدى`);
     }
   });
 
@@ -1714,5 +1732,258 @@ describe('WS-TOOLS-LAYOUT · لا عمودَ دائمًا، ولا فعلَ ضا
     expect(src).toContain("!event.target.closest('.sh-edge')");
     expect(src).toContain("!event.target.closest('.sh-panel')");
     expect(src).toContain("!event.target.closest('.sh-cc-tab')");
+  });
+});
+
+/* ================================================================== *
+ * ي) WS-FINAL-VISUAL — زجاجُ الرقائق ومفتاحُ ثلاثةِ أوضاع              *
+ * ================================================================== */
+describe('WS-FINAL-VISUAL · صناديقُ زجاجٍ لا أزرارٌ زرقاء', () => {
+  it('٥٤ · حشوةُ الرقاقة تشفّ، وحدُّها يظهر — والرقمان معًا', async () => {
+    /*
+     * ⚠️ **شكواك**: «solid blue buttons» بدل «transparent glass boxes».
+     *    وقِيس قبلُ على ٤١٢×٩١٥: حشوةُ الصندوق ‎.42 ← .26، وحدُّه تدرّجٌ
+     *    بأربع محطّاتٍ **يهبط إلى ‎.18 في وسطه** — أي أنّ نصفَ محيط
+     *    الصندوق غيرُ مرسوم. فيبدو لطخةً زرقاءَ لا صندوقًا له حافّة.
+     *
+     * ⚠️ **والشرطان يُقاسان معًا لا فرادى**: لو حُرست الشفافيّةُ وحدَها
+     *    لجاز أن يشفّ الحدُّ معها فيختفي الصندوق؛ ولو حُرس الحدُّ وحدَه
+     *    لجازت حشوةٌ معتمة. فالمحروسُ: حشوةٌ **دون** ‎.22 وحدٌّ **فوق**
+     *    ‎.40 في أخفتِ محطّاته.
+     *
+     * ⚠️ **والطبقتان تُفصَلان في القياس**: هما سلسلةٌ واحدةٌ في
+     *    `background-image` (padding-box ثمّ border-box)، وقياسُ أكبرِ
+     *    ألفا فيهما معًا يخلط ما يجب أن يشفّ بما يجب أن يظهر.
+     */
+    const alphas = (part) => [...String(part)
+      .matchAll(/rgba?\([^)]*?,\s*([\d.]+)\s*\)/g)].map((m) => Number(m[1]));
+    for (const [w, h] of [[412, 915], [1280, 800]]) {
+      const f = await stageAt(w, h);
+      const bg = String(f.cs('.sh-chip').backgroundImage);
+      const parts = bg.split('), linear-gradient');
+      const fill = alphas(parts[0]);
+      const edge = alphas(parts[1] || '');
+      f.close();
+      expect(`${w}: طبقتان ${parts.length === 2}`).toBe(`${w}: طبقتان true`);
+      const fillMax = Math.max(...fill);
+      const edgeMin = Math.min(...edge);
+      expect(`${w}: حشوةٌ ${fillMax} تشفّ`)
+        .toBe(`${w}: حشوةٌ ${fillMax} ${fillMax <= 0.22 ? 'تشفّ' : 'تُعتِم'}`);
+      expect(`${w}: حدٌّ ${edgeMin} ظاهر`)
+        .toBe(`${w}: حدٌّ ${edgeMin} ${edgeMin >= 0.40 ? 'ظاهر' : 'غائب'}`);
+    }
+  });
+
+  it('٥٥ · ولا وهجَ خارجيًّا حول الرقاقة الساكنة', async () => {
+    /*
+     * ⚠️ **الوهجُ هو ما يجعل الصندوقَ يبدو مضيئًا من داخله** بدل أن
+     *    يبدو زجاجًا يمرّ منه الضوء. كان ‎0 0 10px rgba(110,205,240,.10)
+     *    خارجيًّا، ولمعةً داخليّةً ‎.20.
+     *
+     * ⚠️ **والداخليّةُ تبقى** — هي التي تقول «هذا سطحٌ لا فتحة». فالمحروسُ
+     *    ألّا يعود ظلٌّ **خارجيّ** (بلا `inset`) على الساكنة.
+     */
+    const f = await stageAt(412, 915);
+    const shadow = String(f.cs('.sh-chip').boxShadow);
+    f.close();
+    const outer = shadow.split(/,(?![^(]*\))/)
+      .map((one) => one.trim())
+      .filter((one) => one && one !== 'none' && !one.includes('inset'));
+    expect(`ظلٌّ خارجيّ: ${outer.join(' | ') || 'لا شيء'}`).toBe('ظلٌّ خارجيّ: لا شيء');
+  });
+
+  it('٥٦ · والحاليّةُ تبقى متميّزةً — الشفافيّةُ لا تبتلع الحال', async () => {
+    /*
+     * ⚠️ **وهذا شرطُك الصريح**: «Preserve the active/speaking visual state».
+     *    ولو خفّت معها لَضاع أهمُّ خبرٍ في النطاق: أيُّ كلمةٍ تُنطَق الآن.
+     *    وقِيس: ألفا الحاليّة ‎.92 لم تتغيّر، والساكنةُ ‎.58 ← ‎.16 حشوةً.
+     *
+     * ⚠️ **و`getComputedStyle` كائنٌ حيٌّ لا لقطة** — تُنسَخ القيمةُ نصًّا
+     *    قبل تبديل الصنف، وإلّا قُرئت قيمُ الحاليّة باسم الساكنة. (وقد
+     *    وقع ذلك في أوّل مسبار: عاد ‎.92 للساكنة ووهجٌ ذهبيّ.)
+     */
+    const f = await stageAt(412, 915);
+    const chip = f.doc.querySelector('.sh-chip');
+    const rest = String(f.win.getComputedStyle(chip).backgroundImage);
+    chip.classList.add('speaking');
+    await f.settle();
+    const live = String(f.win.getComputedStyle(chip).backgroundImage);
+    const glow = String(f.win.getComputedStyle(chip).boxShadow);
+    chip.classList.remove('speaking');
+    f.close();
+    const max = (s) => Math.max(...[...s.matchAll(/rgba?\([^)]*?,\s*([\d.]+)\s*\)/g)]
+      .map((m) => Number(m[1])), 0);
+    const gap = +(max(live) - max(rest)).toFixed(2);
+    expect(`الفارق ${gap} كافٍ`).toBe(`الفارق ${gap} ${gap >= 0.25 ? 'كافٍ' : 'ضائع'}`);
+    expect(`وهجُ الحاليّة: ${max(glow) >= 0.3}`).toBe('وهجُ الحاليّة: true');
+  });
+
+  it('٥٧ · والعاجُ والذهبُ كما هما — الشفافيّةُ لا تمسّ الحبر', async () => {
+    /*
+     * ⚠️ شرطُك: «Preserve ivory Russian text and gold stress accents».
+     *    وهما لونان مكتوبان في جِلد الكون (`#f4f0e6` و`#ffc44e`)، ولم
+     *    تُمَسّ قاعدتاهما — والحارسُ يُثبّتهما كي لا يُجرَّا مع الشفافيّة
+     *    في تمريرةٍ قادمة.
+     */
+    const f = await stageAt(412, 915);
+    const word = f.cs('.sh-chip-w').color;
+    const st = f.doc.createElement('span');
+    st.className = 'sh-stress';
+    f.doc.querySelector('.sh-chip-w').appendChild(st);
+    await f.settle();
+    const gold = f.win.getComputedStyle(st).color;
+    f.close();
+    expect(`عاج ${word} · ذهب ${gold}`)
+      .toBe('عاج rgb(244, 240, 230) · ذهب rgb(255, 196, 78)');
+  });
+
+  it('٥٨ · وحشوةُ الرقاقة والتفافُها كما كانا', async () => {
+    /*
+     * ⚠️ شرطُك: «Keep comfortable padding and natural wrapping». فالحبرُ
+     *    صغر والصندوقُ لم يُضغَط: الحشوةُ حرفًا بحرف، والرقائقُ تلتفّ
+     *    صفوفًا ولا تُقصّ ولا تفيض أفقيًّا.
+     */
+    for (const [w, h, pad] of [[412, 915, '6px 8px 5px'], [1280, 800, '10px 12px 8px']]) {
+      const f = await stageAt(w, h, { words: 14 });
+      const padding = f.cs('.sh-chip').padding;
+      const rows = new Set([...f.doc.querySelectorAll('.sh-chip')]
+        .map((c) => Math.round(c.getBoundingClientRect().top))).size;
+      const cut = f.chips.cutWords;
+      const over = f.overflowX;
+      f.close();
+      expect(`${w}: ${padding}`).toBe(`${w}: ${pad}`);
+      expect(`${w}: صفوف ${rows > 1} · مقصوص ${cut} · فيض ${over}`)
+        .toBe(`${w}: صفوف true · مقصوص 0 · فيض false`);
+    }
+  });
+
+  it('٥٩ · مفتاحُ الأوضاع ثلاثةٌ لا أربعة — والرابعُ لا وجودَ له', async () => {
+    /*
+     * ⚠️ **طلبُك**: «Remove متصل from the visible selector. Keep exactly
+     *    three visible modes: جملة | مقطع | كلمة».
+     *
+     * ⚠️ **ولا يكفي أن يُخفى بالتنسيق**: خيارٌ مخفيٌّ ما يزال في السجلّ
+     *    يعود مع أوّل رسمٍ يقرأ السجلَّ بغير الورقة (والسجلُّ هو المصدر:
+     *    `renderModes` تكتب من `MODES`). فيُقاس الوسمُ **والمصدر** معًا.
+     */
+    const f = await stageAt(412, 915);
+    const labels = [...f.doc.querySelectorAll('.sh-modes button')].map((x) => x.textContent.trim());
+    f.close();
+    expect(labels.join('|')).toBe('جملة|مقطع|كلمة');
+    const src = await (await fetch('../js/views/shadow-view.js')).text();
+    const reg = src.slice(src.indexOf('const MODES = ['), src.indexOf('\n];', src.indexOf('const MODES = [')));
+    const bare = reg.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(`في السجلّ: ${/id:\s*'continuous'/.test(bare)}`).toBe('في السجلّ: false');
+  });
+
+  it('٦٠ · والقيمةُ المهجورةُ تُطبَّع عند كلّ باب', async () => {
+    /*
+     * ⚠️ **وهذا هو الفرقُ بين حذفٍ آمنٍ وحذفٍ يكسر جلسةً محفوظة.**
+     *    جلستُك القديمةُ تحمل `practiceMode: 'continuous'` في السجلّ.
+     *    فلو رُفع الخيارُ وحدَه لبقيت الحالةُ تقول قيمةً لا مفتاحَ لها،
+     *    و`renderModes` تُضيء «جملة» — شاشةٌ تقول غيرَ حالها.
+     *
+     * ⚠️ **وبابان لا باب**: البناءُ والتحديثُ معًا. ولو طُبِّع في البناء
+     *    وحدَه لعادت القيمةُ من `updateSettings` بعد أن طُردت — وهو
+     *    العطبُ الذي يُكرّره كلُّ تطبيعٍ يُكتَب في مكانٍ واحد.
+     *
+     * ⚠️ **ولا تُطوى `myRole`**: ليست على المفتاح لكنّها **مقروءةٌ في
+     *    المحرّك** (`isMyTurn`) ويكتبها زرٌّ في شاشة المحادثة. فطيُّها
+     *    كان سيكسر ميزةً تعمل.
+     */
+    const { normalizePracticeMode, PRACTICE_MODE, createPlaybackController } =
+      await import('../js/services/shadow/playback-controller.js');
+    expect(normalizePracticeMode('continuous')).toBe(PRACTICE_MODE.SENTENCE);
+    expect(normalizePracticeMode('myRole')).toBe(PRACTICE_MODE.MY_ROLE);
+    expect(normalizePracticeMode('word')).toBe(PRACTICE_MODE.WORD);
+    expect(normalizePracticeMode(undefined)).toBe(PRACTICE_MODE.SENTENCE);
+
+    const made = createPlaybackController({
+      segments: [{ id: 'a', text: 'Тест.' }],
+      speaker: async () => {}, canceler: () => {},
+      settings: { practiceMode: 'continuous' },
+    });
+    expect(made.state.settings.practiceMode).toBe(PRACTICE_MODE.SENTENCE);
+    made.updateSettings({ practiceMode: 'continuous' });
+    expect(made.state.settings.practiceMode).toBe(PRACTICE_MODE.SENTENCE);
+    made.destroy();
+  });
+
+  it('٦١ · وحبّةُ الأوضاع أصغرُ ومحدودةٌ وبينها فواصل', async () => {
+    /*
+     * ⚠️ **قِيس قبلُ على ٤١٢×٩١٥**: ٢٠٦٫٤×٤٠، حدٌّ ‎.13 (يكاد لا يُرى)،
+     *    خلفيّةٌ ‎.05 (لا زجاجَ داكنًا)، وفجوةٌ ٢px بين الأزرار بلا فاصل.
+     *    وبعدُ: ١٥٨٫٩×٣٨، حدٌّ ‎.30، خلفيّةٌ ‎.40، وفاصلٌ ١px بين كلّ اثنين.
+     *
+     * ⚠️ **والفاصلُ يُقاس بعددِ الخطوط لا بوجودها**: خطٌّ على كلّ زرٍّ
+     *    **إلّا الأوّل** — فلو كُتب على الكلّ لظهر خطٌّ على حافّة الحبّة
+     *    فوق حدّها، ولو كُتب على الأوّل وحدَه لم يفصل شيئًا.
+     */
+    for (const [w, h] of [[412, 915], [1280, 800]]) {
+      const f = await stageAt(w, h);
+      const modes = f.cs('.sh-modes');
+      const btns = [...f.doc.querySelectorAll('.sh-modes button')];
+      const edges = btns.map((x) => parseFloat(f.win.getComputedStyle(x).borderInlineStartWidth));
+      const alpha = (s) => Math.max(...[...String(s)
+        .matchAll(/rgba?\([^)]*?,\s*([\d.]+)\s*\)/g)].map((m) => Number(m[1])), 0);
+      const border = alpha(modes.borderTopColor);
+      const glass = alpha(modes.backgroundImage !== 'none' ? modes.backgroundImage : modes.backgroundColor);
+      f.close();
+      expect(`${w}: فواصل ${edges.join('/')}`).toBe(`${w}: فواصل 0/1/1`);
+      expect(`${w}: حدٌّ ${border} واضح`)
+        .toBe(`${w}: حدٌّ ${border} ${border >= 0.22 ? 'واضح' : 'باهت'}`);
+      expect(`${w}: زجاجٌ داكنٌ ${glass}`)
+        .toBe(`${w}: زجاجٌ داكنٌ ${glass >= 0.25 ? glass : 'باهت'}`);
+    }
+  });
+
+  it('٦٢ · وهدفُ اللمس ٤٤px بهالةٍ لا بارتفاعٍ يُحجَز', async () => {
+    /*
+     * ⚠️ **ورفعُ الصندوق إلى ٤٤ كان يُعيد إلى الضوابط ما استُرِدّ للجملة**
+     *    في الطور الثالث. فالعرفُ القائمُ في هذا الملفّ: حبرٌ صغيرٌ
+     *    وهالةٌ شفّافةٌ تبلغ ٤٤ (كما في `.sh-current-tools`: ٢٦ حبرًا
+     *    و٤٤ لمسًا، وكما في شارة الخطّ).
+     *
+     * ⚠️ **و`overflow: hidden` على الحبّة كان يقصّ الهالة** — كتبتُها
+     *    أوّلًا لتقصّ زوايا الأزرار، وقِيس: المملوكُ المركزُ وحدَه
+     *    والطرفان لا يملكهما أحد. فصارت الزوايا تُقَصّ حيث تُرسَم.
+     *
+     * ⚠️ **ولا تُوسَّع الهالةُ أفقيًّا**: الأزرارُ متلاصقةٌ، فتوسيعٌ
+     *    جانبيٌّ يجعل هالةَ كلٍّ تعلو جارتَها فتسرق نصفَ لمساتها —
+     *    والحارسُ يقيس ذلك أيضًا.
+     */
+    for (const [w, h] of [[412, 915], [1280, 800]]) {
+      const f = await stageAt(w, h);
+      const btns = [...f.doc.querySelectorAll('.sh-modes button')];
+      const reach = [];
+      const theft = [];
+      for (const btn of btns) {
+        const r = btn.getBoundingClientRect();
+        const mid = Math.round(r.left + r.width / 2);
+        const cy = r.top + r.height / 2;
+        const owns = (y) => {
+          const el = f.doc.elementFromPoint(mid, Math.round(y));
+          return Boolean(el && (el === btn || btn.contains(el)));
+        };
+        if (!owns(cy - 21) || !owns(cy) || !owns(cy + 21)) {
+          reach.push(`${btn.textContent.trim()}:${Math.round(r.height)}`);
+        }
+        /*
+         * ⚠️ **والسرقةُ تقع على الحافّة لا في المركز — وقد أثبتَته طفرة.**
+         *    وسّعتُ الهالةَ ‎١٤px جانبيًّا فبقي الحارسُ أخضر: مركزُ كلّ
+         *    زرٍّ ما يزال له، لأنّ التجاوزَ أقلُّ من نصف عرضه. والمسروقُ
+         *    فعلًا شريطٌ داخلَ حافّة الجار. فتُفحَص نقطتان على بُعد
+         *    ٣px من حافّتي الزرّ الداخليّتين — وهناك يُقاس العدوان.
+         */
+        for (const x of [Math.round(r.left + 3), Math.round(r.right - 3)]) {
+          const edge = f.doc.elementFromPoint(x, Math.round(cy));
+          const owner = edge && edge.closest('.sh-modes button');
+          if (owner && owner !== btn) theft.push(`${btn.textContent.trim()}→${owner.textContent.trim()}`);
+        }
+      }
+      f.close();
+      expect(`${w}: قاصرون ${reach.join(',') || 'لا أحد'}`).toBe(`${w}: قاصرون لا أحد`);
+      expect(`${w}: سارقون ${theft.join(',') || 'لا أحد'}`).toBe(`${w}: سارقون لا أحد`);
+    }
   });
 });
