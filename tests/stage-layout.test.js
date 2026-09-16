@@ -79,7 +79,7 @@ const CHIP = (w) => `<button class="sh-chip"><span class="sh-chip-w">${w}</span>
  *    جاء الحارسُ من أجله.
  */
 async function stageAt(width, height,
-  { words = 14, layout = '', rec = false, tools = 2, sentence = SENT } = {}) {
+  { words = 14, layout = '', rec = false, tools = 2, sentence = SENT, rail = false } = {}) {
   const iframe = document.createElement('iframe');
   iframe.setAttribute('aria-hidden', 'true');
   iframe.style.cssText = `position:fixed;inset-block-start:-20000px;inset-inline-start:0;
@@ -176,7 +176,7 @@ async function stageAt(width, height,
          بخطأِ «Invalid left-hand side expression». وهو الفخُّ المكتوبُ
          بحرفه فوق مفتاح الأوضاع في shadow-view.js — ووقعتُ فيه هنا.
     -->
-    <div class="shadow-app" style="--sh-size:30px;--sh-len:.9">
+    <div class="shadow-app${rail ? ' is-rail' : ''}" style="--sh-size:30px;--sh-len:.9">
       <div class="sh-topbar"><span class="sh-diamond"></span><b>LingoLife</b></div>
       <div class="sh-body"><div class="sh-book" ${layout ? `data-layout="${layout}"` : ''}><div class="sh-pages">
         <div class="sh-page sh-right">
@@ -1985,5 +1985,67 @@ describe('WS-FINAL-VISUAL · صناديقُ زجاجٍ لا أزرارٌ زرق�
       expect(`${w}: قاصرون ${reach.join(',') || 'لا أحد'}`).toBe(`${w}: قاصرون لا أحد`);
       expect(`${w}: سارقون ${theft.join(',') || 'لا أحد'}`).toBe(`${w}: سارقون لا أحد`);
     }
+  });
+});
+
+/* ================================================================== *
+ * WS-DHS — اللوحُ مفتوحٌ على اللّوح: الضوابطُ تبقى تحت الإصبع          *
+ * ================================================================== */
+describe('WS-DHS · فتحُ لوح المسودّة لا يُخرِج الضوابطَ من المقصوص', () => {
+  /*
+   * ⚠️ **وحارسان كُتبا هنا ثمّ حُذفا — والسببُ يُقال لا يُخفى.**
+   *
+   * كتبتُ أوّلًا حارسَين يقيسان الوصولَ بالإصبع (`elementFromPoint`)
+   * إلى التشغيل والتنقّل، وموضعَ شريط النقل داخلَ صندوق الكتاب. ثمّ
+   * جُرِّبا بالطفرة: **نزعُ الإصلاح كلِّه لم يُسقِط أيًّا منهما**،
+   * ولا مع أطولِ جملةٍ وستٍّ وعشرين رقاقة، ولا على ١٢٨٠×٥٦٠.
+   *
+   * والسبب: إطارُ القياس هنا هيكلٌ مبسَّط — لا شاشةُ تدريبٍ حقيقيّة.
+   * فرأسُ المسرح وسطرُ التقدّم فيه لا يلتفّان كما يلتفّان في التطبيق
+   * (٣٢ ← ٨٧ و٤٩ ← ٩٥ مقيسةً حيًّا)، فلا يفيض العمودُ ولا يُقصّ زرّ.
+   *
+   * **وحارسٌ لا يسقط عند نزع ما يحرسه لا يحرس شيئًا** — بل يمنح ثقةً
+   * كاذبة. فحُذف، وبقي الحارسُ الذي يعضّ (أدناه)، والسلوكُ قِيس حيًّا
+   * في التطبيق على المقاسات الثلاثة كما هو عرفُ هذه الشاشة منذ
+   * WS-DRAFT-SYNC.
+   */
+
+  it('٦٣ · والبطلُ يتقلّص ولا يُجمَّد — تمريرُه الداخليُّ هو البديل', async () => {
+    /*
+     * ⚠️ **ولا `flex-grow: 0`**: ذاك حلُّ WS-HEROSCROLL المهجور. المرونةُ
+     *    هي المقصود — والقاعُ النسبيُّ (٣٠٪ و٢٤٪) يُرفَع عند فتح اللوح
+     *    وحدَه، فيمتصّ البطلُ والرقائقُ الفائضَ. ويبقى القاعُ كما هو في
+     *    كلّ حالٍ أخرى، فتقسيمُ WS-SZ لم يُمَسّ.
+     *
+     * ⚠️ **والتمريرُ الداخليُّ شرطُ سلامة هذا الحلّ**: بلا `overflow`
+     *    على البطل يعني التقلّصُ قصَّ الجملة. فيُقاس أنّه قائم، وأنّ
+     *    تثبيتَ التدرّج `local` (WS-HEROSCROLL) لم يُمَسّ.
+     */
+    const open = await stageAt(1280, 800, { rail: true });
+    const shut = await stageAt(1280, 800);
+    const heroOf = (f) => f.doc.querySelector('.sh-hero');
+    const minOf = (f) => f.win.getComputedStyle(heroOf(f)).minBlockSize;
+    const chipsMin = (f) => f.win.getComputedStyle(f.doc.querySelector('.sh-chips')).minBlockSize;
+    expect(`مفتوحًا ${parseFloat(minOf(open)) || 0}`).toBe('مفتوحًا 0');
+    expect(`مفتوحًا رقائق ${parseFloat(chipsMin(open)) || 0}`).toBe('مفتوحًا رقائق 0');
+    expect(`مغلقًا ${(parseFloat(minOf(shut)) || 0) > 0}`).toBe('مغلقًا true');
+    expect(`مغلقًا رقائق ${(parseFloat(chipsMin(shut)) || 0) > 0}`).toBe('مغلقًا رقائق true');
+    /* ومرونةُ البطل باقيةٌ — لا تجميد. */
+    const flex = f => f.win.getComputedStyle(heroOf(f)).flexGrow;
+    expect(`نموّ ${Number(flex(open)) > 0}`).toBe('نموّ true');
+    /* وتثبيتُ التدرّج الذهبيّ مع النصّ لا مع صندوقه (WS-HEROSCROLL). */
+    const text = open.doc.querySelector('.sh-current-text');
+    expect(open.win.getComputedStyle(text).backgroundAttachment).toBe('local');
+
+    /*
+     * ⚠️ **والرفعُ للعريض وحدَه**: على الهاتف يطفو اللوحُ فوق المسرح
+     *    ولا يحجز حشوةً، فلا فيضَ ولا سببَ لرفع القاع. ولو امتدّ
+     *    الرفعُ إلى ٤١٢ لَانهار تقسيمُ WS-SZ حيث لا عطبَ أصلًا —
+     *    وهو ما تُسقِطه طفرةُ «نقطةِ انعطافٍ خاطئة» من الجهة الأخرى.
+     */
+    const phone = await stageAt(412, 915, { rail: true });
+    const phoneMin = parseFloat(phone.win.getComputedStyle(
+      phone.doc.querySelector('.sh-hero')).minBlockSize) || 0;
+    expect(`الهاتفُ يحتفظ بقاعه ${phoneMin > 0}`).toBe('الهاتفُ يحتفظ بقاعه true');
   });
 });
