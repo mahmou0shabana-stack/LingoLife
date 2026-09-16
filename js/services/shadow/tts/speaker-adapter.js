@@ -40,6 +40,25 @@ export function createTTSSpeaker({
   let audioEl = null;
   let currentObjectUrl = null;
 
+  /*
+   * ══════════ جيلُ الطلب — حارسُ العمل البائت (WS-VC1A · العطب ٣) ══════════
+   *
+   * ⚠️ **`cancel()` كانت تُلغي ما يُسمَع، لا ما يُولَّد.** وبين السطرين
+   *    انتظارٌ طويل: `synthesizeWithCache` قد تستغرق ثوانيَ عند مزوّدٍ
+   *    مولِّد (جسرٌ محلّيّ مثلًا). فلو أُلغي النطقُ في تلك الأثناء —
+   *    بضغطة تسجيل، أو بكلمةٍ أخرى، أو بمالكِ صوتٍ جديد — مضى التوليدُ
+   *    إلى نهايته ثمّ **بدأ التشغيلَ بعد الإلغاء**: صوتُ مرجعٍ ينطلق
+   *    والميكروفونُ مفتوح.
+   *
+   * ⚠️ **ورقمٌ لا رايةٌ منطقيّة**: `cancelled = true` تصلح لطلبٍ واحد،
+   *    ومع طلبين متتابعين يُلغي الثاني رايةَ الأوّل فيعود الأوّلُ حيًّا.
+   *    والرقمُ يتزايد، فكلُّ طلبٍ يعرف جيلَه ولا يخلطه بجيل غيره.
+   *
+   * ⚠️ **ويُفحَص بعد كلّ انتظار** لا مرّةً واحدة: حلُّ المزوّد انتظارٌ
+   *    أيضًا، والإلغاءُ قد يقع فيه.
+   */
+  let generation = 0;
+
   async function resolveActiveProvider() {
     if (providerId) {
       const direct = getProvider(providerId);
@@ -77,11 +96,26 @@ export function createTTSSpeaker({
   }
 
   async function speak(text, { rate, voiceName = null, volume = 1 } = {}) {
+    /*
+     * ⚠️ **وطلبٌ جديدٌ يُبطل ما قبله بحكم التعريف**: العنصرُ واحدٌ
+     *    و`speechSynthesis` واحد، فنطقان معًا مستحيلان أصلًا. والرقمُ
+     *    يجعل ذلك **معلومًا** للطلب القديم بدل أن يكتشفه بالتصادم.
+     */
+    const myGeneration = ++generation;
+    const stale = () => myGeneration !== generation;
+
     const provider = await resolveActiveProvider();
+    if (stale()) return { ok: false, reason: 'aborted' };
     activeProvider = provider;
     if (!provider) return { ok: false, reason: 'no-provider-available' };
 
     if (provider.id === BROWSER_PROVIDER_ID) {
+      /*
+       * ⚠️ **ولا فحصَ بعد هذا الانتظار**: `speechSynthesis` ينطق بنفسه
+       *    ويُلغى بنفسه (`cancel()` أدناه تصل إليه عبر `provider.cancel`)،
+       *    فالوعدُ لا يعود إلّا وقد انتهى النطقُ أو أُلغي. لا شيءَ
+       *    يبدأ **بعد** عودته حتّى يُحرَس.
+       */
       const result = await provider.synthesize({ text, language, voiceId: voiceName, speed: rate, volume });
       onSource({ providerId: provider.id, cached: false, provenance: result.provenance });
       return { ok: !result.error, reason: result.error || undefined };
@@ -91,6 +125,12 @@ export function createTTSSpeaker({
     const { blob, provenance, cached, error } = await synthesizeWithCache({
       provider, text, language, voiceId: voiceName, speed: rate,
     });
+    /*
+     * ⚠️ **وهنا بيتُ القصيد**: التوليدُ انتهى، والإلغاءُ وقع أثناءه.
+     *    فيُرمى الناتجُ (وقد خُزِّن في الذاكرة فلا يضيع عملُه) ولا
+     *    يُشغَّل. بلا هذا السطر يبدأ الصوتُ بعد أن فُتح الميكروفون.
+     */
+    if (stale()) return { ok: false, reason: 'aborted' };
     if (error) return { ok: false, reason: error };
     if (!blob) return { ok: false, reason: 'no-audio' };
 
@@ -99,6 +139,8 @@ export function createTTSSpeaker({
   }
 
   function cancel() {
+    /* ⚠️ الرقمُ أوّلًا: ما ينتظر الآن يجد نفسَه بائتًا حين يعود. */
+    generation += 1;
     activeProvider?.cancel?.();
     if (audioEl) {
       audioEl.pause();

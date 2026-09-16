@@ -671,6 +671,8 @@ export async function openVoiceAttempts(target, speakReference) {
   }
 
   async function playBoth() {
+    /* ⚠️ والمقارنةُ بابٌ ثانٍ إلى المرجع — فتُحرَس بنفس الشرط. */
+    if (recorder) return;
     await speakReference?.();
     if (attempts[0]) await togglePlayback(attempts[0].mediaId);
   }
@@ -721,7 +723,25 @@ export async function openVoiceAttempts(target, speakReference) {
         }
         if (action === 'save') return commit();
 
-        if (action === 'ref') return speakReference?.();
+        /*
+         * ══════════════════════════════════════════════════════════
+         * ⚠️ **ولا مرجعَ يُنطَق والميكروفونُ مفتوح** (WS-VC1A · العطب ٢)
+         * ══════════════════════════════════════════════════════════
+         *
+         * البابُ الأوّلُ مُغلقٌ الآن: بدءُ التسجيل يُحرّر الناقلَ
+         * (`releaseAudio()` أدناه في `begin`)، والنطقُ المباشرُ صار
+         * مالكًا فيُسكَت به — وقبلَ هذه التمريرة لم يكن مالكًا فلم
+         * يُسكَت أصلًا.
+         *
+         * وهذا هو البابُ الثاني: زرُّ «المرجع» نفسُه ما زال معروضًا
+         * أثناء التسجيل، فضغطةٌ عليه تُطلق صوتًا في أذن الميكروفون
+         * **بعد** أن مرّ حارسُ البدء. فيُمنَع الفعلُ ما دام هناك مسجّل.
+         *
+         * ⚠️ **ومنعٌ لا إخفاء**: الزرُّ يبقى مكانَه فلا يقفز الصفُّ
+         *    تحت إصبعك، ويعود عاملًا لحظةَ توقف التسجيل. والقدرةُ على
+         *    سماع المرجع خارجَ التسجيل لم تُمَسّ.
+         */
+        if (action === 'ref') return recorder ? undefined : speakReference?.();
         if (action === 'preview') return pending ? togglePlayback('pending') : undefined;
         if (action === 'mine') return attempts[0] && togglePlayback(attempts[0].mediaId);
         if (action === 'play') return togglePlayback(id);

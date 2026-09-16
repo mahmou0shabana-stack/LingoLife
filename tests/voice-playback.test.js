@@ -350,3 +350,181 @@ describe('WS-O · لوحةُ «صوتي»: حالةُ تشغيلٍ صريحة', 
     expect(css.includes('.vo-row .btn-sm { min-width: 44px; min-height: 44px; }')).toBe(true);
   });
 });
+
+/* ================================================================== *
+ * WS-VC1A — النطقُ المباشر يدخل التنسيق، والتسجيلُ يُعزَل             *
+ * ================================================================== */
+describe('WS-VC1A · لا صوتَ خارج التنسيق', () => {
+  const view = () => fetch('../js/views/shadow-view.js').then((r) => r.text());
+  const adapter = () => fetch('../js/services/shadow/tts/speaker-adapter.js').then((r) => r.text());
+
+  it('١ · نطقُ الكلمة والمقطع صار مالكًا للصوت لا متطفّلًا', async () => {
+    /*
+     * ⚠️ **جردُ V0.1 وجد الثقب**: `speakScope` تنادي `ttsSpeaker.speak`
+     *    مباشرةً — بلا محرّكٍ وبلا مطالبةٍ بالناقل. فلا تُسكِت أحدًا،
+     *    ولا تُسكَت إلّا مصادفةً حين يكون المحرّكُ هو المالك.
+     *
+     * ⚠️ **والمحروسُ أربعةٌ معًا** — كلٌّ منها وحدَه يترك عطبًا:
+     *    مطالبةٌ بالناقل · إلغاءٌ صريحٌ قبلها · حارسُ حلقةٍ · تحريرٌ
+     *    مشروط. فلو مُطولِب بلا تذكرةٍ لَحرّر نطقٌ قديمٌ ملكيّةَ جديد.
+     */
+    const src = await view();
+    const at = src.indexOf('async function speakScope');
+    const body = src.slice(at, src.indexOf('\n}\n', at));
+    expect(`يطالب: ${/claimAudio\(SPEAK_OWNER/.test(body)}`).toBe('يطالب: true');
+    expect(`يُلغي قبلها: ${/speakTicket \+= 1;[\s\S]{0,120}ttsSpeaker\?\.cancel/.test(body)}`)
+      .toBe('يُلغي قبلها: true');
+    expect(`حارسُ الحلقة: ${/if \(myTicket !== speakTicket\) return;/.test(body)}`)
+      .toBe('حارسُ الحلقة: true');
+    expect(`تحريرٌ مشروط: ${/if \(myTicket === speakTicket\) releaseAudio\(SPEAK_OWNER\)/.test(body)}`)
+      .toBe('تحريرٌ مشروط: true');
+  });
+
+  it('٢ · والمُطالِبُ لا يُسكِت نفسَه — نقرتان لا تُلغيان إحداهما الأخرى بالردّ', async () => {
+    /*
+     * ⚠️ **بندُك السابع**: «must not accidentally cancel itself through
+     *    an ownership callback». والناقلُ يحميه بنيويًّا: `claimAudio`
+     *    لا تنادي `silence` إلّا إن اختلف المُطالِبُ عن المالك. فيُقاس
+     *    السلوكُ لا النيّة — مطالبتان بنفس الاسم، وصفرُ إسكات.
+     */
+    const bus = await import('../js/services/shadow/audio-bus.js');
+    bus.forgetAudioOwner();
+    let silenced = 0;
+    bus.claimAudio('speak', () => { silenced += 1; });
+    bus.claimAudio('speak', () => { silenced += 1; });
+    expect(`أُسكِت ${silenced}`).toBe('أُسكِت 0');
+    /* ومالكٌ مختلفٌ يُسكِت — وإلّا كان الحارسُ يقيس ناقلًا معطّلًا. */
+    bus.claimAudio('session', () => {});
+    expect(`بعد مالكٍ آخر ${silenced}`).toBe('بعد مالكٍ آخر 1');
+    bus.forgetAudioOwner();
+  });
+
+  it('٣ · وتحريرٌ بائتٌ لا يسرق ملكيّةَ الأحدث', async () => {
+    /*
+     * ⚠️ **سباق د**: نطقٌ قديمٌ يعود بعد أن صار المالكُ غيرَه. لو حرّر
+     *    بلا شرطٍ لأسكت الجديدَ — وهو عطبٌ يظهر كصمتٍ عشوائيّ.
+     *    و`releaseAudio(id)` تتحقّق من الاسم؛ والتذكرةُ تتحقّق من
+     *    الجيل. فيُقاس الأوّلُ هنا سلوكًا.
+     */
+    const bus = await import('../js/services/shadow/audio-bus.js');
+    bus.forgetAudioOwner();
+    bus.claimAudio('speak', () => {});
+    bus.claimAudio('voice:x', () => {});
+    bus.releaseAudio('speak');
+    expect(`المالك ${bus.audioOwner()}`).toBe('المالك voice:x');
+    bus.forgetAudioOwner();
+  });
+
+  it('٤ · وتوليدٌ يعود بعد الإلغاء لا يبدأ تشغيلًا', async () => {
+    /*
+     * ⚠️ **وهذا هو ما يُسرِّب المرجعَ إلى الميكروفون.** `cancel()` كانت
+     *    تُلغي ما يُسمَع لا ما يُولَّد، وبين السطرين انتظارٌ قد يطول
+     *    ثوانيَ عند مزوّدٍ مولِّد. فيبدأ الصوتُ **بعد** فتح الميكروفون.
+     *
+     * ⚠️ **ويُقاس ببوّابةٍ نتحكّم فيها** لا بمهلةٍ نرجوها: التوليدُ
+     *    يقف حتّى نفتحه، فنُلغي وهو واقفٌ ثمّ نفتحه. فالسباقُ **مُنشأٌ
+     *    حتمًا** لا مُنتظَر.
+     */
+    const { createTTSSpeaker } = await import('../js/services/shadow/tts/speaker-adapter.js');
+    const { registerProvider, unregisterProvider } =
+      await import('../js/services/shadow/tts/registry.js');
+
+    let open = null;
+    let reached = null;
+    /*
+     * ⚠️ **ولا دورانَ على المهامّ الدقيقة ولا مهلةٌ مقدَّرة.** جرّبتُ
+     *    `await Promise.resolve()` في حلقةٍ حتّى تُفتَح البوّابة، فعلِق
+     *    الاختبارُ إلى الأبد: طريقُ التوليد يمرّ بالذاكرة المشتركة
+     *    (IndexedDB) وهي مهامُّ كبرى لا تتقدّم بدوران المهامّ الدقيقة.
+     *    فبقيت `open` فارغةً، ولم يُفتَح شيءٌ، ولم يعُد الوعدُ أبدًا.
+     *    والوعدُ أدناه **ينتظر الشرطَ نفسَه**: بلغ التوليدُ البوّابة.
+     */
+    const atGate = new Promise((resolve) => { reached = resolve; });
+    let playedUrls = 0;
+    const origCreate = URL.createObjectURL;
+    URL.createObjectURL = (blob) => { playedUrls += 1; return origCreate.call(URL, blob); };
+
+    registerProvider({
+      id: 'vc1a-slow', name: 'بطيء', type: 'piper',
+      supportsOffline: true, supportsStreaming: false,
+      supportsWord: true, supportsSentence: true, supportsLongText: true,
+      async isAvailable() { return { available: true, status: 'ready_offline', reason: '' }; },
+      async getVoices() { return []; },
+      async synthesize() {
+        await new Promise((resolve) => { open = resolve; reached(); });
+        return {
+          audioBlob: new Blob([new ArrayBuffer(44)], { type: 'audio/wav' }),
+          audioUrl: null, playedDirectly: false, duration: 0,
+          provider: 'vc1a-slow', voiceId: null, cacheKey: null,
+          provenance: 'piper_generated', cached: false, error: null,
+        };
+      },
+      cancel() {},
+    });
+
+    try {
+      const speaker = createTTSSpeaker({ providerId: 'vc1a-slow' });
+      const pending = speaker.speak('Прове́рка.', { rate: 1, volume: 0 });
+      /* ينتظر حتّى يقف التوليدُ عند البوّابة فعلًا — ثمّ يُلغى وهو واقف. */
+      await atGate;
+      speaker.cancel();
+      open();
+      const out = await pending;
+      expect(`شُغِّل: ${playedUrls}`).toBe('شُغِّل: 0');
+      expect(`السبب ${out.reason} ونجاح ${out.ok}`).toBe('السبب aborted ونجاح false');
+    } finally {
+      URL.createObjectURL = origCreate;
+      unregisterProvider('vc1a-slow');
+    }
+  });
+
+  it('٥ · والمحوّلُ لا يطالب بالناقل — فدورةُ التكرار لا تُلغي نفسَها', async () => {
+    /*
+     * ⚠️ **بندُك الخامس**: «do not make every internal repetition appear
+     *    to be a new competing foreground audio owner». المحرّكُ يطالب
+     *    مرّةً عند ضغطة التشغيل، والتكرارُ داخلَه لا يطالب. فلو طالب
+     *    المحوّلُ (وهو يُنادى مع كلّ تكرارة) لأسكتت الجلسةُ نفسَها كلَّ دورة.
+     */
+    const adapterSrc = await adapter();
+    const bare = adapterSrc.replace(/\/\*[\s\S]*?\*\//g, '');
+    expect(`المحوّلُ يطالب: ${bare.includes('claimAudio')}`).toBe('المحوّلُ يطالب: false');
+    const pc = await fetch('../js/services/shadow/playback-controller.js').then((r) => r.text());
+    expect(`المحرّكُ يطالب: ${pc.replace(/\/\*[\s\S]*?\*\//g, '').includes('claimAudio')}`)
+      .toBe('المحرّكُ يطالب: false');
+  });
+
+  it('٦ · ولوحةُ التسجيل تمنع المرجعَ ما دام الميكروفون مفتوحًا', async () => {
+    /*
+     * ⚠️ **حارسُ البدء وحدَه لا يكفي.** `releaseAudio()` تُسكِت المالكَ
+     *    لحظةَ البدء — وصار النطقُ المباشرُ مالكًا فيُسكَت. لكنّ زرَّ
+     *    «المرجع» يبقى معروضًا أثناء التسجيل، فضغطةٌ عليه **بعد** الحارس
+     *    تُطلق صوتًا في أذن الميكروفون. فيُمنَع الفعلُ ما دام هناك مسجّل.
+     *
+     * ⚠️ **ومنعٌ لا إخفاء**: السماعُ خارجَ التسجيل لم يُمَسّ — وهو شرطُك
+     *    «Do not permanently disable reference playback».
+     */
+    const src = await modal();
+    expect(`زرُّ المرجع محروس: ${/action === 'ref'\) return recorder \? undefined : speakReference/.test(src)}`)
+      .toBe('زرُّ المرجع محروس: true');
+    expect(`والمقارنةُ كذلك: ${/async function playBoth\(\) \{[\s\S]{0,240}?if \(recorder\) return;/.test(src)}`)
+      .toBe('والمقارنةُ كذلك: true');
+    /* وحارسُ البدء القائمُ لم يُمَسّ. */
+    expect(src).toContain('try { releaseAudio(); } catch');
+  });
+
+  it('٧ · ولم يُنشَأ مشغّلٌ ثانٍ ولا ناقلٌ ثانٍ', async () => {
+    /*
+     * ⚠️ **شرطُك السابع في معايير القبول**: «No second playback
+     *    architecture has been introduced». فيُعَدُّ ما يُنشِئ صوتًا في
+     *    الملفّات الثلاثة التي مُسَّت — العددُ كما كان قبل التمريرة.
+     */
+    const [viewSrc, adapterSrc, modalSrc] = await Promise.all([view(), adapter(), modal()]);
+    const count = (s) => (s.replace(/\/\*[\s\S]*?\*\//g, '').match(/new Audio\(/g) || []).length;
+    expect(`الشاشة ${count(viewSrc)}`).toBe('الشاشة 1');
+    expect(`المحوّل ${count(adapterSrc)}`).toBe('المحوّل 1');
+    expect(`اللوحة ${count(modalSrc)}`).toBe('اللوحة 0');
+    /* ولا ناقلَ ثانٍ: المُصدِّرُ واحدٌ في المستودع. */
+    const busSrc = await fetch('../js/services/shadow/audio-bus.js').then((r) => r.text());
+    expect(busSrc).toContain('export function claimAudio');
+  });
+});
