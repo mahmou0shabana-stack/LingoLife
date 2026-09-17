@@ -422,15 +422,34 @@ describe('WS-ST · الشاشةُ للغة', () => {
      *    كلماتٍ من ٢٣ صارت غيرَ قابلةٍ للوصول. فصار الشرطُ سلوكًا
      *    مقيسًا بدل اسمِ قيمة: **لا رقاقةَ فوق حدّ نطاقها حين يفيض.**
      */
-    const g = await stageAt(412, 915, { words: 23 });
+    /*
+     * ⚠️ **وعددُ الكلمات رُفع ٢٣ ← ٨٠ في WS-VFP**: الرقاقةُ صغرت
+     *    (٣٦ ← ٢٨ ارتفاعًا) فصار ثلاثٌ وعشرون تتّسع بلا فيض — وشرطُ
+     *    هذا الحارس أن **يقع الفيضُ** ثمّ يُفحَص ألّا تهرب رقاقةٌ فوقه.
+     *    فالمقياسُ هو هو، والضغطُ وحدَه زِيد ليبقى الشرطُ محقَّقًا.
+     *
+     * ⚠️ **ورفعتُه أوّلًا إلى ٤٠ فمرّ مركَّزًا ثلاثَ مرّاتٍ وسقط في
+     *    الطاقم الكامل** — على `overflow > 0` نفسِه، أي أنّ الأربعين
+     *    لم تفض هناك. ولم أعزل سببَ الفارق بين البيئتين (تحميلُ
+     *    خطوطٍ؟ ترتيبُ تشغيل؟) ولا أدّعيه — المقيسُ أنّ العدد وقع على
+     *    **حافّة** الفيض فصار الحكمُ رهنَ ما لم أقِسه. والثمانون تفيض
+     *    بـ**٥٢٥px** مقيسةً، أي بعيدًا عن أيّ حافّة. وتأكيدُ
+     *    `overflow > 0` تحته يبقى: حارسٌ لم يتحقّق شرطُه لا يحرس.
+     */
+    const g = await stageAt(412, 915, { words: 80 });
     const host = g.doc.querySelector('.sh-chips');
     const hb = host.getBoundingClientRect();
     const above = [...g.doc.querySelectorAll('.sh-chip')]
       .filter((c) => c.getBoundingClientRect().top < hb.top - 1).length;
     const overflow = host.scrollHeight - host.clientHeight;
+    const first = g.doc.querySelector('.sh-chip');
+    const fb = first ? Math.round(first.getBoundingClientRect().top - hb.top) : 0;
+    const geo = `نطاق=${Math.round(hb.height)} محتوى=${host.scrollHeight}`
+      + ` أوّلُ صفٍّ=${fb} رقائق=${g.doc.querySelectorAll('.sh-chip').length}`;
     g.close();
-    expect(overflow > 0).toBe(true);
-    expect(above).toBe(0);
+    /* ⚠️ والرسالتان تُفرَّقان: حارسٌ برسالةٍ واحدةٍ لشرطين لا يقول أيُّهما سقط. */
+    expect(`فائضٌ ${overflow > 0} · ${geo}`).toBe(`فائضٌ true · ${geo}`);
+    expect(`هاربون ${above} · ${geo}`).toBe(`هاربون 0 · ${geo}`);
   });
 
   it('٤ · والبطلُ لا يمتصّ الفائضَ فيصنع حفرة', async () => {
@@ -574,8 +593,26 @@ describe('WS-ST · ضوابطُ أصغرَ لا ضوابطَ مكسورة', () =
      * ⚠️ **بند ١٠ و١٩**: «أصغرُ وأدنى، ويبقى مريحَ اللمس». والحدُّ
      *    المعمولُ به في هذا التطبيق ٣٠px لما ضُغط عن قصد (WS-MB).
      */
+    /*
+     * ⚠️ **وأُعيد توجيهُه في WS-VFP: يُقاس ما يُلمَس لا ما يُرى.**
+     *    كان يقيس **ارتفاعَ الصندوق** (٣٠ للوضع و٣٦ للرقاقة) — وذلك
+     *    صحيحٌ يومَ كان الصندوقُ هو هدفَ اللمس. واليومَ الهدفُ هالةٌ
+     *    شفّافةٌ حولَه (عرفُ هذا الملفّ منذ WS44)، والصندوقُ صغر
+     *    بطلبك. فحارسٌ يقيس الصندوقَ صار يحرس **الشكلَ** لا القرار،
+     *    ويمنع تصغيرًا مطلوبًا وهو لا يحمي إصبعًا.
+     */
     const f = await stageAt(412, 915);
-    expect(f.box('.sh-modes button').h >= 30).toBe(true);
+    const reaches = (el, half) => {
+      const r = el.getBoundingClientRect();
+      const mid = Math.round(r.left + r.width / 2);
+      const cy = r.top + r.height / 2;
+      const owns = (y) => {
+        const hit = f.doc.elementFromPoint(mid, Math.round(y));
+        return Boolean(hit && (hit === el || el.contains(hit)));
+      };
+      return owns(cy) && owns(cy - half) && owns(cy + half);
+    };
+    expect(reaches(f.doc.querySelector('.sh-modes button'), 20)).toBe(true);
     /*
      * ⚠️ **واللسانُ بدل الرقاقات (WS-POLISH)**: الصفُّ حُذف، والبابُ
      *    صار مقبضًا على الحافّة — وحدُّ الإصبع يُحرَس عليه هو: ٤٤×٤٤
@@ -583,7 +620,8 @@ describe('WS-ST · ضوابطُ أصغرَ لا ضوابطَ مكسورة', () =
      */
     expect(f.box('.sh-cc-tab').h >= 44).toBe(true);
     expect(f.box('.sh-cc-tab').w >= 44).toBe(true);
-    expect(f.box('.sh-chip').h >= 36).toBe(true);
+    /* والرقاقةُ كذلك: هالتُها تملأ فجوةَ الصفّ (٣٨px لمسًا). */
+    expect(reaches(f.doc.querySelector('.sh-chip'), 16)).toBe(true);
     f.close();
   });
 
@@ -1843,7 +1881,12 @@ describe('WS-FINAL-VISUAL · صناديقُ زجاجٍ لا أزرارٌ زرق�
      *    صغر والصندوقُ لم يُضغَط: الحشوةُ حرفًا بحرف، والرقائقُ تلتفّ
      *    صفوفًا ولا تُقصّ ولا تفيض أفقيًّا.
      */
-    for (const [w, h, pad] of [[412, 915, '6px 8px 5px'], [1280, 800, '10px 12px 8px']]) {
+    /*
+     * ⚠️ **والحشوةُ صغرت بطلبك في WS-VFP** (6px 8px 5px ← 3px 6px 2px
+     *    على الهاتف): فالرقمُ يُحدَّث، و**ما يحرسه الحارسُ لا يتغيّر** —
+     *    صفّان فأكثر، ولا كلمةَ مقصوصة، ولا فيضَ أفقيّ.
+     */
+    for (const [w, h, pad] of [[412, 915, '3px 6px 2px'], [1280, 800, '3px 6px 2px']]) {
       const f = await stageAt(w, h, { words: 14 });
       const padding = f.cs('.sh-chip').padding;
       const rows = new Set([...f.doc.querySelectorAll('.sh-chip')]
@@ -2047,5 +2090,188 @@ describe('WS-DHS · فتحُ لوح المسودّة لا يُخرِج الضو�
     const phoneMin = parseFloat(phone.win.getComputedStyle(
       phone.doc.querySelector('.sh-hero')).minBlockSize) || 0;
     expect(`الهاتفُ يحتفظ بقاعه ${phoneMin > 0}`).toBe('الهاتفُ يحتفظ بقاعه true');
+  });
+});
+
+/* ================================================================== *
+ * WS-VFP — خمسُ لمساتٍ: الرقاقةُ · السهمان · الحبّةُ · الميكروفون · الخطّ *
+ * ================================================================== */
+describe('WS-VFP · أصغرُ وأشفُّ بلا أن يصغر حبرٌ', () => {
+  it('٦٤ · الرقاقةُ أصغرُ وحبرُها ١٦px كما كان', async () => {
+    /*
+     * ⚠️ **وطلبُك كان مشروطًا**: «أصغرُ وأشفّ **بلا** تصغير النصّ».
+     *    فيُقاس الاثنان معًا — وإلّا مرّ تصغيرٌ اشترى الحجمَ من الحبر.
+     *    قِيس قبل: ٤٥٫٦×٣٦ وحشوة 6px 8px 5px · وبعد: ٤١٫٦×٢٨ وحشوة
+     *    3px 6px 2px، والحبرُ ١٦px في الحالتين.
+     */
+    const f = await stageAt(412, 915);
+    const chip = f.doc.querySelector('.sh-chip');
+    const word = f.doc.querySelector('.sh-chip-w');
+    const box = chip.getBoundingClientRect();
+    expect(`حبرٌ ${f.win.getComputedStyle(word).fontSize}`).toBe('حبرٌ 16px');
+    expect(`ارتفاعٌ ${box.height <= 32}`).toBe('ارتفاعٌ true');
+    /* والحبرُ لا يتجاوز صندوقَه — لا قصَّ ولا فيض. */
+    expect(`فيضٌ أفقيّ ${word.scrollWidth > word.clientWidth + 1}`).toBe('فيضٌ أفقيّ false');
+    /* والحدُّ السماويُّ باقٍ هُويّةً، والحشوةُ أشفُّ ممّا كانت. */
+    const sheet = await css();
+    expect(/\.sh-right \.sh-chip:not\(\.speaking\)[\s\S]{0,400}?rgba\(150, 226, 244, \.52\)/.test(sheet)).toBe(true);
+  });
+
+  it('٦٥ · وهالةُ لمسها تملأ الفجوة ولا تسرق جارتَها', async () => {
+    /*
+     * ⚠️ **ومددتُها أوّلًا إلى ٤٤ فسقط القياس**: الصفوفُ متقاربةٌ،
+     *    فهالةُ كلّ رقاقةٍ تعلو الصفَّ الذي فوقها فتسرق لمساتِه. وهو
+     *    العدوانُ نفسُه المكتوب فوق حبّة الأوضاع، بمحورٍ آخر. فالفجوةُ
+     *    وُسِّعت ١٠px والهالةُ تملؤها ولا تتجاوزها: ٣٨px لمسًا.
+     */
+    const f = await stageAt(412, 915);
+    const chips = [...f.doc.querySelectorAll('.sh-chip')];
+    const hostBox = f.doc.querySelector('.sh-chips').getBoundingClientRect();
+    const miss = [];
+    const theft = [];
+    let checked = 0;
+    for (const c of chips) {
+      const r = c.getBoundingClientRect();
+      const mid = Math.round(r.left + r.width / 2);
+      const cy = r.top + r.height / 2;
+      const hit = (y) => f.doc.elementFromPoint(mid, Math.round(y));
+      const owns = (y) => {
+        const el = hit(y);
+        return Boolean(el && (el === c || c.contains(el)));
+      };
+      const who = (y) => {
+        const el = hit(y);
+        return el ? `${el.tagName}.${(el.className || '').toString().split(' ').join('.')}` : 'لا شيء';
+      };
+      /*
+       * ⚠️ **وحافّةُ النطاق تقصّ الهالةَ — وهذا صحيحٌ لا عطب.** نطاقُ
+       *    الرقائق يُمرَّر (`overflow-y: auto`)، فهالةُ أوّل صفٍّ وآخره
+       *    تخرج عن نافذته فتُقصّ. فيُشترَط ٣٨px لمسًا على مَن تسع
+       *    هالتُه داخل النافذة، ويُشترَط على الجميع أن يملكوا مركزَهم.
+       */
+      if (!owns(cy)) miss.push(`مركز:${Math.round(r.height)}`);
+      else if (r.top - 5 >= hostBox.top && r.bottom + 5 <= hostBox.bottom) {
+        checked += 1;
+        if (!owns(cy - 16) || !owns(cy + 16)) {
+          miss.push(`هالة:${Math.round(r.height)}@${Math.round(r.top)}`
+            + `|فوق:${who(cy - 16)}|تحت:${who(cy + 16)}`);
+        }
+      }
+      /* ولا تسرق جارتَها: نقطةٌ داخلَ حافّة الجارة الأفقيّة تبقى لها. */
+      for (const other of chips) {
+        if (other === c) continue;
+        const o = other.getBoundingClientRect();
+        if (Math.abs(o.top - r.top) > 2) continue;
+        const x = o.left < r.left ? Math.round(o.right - 3) : Math.round(o.left + 3);
+        const el = f.doc.elementFromPoint(x, Math.round(o.top + o.height / 2));
+        if (el && c.contains(el)) theft.push('سرقة');
+      }
+    }
+    expect(`قاصرون ${miss.join(',') || 'لا أحد'}`).toBe('قاصرون لا أحد');
+    expect(`سارقون ${theft.length}`).toBe('سارقون 0');
+    /* ⚠️ وحارسٌ لم يفحص أحدًا لا يحرس: يُشترَط أن يكون قد فحص هالةً واحدةً على الأقلّ. */
+    expect(`فُحصت هالاتٌ ${checked > 0}`).toBe('فُحصت هالاتٌ true');
+  });
+
+  it('٦٦ · والسهمان يشيران إلى الخارج لا إلى بعضهما', async () => {
+    /*
+     * ⚠️ **والاسمُ لا يُصدَّق — البكسلاتُ تُقاس.** التعليقُ القائمُ كان
+     *    يدّعي أنّ الملفَّين سُمّيا باتّجاههما، والقياسُ كذّبه:
+     *
+     *        nav-left.webp   يسارُه ٨٥ · يمينُه ١٦  ⇐ يشير يمينًا
+     *        nav-right.webp  يسارُه ١٣ · يمينُه ٩٣  ⇐ يشير يسارًا
+     *
+     *    فالحارسُ يقرأ الصورةَ التي يحملها كلُّ زرٍّ فعلًا، ويحكم من
+     *    امتداد حبرها — لا من اسم ملفّها.
+     */
+    const sheet = await css();
+    const prev = sheet.match(/\.sh-nav-btn \.sh-ico-prev \{ background-image: url\('\.\.\/assets\/shadow\/(nav-[a-z]+)\.webp'\); \}/g) || [];
+    const last = prev[prev.length - 1] || '';
+    expect(`السابقُ يحمل ${/nav-right/.test(last)}`).toBe('السابقُ يحمل true');
+    const next = sheet.match(/\.sh-nav-btn \.sh-ico-next \{ background-image: url\('\.\.\/assets\/shadow\/(nav-[a-z]+)\.webp'\); \}/g) || [];
+    expect(`والتالي يحمل ${/nav-left/.test(next[next.length - 1] || '')}`).toBe('والتالي يحمل true');
+  });
+
+  it('٦٧ · وحبّةُ الأوضاع نصفُ حجمها وأهدأ — وثلاثةٌ تُقرأ وتُلمَس', async () => {
+    /*
+     * قِيس قبل: ١٥٨٫٩×٣٨ (٦٠٣٨px²) · وبعد: ١٢٢٫٩×٢٨ (٣٤٤١) — **−٤٣٪**،
+     * وهو «نصفُها تقريبًا» الذي طلبتَه بلا أن يصغر حبرٌ (١٠٫٥px كما كان).
+     * ⚠️ والصندوقان يشملان حدَّيهما: الزرُّ نفسُه ٢٦ والحبّةُ ٢٨ بحدّها.
+     *
+     * ⚠️ **والهدوءُ بأسلوبٍ لا بمؤقّت** (شرطُك): عتامةٌ ساكنةٌ ترتفع عند
+     *    اللمس أو التركيز. ولا يُخفى، ولا يلتبس المختار.
+     */
+    for (const [w, h] of [[412, 915], [1280, 800]]) {
+      const f = await stageAt(w, h);
+      const pill = f.doc.querySelector('.sh-modes');
+      const box = pill.getBoundingClientRect();
+      const cs = f.win.getComputedStyle(pill);
+      expect(`${w}: أصغر ${box.width < 135 && box.height <= 28}`).toBe(`${w}: أصغر true`);
+      expect(`${w}: أهدأ ${Number(cs.opacity) < 0.8 && Number(cs.opacity) > 0.4}`).toBe(`${w}: أهدأ true`);
+      const btns = [...f.doc.querySelectorAll('.sh-modes button')];
+      expect(`${w}: أوضاعٌ ${btns.length}`).toBe(`${w}: أوضاعٌ 3`);
+      const clipped = btns.filter((b) => b.scrollWidth > b.clientWidth + 1).length;
+      expect(`${w}: مقصوصون ${clipped}`).toBe(`${w}: مقصوصون 0`);
+      /* وهالةُ اللمس القائمةُ (WS-FINAL-VISUAL) تبقى ٤٤ رأسيًّا. */
+      const miss = btns.filter((b) => {
+        const r = b.getBoundingClientRect();
+        const mid = Math.round(r.left + r.width / 2);
+        const owns = (y) => {
+          const el = f.doc.elementFromPoint(mid, Math.round(y));
+          return Boolean(el && (el === b || b.contains(el)));
+        };
+        const cy = r.top + r.height / 2;
+        return !owns(cy) || !owns(cy - 20) || !owns(cy + 20);
+      }).length;
+      expect(`${w}: قاصرون ${miss}`).toBe(`${w}: قاصرون 0`);
+    }
+  });
+
+  it('٦٨ · والميكروفونُ أصغرُ ويبقى داخلَ المسرح على الضيّقة', async () => {
+    /*
+     * ⚠️ **والدفعُ يمينًا قِيس فسقط على ٣٢٠**: صار يمينُه ٣٢٧ وحافّةُ
+     *    المسرح ٣١٤. فالهامشُ يصغر حيث لا مكان — والصِّغَرُ وحدَه هو
+     *    ما يناله هناك. وأقولها صراحةً في القاعدة نفسِها.
+     */
+    for (const [w, h] of [[320, 720], [412, 915], [1280, 800]]) {
+      const f = await stageAt(w, h, { rec: true });
+      const mic = f.doc.querySelector('.sh-rec-btn');
+      const page = f.doc.querySelector('.sh-page.sh-right');
+      const r = mic.getBoundingClientRect();
+      const pg = page.getBoundingClientRect();
+      expect(`${w}: حجمٌ ${Math.round(r.width)}`).toBe(`${w}: حجمٌ 34`);
+      expect(`${w}: داخلَ المسرح ${r.right <= pg.right - 4}`).toBe(`${w}: داخلَ المسرح true`);
+      /* ويُلمَس: مركزُه له. */
+      const el = f.doc.elementFromPoint(Math.round(r.left + r.width / 2), Math.round(r.top + r.height / 2));
+      expect(`${w}: يُلمَس ${Boolean(el && (el === mic || mic.contains(el)))}`).toBe(`${w}: يُلمَس true`);
+    }
+  });
+
+  it('٦٩ · و«نصٌّ كامل» يتلقّى خطَّ القراءة المعتمَد', async () => {
+    /*
+     * ⚠️ **آخرُ مُنتقٍ ميّت في هذه العائلة.** `applyFonts` كانت تعدّ
+     *    أربعةَ أسماء — البطل، وسطورَ النصّ، ولوحةَ الأصل، والرقائق —
+     *    و«نصٌّ كامل» (`.sh-flow-s`) ليس أحدَها. قِيس حيًّا وخطُّ
+     *    القراءة `philosopher`: البطلُ Philosopher والرقاقةُ
+     *    Philosopher و«نصٌّ كامل» **Inter** — أي خطُّ التطبيق.
+     *
+     * ⚠️ **ويتبع `ctx.font` لا `ctx.fontDoc`**: زرُّ Aa الذي تضغطه
+     *    يفتح المُنتقيَ على صفحة المسرح فيكتب `fontId`. فربطُه بالآخر
+     *    كان سيترك البلاغَ قائمًا بحرفه.
+     *
+     * ⚠️ **ويُعاد بعد كلّ رسم**: `paintLines` تستبدل `innerHTML` كلَّه،
+     *    والأنماطُ السطريّةُ تضيع معه — فكلُّ نقلةِ جملةٍ كانت ستمحوه.
+     */
+    const src = await (await fetch('../js/views/shadow-view.js')).text();
+    const fonts = src.slice(src.indexOf('function applyFonts()'), src.indexOf('\n}', src.indexOf('function applyFonts()')));
+    expect(`يشمل «نصّ كامل»: ${/querySelectorAll\('\.sh-flow-s'\)/.test(fonts)}`)
+      .toBe('يشمل «نصّ كامل»: true');
+    expect(`بخطّ القراءة: ${/\.sh-flow-s'\)\s*\n?\s*\.forEach\(\(node\) => applyFont\(node, ctx\.font\)\)/.test(fonts)}`)
+      .toBe('بخطّ القراءة: true');
+    const lines = src.slice(src.indexOf('function paintLines()'), src.indexOf('\n}', src.indexOf('function paintLines()')));
+    expect(`ويُعاد بعد الرسم: ${/applyFonts\(\);/.test(lines)}`).toBe('ويُعاد بعد الرسم: true');
+    /* وسطورُ «جمل» تبقى على خطّ الصفحة — تفاوتٌ معلَنٌ لا مُخفًى. */
+    expect(`وسطورُ «جمل» على خطّ الصفحة: ${/data-line-text\]'\)\s*\n?\s*\.forEach\(\(node\) => applyFont\(node, ctx\.fontDoc\)\)/.test(fonts)}`)
+      .toBe('وسطورُ «جمل» على خطّ الصفحة: true');
   });
 });

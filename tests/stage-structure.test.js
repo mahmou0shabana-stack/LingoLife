@@ -384,20 +384,33 @@ describe('WS-SZ · لا كلمةَ تُخفى بلا سبيلٍ إليها', () 
      *    إليها أبدًا. التوسيطُ في صندوقٍ يُمرَّر يوزّع الفائضَ على
      *    الطرفين، وحدُّ التمرير الأعلى **صفرٌ لا سالب**.
      */
-    const s = await stage(412, 915, { words: 23 });
+    /*
+     * ⚠️ **وعددُ الكلمات رُفع ٢٣ ← ٨٠ في WS-VFP — وسقطَ الحارسُ هو ما
+     *    كشف الحاجة.** صغرت الرقاقةُ بطلبك (٣٦ ← ٢٨ ارتفاعًا) فصارت
+     *    ثلاثٌ وعشرون **تتّسع بلا فيض**، فسقط `overflow > 0`: شرطُ
+     *    الحارس نفسُه لم يعد يتحقّق. ولو كُتب بلا هذا التأكيد لَمَرَّ
+     *    خاويًا ولم يحرس شيئًا — وهو الدرسُ المكتوبُ في هذا الملفّ:
+     *    **أداةٌ لا تُعيد إنتاجَ الحالة لا تحرسها.**
+     *
+     *    والثمانون تفيض بفارقٍ واسع (قِيس ٥٢٥px في مسرحٍ نظيرٍ بنفس
+     *    المقاس)، فلا يقع الحكمُ على حافّةٍ تتأرجح بين تشغيلٍ وآخر.
+     */
+    const s = await stage(412, 915, { words: 80 });
     const above = s.chips.above;
     const overflow = s.chips.overflow;
     s.close();
-    expect(overflow > 0).toBe(true);
-    expect(above).toBe(0);
+    expect(`فائضٌ ${overflow > 0}`).toBe('فائضٌ true');
+    expect(`هاربون ${above}`).toBe('هاربون 0');
   });
 
   it('٩ · وكلُّ رقاقةٍ تُبلَغ بالتمرير إلى الأقصى', async () => {
-    const s = await stage(412, 915, { words: 23 });
+    /* ⚠️ والعددُ هو هو لنفس السبب: بلا فيضٍ لا معنى لـ«تُبلَغ بالتمرير». */
+    const s = await stage(412, 915, { words: 80 });
     const { overflow, scrollMax, unreachable } = s.chips;
     s.close();
-    expect(scrollMax >= overflow - 1).toBe(true);
-    expect(unreachable).toBe(0);
+    expect(`فائضٌ ${overflow > 0}`).toBe('فائضٌ true');
+    expect(`المدى ${scrollMax >= overflow - 1}`).toBe('المدى true');
+    expect(`مُتعذّرات ${unreachable}`).toBe('مُتعذّرات 0');
   });
 
   it('١٠ · والجملةُ كذلك: ما فاض منها يفيض من الأسفل لا من الأعلى', async () => {
