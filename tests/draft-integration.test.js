@@ -355,8 +355,23 @@ describe('WS-DI · المسودّةُ في صفحة الجملة لا في ال�
   });
 
   it('١٨ · وتتبع الجملةَ الجاريةَ وحدَها بين المنابع', async () => {
+    /*
+     * ⚠️ **وكان يشترط سطرًا بحرفه، فسقط على تنسيقٍ لا على معنًى
+     *    (WS-DSCTME).** صار النداءُ داخلَ كتلةٍ لأنّ تظليلَ الهدف يُكتَب
+     *    قبله تزامنيًّا، فاختلف النصُّ ولم يختلف المحروس. والمحروسُ
+     *    أمران معًا: أنّ إعادةَ الرسم مشروطةٌ بـ«مسودّة» وحدَها — لا
+     *    منبعَ آخر يُعاد مع نقلةِ جملة — وأنّها تقع في `syncSegment`.
+     */
     const src = await view();
-    expect(src).toContain("if (well === 'draft') renderWells().catch(() => {});");
+    const at = src.indexOf('function syncSegment()');
+    const body = src.slice(at, src.indexOf('\n}', at));
+    expect(`في نقلة الجملة: ${/renderWells\(\)/.test(body)}`)
+      .toBe('في نقلة الجملة: true');
+    expect(`مشروطةٌ بالمسودّة: ${/if \(well === 'draft'\)[\s\S]{0,600}?renderWells\(\)/.test(body)}`)
+      .toBe('مشروطةٌ بالمسودّة: true');
+    /* ولا تُنادى بلا شرطٍ — منبعٌ لستَ فيه لا يُرسَم مع كلّ نقلة. */
+    const calls = (body.match(/renderWells\(\)/g) || []).length;
+    expect(`عددُ النداءات: ${calls}`).toBe('عددُ النداءات: 1');
   });
 
   it('١٩ · ولا يُخفى قسمٌ من المسودّة', async () => {

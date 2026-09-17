@@ -625,10 +625,21 @@ describe('WS-ST · الكلمةُ تُقرأ والجملةُ تهيمن', () =>
 describe('WS-ST · ضوابطُ أصغرَ لا ضوابطَ مكسورة', () => {
   it('٩ · زرُّ التشغيل والتنقّلُ في المدى المطلوب ولمسُهما ممكن', async () => {
     /* بند ١١: التشغيل ٥٦–٦٤ · التنقّل ٤٤–٥٢ على الهاتف. */
+    /*
+     * ⚠️ **وقاعُ التشغيل نزل إلى ٥٢ بطلبك (WS-DSCTME · العطب ٤)** —
+     *    «make the Earth artwork slightly smaller». وهذا **نقضٌ لرقمٍ
+     *    من بند ١١**، فيُكتَب صريحًا لا يُسكَت عنه: كان ٥٦–٦٤ فصار
+     *    ٥٢–٦٤ (وهو ٥٨ لوحًا و٥٢ هاتفًا بعد التغيير).
+     *
+     * ⚠️ **ولا ينزل الحدُّ إلى ما لا يُلمَس**: ٥٢ فوق حدّ الإصبع (٤٤)
+     *    بثمانية بكسلات، وزرُّ التنقّل لم يُمَسّ. وتوسيطُ الكوكب في
+     *    مركز المسرح محروسٌ في ٨٣ لا هنا.
+     */
     const f = await stageAt(412, 915);
     const play = f.box('.sh-play');
     const nav = f.box('.sh-nav-btn');
-    expect(play.w >= 56 && play.w <= 64).toBe(true);
+    expect(play.w >= 52 && play.w <= 64).toBe(true);
+    expect(play.w >= 44).toBe(true);
     expect(nav.w >= 44 && nav.w <= 52).toBe(true);
     f.close();
   });
@@ -1834,20 +1845,30 @@ describe('WS-FINAL-VISUAL · صناديقُ زجاجٍ لا أزرارٌ زرق�
      *    لجازت حشوةٌ معتمة. فالمحروسُ: حشوةٌ **دون** ‎.22 وحدٌّ **فوق**
      *    ‎.40 في أخفتِ محطّاته.
      *
-     * ⚠️ **والطبقتان تُفصَلان في القياس**: هما سلسلةٌ واحدةٌ في
-     *    `background-image` (padding-box ثمّ border-box)، وقياسُ أكبرِ
-     *    ألفا فيهما معًا يخلط ما يجب أن يشفّ بما يجب أن يظهر.
+     * ⚠️ **وكانت الطبقتان تُقاسان سلسلةً واحدةً — وهذا ما أُعيد توجيهُه
+     *    (WS-DSCTME · العطب ٢).** الحدُّ كان **طبقةَ خلفيّةٍ** بقصِّ
+     *    `border-box`، أي مرسومًا على مساحة الرقاقة كلِّها، ولا يبدو
+     *    حدًّا إلّا لأنّ الطبقةَ التي فوقه تحجبه. فكلُّ تخفيفٍ للحشوة
+     *    كان **يكشف السماويَّ** فتزداد الرقاقةُ امتلاءً — وهو سببُ
+     *    بلاغك الثالث على نفس الرقاقة.
+     *
+     *    وهذا الحارسُ كان يشترط تلك الطبقتين بنصّه، أي **يحرس العلّة**.
+     *    فصار يقرأ الحدَّ من `border-color` — حيث صار فعلًا — وتبقى
+     *    عتبتاه كما هما: حشوةٌ دون ‎.22 وحدٌّ فوق ‎.40. وامتدادُ الحدّ
+     *    على المساحة محروسٌ في ٨٠.
      */
     const alphas = (part) => [...String(part)
       .matchAll(/rgba?\([^)]*?,\s*([\d.]+)\s*\)/g)].map((m) => Number(m[1]));
     for (const [w, h] of [[412, 915], [1280, 800]]) {
       const f = await stageAt(w, h);
-      const bg = String(f.cs('.sh-chip').backgroundImage);
+      const cs = f.cs('.sh-chip');
+      const bg = String(cs.backgroundImage);
       const parts = bg.split('), linear-gradient');
       const fill = alphas(parts[0]);
-      const edge = alphas(parts[1] || '');
+      const border = String(cs.borderTopColor);
+      const edge = border.startsWith('rgba') ? alphas(border) : [1];
       f.close();
-      expect(`${w}: طبقتان ${parts.length === 2}`).toBe(`${w}: طبقتان true`);
+      expect(`${w}: طبقةٌ واحدة ${parts.length === 1}`).toBe(`${w}: طبقةٌ واحدة true`);
       const fillMax = Math.max(...fill);
       const edgeMin = Math.min(...edge);
       expect(`${w}: حشوةٌ ${fillMax} تشفّ`)
@@ -2627,5 +2648,148 @@ describe('WS-CPH · رأسُ التدريب المضغوط', () => {
       });
     f.close();
     expect(`في الصفّ ${rows.filter((x) => x.ok).length}/3`).toBe('في الصفّ 3/3');
+  });
+});
+
+/* ================================================================== *
+ * WS-DSCTME — الرقاقةُ زجاجٌ · الرمزُ في مركزه · الحبّةُ والكوكب        *
+ * ================================================================== */
+describe('WS-DSCTME · ثلاثُ لمساتٍ مقيسةٌ على المسرح', () => {
+  it('٨٠ · الرقاقةُ زجاجٌ: حدُّها على حدِّها لا على مساحتها', async () => {
+    /*
+     * ⚠️ **وهذا ما كشفه القياسُ بعد بلاغين متتاليين على نفس الرقاقة.**
+     *    الحدُّ السماويُّ لم يكن حدًّا: كان **طبقةَ خلفيّةٍ بقصِّ
+     *    `border-box`**، أي مرسومةً على مساحة الرقاقة كلِّها، وفوقها
+     *    طبقةٌ داكنةٌ بقصِّ `padding-box` تحجبها. والحيلةُ لا تُظهِر حدًّا
+     *    إلّا إذا كانت العليا معتمةً — فكلُّ تخفيفٍ للعليا كان **يكشف
+     *    السماويَّ أكثر**، أي يزيدها امتلاءً وهو عكسُ المطلوب.
+     *
+     *    قِيس البكسلُ ٤px داخلَ الحافّة عند منتصف الارتفاع (نفسُ البكسل
+     *    مرّتين، والحركةُ مجمَّدة، ومرّةً بلا زجاج الرقاقة):
+     *
+     *        قبل  إسهامُ الرقاقة في وسطها **١٢٥** وحدةَ لون
+     *        بعد  **١٫٧**
+     *
+     * ⚠️ **والحارسُ يسأل السؤالَ الذي يكشف العطب**: هل يمتدّ قصُّ
+     *    الخلفيّة إلى `border-box`؟ فلو عاد أحدٌ إلى تلك الحيلة سقط
+     *    هذا السطرُ ولو كانت الأرقامُ تبدو أخفّ.
+     */
+    const f = await stageAt(1280, 800);
+    const chip = f.doc.querySelector('.sh-chips .sh-chip:not(.speaking)');
+    const cs = f.win.getComputedStyle(chip);
+    const clip = cs.backgroundClip || cs.webkitBackgroundClip || '';
+    expect(`قصُّ الخلفيّة: ${clip.includes('border-box')}`).toBe('قصُّ الخلفيّة: false');
+    /* وطبقةٌ واحدةٌ لا طبقتان — الثانيةُ كانت هي الغطاء. */
+    const layers = (cs.backgroundImage.match(/linear-gradient/g) || []).length;
+    expect(`طبقاتُ الخلفيّة: ${layers}`).toBe('طبقاتُ الخلفيّة: 1');
+    /* والحدُّ يبقى سماويًّا مرئيًّا — الهُويّةُ والحدودُ شرطُك الصريح. */
+    const [r, g, b, a] = (cs.borderTopColor.match(/[\d.]+/g) || []).map(Number);
+    expect(`الحدُّ سماويٌّ: ${b > g && g > r}`).toBe('الحدُّ سماويٌّ: true');
+    expect(`ويُرى: ${(a === undefined ? 1 : a) >= 0.3}`).toBe('ويُرى: true');
+    /* وحشوةُ الزجاج خفيفةٌ — أعلى ألفا في التدرّج دون الخُمس. */
+    const alphas = [...cs.backgroundImage.matchAll(/rgba\([^)]*?,\s*([\d.]+)\)/g)]
+      .map((m) => Number(m[1]));
+    expect(`أثقلُ حشوة: ${Math.max(...alphas, 0) <= 0.2}`).toBe('أثقلُ حشوة: true');
+    f.close();
+  });
+
+  it('٨١ · وكلُّ رمزٍ من أدوات الجملة في مركز قرصه', async () => {
+    /*
+     * ⚠️ **والمجموعةُ كانت متوسّطةً أصلًا — والرمزُ لم يكن.** قِيس:
+     *    امتدادُ الثلاثة ٧٨px ومركزُه على مركز الحاوي تمامًا، والفجوتان
+     *    ٦ و٦. والخللُ داخلَ الزرّ:
+     *
+     *        🔖 ‎+٣٫٤٩px‎ يمينًا · ♡ ‎+١٫٣٨‎ · ⧉ ‎+٠٫٢٩
+     *
+     *    والسببُ حشوةُ المتصفّح (`padding: 1px 6px`): صندوقُ ٢٢px بحدٍّ
+     *    ١px يترك للمحتوى **٨px**، والرموزُ أعرض (١٥ · ١٠٫٨ · ٨٫٦)
+     *    فتفيض، وفيضُ السطر في سياقٍ عربيٍّ يذهب جهةً واحدة. والحسابُ
+     *    يطابق المقيس: ‎(عرضُ الرمز − ٨) ÷ ٢‎.
+     *
+     * ⚠️ **والمقيسُ هو الرمزُ لا الصندوق**: صندوقٌ متوسّطٌ ورمزٌ منزاحٌ
+     *    يبدو غيرَ متوسّط — وهو ما تراه العين.
+     */
+    for (const [w, h] of [[1280, 800], [412, 915], [320, 720]]) {
+      const f = await stageAt(w, h);
+      const btns = [...f.doc.querySelectorAll('.sh-current-tools button')];
+      const off = btns.map((btn) => {
+        const box = btn.getBoundingClientRect();
+        const rng = f.doc.createRange();
+        rng.selectNodeContents(btn);
+        const gl = rng.getBoundingClientRect();
+        return {
+          dx: (gl.left + gl.width / 2) - (box.left + box.width / 2),
+          dy: (gl.top + gl.height / 2) - (box.top + box.height / 2),
+        };
+      });
+      /*
+       * ⚠️ **والمجموعةُ تُقاس هنا أيضًا — ولم تكن محروسةً قطُّ.** أزحتُها
+       *    ١٤px في إثبات الطفرات فلم يسقط حارسٌ واحد: الحارسُ ٧٧ يقيس
+       *    اللمسَ لا الموضع. فطلبُك «centered and balanced» يُقاس
+       *    بثلاثة: انحرافُ كلّ رمزٍ في قرصه، ومركزُ المجموعة من مركز
+       *    حاويها، وتساوي الفجوتين.
+       */
+      const rects = btns.map((x) => x.getBoundingClientRect());
+      const host = f.doc.querySelector('.sh-current-tools').getBoundingClientRect();
+      const span = { x: rects[0].left, r: rects[rects.length - 1].right };
+      const groupOff = ((span.x + span.r) / 2) - (host.left + host.width / 2);
+      const gaps = rects.slice(1).map((r, i) => r.left - rects[i].right);
+      f.close();
+      expect(`${w}: عددُها ${off.length}`).toBe(`${w}: عددُها 3`);
+      const worst = Math.max(...off.map((o) => Math.abs(o.dx)));
+      const worstY = Math.max(...off.map((o) => Math.abs(o.dy)));
+      expect(`${w}: أسوأُ انحرافٍ أفقيٍّ ${worst <= 0.5}`)
+        .toBe(`${w}: أسوأُ انحرافٍ أفقيٍّ true`);
+      expect(`${w}: وأسوأُ رأسيٍّ ${worstY <= 1}`).toBe(`${w}: وأسوأُ رأسيٍّ true`);
+      expect(`${w}: مركزُ المجموعة ${Math.abs(groupOff) <= 0.5}`)
+        .toBe(`${w}: مركزُ المجموعة true`);
+      expect(`${w}: الفجوتان متساويتان ${Math.abs(gaps[0] - gaps[1]) <= 0.5}`)
+        .toBe(`${w}: الفجوتان متساويتان true`);
+    }
+  });
+
+  it('٨٢ · وحبّةُ الأوضاع تُفارِق شريطَ النقل بفسحةٍ تُرى', async () => {
+    /*
+     * ⚠️ **بلاغُك بصريٌّ فيُقاس بصريًّا**: الحبّةُ كانت تجلس على شريط
+     *    النقل — الفجوةُ **٢٠px** لوحًا و**١١px** هاتفًا، ووهجُ الكوكب
+     *    (‏١٨–٤٤px) يعبرها فتبدو ملتصقة.
+     *
+     *        بعد: ٢٤ لوحًا · ٢٠ هاتفًا
+     *
+     * ⚠️ **ولا يُمَسّ منطقُها**: ثلاثةُ أزرارٍ وواحدٌ فعّالٌ كما كانت.
+     */
+    for (const [w, h, floor] of [[1280, 800, 22], [412, 915, 18], [320, 720, 18]]) {
+      const f = await stageAt(w, h);
+      const modes = f.doc.querySelector('.sh-modes').getBoundingClientRect();
+      const tr = f.doc.querySelector('.sh-transport').getBoundingClientRect();
+      const on = f.doc.querySelectorAll('.sh-modes button.on').length;
+      const all = f.doc.querySelectorAll('.sh-modes button').length;
+      f.close();
+      expect(`${w}: الفسحة ${Math.round(tr.top - modes.bottom) >= floor}`)
+        .toBe(`${w}: الفسحة true`);
+      expect(`${w}: أزرارٌ ${all} فعّالٌ ${on}`).toBe(`${w}: أزرارٌ 3 فعّالٌ 1`);
+    }
+  });
+
+  it('٨٣ · والكوكبُ أصغرُ ممّا كان، والتشغيلُ في مركز المسرح', async () => {
+    /*
+     * ⚠️ **وتوسيطُ التشغيل غيرُ قابلٍ للتفاوض** — شرطُك في كلّ تمريرة،
+     *    ومقيسٌ ٠px منذ WS-CSFIM. فتصغيرُ الزرّ متناظرٌ داخلَ عمودٍ
+     *    متوسَّط، فلا يُزيح مركزَه بكسلًا.
+     *
+     *        قبل  ٦٤ لوحًا · ٥٨ هاتفًا
+     *        بعد  ٥٨ لوحًا · ٥٢ هاتفًا   (‏−٩٪ و−١٠٪)
+     */
+    for (const [w, h, cap] of [[1280, 800, 58], [412, 915, 52], [320, 720, 52]]) {
+      const f = await stageAt(w, h);
+      const play = f.doc.querySelector('.sh-play').getBoundingClientRect();
+      const page = f.doc.querySelector('.sh-page.sh-right').getBoundingClientRect();
+      f.close();
+      expect(`${w}: مقاسُ الكوكب ${Math.round(play.width)}`).toBe(`${w}: مقاسُ الكوكب ${cap}`);
+      expect(`${w}: مربّعٌ ${Math.round(play.height)}`).toBe(`${w}: مربّعٌ ${cap}`);
+      const off = (play.left + play.width / 2) - (page.left + page.width / 2);
+      expect(`${w}: انحرافُ التشغيل ${Math.abs(off) <= 1}`)
+        .toBe(`${w}: انحرافُ التشغيل true`);
+    }
   });
 });
