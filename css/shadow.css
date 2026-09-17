@@ -9137,3 +9137,99 @@ body.shadow-open { overflow: hidden; }
   content: ''; position: absolute;
   inset: calc((44px - 100%) / -2) calc((44px - 100%) / -2);
 }
+
+/* ══════════════════════════════════════════════════════════════════
+   WS-CCCS — شريطا الصفحة يتقلّصان: أعلى وأسفل
+
+   قِيس قبل (مسرحٌ حيٌّ لا قاعدةُ CSS):
+
+       ١٢٨٠×٨٠٠   علويّ ٥٢ · سفليّ ٤٤ · **١٢٪ من الشاشة**
+       ٤١٢×٩١٥    علويّ ٤٤ · سفليّ ٣٩٫٩ · ٩٫٢٪
+       ٣٢٠×٧٢٠    علويّ ٤٤ · سفليّ ٣٩٫٩ · ١١٫٧٪
+
+   ⚠️ **ومَن يصنع الارتفاعَ مقيسٌ لا مُقدَّر** — وإلّا خفضتُ `min-height`
+      ولم ينزل شيء:
+
+        العلويّ · الأرضيّةُ ٤٤/٥٢، وأطولُ ساكنٍ زرُّ «LIBRARY» ٤٤
+                  (هدفُ لمسٍ في صندوقه)، والعلامةُ ٢٧٫٢ بـ١٦px/١٫٧
+        السفليّ · **العنوانُ ٣٩٫٩ وحدَه**: اسمُ الجلسة كتلةٌ ثمّ وصفُه
+                  تحته — سطران بارتفاع سطرٍ ١٫٤. والأرقامُ ٢٠٫٤ فقط.
+
+      فالخفضُ من هذه المواضع بعينها، والهدفُ يبقى ٤٤ بهالةٍ شفّافة —
+      نفسُ عرف هذا الملفّ منذ WS44 وWS-FINAL-VISUAL وWS-VFP.
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ---------- ١ · الشريط العلويّ ---------- */
+.shadow-app .sh-topbar { min-height: 32px; gap: 8px; }
+.sh-topbar .sh-brand { font-size: 13px; line-height: 1.15; }
+.sh-topbar .sh-crumb { gap: 8px; }
+.sh-topbar .sh-crumb b { font-size: 13px; line-height: 1.2; }
+.sh-topbar .sh-crumb .sh-mono { font-size: 9.5px; line-height: 1.2; }
+.sh-topbar .sh-streak {
+  padding: 2px 9px; font-size: 9.5px; line-height: 1.3;
+}
+/*
+ * ⚠️ **والصندوقُ يصغر واللمسُ لا**: `min-height: 44px` على الزرّ هو
+ *    ما كان يفرض ٤٤ على الشريط كلِّه. فيهبط الأدنى إلى ٢٤ — وقِيس
+ *    الصندوقُ بعدها **٢٦** (حدُّه وحبرُه) — وتُمَدّ هالةٌ شفّافةٌ إلى
+ *    ٤٤ حولَه، ومقيسُ ما يُلمَس فعلًا ٣٨ على الهاتف و٤١ على العريض
+ *    (ما فوق الشاشة يُقصّ، وهو مكتوبٌ في الفقرة التالية).
+ *
+ * ⚠️ **وما فاض من الهالة فوق الشريط يخرج من الشاشة لا يسرق أحدًا**:
+ *    الشريطُ عند y=0، فنصفُ الهالة العلويُّ خارجُ النافذة أصلًا.
+ *    والنصفُ السفليُّ يُقاس أثرُه على أوّل ما تحت الشريط — وهو مقيسٌ
+ *    في حارس هذه التمريرة بـ`elementFromPoint` لا بالظنّ.
+ */
+.sh-topbar .sh-exit {
+  min-height: 24px; padding: 0 10px; font-size: 9.5px; letter-spacing: .12em;
+  position: relative;
+}
+.sh-topbar .sh-exit::after {
+  content: ''; position: absolute;
+  inset-inline: -6px;
+  inset-block: calc((44px - 100%) / -2);
+}
+
+/* ---------- ٢ · الشريط السفليّ ---------- */
+.shadow-app .sh-bottom { min-height: 26px; gap: 12px; }
+/*
+ * ⚠️ **سطرٌ واحدٌ لا سطران — وهذا هو نصفُ الارتفاع بالضبط.** كان
+ *    الاسمُ كتلةً (`display: block`) ووصفُه تحته، فبلغ العنوانُ وحدَه
+ *    ٣٩٫٩ في شريطٍ أرضيّتُه ٣٠. فصار الاثنان على خطّ قاعدةٍ واحد،
+ *    والقصُّ بالحذف (`ellipsis`) كما كان — عنوانٌ طويلٌ لا يمدّ الشريط.
+ */
+.sh-bottom .sh-bottom-title {
+  display: flex; align-items: baseline; gap: 7px; line-height: 1.15; min-width: 0;
+}
+.sh-bottom .sh-bottom-title b { font-size: 12.5px; min-width: 0; max-width: 38vw; }
+.sh-bottom .sh-bottom-title .sh-mono { font-size: 9px; flex: none; }
+/*
+ * ⚠️ **والحبرُ لا ينزل مع الصندوق** (شرطُك: «تبقى مقروءة»): الأرقامُ
+ *    ١٢px على الهاتف و١٤ على العريض كما كانت، والوصفُ ٨/٩ كما كان —
+ *    المقتطَعُ هو ارتفاعُ السطر والفواصل لا حجمُ الحرف.
+ */
+.sh-bottom .sh-stats { gap: 14px; }
+.sh-bottom .sh-stats > div { line-height: 1.25; }
+.sh-bottom .sh-stats b { line-height: 1.25; }
+.sh-bottom .sh-stats span { line-height: 1.25; }
+/* وكلمةُ «لا عددَ هنا» بحجم الوصف نفسِه — لا رقمَ يُدّعى. */
+.sh-bottom .sh-stat-note { font-size: 9px; letter-spacing: .1em; }
+.sh-bottom .sh-overview {
+  min-height: 24px; padding: 0 12px; font-size: 9.5px; letter-spacing: .12em;
+  position: relative;
+}
+.sh-bottom .sh-overview::after {
+  content: ''; position: absolute;
+  inset-inline: -6px;
+  inset-block: calc((44px - 100%) / -2);
+}
+
+/* ---------- ٣ · وعلى العريض يبقى الشريطان أكبرَ قليلًا لا أضخم ---------- */
+@media (min-width: 900px) {
+  .shadow-app .sh-topbar { min-height: 38px; gap: 14px; }
+  .sh-topbar .sh-brand { font-size: 15px; }
+  .sh-topbar .sh-crumb b { font-size: 14px; }
+  .shadow-app .sh-bottom { min-height: 30px; gap: 16px; }
+  .sh-bottom .sh-bottom-title b { font-size: 13px; max-width: 26vw; }
+  .sh-bottom .sh-stats b { font-size: 14px; }
+}

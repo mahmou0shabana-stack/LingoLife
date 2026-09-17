@@ -1926,11 +1926,21 @@ function shell() {
              نطقك بلا تعرّفٍ على الكلام. ورقمٌ لا مصدر له لا يُعرَض
              (بند 89)، ولا يُستبدَل بتقديرٍ يبدو علمًا.
         -->
-        <div class="sh-stats">
-          <div><b>${segments.length}</b><span class="sh-mono">SENTENCES</span></div>
-          <div><b>${segments.reduce((n, seg) => n + splitWords(seg.sourceTextSnapshot).length, 0)}</b><span class="sh-mono">WORDS</span></div>
-          <div><b>${session.totalRepetitions || 0}</b><span class="sh-mono">REPS</span></div>
-        </div>
+        <!--
+          ⚠️ **والأرقامُ تتبع التبويبَ المفتوح** (WS-CCCS). كانت تُكتب
+             هنا مرّةً واحدةً عند بناء الهيكل — ثلاثةُ أرقامٍ عن النصّ
+             تبقى معروضةً وأنت في «مسودّة» أو «القواعد». قِيس: بتبديل
+             التبويبات الخمسة بقيت «3 SENTENCES · 23 WORDS · 0 REPS»
+             كما هي في كلٍّ منها. فالمحتوى يُرسَم من paintBottomStats
+             ولا يُجمَّد في القالب.
+
+             ⚠️ **ولا علامةَ اقتباسٍ خلفيّةً في تعليقٍ داخل قالب html** —
+                كتبتُ اسمَ الدالّة بينهما أوّلًا فانتهى القالبُ عندها
+                وسقط الملفُّ كلُّه بـ«Unexpected identifier». وهي
+                المرّةُ الرابعةُ في هذا الملفّ، والتحذيرُ مكتوبٌ فيه
+                مرّتين قبل هذه.
+        -->
+        <div class="sh-stats" data-stats>${raw(statsHtml(sourceStatItems()))}</div>
         <button class="sh-overview" data-sh="panel" data-panel="report">SESSION OVERVIEW</button>
       </footer>
 
@@ -7908,6 +7918,129 @@ const refScroll = new Map();
 /** آخرُ تبويبٍ رُسم فعلًا — يفرّق بين الدخول وإعادة الرسم. */
 let drawnWell = '';
 
+/* ================================================================== *
+ * أرقامُ الذيل — تتبع التبويبَ المفتوح، وكلُّ رقمٍ من مصدره (WS-CCCS)
+ * ================================================================== *
+ *
+ * ⚠️ **بلاغُك**: «الأرقام تحت فاضلة زي ما هي وأنا فاتح مسودّة».
+ *    وقِيس قبل الإصلاح على ٤١٢×٩١٥ و١٢٨٠×٨٠٠ و٣٢٠×٧٢٠، بخمسة
+ *    تبويبات: **«3 SENTENCES · 23 WORDS · 0 REPS» في كلّها** —
+ *    والمسودّةُ المفتوحةُ تحتها ثمانُ بطاقاتٍ في خمسة أقسام.
+ *
+ * ⚠️ **ولا مصدرَ بياناتٍ ثانٍ يُنشأ.** `renderWells` تقرأ صفوفَ كلّ
+ *    المنابع أصلًا في كلّ رسم (`counts`)، فالأرقامُ تُشتقّ من تلك
+ *    الصفوف نفسِها — لا استعلامَ إضافيّ ولا حالةَ تبويبٍ ثانية.
+ *
+ * ⚠️ **ولا رقمَ يُخترَع لتبويبٍ لا يملكه** (بند ٨٩، وهو عرفُ هذا
+ *    الملفّ منذ «85% ACCURACY»): تبويبٌ بلا عددٍ صادقٍ يقول ذلك
+ *    بكلمةٍ، ولا يُملأ فراغُه برقمٍ من تبويبٍ آخر.
+ */
+
+/** صفوفُ المنابع كما قرأتها آخرُ `renderWells` — لا تُقرأ القاعدةُ مرّتين. */
+let wellRows = {};
+
+/** أرقامُ «النصّ»: الجلسةُ نفسُها — وهي ما كان الذيلُ يعرضه دائمًا. */
+function sourceStatItems() {
+  const { session, segments } = ctx || {};
+  if (!segments) return [];
+  return [
+    { n: segments.length, label: 'SENTENCES' },
+    { n: segments.reduce((n, seg) => n + splitWords(seg.sourceTextSnapshot).length, 0), label: 'WORDS' },
+    { n: session?.totalRepetitions || 0, label: 'REPS' },
+  ];
+}
+
+/**
+ * أرقامُ التبويب المفتوح — مشتقّةً من صفوفه هو.
+ *
+ * ⚠️ **وأرقامُ «مسودّة» من `model.counts` القائمة لا من عدٍّ جديد.**
+ *    `countsOf` مكتوبةٌ في `draft-learning.js` منذ WS-DI وتُحسَب مع
+ *    كلّ نموذج، وفيها `byRole` و`speech` و`done`. فحسابُها هنا ثانيةً
+ *    كان سيعني رقمين لنفس الشيء يفترقان يومًا — وهو عينُ ما تمنعه
+ *    قاعدةُ «لا مجموعَ بلا تفصيله» المكتوبةُ فوق تلك الدالّة.
+ *
+ *    والثلاثةُ المختارة تقول ما تعدّ:
+ *      CORES   · القطعُ الأساسيّة (MICRO_CORE) — قلبُ المسودّة
+ *      TARGETS · أهدافُ النطق الدلاليّة (`speech`: القلوب والتدرّج
+ *                والتكرارات وإعادة البناء) — لا يُخلَط بها سؤالُ
+ *                الاسترجاع ولا المثال، كما تنصّ تلك الدالّة صراحةً
+ *      DONE    · ما علّمتَه منجَزًا منها
+ */
+function wellStatItems(rows) {
+  const list = rows || [];
+  switch (well) {
+    case 'draft': {
+      const counts = list[0]?.model?.counts;
+      if (!counts) return [];
+      return [
+        { n: counts.byRole?.[ROLE.MICRO_CORE] || 0, label: 'CORES' },
+        { n: counts.speech || 0, label: 'TARGETS' },
+        { n: counts.done || 0, label: 'DONE' },
+      ];
+    }
+    case 'rules':
+      return [
+        { n: list.length, label: 'RULES' },
+        { n: list.filter((row) => row.pinned).length, label: 'PINNED' },
+        { n: list.reduce((n, row) => n + (row.images?.length || 0), 0), label: 'IMAGES' },
+      ];
+    /*
+     * ⚠️ **و«الملخّص» ملفٌّ واحد — فلا «1 FILE» ثرثرةً.** الرقمُ
+     *    الصادقُ الوحيدُ الذي تملكه الشاشةُ عنه هو **صفحتُك** فيه،
+     *    وهي محفوظةٌ أصلًا في `refView.doc.page`. والمجموعُ (عددُ
+     *    صفحات الملفّ) يعرفه العارضُ وحدَه بعد تحميله، ولا يُخرَج
+     *    منه في هذه التمريرة — فيُقال ما يُعرَف، ويُسكَت عمّا لا.
+     */
+    case 'doc': {
+      const page = Number(refView?.doc?.page) || 0;
+      return list.length && page ? [{ n: page, label: 'PAGE' }] : [];
+    }
+    case 'images':
+      return [
+        { n: list.filter((row) => row.refScope === 'scene').length, label: 'SCENE' },
+        { n: list.filter((row) => row.refScope === 'reference').length, label: 'REFERENCE' },
+      ];
+    case 'scripts':
+      return [
+        { n: list.length, label: 'SCRIPTS' },
+        { n: list.reduce((n, row) => n + splitSentences(row.text || '').length, 0), label: 'SENTENCES' },
+      ];
+    case 'voices':
+      return [{ n: list.length, label: 'RECORDINGS' }];
+    default:
+      return [];
+  }
+}
+
+/** كلمةٌ تقول «لا عددَ هنا» — بدل رقمٍ لا مصدرَ له. */
+const STAT_EMPTY = {
+  draft: 'لسّه مفيش مسودّة',
+  doc: 'مفيش ملفّ',
+  images: 'مفيش صور',
+  voices: 'مفيش تسجيلات',
+};
+
+function statsHtml(items) {
+  return (items || [])
+    .map(({ n, label }) => `<div><b>${n}</b><span class="sh-mono">${label}</span></div>`)
+    .join('');
+}
+
+/**
+ * يكتب أرقامَ الذيل للتبويب الحاليّ.
+ *
+ * ⚠️ **ولا وسمَ يبقى من تبويبٍ سابق**: الصفُّ كلُّه يُستبدَل — رقمًا
+ *    ووصفًا معًا — فلا يقع «23» تحت وصف «CORES» لحظةً واحدة.
+ */
+function paintBottomStats() {
+  const host = $('[data-stats]');
+  if (!host) return;
+  const items = well === 'source' ? sourceStatItems() : wellStatItems(wellRows[well]);
+  if (items.length) { host.innerHTML = statsHtml(items); return; }
+  const note = STAT_EMPTY[well] || '';
+  host.innerHTML = note ? `<span class="sh-stat-note sh-mono sh-dim">${esc(note)}</span>` : '';
+}
+
 /** مقبضُ عارض الملفّ الحيّ — واحدٌ لا واحدٌ لكلّ رسم. */
 let pdfView = null;
 
@@ -7951,6 +8084,9 @@ async function renderWells() {
     catch { counts[id] = []; }
   }));
 
+  /* ⚠️ والصفوفُ تُحفَظ كما قُرئت — منها تُشتقّ أرقامُ الذيل بلا قراءةٍ ثانية. */
+  wellRows = counts;
+
   const live = Object.entries(WELLS).filter(([id, w]) => w.always || counts[id].length);
   tabs.innerHTML = [`<button class="${well === 'source' ? 'on' : ''}" data-sh="well" data-v="source">النصّ</button>`]
     .concat(live.map(([id, w]) => {
@@ -7976,6 +8112,10 @@ async function renderWells() {
     renderFaces();
     renderWellPin();
     restoreWellScroll({ live: sameWell });
+    /* ⚠️ **وهذا البابُ يُنسى بسهولة**: «النصّ» يخرج من هنا لا من الذيل
+     *    أدناه، فلو كُتب الرسمُ في مخرجٍ واحدٍ لَبقيت أرقامُ «مسودّة»
+     *    معروضةً بعد الرجوع إلى النصّ. */
+    paintBottomStats();
     return;
   }
   /* منبعٌ آخر يملأ اللوح: الوجوهُ تختفي معًا. */
@@ -8004,6 +8144,7 @@ async function renderWells() {
    *    كان الاتباعُ عاملًا: أوّلًا تُستعاد الأرضيّةُ، ثمّ نُقفز عنها.
    */
   restoreWellScroll({ live: sameWell });
+  paintBottomStats();
   if (well === 'draft') {
     renderWellPin();
     if (!wellPinned) requestAnimationFrame(() => revealWellTarget());

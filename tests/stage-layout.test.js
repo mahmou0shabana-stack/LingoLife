@@ -177,7 +177,21 @@ async function stageAt(width, height,
          بحرفه فوق مفتاح الأوضاع في shadow-view.js — ووقعتُ فيه هنا.
     -->
     <div class="shadow-app${rail ? ' is-rail' : ''}" style="--sh-size:30px;--sh-len:.9">
-      <div class="sh-topbar"><span class="sh-diamond"></span><b>LingoLife</b></div>
+      <!--
+        ⚠️ **وشريطا الصفحة بسكّانهما الحقيقيّين** (WS-CCCS). كان الإطارُ
+           يرسم رأسًا فيه علامةٌ واسمٌ فقط، وذيلًا فيه أرقامٌ فقط —
+           **وليس فيهما مَن يصنع ارتفاعَهما أصلًا**: زرُّ «LIBRARY»
+           (هدفُ لمسٍ ٤٤ في صندوقه) وعنوانُ الجلسة ذو السطرين. فحارسٌ
+           يقيس هذا الإطارَ كان يحرس شريطًا لا وجودَ له في التطبيق.
+      -->
+      <div class="sh-topbar">
+        <div class="sh-brand"><i class="sh-diamond"></i> LingoLife</div>
+        <span class="sh-vrule"></span>
+        <div class="sh-crumb"><b>الفحص والمستندات</b><span class="sh-mono">17 سبتمبر</span></div>
+        <div class="sh-grow"></div>
+        <div class="sh-streak"><i></i><b>3</b> DAY STREAK</div>
+        <button class="sh-exit" data-sh="exit">LIBRARY</button>
+      </div>
       <div class="sh-body"><div class="sh-book" ${layout ? `data-layout="${layout}"` : ''}><div class="sh-pages">
         <div class="sh-page sh-right">
           <!--
@@ -243,9 +257,16 @@ async function stageAt(width, height,
           </aside>
         </div>
       </div></div></div>
-      <div class="sh-bottom"><div class="sh-stats">
-        <div><b>30</b><span>SENTENCES</span></div><div><b>370</b><span>WORDS</span></div>
-        <div><b>57</b><span>REPS</span></div></div></div>
+      <div class="sh-bottom">
+        <div class="sh-bottom-title"><b>جلسة ظلّ في المستندات التقنية</b>
+          <span class="sh-mono sh-dim">نصّ</span></div>
+        <div class="sh-grow"></div>
+        <div class="sh-stats" data-stats>
+          <div><b>30</b><span class="sh-mono">SENTENCES</span></div>
+          <div><b>370</b><span class="sh-mono">WORDS</span></div>
+          <div><b>57</b><span class="sh-mono">REPS</span></div></div>
+        <button class="sh-overview" data-sh="panel">SESSION OVERVIEW</button>
+      </div>
     </div></body></html>`);
   doc.close();
 
@@ -2273,5 +2294,118 @@ describe('WS-VFP · أصغرُ وأشفُّ بلا أن يصغر حبرٌ', () =
     /* وسطورُ «جمل» تبقى على خطّ الصفحة — تفاوتٌ معلَنٌ لا مُخفًى. */
     expect(`وسطورُ «جمل» على خطّ الصفحة: ${/data-line-text\]'\)\s*\n?\s*\.forEach\(\(node\) => applyFont\(node, ctx\.fontDoc\)\)/.test(fonts)}`)
       .toBe('وسطورُ «جمل» على خطّ الصفحة: true');
+  });
+});
+
+/* ================================================================== *
+ * WS-CCCS — شريطا الصفحة يتقلّصان ولا يفقدان ما يُقرأ ولا ما يُلمَس    *
+ * ================================================================== */
+describe('WS-CCCS · أعلى وأسفل: أصغرُ ومقروءٌ وملموس', () => {
+  it('٧٠ · الشريطان يقتطعان من الشاشة أقلَّ ممّا كانا', async () => {
+    /*
+     * قِيس حيًّا قبل (لا في الإطار — في التطبيق نفسِه):
+     *
+     *     ١٢٨٠×٨٠٠   علويّ ٥٢ · سفليّ ٤٤ · ١٢٪ من الشاشة
+     *     ٤١٢×٩١٥    علويّ ٤٤ · سفليّ ٣٩٫٩ · ٩٫٢٪
+     *
+     * وبعد: ٣٨/٣٠ و٣٢/٢٦ — أي ٨٫٥٪ و٦٫٣٪.
+     *
+     * ⚠️ **والسقفُ يُقاس على الإطار بسكّانه الحقيقيّين** (زرُّ المكتبة
+     *    والعنوان)، وقد أُضيفوا في هذه التمريرة لأنّهم هم مَن كان
+     *    يصنع الارتفاع — لا `min-height` وحدَها.
+     */
+    for (const [w, h, top, bottom] of [[412, 915, 34, 28], [1280, 800, 40, 32]]) {
+      const f = await stageAt(w, h);
+      const T = f.H('.sh-topbar');
+      const B = f.H('.sh-bottom');
+      f.close();
+      expect(`${w}: علويّ ${T <= top}`).toBe(`${w}: علويّ true`);
+      expect(`${w}: سفليّ ${B <= bottom}`).toBe(`${w}: سفليّ true`);
+    }
+  });
+
+  it('٧١ · ولا ساكنَ فيهما يخرج عن صندوقه — لا قصَّ بالانكماش', async () => {
+    /*
+     * ⚠️ **ولا تُقاس بـ`scrollHeight`**: هالةُ اللمس الشفّافةُ تحت زرّ
+     *    المكتبة تزيده ٦px وهي مقصودةٌ ولا تقصّ حرفًا. فالمقياسُ أن
+     *    يكون كلُّ ابنٍ **مرئيٍّ** داخلَ صندوق شريطه.
+     */
+    for (const [w, h] of [[412, 915], [1280, 800]]) {
+      const f = await stageAt(w, h);
+      const out = [];
+      for (const sel of ['.sh-topbar', '.sh-bottom']) {
+        const host = f.doc.querySelector(sel);
+        const box = host.getBoundingClientRect();
+        for (const node of host.querySelectorAll('*')) {
+          const r = node.getBoundingClientRect();
+          if (!r.height) continue;
+          if (r.top < box.top - 0.5 || r.bottom > box.bottom + 0.5) {
+            out.push(`${sel}>${node.className || node.tagName}`);
+          }
+        }
+      }
+      f.close();
+      expect(`${w}: خارجون ${out.join(',') || 'لا أحد'}`).toBe(`${w}: خارجون لا أحد`);
+    }
+  });
+
+  it('٧٢ · وزرُّ المكتبة صندوقُه صغر ولمسُه لم يصغر', async () => {
+    /*
+     * ⚠️ **`min-height: 44px` على الزرّ هو ما كان يفرض ٤٤ على الشريط.**
+     *    فالصندوقُ نزل إلى ٢٤ وبقي المُلمَس بهالةٍ شفّافة. والشريطُ عند
+     *    y=0 فنصفُ الهالة الأعلى خارجُ النافذة — ولذلك يُقاس **المدى
+     *    المملوكُ فعلًا** لا ارتفاعُ الهالة المكتوب.
+     */
+    for (const [w, h] of [[412, 915], [1280, 800]]) {
+      const f = await stageAt(w, h);
+      const btn = f.doc.querySelector('.sh-exit');
+      const r = btn.getBoundingClientRect();
+      const mid = Math.round(r.left + r.width / 2);
+      const cy = r.top + r.height / 2;
+      const owns = (y) => {
+        const el = f.doc.elementFromPoint(mid, Math.round(y));
+        return Boolean(el && (el === btn || btn.contains(el)));
+      };
+      let down = 0; while (down < 30 && owns(cy + down + 1)) down += 1;
+      let up = 0; while (up < 30 && cy - up - 1 >= 0 && owns(cy - up - 1)) up += 1;
+      const box = Math.round(r.height);
+      const reach = up + down + 1;
+      f.close();
+      expect(`${w}: صندوقٌ ${box <= 28}`).toBe(`${w}: صندوقٌ true`);
+      expect(`${w}: لمسٌ ${reach >= 36}`).toBe(`${w}: لمسٌ true`);
+    }
+  });
+
+  it('٧٣ · وحبرُ الذيل لم يصغر — الصندوقُ وحدَه هو ما انكمش', async () => {
+    /*
+     * ⚠️ **شرطُك**: «تفضل مقروءة، ومتبقاش مضغوطة». فالمقتطَعُ هو ارتفاعُ
+     *    السطر والفواصلُ والحشوة — لا حجمُ الحرف. قِيس: الرقمُ ١٢px على
+     *    الهاتف و١٤ على العريض، والوصفُ ٨/٩ كما كانا قبل التمريرة.
+     */
+    for (const [w, h, num] of [[412, 915, 12], [1280, 800, 14]]) {
+      const f = await stageAt(w, h);
+      const b = parseFloat(f.cs('.sh-stats b').fontSize);
+      const s = parseFloat(f.cs('.sh-stats span').fontSize);
+      const t = parseFloat(f.cs('.sh-bottom-title b').fontSize);
+      f.close();
+      expect(`${w}: رقمٌ ${b >= num}`).toBe(`${w}: رقمٌ true`);
+      expect(`${w}: وصفٌ ${s >= 8}`).toBe(`${w}: وصفٌ true`);
+      expect(`${w}: عنوانٌ ${t >= 12}`).toBe(`${w}: عنوانٌ true`);
+    }
+  });
+
+  it('٧٤ · وعنوانُ الذيل سطرٌ واحدٌ لا سطران', async () => {
+    /*
+     * ⚠️ **وهذا نصفُ ارتفاع الشريط بالضبط.** كان الاسمُ كتلةً ووصفُه
+     *    تحته: ٣٩٫٩px في شريطٍ أرضيّتُه ٣٠. والمقياسُ سلوكيّ — ارتفاعُ
+     *    الكتلة قريبٌ من سطرٍ واحد — لا اسمُ قيمةٍ في ورقة الأنماط.
+     */
+    for (const [w, h] of [[412, 915], [1280, 800]]) {
+      const f = await stageAt(w, h);
+      const box = f.H('.sh-bottom-title');
+      const line = parseFloat(f.cs('.sh-bottom-title b').fontSize) * 1.6;
+      f.close();
+      expect(`${w}: سطرٌ واحد ${box <= line}`).toBe(`${w}: سطرٌ واحد true`);
+    }
   });
 });
