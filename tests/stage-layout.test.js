@@ -208,9 +208,33 @@ async function stageAt(width, height,
             <span class="sh-current-tools">
               <button>🔖</button><button>⧉</button><button>♡</button></span>
           </div>
-          <div class="sh-prog"><div class="sh-prog-head"><span class="sh-prog-sec">الجلسة</span>
-            <span class="sh-prog-pos"><b>2</b> / 4</span></div>
-            <div class="sh-prog-bar"><span class="sh-prog-fill"></span></div></div>
+          <!--
+            ⚠️ **وصفُّ التقدّم بسكّانه كما يرسمهم renderProgress** (WS-CPH):
+               ولا علامةَ اقتباسٍ خلفيّةً هنا — كتبتُ اسمَ الدالّة بينهما
+               فانتهى قالبُ الإطار عندها، فلم يُكتَب المستندُ أصلًا
+               و**تعلّق العدّاءُ خمسَ دقائقَ بلا رسالة**. وهي التاسعةُ
+               في هذا المستودع، والتحذيرُ مكتوبٌ فوق هذا القالب بحرفه.
+               وسمُ القسم، وسطرُ سؤال/إجابة، والموضع، **وزرُّ التفصيل في
+               نفس الصفّ**، ثم الشريطُ بطبقاته، ثمّ لوحُ التفصيل المطويّ
+               وفيه الأرقامُ الثانويّة. وإطارٌ ينقص زرَّ التفصيل كان
+               سيقيس صفًّا لا وجودَ له في التطبيق.
+          -->
+          <div class="sh-prog">
+            <div class="sh-prog-head"><span class="sh-prog-sec">الكور الأساسية<i>1 / 3</i></span>
+              <span class="sh-prog-pair">سؤال 1 / 2</span>
+              <span class="sh-prog-pos"><b>2</b> / 8</span>
+              <button class="sh-prog-more" data-sh="prog-map" aria-expanded="false">التفصيل</button></div>
+            <div class="sh-prog-bar"><span class="sh-prog-fill"></span>
+              <span class="sh-prog-lived"></span><span class="sh-prog-at"></span></div>
+            <div class="sh-prog-map" hidden>
+              <div class="sh-prog-facts"><span><b>2</b> موضعك</span>
+                <span><b>1</b> مارست</span><span class="is-done"><b>1</b> خلصت</span>
+                <span><b>7</b> فاضل</span><span class="sh-prog-pct">12%</span></div>
+              <div class="sh-prog-row"><span class="sh-prog-row-n">1 / 3</span>
+                <span class="sh-prog-row-l">الكور</span>
+                <span class="sh-prog-row-b"><i style="inline-size: 33%"></i></span></div>
+            </div>
+          </div>
           <div class="sh-hero">
             <!-- ولم يبقَ في رأس البطل إلّا شريطُ المقطع — وهو مخفيٌّ إلّا داخله. -->
             <div class="sh-hero-top"><p class="sh-phrase-lbl" hidden></p></div>
@@ -2477,5 +2501,124 @@ describe('WS-CSFIM · رمزُ التشغيل', () => {
       .toBe('و«on» ظاهرةٌ true');
     play.classList.remove('on');
     f.close();
+  });
+});
+
+/* ================================================================== *
+ * WS-CPH — رأسُ التدريب: صفّان مضغوطان، وما خفَّ لم يُحذَف            *
+ * ================================================================== */
+describe('WS-CPH · رأسُ التدريب المضغوط', () => {
+  it('٧٦ · الصفّان يقتطعان من المسرح أقلَّ ممّا كانا', async () => {
+    /*
+     * قِيس حيًّا قبل (تدريبُ مسودّة — الحالةُ المزدحمة):
+     *     ١٢٨٠×٨٠٠ و٤١٢×٩١٥ · رأس ٣٢ + تقدّم ٤٩٫٣ = ٨١٫٣px
+     *     ٣٢٠×٧٢٠            · رأس ٥٨٫٧ + تقدّم ٤٩٫٣ = ١٠٨px
+     * وبعد: ٢٨٫١ + ٢٤ = **٥٢٫١** (و٧٥ على ٣٢٠ حيث تلتفّ الشارة).
+     *
+     * ⚠️ **والسقفُ يُقاس على إطارٍ يحمل سكّانَ الصفّين الحقيقيّين** —
+     *    زرُّ التفصيل ولوحُه وسطرُ سؤال/إجابة — وقد أُضيفوا في هذه
+     *    التمريرة لأنّهم هم مَن كان يصنع الارتفاع.
+     */
+    for (const [w, h, cap] of [[412, 915, 60], [1280, 800, 60]]) {
+      const f = await stageAt(w, h);
+      const top = f.H('.sh-stage-top');
+      const prog = f.H('.sh-prog');
+      f.close();
+      expect(`${w}: مضغوط ${top + prog <= cap}`).toBe(`${w}: مضغوط true`);
+      /* ولا صفٌّ منهما يتضخّم وحدَه: كلٌّ دون ثلاثين. */
+      expect(`${w}: الأوّل ${top <= 32} · الثاني ${prog <= 30}`)
+        .toBe(`${w}: الأوّل true · الثاني true`);
+    }
+  });
+
+  it('٧٧ · وأدواتُ الجملة الثلاثُ تُلمَس ولا تسرق إحداها جارتَها', async () => {
+    /*
+     * ⚠️ **الصندوقُ صغر (٢٦ ← ٢٢) والهالةُ نسبيّةٌ فاتّسعت** — فلو
+     *    تلاصقت الهالتان لسرقت إحداهما مركزَ الأخرى. والمقياسُ سلوكيّ:
+     *    كلُّ زرٍّ يملك مركزَه، ولا أحدَ يملك مركزَ جاره.
+     */
+    const f = await stageAt(412, 915);
+    const list = [...f.doc.querySelectorAll('.sh-stage-top .sh-current-tools button')];
+    expect(`عددُها ${list.length}`).toBe('عددُها 3');
+    const owner = (btn) => {
+      const r = btn.getBoundingClientRect();
+      return f.doc.elementFromPoint(Math.round(r.left + r.width / 2), Math.round(r.top + r.height / 2));
+    };
+    const miss = [];
+    const theft = [];
+    for (const btn of list) {
+      const el = owner(btn);
+      if (!el || !(el === btn || btn.contains(el))) miss.push(btn.textContent.trim());
+      for (const other of list) {
+        if (other === btn) continue;
+        const el2 = owner(other);
+        if (el2 && btn.contains(el2) && el2 !== other) theft.push(btn.textContent.trim());
+      }
+    }
+    f.close();
+    expect(`قاصرون ${miss.join(',') || 'لا أحد'}`).toBe('قاصرون لا أحد');
+    expect(`سارقون ${theft.join(',') || 'لا أحد'}`).toBe('سارقون لا أحد');
+  });
+
+  it('٧٨ · والأرقامُ الثانويّةُ داخلَ «التفصيل» لا فوق المسرح دائمًا', async () => {
+    /*
+     * ⚠️ **ولم تُحذَف بل انتقلت**: صفُّ «موضعك · مارست · خلصت · فاضل ·
+     *    ٪» كان معروضًا دائمًا (٢٦px)، وصار داخلَ لوح التفصيل القائم
+     *    بنفس زرّه وحالته. فالمحروسُ أمران: أنّه **داخلَه** فعلًا في
+     *    الشجرة، وأنّ اللوحَ مطويٌّ افتراضًا فلا يحجز شيئًا.
+     */
+    const f = await stageAt(412, 915);
+    const facts = f.doc.querySelector('.sh-prog-facts');
+    const map = f.doc.querySelector('.sh-prog-map');
+    const more = f.doc.querySelector('[data-sh="prog-map"]');
+    const head = f.doc.querySelector('.sh-prog-head');
+    expect(`الأرقامُ داخلَ التفصيل ${Boolean(facts && map && map.contains(facts))}`)
+      .toBe('الأرقامُ داخلَ التفصيل true');
+    expect(`مطويٌّ افتراضًا ${map.hidden}`).toBe('مطويٌّ افتراضًا true');
+    expect(`وزرُّه في الصفّ ${Boolean(more && head && head.contains(more))}`)
+      .toBe('وزرُّه في الصفّ true');
+    /* ولا يُحجَز له ارتفاعٌ وهو مطويّ. */
+    expect(`لا ارتفاعَ لمطويّ ${map.getBoundingClientRect().height}`)
+      .toBe('لا ارتفاعَ لمطويّ 0');
+    /* وهدفُ لمسه يُقاس لا يُفترَض — والرقمُ مكتوبٌ تحت. */
+    const r = more.getBoundingClientRect();
+    const mid = Math.round(r.left + r.width / 2);
+    const cy = r.top + r.height / 2;
+    const owns = (y) => {
+      const el = f.doc.elementFromPoint(mid, Math.round(y));
+      return Boolean(el && (el === more || more.contains(el)));
+    };
+    let down = 0; while (down < 30 && owns(cy + down + 1)) down += 1;
+    let up = 0; while (up < 30 && cy - up - 1 >= 0 && owns(cy - up - 1)) up += 1;
+    f.close();
+    expect(`صندوقٌ ${Math.round(r.height) <= 22}`).toBe('صندوقٌ true');
+    /*
+     * ⚠️ **وهدفُه ٢٧px مقيسةً لا ٤٤ — والرقمُ يُقال ولا يُلطَّف.**
+     *    الهالةُ ٤٤ مكتوبةٌ فعلًا، لكنّ الزرَّ محشورٌ بين شريطين:
+     *    شريطُ التقدّم تحته وشريطُ التكرار فوقه داخلَ الرأس اللاصق
+     *    (`z-index: 2`). فرُفع طبقةً في صفّه فغلب الأوّل — ولم يُرفَع
+     *    فوق الرأس اللاصق لأنّ ذاك يجب أن يبقى فوق ما يمرّ تحته.
+     *    فصار المملوكُ ٢٧ رأسيًّا × نحو ٦٦ أفقيًّا لزرٍّ ثانويّ.
+     */
+    expect(`لمسٌ ${up + down + 1 >= 26}`).toBe('لمسٌ true');
+  });
+
+  it('٧٩ · وشارةُ المصدر وأدواتُه في الصفّ الأوّل معًا', async () => {
+    /*
+     * ⚠️ **«المسودّة» و«ارجع للأصل» شارةٌ واحدةٌ لا زرّان** — وهو نموذجُ
+     *    التطبيق منذ WS-M (بند ٤٥): مكانٌ واحدٌ يقول أين أنت وضغطُه هو
+     *    طريقُ الخروج. فالحارسُ يشترط بقاءَهما مرئيَّين في صفٍّ واحدٍ مع
+     *    الأدوات، لا أن يصيرا زرّين.
+     */
+    const f = await stageAt(412, 915);
+    const top = f.doc.querySelector('.sh-stage-top').getBoundingClientRect();
+    const rows = ['.sh-current-lbl', '.sh-current-tools', '.sh-reps']
+      .map((sel) => {
+        const e = f.doc.querySelector(sel);
+        const r = e?.getBoundingClientRect();
+        return { sel, ok: Boolean(r && r.height > 0 && r.top >= top.top - 0.5 && r.bottom <= top.bottom + 0.5) };
+      });
+    f.close();
+    expect(`في الصفّ ${rows.filter((x) => x.ok).length}/3`).toBe('في الصفّ 3/3');
   });
 });

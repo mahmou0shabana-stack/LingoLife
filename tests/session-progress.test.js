@@ -487,3 +487,78 @@ describe('WS-PR · حرّاسٌ على الشاشة', () => {
     expect(src.slice(at, at + 500).includes('[data-prog]')).toBe(false);
   });
 });
+
+/* ================================================================== *
+ * WS-CPH — الرأسُ ضُغط، والمعاني لم تُمَسّ                              *
+ * ================================================================== */
+describe('WS-CPH · رأسُ التدريب المضغوط يحافظ على ما يعنيه', () => {
+  let SRC = '';
+  const view = async () => {
+    if (!SRC) SRC = await (await fetch('../js/views/shadow-view.js')).text();
+    return SRC;
+  };
+  const progressBody = (src) => {
+    const at = src.indexOf('async function renderProgress()');
+    return src.slice(at, src.indexOf('\n}', at));
+  };
+
+  it('٢٦ · الأرقامُ الثانويّةُ داخلَ لوح التفصيل لا في صفٍّ دائم', async () => {
+    /*
+     * ⚠️ **طلبُك**: «الجزء اللي فوق زحمة». وقِيس: صفُّ «موضعك · مارست ·
+     *    خلصت · فاضل · ٪» كان ٢٦px معروضةً دائمًا فوق كلّ جملة.
+     *    فانتقل **داخلَ** `sh-prog-map` القائم — نفسُ الزرّ ونفسُ
+     *    الحالة (`progMapOpen`) — ولم يُحذَف رقمٌ ولا حُسب رقمٌ جديد.
+     */
+    const body = progressBody(await view());
+    const mapAt = body.indexOf('class="sh-prog-map"');
+    const factsAt = body.indexOf('class="sh-prog-facts"');
+    expect(`اللوحُ موجود ${mapAt > 0}`).toBe('اللوحُ موجود true');
+    expect(`والأرقامُ بعدَه ${factsAt > mapAt}`).toBe('والأرقامُ بعدَه true');
+    /* وكلُّ رقمٍ ما زال يُقرأ من ناتج الحساب لا من عدٍّ جديد. */
+    for (const key of ['at.position', 'at.practised', 'at.done', 'at.remaining', 'at.percentDone']) {
+      expect(`${key}: ${body.includes(key)}`).toBe(`${key}: true`);
+    }
+  });
+
+  it('٢٧ · وزرُّ التفصيل يُرسَم دائمًا لا حين توجد أقسام', async () => {
+    /*
+     * ⚠️ **وهذا شرطُ ألّا يصير الاختصارُ إخفاءً**: كان الزرُّ مشروطًا
+     *    بوجود أقسام (`at.sections.length`)، فلو نُقلت الأرقامُ تحته في
+     *    جلسةٍ بلا أقسام — وهي حالُ المصدر الأصليّ — لصارت بلا باب.
+     */
+    const body = progressBody(await view());
+    const head = body.slice(body.indexOf('class="sh-prog-head"'), body.indexOf('class="sh-prog-bar"'));
+    expect(`الزرُّ في الرأس ${head.includes('data-sh="prog-map"')}`).toBe('الزرُّ في الرأس true');
+    expect(`بلا شرطِ أقسام ${/sections\.length[^\n]*prog-map/.test(head)}`)
+      .toBe('بلا شرطِ أقسام false');
+    /* وحالتُه معلَنةٌ للقارئ الآليّ. */
+    expect(`aria ${head.includes('aria-expanded')}`).toBe('aria true');
+  });
+
+  it('٢٨ · وسطرُ سؤال/إجابة يقول ما يقيسه لا عكسَه', async () => {
+    /*
+     * ⚠️ **ولا تُقلَب دلالةٌ لاختصار**: الوسمُ يُشتقّ من `part` نفسِه —
+     *    `q` سؤالٌ وغيرُه إجابة — والرقمُ من `pair.index / pair.total`
+     *    كما تحسبهما `sessionProgress`.
+     */
+    const body = progressBody(await view());
+    expect(body).toContain("at.pair.part === 'q' ? 'سؤال' : 'إجابة'");
+    expect(body).toContain('at.pair.index');
+    expect(body).toContain('at.pair.total');
+  });
+
+  it('٢٩ · وشريطٌ واحدٌ بثلاث طبقاتٍ — لا نسبةٌ مخترعة', async () => {
+    /*
+     * ⚠️ **بُعدان لا نسختان**: هذا شريطُ الجلسة (خلصت · مارست · موضعك)،
+     *    وشريطُ رأس المسرح يقيس دورةَ تكرار الوحدة ويرجع للصفر. فلا
+     *    يُدمَجان في رقمٍ واحد، ولا يُشتقّ من أحدهما نسبةٌ للآخر.
+     */
+    const body = progressBody(await view());
+    expect((body.match(/class="sh-prog-bar"/g) || []).length).toBe(1);
+    for (const layer of ['sh-prog-fill', 'sh-prog-lived', 'sh-prog-at']) {
+      expect(`${layer}: ${body.includes(layer)}`).toBe(`${layer}: true`);
+    }
+    /* ولا حسابَ نسبةٍ داخلَ الرسم — النسبُ تأتي محسوبةً. */
+    expect(`نسبةٌ تُحسَب هنا ${/percent[A-Za-z]*\s*=/.test(body)}`).toBe('نسبةٌ تُحسَب هنا false');
+  });
+});

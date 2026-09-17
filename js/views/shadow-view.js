@@ -5992,6 +5992,27 @@ async function renderProgress() {
     ? html`<span class="sh-prog-next">→ ${at.next.label}</span>`
     : (at.next && at.pair?.part === 'q' ? html`<span class="sh-prog-next">→ الإجابة</span>` : '');
 
+  /*
+   * ══════════ رأسٌ من سطرين لا من أربعة (WS-CPH) ══════════
+   *
+   * ⚠️ **طلبُك**: «الجزء اللي فوق زحمة وواخد مساحة». وقِيس قبل التغيير
+   *    على ٤١٢×٩١٥ في تدريب مسودّة: رأسُ المسرح ٣٢ + شريطُ التقدّم
+   *    ٤٩٫٣ = **٨١٫٣px**، منها صفُّ الأرقام (موضعك · مارست · خلصت ·
+   *    فاضل · ٪) **٢٦px معروضةً دائمًا**.
+   *
+   * ⚠️ **والأرقامُ لم تُحذَف بل انتقلت إلى «التفصيل» القائم** — نفسُ
+   *    الزرّ ونفسُ الحالة (`progMapOpen`) ونفسُ اللوح. ولا لوحَ تفاصيلَ
+   *    ثانٍ يُنشأ، ولا رقمَ يُحسَب من جديد: `sessionProgress` هي المصدر.
+   *
+   * ⚠️ **والزرُّ يُرسَم دائمًا لا حين توجد أقسام**: كان مشروطًا بها،
+   *    فلو نُقلت الأرقامُ تحته في جلسةٍ بلا أقسام (المصدرُ الأصليّ)
+   *    لصارت غيرَ قابلةٍ للوصول أصلًا — إخفاءٌ لا اختصار.
+   *
+   * ⚠️ **وشريطٌ واحدٌ هنا لا شريطان**: هذا شريطُ **الجلسة** بثلاث
+   *    طبقاتٍ لها معانٍ مختلفة (خلصت · مارست · موضعك). وشريطُ رأس
+   *    المسرح (`data-bar`) يقيس **دورةَ تكرار الوحدة** ويرجع للصفر مع
+   *    كلّ نقلة — بُعدان لا نسختان، فلا يُدمَجان في نسبةٍ واحدة.
+   */
   host.innerHTML = html`
     <div class="sh-prog-head">
       <span class="sh-prog-sec">${at.section ? at.section.label : 'الجلسة'}${
@@ -5999,6 +6020,10 @@ async function renderProgress() {
       ${raw(pairLine)}
       ${raw(nextLine)}
       <span class="sh-prog-pos"><b>${at.position}</b> / ${at.total}</span>
+      <button class="sh-prog-more" data-sh="prog-map"
+              aria-expanded="${progMapOpen ? 'true' : 'false'}"
+              aria-label="${progMapOpen ? 'إخفاء تفاصيل التقدّم' : 'تفاصيل التقدّم'}"
+              >${progMapOpen ? 'إخفاء' : 'التفصيل'}</button>
     </div>
 
     <!--
@@ -6013,21 +6038,17 @@ async function renderProgress() {
       <span class="sh-prog-at" style="inset-inline-start: ${at.percentPosition}%"></span>
     </div>
 
-    <div class="sh-prog-facts">
-      <span><b>${at.position}</b> موضعك</span>
-      ${raw(at.hasRoles ? html`
-        <span><b>${at.practised}</b> مارست</span>
-        <span class="is-done"><b>${at.done}</b> خلصت</span>
-        <span><b>${at.remaining}</b> فاضل</span>
-        <span class="sh-prog-pct">${at.percentDone}%</span>` : html`
-        <span><b>${at.total}</b> جملة</span>`)}
+    <div class="sh-prog-map" ${raw(progMapOpen ? '' : 'hidden')}>
+      <div class="sh-prog-facts">
+        <span><b>${at.position}</b> موضعك</span>
+        ${raw(at.hasRoles ? html`
+          <span><b>${at.practised}</b> مارست</span>
+          <span class="is-done"><b>${at.done}</b> خلصت</span>
+          <span><b>${at.remaining}</b> فاضل</span>
+          <span class="sh-prog-pct">${at.percentDone}%</span>` : html`
+          <span><b>${at.total}</b> جملة</span>`)}
+      </div>
       ${raw(at.sections.length ? html`
-        <button class="sh-prog-more" data-sh="prog-map"
-                aria-expanded="${progMapOpen ? 'true' : 'false'}">${progMapOpen ? 'إخفاء' : 'التفصيل'}</button>` : '')}
-    </div>
-
-    ${raw(at.sections.length ? html`
-      <div class="sh-prog-map" ${raw(progMapOpen ? '' : 'hidden')}>
         ${raw(at.sections.map((one) => html`
           <div class="sh-prog-row ${one.at ? 'is-at' : ''}">
             <span class="sh-prog-row-n">${one.done} / ${one.total}</span>
@@ -6035,8 +6056,8 @@ async function renderProgress() {
             <span class="sh-prog-row-b">
               <i style="inline-size: ${Math.round((one.done / one.total) * 100)}%"></i>
             </span>
-          </div>`).join(''))}
-      </div>` : '')}`;
+          </div>`).join(''))}` : '')}
+    </div>`;
 }
 
 /**
