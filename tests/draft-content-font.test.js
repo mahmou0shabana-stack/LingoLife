@@ -121,8 +121,16 @@ describe('WS-DRAFT-FONT · النصُّ الكاملُ يتبع خطَّ الق�
     for (const cls of ['sh-origin-sent', 'sh-origin-said', 'sh-origin-raw']) {
       expect(`${cls} يُرسَم: ${src.includes(`class="${cls}`)}`).toBe(`${cls} يُرسَم: true`);
     }
-    const line = /querySelectorAll\('\.sh-origin-sent, \.sh-origin-said, \.sh-origin-raw'\)[\s\S]{0,120}?applyFont\(node, ctx\.font\)/;
-    expect(`يتبع خطَّ القراءة: ${line.test(src)}`).toBe('يتبع خطَّ القراءة: true');
+    /*
+     * ⚠️ **والمصدرُ هو هو، والمُطبَّقُ صار محروسًا** (WS-CSFIM): يُشتقّ
+     *    `ru` من `ctx.font` نفسِه ثمّ يمرّ بـ`russianFontId` الذي يبدّل
+     *    خطًّا لا يرسم السيريلية ببديلٍ يرسمها. فالحارسُ يربط الطرفين
+     *    كما كان: الأسطحُ الثلاثةُ تتبع خطَّ القراءة المعتمَد، لا خطًّا
+     *    ثانيًا ولا حالةً جديدة.
+     */
+    const from = /const ru = russianFontId\(ctx\.font\)/;
+    const line = /querySelectorAll\('\.sh-origin-sent, \.sh-origin-said, \.sh-origin-raw'\)[\s\S]{0,120}?applyFont\(node, ru\)/;
+    expect(`يتبع خطَّ القراءة: ${from.test(src) && line.test(src)}`).toBe('يتبع خطَّ القراءة: true');
   });
 
   it('٨ · ولا حالةَ خطٍّ ثالثةً للنصّ الكامل', async () => {

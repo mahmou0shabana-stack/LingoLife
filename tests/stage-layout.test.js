@@ -2260,11 +2260,28 @@ describe('WS-VFP · أصغرُ وأشفُّ بلا أن يصغر حبرٌ', () =
       const page = f.doc.querySelector('.sh-page.sh-right');
       const r = mic.getBoundingClientRect();
       const pg = page.getBoundingClientRect();
-      expect(`${w}: حجمٌ ${Math.round(r.width)}`).toBe(`${w}: حجمٌ 34`);
+      /*
+       * ⚠️ **ونزل ٣٤ ← ٣٠ في WS-CSFIM بطلبك**: «صغّره شويّة كمان».
+       *    وهدفُ اللمس محسوبٌ نسبةً من الصندوق (`(44px - 100%) / -2`)
+       *    فيتّسع تلقائيًّا كلّما صغر — وقِيس المملوكُ فعلًا ٤٤–٤٥px.
+       */
+      expect(`${w}: حجمٌ ${Math.round(r.width)}`).toBe(`${w}: حجمٌ 30`);
       expect(`${w}: داخلَ المسرح ${r.right <= pg.right - 4}`).toBe(`${w}: داخلَ المسرح true`);
-      /* ويُلمَس: مركزُه له. */
-      const el = f.doc.elementFromPoint(Math.round(r.left + r.width / 2), Math.round(r.top + r.height / 2));
-      expect(`${w}: يُلمَس ${Boolean(el && (el === mic || mic.contains(el)))}`).toBe(`${w}: يُلمَس true`);
+      /* ويُلمَس: مركزُه له، وهالتُه تبلغ ٤٠ رأسيًّا فأكثر. */
+      const mid = Math.round(r.left + r.width / 2);
+      const cy = r.top + r.height / 2;
+      const owns = (y) => {
+        const hit = f.doc.elementFromPoint(mid, Math.round(y));
+        return Boolean(hit && (hit === mic || mic.contains(hit)));
+      };
+      let down = 0; while (down < 30 && owns(cy + down + 1)) down += 1;
+      let up = 0; while (up < 30 && cy - up - 1 >= 0 && owns(cy - up - 1)) up += 1;
+      expect(`${w}: يُلمَس ${owns(cy)}`).toBe(`${w}: يُلمَس true`);
+      /*
+       * ⚠️ **وهذا شرطُ التصغير**: كلّما صغر الصندوق اتّسعت الهالةُ
+       *    بالحساب النسبيّ. فلو كُتب مقاسٌ أصغرُ بلا هالةٍ سقط هنا.
+       */
+      expect(`${w}: مدى اللمس ${up + down + 1 >= 40}`).toBe(`${w}: مدى اللمس true`);
     }
   });
 
@@ -2287,12 +2304,23 @@ describe('WS-VFP · أصغرُ وأشفُّ بلا أن يصغر حبرٌ', () =
     const fonts = src.slice(src.indexOf('function applyFonts()'), src.indexOf('\n}', src.indexOf('function applyFonts()')));
     expect(`يشمل «نصّ كامل»: ${/querySelectorAll\('\.sh-flow-s'\)/.test(fonts)}`)
       .toBe('يشمل «نصّ كامل»: true');
-    expect(`بخطّ القراءة: ${/\.sh-flow-s'\)\s*\n?\s*\.forEach\(\(node\) => applyFont\(node, ctx\.font\)\)/.test(fonts)}`)
+    /*
+     * ⚠️ **وصار يمرّ بحارسِ السيريلية في WS-CSFIM** — والسببُ مقيس:
+     *    خطٌّ بلا حروفٍ روسيّة (Pacifico) كان يُطبَّق فعلًا، فتُرسَم
+     *    الروسيّةُ من احتياطيٍّ صامت — تتبدّل العائلةُ المحسوبةُ ولا
+     *    يتبدّل ما تراه. فالمحروسُ الآن أمران معًا: أنّ «نصًّا كاملًا»
+     *    يتبع **خطَّ المسرح المعتمَد** (`ctx.font` لا `ctx.fontDoc`)،
+     *    وأنّ ما يُطبَّق هو ما يقدر على الروسيّة (`russianFontId`).
+     */
+    expect(`بخطّ القراءة: ${/const ru = russianFontId\(ctx\.font\)/.test(fonts)}`)
       .toBe('بخطّ القراءة: true');
+    expect(`ويُلبَس «نصّ كامل»: ${/\.sh-flow-s'\)\s*\n?\s*\.forEach\(\(node\) => applyFont\(node, ru\)\)/.test(fonts)}`)
+      .toBe('ويُلبَس «نصّ كامل»: true');
     const lines = src.slice(src.indexOf('function paintLines()'), src.indexOf('\n}', src.indexOf('function paintLines()')));
     expect(`ويُعاد بعد الرسم: ${/applyFonts\(\);/.test(lines)}`).toBe('ويُعاد بعد الرسم: true');
     /* وسطورُ «جمل» تبقى على خطّ الصفحة — تفاوتٌ معلَنٌ لا مُخفًى. */
-    expect(`وسطورُ «جمل» على خطّ الصفحة: ${/data-line-text\]'\)\s*\n?\s*\.forEach\(\(node\) => applyFont\(node, ctx\.fontDoc\)\)/.test(fonts)}`)
+    expect(`وسطورُ «جمل» على خطّ الصفحة: ${/const ruDoc = russianFontId\(ctx\.fontDoc\)/.test(fonts)
+      && /data-line-text\]'\)\s*\n?\s*\.forEach\(\(node\) => applyFont\(node, ruDoc\)\)/.test(fonts)}`)
       .toBe('وسطورُ «جمل» على خطّ الصفحة: true');
   });
 });
@@ -2407,5 +2435,47 @@ describe('WS-CCCS · أعلى وأسفل: أصغرُ ومقروءٌ وملموس
       f.close();
       expect(`${w}: سطرٌ واحد ${box <= line}`).toBe(`${w}: سطرٌ واحد true`);
     }
+  });
+});
+
+/* ================================================================== *
+ * WS-CSFIM — لا مثلّثَ فوق الكوكب، والعمودان كما هما                   *
+ * ================================================================== */
+describe('WS-CSFIM · رمزُ التشغيل', () => {
+  it('٧٥ · لا رمزَ في السكون، وعمودان في النطق', async () => {
+    /*
+     * ⚠️ **طلبُك**: «شيل المثلّث، والعمودين اللي في الإيقاف مظبوطين».
+     *
+     *    والرمزُ عنصرٌ **واحد** يتبدّل شكلُه بالحال (قِيس في التطبيق):
+     *        سكونًا · حدودٌ ١١/٠/١١/١٨ ⇐ مثلّثٌ ١٨×٢٢
+     *        نطقًا  · `.is-playing` ⇒ تدرّجٌ أفقيّ ١٣×١٥ ⇐ عمودان
+     *    فحذفُ العنصر كان سيأخذ العمودين معه. والإخفاءُ بالحالة يُبقيهما.
+     *
+     * ⚠️ **ولا يُقاس باسم قاعدةٍ في الورقة**: يُبنى المسرحُ ويُقرأ
+     *    `display` والمقاسُ في الحالتين من الشجرة نفسِها.
+     */
+    const f = await stageAt(412, 915);
+    const play = f.doc.querySelector('.sh-play');
+    const ico = play.querySelector('.sh-ico-play');
+    const idle = f.win.getComputedStyle(ico);
+    const idleBox = ico.getBoundingClientRect();
+    expect(`سكونًا مخفيّ ${idle.display === 'none' && idleBox.width === 0}`)
+      .toBe('سكونًا مخفيّ true');
+
+    play.classList.add('is-playing');
+    const on = f.win.getComputedStyle(ico);
+    const onBox = ico.getBoundingClientRect();
+    expect(`نطقًا ظاهر ${on.display !== 'none'}`).toBe('نطقًا ظاهر true');
+    expect(`عمودان ${/linear-gradient/.test(on.backgroundImage)}`).toBe('عمودان true');
+    expect(`مقاسُهما ${Math.round(onBox.width)}×${Math.round(onBox.height)}`)
+      .toBe('مقاسُهما 13×15');
+    play.classList.remove('is-playing');
+
+    /* والصنفُ الآخرُ الذي يرسم عمودين (`on`) يبقى ظاهرًا كذلك. */
+    play.classList.add('on');
+    expect(`و«on» ظاهرةٌ ${f.win.getComputedStyle(ico).display !== 'none'}`)
+      .toBe('و«on» ظاهرةٌ true');
+    play.classList.remove('on');
+    f.close();
   });
 });

@@ -1195,13 +1195,38 @@ describe('الخطوط — تغطية السيريلية', () => {
     expect(FONTS_HREF.includes('subset=cyrillic')).toBe(true);
   });
 
-  // ⚠️ الخطّ اللاتينيّ وحده يبدو صالحًا في اللوحة لأن العيّنة تُرسَم
-  //    من الاحتياطي — وهو زرٌّ يبدو أنه يعمل وهو لا يعمل. Dancing
-  //    Script كان كذلك، فحلّ Bad Script محلّه.
-  it('لا خطّ لاتينيٌّ فقط في القائمة', () => {
-    for (const font of FONTS) {
-      if (font.cyrillic !== true) throw new Error(`${font.id} غير مُعلَن بتغطية سيريلية`);
+  /*
+   * ⚠️ الخطّ اللاتينيّ وحده يبدو صالحًا في اللوحة لأن العيّنة تُرسَم
+   *    من الاحتياطي — وهو زرٌّ يبدو أنه يعمل وهو لا يعمل. Dancing
+   *    Script كان كذلك، فحلّ Bad Script محلّه.
+   *
+   * ⚠️ **وأُعيد توجيهُه في WS-CSFIM — وسقوطُه هو ما كشف الحاجة.** كان
+   *    يشترط أن **يُعلن** كلُّ خطٍّ تغطيةً سيريلية، فكان يحرس الإعلانَ
+   *    لا الحقيقة: Pacifico كان مكتوبًا `cyrillic: true` وهو لاتينيٌّ
+   *    خالص في Google Fonts، فمرّ الحارسُ ومرّ العطب — تختاره فلا
+   *    يتغيّر ما تراه.
+   *
+   *    فالمحروسُ صار الحقيقةَ: **لا خطٌّ في القائمة يُترَك بلا طريقٍ
+   *    إلى وجهٍ يرسم الروسيّة** — إمّا أن يُعلنها، وإمّا أن يكون له
+   *    بديلٌ في السجلّ نفسِه يأخذه `russianFontId` حين يقيس الجهازُ
+   *    عجزَه. والإعلانُ الكاذبُ لم يعد يُنجيه.
+   */
+  it('لا خطَّ في القائمة بلا طريقٍ إلى وجهٍ يرسم الروسيّة', async () => {
+    const { noteCoverage, russianFontId, fontById } = await import('../js/services/shadow/fonts.js');
+    const lacking = FONTS.filter((f) => f.cyrillic !== true);
+    /* الأعجزُ يُقاس عاجزًا، والباقي صالح — كما يعود من `measureCoverage`. */
+    const report = {};
+    for (const f of FONTS) {
+      report[f.id] = { id: f.id, latin: true, cyrillic: f.cyrillic === true,
+        status: f.cyrillic === true ? 'ok' : 'no-cyrillic' };
     }
+    noteCoverage(report);
+    for (const font of lacking) {
+      const to = russianFontId(font.id);
+      if (to === font.id) throw new Error(`${font.id} بلا بديلٍ يرسم الروسيّة`);
+      if (fontById(to).cyrillic !== true) throw new Error(`بديلُ ${font.id} عاجزٌ مثلُه`);
+    }
+    noteCoverage(null);
     expect(FONTS.some((f) => f.id === 'dancing')).toBe(false);
   });
 

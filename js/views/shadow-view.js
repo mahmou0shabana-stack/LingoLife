@@ -121,6 +121,8 @@ import {
   fontFullLabel,
   fontsByForm,
   measureCoverage,
+  noteCoverage,
+  russianFontId,
 } from '../services/shadow/fonts.js';
 import { LANGUAGES, languageByCode, translate, translationFailure, isEnabled as trEnabled, setEnabled as setTrEnabled } from '../services/shadow/translate.js';
 import { practiceStreak, recentPractice } from '../services/shadow/shadow-session-service.js';
@@ -1061,6 +1063,17 @@ export async function renderShadow(main, sessionId) {
 
   // الخطوط تُحقن مرّة واحدة هنا فلا تُثقل بقية التطبيق.
   ensureFontsLoaded();
+  /*
+   * ⚠️ **والتغطيةُ تُقاس عند الفتح لا عند فتح لوحة الخطوط** (WS-CSFIM).
+   *    كانت `markFontCoverage` تُنادى من بابٍ واحد: زرِّ «الخطوط» في
+   *    مركز التدريب. فمن يبدّل خطَّه من شارة Aa — وهو الطريقُ المعتاد —
+   *    لا يُقاس عنده شيء: فلا وسمَ «بلا حروف روسية»، **ولا بديلَ
+   *    يُطبَّق**، فتُرسَم الروسيّةُ باحتياطيٍّ صامتٍ ولا يتغيّر ما يراه.
+   *
+   *    وهي غيرُ متزامنةٍ ومحروسةٌ بمرّةٍ واحدة (`coverageMarked`)،
+   *    وتنتهي بإعادة تطبيق الخطوط — فلا تؤخّر أوّلَ رسمٍ ولا تتكرّر.
+   */
+  markFontCoverage().catch(() => {});
   await loadUserDictionary();
   /* ⚠️ WS50 — حالةُ مصدر ويكاموس تُقرأ مرّةً لترسمها اللوحة بلا انتظار. */
   if (ctx) ctx.netStress = await netStressEnabled().catch(() => false);
@@ -3063,6 +3076,14 @@ function syncSegment() {
    *    ولا تكتب. وشرطُ `well` يمنع رسمَ منبعٍ لست فيه.
    */
   if (well === 'draft') renderWells().catch(() => {});
+  /*
+   * ⚠️ **وأرقامُ الذيل تتبع الجملةَ لا التبويب** (WS-CSFIM): لجملةٍ
+   *    مسودّةٌ ولأختها لا، فالذيلُ يتبدّل بالنقلة وحدَها. وهو **خارج**
+   *    شرط `well` أعلاه عمدًا: ذاك يعيد رسمَ اللوح، وهذا يقرأ نموذجًا
+   *    مخزَّنًا بالمراجعة ويكتب ثلاثةَ أرقام. وقِيس قبلَه: تنتقل من
+   *    جملةٍ لها مسودّةٌ إلى أخرى بلا مسودّة فتبقى أرقامُ الأولى.
+   */
+  refreshBottomStats().catch(() => {});
   /*
    * ⚠️ **ولا يُحفَظ موضعٌ داخل مصدرٍ مؤقّت.**
    *
@@ -7919,27 +7940,40 @@ const refScroll = new Map();
 let drawnWell = '';
 
 /* ================================================================== *
- * أرقامُ الذيل — تتبع التبويبَ المفتوح، وكلُّ رقمٍ من مصدره (WS-CCCS)
+ * أرقامُ الذيل — مسودّةٌ إن وُجدت، وإلّا النصّ (WS-CSFIM)
  * ================================================================== *
  *
- * ⚠️ **بلاغُك**: «الأرقام تحت فاضلة زي ما هي وأنا فاتح مسودّة».
- *    وقِيس قبل الإصلاح على ٤١٢×٩١٥ و١٢٨٠×٨٠٠ و٣٢٠×٧٢٠، بخمسة
- *    تبويبات: **«3 SENTENCES · 23 WORDS · 0 REPS» في كلّها** —
- *    والمسودّةُ المفتوحةُ تحتها ثمانُ بطاقاتٍ في خمسة أقسام.
+ * ⚠️ **بلاغُك الأوّل** (WS-CCCS): «الأرقام تحت فاضلة زي ما هي وأنا فاتح
+ *    مسودّة». فرُبطت بالتبويب المفتوح.
  *
- * ⚠️ **ولا مصدرَ بياناتٍ ثانٍ يُنشأ.** `renderWells` تقرأ صفوفَ كلّ
- *    المنابع أصلًا في كلّ رسم (`counts`)، فالأرقامُ تُشتقّ من تلك
- *    الصفوف نفسِها — لا استعلامَ إضافيّ ولا حالةَ تبويبٍ ثانية.
+ * ⚠️ **وبلاغُك الثاني — وهو تصحيحُ فهمي لا زيادةً عليه**: القاعدةُ ليست
+ *    «أرقامُ التبويب المفتوح» بل **«أرقامُ ما تدرسه الآن»**:
  *
- * ⚠️ **ولا رقمَ يُخترَع لتبويبٍ لا يملكه** (بند ٨٩، وهو عرفُ هذا
- *    الملفّ منذ «85% ACCURACY»): تبويبٌ بلا عددٍ صادقٍ يقول ذلك
- *    بكلمةٍ، ولا يُملأ فراغُه برقمٍ من تبويبٍ آخر.
+ *        للجملة الجارية مسودّةٌ  ⇐ أرقامُ المسودّة
+ *        لا مسودّةَ لها          ⇐ أرقامُ النصّ كما كانت
+ *
+ *    والفرقُ مقيسٌ لا لفظيّ: بالقاعدة القديمة كنتَ تقرأ الجملةَ في
+ *    تبويب «النصّ» ولها مسودّةٌ كاملة فيقول الذيلُ «٣ جمل · ٢٣ كلمة»،
+ *    وتفتح «القواعد» وأنت على جملةٍ بلا مسودّةٍ فيقول «٠ قواعد». وكلا
+ *    الرقمين صادقٌ عن شيءٍ لا تنظر إليه.
+ *
+ * ⚠️ **والمسودّةُ تُتابَع بالجملة لا بالتبويب.** `renderWells` لا تُعاد
+ *    عند نقلة الجملة إلّا إن كنتَ في تبويب «مسودّة»، فلو اكتُفي بها
+ *    لَبقيت أرقامُ الجملة الأولى معروضةً وأنت في الثالثة. فيُقرأ
+ *    النموذجُ عند كلّ نقلةٍ من `activeDraftModel` نفسِها — **نفسُ البابِ
+ *    الذي يقرأ منه تبويبُ «مسودّة»**، ونموذجُه مخزَّنٌ بالمراجعة
+ *    (`draftModelCache`) فلا تحليلَ يُعاد ولا كتابةَ في القاعدة.
+ *
+ * ⚠️ **ولا أرقامَ لكلّ تبويبٍ بعد اليوم** (رقائقُ القواعد والسكريبتات
+ *    والصور والأصوات): كانت زيادةً منّي على الطلب، وهي عينُ «الحالات
+ *    المختلطة» التي شكوتَ منها. فالذيلُ يصف **ما تدرسه**، لا الرفَّ
+ *    الذي تتصفّحه.
  */
 
-/** صفوفُ المنابع كما قرأتها آخرُ `renderWells` — لا تُقرأ القاعدةُ مرّتين. */
-let wellRows = {};
+/** نموذجُ مسودّة الجملة الجارية — أو `null` إن لم تكن لها مسودّة. */
+let draftNow = null;
 
-/** أرقامُ «النصّ»: الجلسةُ نفسُها — وهي ما كان الذيلُ يعرضه دائمًا. */
+/** أرقامُ «النصّ»: الجلسةُ نفسُها — وهي البديلُ حين لا مسودّة. */
 function sourceStatItems() {
   const { session, segments } = ctx || {};
   if (!segments) return [];
@@ -7951,74 +7985,28 @@ function sourceStatItems() {
 }
 
 /**
- * أرقامُ التبويب المفتوح — مشتقّةً من صفوفه هو.
+ * أرقامُ المسودّة — من `model.counts` القائمة لا من عدٍّ جديد.
  *
- * ⚠️ **وأرقامُ «مسودّة» من `model.counts` القائمة لا من عدٍّ جديد.**
- *    `countsOf` مكتوبةٌ في `draft-learning.js` منذ WS-DI وتُحسَب مع
- *    كلّ نموذج، وفيها `byRole` و`speech` و`done`. فحسابُها هنا ثانيةً
- *    كان سيعني رقمين لنفس الشيء يفترقان يومًا — وهو عينُ ما تمنعه
- *    قاعدةُ «لا مجموعَ بلا تفصيله» المكتوبةُ فوق تلك الدالّة.
+ * ⚠️ `countsOf` مكتوبةٌ في `draft-learning.js` منذ WS-DI وتُحسَب مع كلّ
+ *    نموذج، وفيها `byRole` و`speech` و`done`. فحسابُها هنا ثانيةً كان
+ *    سيعني رقمين لنفس الشيء يفترقان يومًا — وهو عينُ ما تمنعه قاعدةُ
+ *    «لا مجموعَ بلا تفصيله» المكتوبةُ فوق تلك الدالّة.
  *
- *    والثلاثةُ المختارة تقول ما تعدّ:
+ *    والثلاثةُ تقول ما تعدّ:
  *      CORES   · القطعُ الأساسيّة (MICRO_CORE) — قلبُ المسودّة
- *      TARGETS · أهدافُ النطق الدلاليّة (`speech`: القلوب والتدرّج
- *                والتكرارات وإعادة البناء) — لا يُخلَط بها سؤالُ
- *                الاسترجاع ولا المثال، كما تنصّ تلك الدالّة صراحةً
+ *      TARGETS · أهدافُ النطق الدلاليّة (`speech`) — بلا سؤال استرجاعٍ
+ *                ولا مثال، كما تنصّ تلك الدالّة صراحةً
  *      DONE    · ما علّمتَه منجَزًا منها
  */
-function wellStatItems(rows) {
-  const list = rows || [];
-  switch (well) {
-    case 'draft': {
-      const counts = list[0]?.model?.counts;
-      if (!counts) return [];
-      return [
-        { n: counts.byRole?.[ROLE.MICRO_CORE] || 0, label: 'CORES' },
-        { n: counts.speech || 0, label: 'TARGETS' },
-        { n: counts.done || 0, label: 'DONE' },
-      ];
-    }
-    case 'rules':
-      return [
-        { n: list.length, label: 'RULES' },
-        { n: list.filter((row) => row.pinned).length, label: 'PINNED' },
-        { n: list.reduce((n, row) => n + (row.images?.length || 0), 0), label: 'IMAGES' },
-      ];
-    /*
-     * ⚠️ **و«الملخّص» ملفٌّ واحد — فلا «1 FILE» ثرثرةً.** الرقمُ
-     *    الصادقُ الوحيدُ الذي تملكه الشاشةُ عنه هو **صفحتُك** فيه،
-     *    وهي محفوظةٌ أصلًا في `refView.doc.page`. والمجموعُ (عددُ
-     *    صفحات الملفّ) يعرفه العارضُ وحدَه بعد تحميله، ولا يُخرَج
-     *    منه في هذه التمريرة — فيُقال ما يُعرَف، ويُسكَت عمّا لا.
-     */
-    case 'doc': {
-      const page = Number(refView?.doc?.page) || 0;
-      return list.length && page ? [{ n: page, label: 'PAGE' }] : [];
-    }
-    case 'images':
-      return [
-        { n: list.filter((row) => row.refScope === 'scene').length, label: 'SCENE' },
-        { n: list.filter((row) => row.refScope === 'reference').length, label: 'REFERENCE' },
-      ];
-    case 'scripts':
-      return [
-        { n: list.length, label: 'SCRIPTS' },
-        { n: list.reduce((n, row) => n + splitSentences(row.text || '').length, 0), label: 'SENTENCES' },
-      ];
-    case 'voices':
-      return [{ n: list.length, label: 'RECORDINGS' }];
-    default:
-      return [];
-  }
+function draftStatItems(model) {
+  const counts = model?.counts;
+  if (!counts) return [];
+  return [
+    { n: counts.byRole?.[ROLE.MICRO_CORE] || 0, label: 'CORES' },
+    { n: counts.speech || 0, label: 'TARGETS' },
+    { n: counts.done || 0, label: 'DONE' },
+  ];
 }
-
-/** كلمةٌ تقول «لا عددَ هنا» — بدل رقمٍ لا مصدرَ له. */
-const STAT_EMPTY = {
-  draft: 'لسّه مفيش مسودّة',
-  doc: 'مفيش ملفّ',
-  images: 'مفيش صور',
-  voices: 'مفيش تسجيلات',
-};
 
 function statsHtml(items) {
   return (items || [])
@@ -8027,18 +8015,30 @@ function statsHtml(items) {
 }
 
 /**
- * يكتب أرقامَ الذيل للتبويب الحاليّ.
+ * يكتب أرقامَ الذيل: مسودّةُ الجملة الجارية إن وُجدت، وإلّا النصّ.
  *
- * ⚠️ **ولا وسمَ يبقى من تبويبٍ سابق**: الصفُّ كلُّه يُستبدَل — رقمًا
+ * ⚠️ **ولا وسمَ يبقى من مصدرٍ سابق**: الصفُّ كلُّه يُستبدَل — رقمًا
  *    ووصفًا معًا — فلا يقع «23» تحت وصف «CORES» لحظةً واحدة.
  */
 function paintBottomStats() {
   const host = $('[data-stats]');
   if (!host) return;
-  const items = well === 'source' ? sourceStatItems() : wellStatItems(wellRows[well]);
-  if (items.length) { host.innerHTML = statsHtml(items); return; }
-  const note = STAT_EMPTY[well] || '';
-  host.innerHTML = note ? `<span class="sh-stat-note sh-mono sh-dim">${esc(note)}</span>` : '';
+  const draft = draftStatItems(draftNow?.model);
+  host.innerHTML = statsHtml(draft.length ? draft : sourceStatItems());
+}
+
+/**
+ * يُحدِّث مصدرَ الأرقام ثمّ يرسمها.
+ *
+ * ⚠️ **ومَن يملك النموذجَ لا يُعيد قراءتَه**: `renderWells` قرأت صفوفَ
+ *    «مسودّة» لتوّها، فتُمرِّرها — والباقي (نقلةُ جملةٍ، فتحُ شاشة)
+ *    يقرأ من الباب نفسِه.
+ */
+async function refreshBottomStats(entry) {
+  draftNow = entry === undefined
+    ? await activeDraftModel().catch(() => null)
+    : (entry || null);
+  paintBottomStats();
 }
 
 /** مقبضُ عارض الملفّ الحيّ — واحدٌ لا واحدٌ لكلّ رسم. */
@@ -8084,8 +8084,12 @@ async function renderWells() {
     catch { counts[id] = []; }
   }));
 
-  /* ⚠️ والصفوفُ تُحفَظ كما قُرئت — منها تُشتقّ أرقامُ الذيل بلا قراءةٍ ثانية. */
-  wellRows = counts;
+  /*
+   * ⚠️ **ونموذجُ المسودّة يُمرَّر كما قُرئ** — `WELLS.draft.read` هي
+   *    `activeDraftModel` نفسُها، فالذيلُ يأخذ ما بين يديها ولا يقرأ
+   *    القاعدةَ مرّةً ثانية في نفس الدورة.
+   */
+  refreshBottomStats(counts.draft?.[0] || null);
 
   const live = Object.entries(WELLS).filter(([id, w]) => w.always || counts[id].length);
   tabs.innerHTML = [`<button class="${well === 'source' ? 'on' : ''}" data-sh="well" data-v="source">النصّ</button>`]
@@ -8112,10 +8116,6 @@ async function renderWells() {
     renderFaces();
     renderWellPin();
     restoreWellScroll({ live: sameWell });
-    /* ⚠️ **وهذا البابُ يُنسى بسهولة**: «النصّ» يخرج من هنا لا من الذيل
-     *    أدناه، فلو كُتب الرسمُ في مخرجٍ واحدٍ لَبقيت أرقامُ «مسودّة»
-     *    معروضةً بعد الرجوع إلى النصّ. */
-    paintBottomStats();
     return;
   }
   /* منبعٌ آخر يملأ اللوح: الوجوهُ تختفي معًا. */
@@ -8144,7 +8144,6 @@ async function renderWells() {
    *    كان الاتباعُ عاملًا: أوّلًا تُستعاد الأرضيّةُ، ثمّ نُقفز عنها.
    */
   restoreWellScroll({ live: sameWell });
-  paintBottomStats();
   if (well === 'draft') {
     renderWellPin();
     if (!wellPinned) requestAnimationFrame(() => revealWellTarget());
@@ -9670,10 +9669,28 @@ function fontChip(page) {
  */
 function applyFonts() {
   const font = fontById(ctx.font);
+  /*
+   * ══════════ والروسيّةُ تأخذ خطًّا **تقدر عليه** (WS-CSFIM) ══════════
+   *
+   * ⚠️ **بلاغُك**: «الخطّ لسّه مش بيغيّر النصّ الكامل». والطورُ السابق
+   *    وصل السلك — فصارت العائلةُ المحسوبةُ تتبدّل فعلًا — لكنّ الوجهَ
+   *    المرسومَ لم يتبدّل حين يكون الخطُّ المختارُ بلا سيريلية
+   *    (Pacifico): يُطبَّق، وتُرسَم الروسيّةُ من الاحتياطيّ.
+   *
+   *    فمعرّفُ الروسيّة يمرّ من `russianFontId`: يعيده كما هو إلّا إن
+   *    قِيس على جهازك أنّه لا يرسم السيريلية، فيُبدَّل ببديلٍ **من
+   *    صيغة الكتابة نفسِها** قِيس صالحًا. والسجلُّ واحدٌ والقياسُ واحد.
+   *
+   * ⚠️ **ولا يُمَسّ ما ليس روسيًّا**: رقاقاتُ المعاينة في مُنتقي الخطّ
+   *    تعرض الخطَّ الحقيقيَّ بعينه (ومعها وسمُ «بلا حروف روسية») —
+   *    فالمعاينةُ تصدق، والقراءةُ تُرى.
+   */
+  const ru = russianFontId(ctx.font);
+  const ruDoc = russianFontId(ctx.fontDoc);
 
-  applyFont($('[data-text]'), ctx.font);
+  applyFont($('[data-text]'), ru);
   document.querySelectorAll('.sh-line [data-line-text]')
-    .forEach((node) => applyFont(node, ctx.fontDoc));
+    .forEach((node) => applyFont(node, ruDoc));
   /*
    * ══════════ النصُّ الكاملُ يتبع خطَّ القراءة (WS-DRAFT-CONTENT-FONT) ══════════
    *
@@ -9704,7 +9721,7 @@ function applyFonts() {
    *    `lang="ru"` ولا تحوي إلّا روسيًّا. ولم يُلمَس حاوٍ يجمع اللغتين.
    */
   document.querySelectorAll('.sh-origin-sent, .sh-origin-said, .sh-origin-raw')
-    .forEach((node) => applyFont(node, ctx.font));
+    .forEach((node) => applyFont(node, ru));
   /*
    * ══════════ و«نصٌّ كامل» كذلك — آخرُ منتقٍ ميّت (WS-VFP) ══════════
    *
@@ -9739,7 +9756,7 @@ function applyFonts() {
    *    الكاتب — سطرٌ يصل ما كان مقطوعًا، لا حالةٌ جديدة.
    */
   document.querySelectorAll('.sh-flow-s')
-    .forEach((node) => applyFont(node, ctx.font));
+    .forEach((node) => applyFont(node, ru));
   paintFontChips();
 
   const app = document.querySelector('.shadow-app');
@@ -9800,6 +9817,15 @@ async function markFontCoverage() {
     coverageMarked = false;
     return;
   }
+
+  /*
+   * ⚠️ **والقياسُ يُسلَّم للسجلّ ثمّ يُعاد التطبيق** (WS-CSFIM): القياسُ
+   *    غيرُ متزامن (ينتظر وصولَ الخطوط)، والأسطحُ رُسمت قبله بالخطّ
+   *    المختار كما هو. فلو لم يُعَد التطبيقُ لَبقيت الروسيّةُ على خطٍّ
+   *    لا يرسمها إلى أن تبدّل شيئًا آخر.
+   */
+  noteCoverage(report);
+  applyFonts();
 
   const measured = FONTS.filter((f) => f.family);
   const offline = measured.every((f) => report[f.id]?.status === 'not-loaded');

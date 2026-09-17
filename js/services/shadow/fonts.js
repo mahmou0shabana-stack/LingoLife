@@ -83,8 +83,17 @@ export const FONTS = Object.freeze([
   // ── خطّ اليد ──
   { id: 'caveat', label: 'منفصل سريع', form: 'hand',
     family: 'Caveat', stack: "'Caveat', cursive", style: 'normal', scale: 1.18, cyrillic: true },
+  /*
+   * ⚠️ **وPacifico مكتوبٌ هنا `cyrillic: true` وهو كذبٌ** (WS-CSFIM).
+   *    مجموعاتُه في Google Fonts: ‏latin · latin-ext · vietnamese —
+   *    ولا سيريلية فيها. فكان يُعرَض كخيارٍ، وتختاره، فتُرسَم الروسيّةُ
+   *    بخطٍّ احتياطيّ ولا يتغيّر شيءٌ تراه. وهو بلاغُك بحرفه: «الخطّ
+   *    مش بيتغيّر». والإعلانُ يُصحَّح، **والقياسُ على جهازك هو الحَكَم**
+   *    (`measureCoverage`) — فلو سلّمت Google غدًا سيريليّةً لهذا الخطّ
+   *    عاد يعمل بلا تعديلِ سطر.
+   */
   { id: 'pacifico', label: 'متّصل عريض', form: 'hand',
-    family: 'Pacifico', stack: "'Pacifico', cursive", style: 'normal', scale: .98, cyrillic: true },
+    family: 'Pacifico', stack: "'Pacifico', cursive", style: 'normal', scale: .98, cyrillic: false },
 
   // ── جهازك ──
   { id: 'system', label: 'خطّ جهازك', form: 'device',
@@ -173,8 +182,30 @@ export function ensureFontsLoaded() {
 const PROBE_LATIN = 'HandgloveMWQ_hamburgefonstiv';
 const PROBE_CYRILLIC = 'Ждпщэюя_ЗначениеДокумента';
 
-/** خطٌّ احتياطي بلا سيريلية مميّزة ولا صلة بأيٍّ من العائلات أعلاه. */
-const FALLBACK = 'monospace';
+/*
+ * ⚠️ **احتياطيّان لا واحد — والقياسُ القديم كان يكذب** (WS-CSFIM).
+ *
+ *    كان يقارن «الخطُّ + احتياطيّ» بـ«الاحتياطيّ وحدَه»، ويستنتج أنّ
+ *    اختلافَ العرضين يعني أنّ الخطَّ رسم الحروف. والمقياسُ يسقط لسببين
+ *    قِيسا في هذه الآلة على وجهٍ لاتينيٍّ خالص (Loma) باسم Pacifico:
+ *
+ *      · المسبارُ فيه محرفٌ مشترك (`_`) يملكه الخطُّ اللاتينيُّ نفسُه،
+ *        فيكفي ليختلف المجموعُ وإن جاءت السيريليةُ كلُّها من غيره.
+ *        قِيس: «Pacifico, monospace» = ٧٢٠٫٣ و«monospace» = ٧٢٢٫٥ —
+ *        اختلافٌ بـ٢٫٢px قال «الخطُّ يرسم الروسيّة» وهو لا يرسم حرفًا.
+ *      · والمتصفّحُ قد لا يلتزم الاحتياطيَّ المكتوب للحروف الغائبة،
+ *        فيختار خطَّ نظامٍ بحسب الكتابة — فيختلف العرضُ بلا معنى.
+ *
+ *    والمقياسُ الصحيحُ لا يقارن الخطَّ بالاحتياطيّ، بل **الخطَّ بنفسِه
+ *    تحت احتياطيّين مختلفين**: إن جاءت الحروفُ من الخطّ فالعرضان
+ *    متساويان مهما تبدّل الاحتياطيّ، وإن جاءت من الاحتياطيّ اختلفا.
+ *    قِيس بالوجهين المحلّيّين:
+ *
+ *        لاتينيٌّ خالص · روسيّ+mono ٧٢٠٫٣ · +serif ٦٤٥٫٥ · +sans ٧٠٢٫٩  ⇐ مختلفة
+ *        قادرٌ         · روسيّ+mono ٨٠٥٫٢ · +serif ٨٠٥٫٢ · +sans ٨٠٥٫٢  ⇐ متساوية
+ */
+const FALLBACK_A = 'monospace';
+const FALLBACK_B = 'sans-serif';
 const PROBE_SIZE = 48;
 
 let canvasContext = null;
@@ -183,14 +214,22 @@ function context2d() {
   return canvasContext;
 }
 
-/** عرض النصّ مرسومًا بعائلةٍ ما — مقيسٌ لا مفترَض. */
-function widthIn(family, text) {
+/** عرضُ نصٍّ بعائلةٍ فوق احتياطيٍّ بعينه — مقيسٌ لا مفترَض. */
+function widthWith(family, fallback, text) {
   const ctx = context2d();
   if (!ctx) return null;
   ctx.font = family
-    ? `${PROBE_SIZE}px "${family}", ${FALLBACK}`
-    : `${PROBE_SIZE}px ${FALLBACK}`;
+    ? `${PROBE_SIZE}px "${family}", ${fallback}`
+    : `${PROBE_SIZE}px ${fallback}`;
   return ctx.measureText(text).width;
+}
+
+/** هل رسم الخطُّ هذا النصَّ بنفسه؟ (العرضُ لا يتبدّل بتبدّل الاحتياطيّ) */
+function drawsItself(family, text) {
+  const a = widthWith(family, FALLBACK_A, text);
+  const b = widthWith(family, FALLBACK_B, text);
+  if (a == null || b == null) return null;
+  return Math.abs(a - b) < 0.5;
 }
 
 /**
@@ -203,12 +242,22 @@ export function measureFont(font) {
   // خطّ الجهاز ليس تحميلًا نقيسه: هو المتاح عندك أصلًا.
   if (!font.family) return { id: font.id, latin: true, cyrillic: true, status: 'ok' };
 
-  const baseLatin = widthIn(null, PROBE_LATIN);
-  const baseCyrillic = widthIn(null, PROBE_CYRILLIC);
-  if (baseLatin == null || !baseLatin) return { id: font.id, latin: false, cyrillic: false, status: 'unknown' };
+  /*
+   * ⚠️ **والاحتياطيّان يجب أن يختلفا فعلًا على هذا الجهاز** — وإلّا
+   *    كان تساوي القياسين دليلًا على لا شيء. فإن تطابقا نقول
+   *    `unknown` ولا نتّهم خطًّا ولا نبرّئه.
+   */
+  const spread = Math.abs(
+    (widthWith(null, FALLBACK_A, PROBE_CYRILLIC) || 0)
+    - (widthWith(null, FALLBACK_B, PROBE_CYRILLIC) || 0),
+  );
+  if (!(spread > 0.5)) return { id: font.id, latin: false, cyrillic: false, status: 'unknown' };
 
-  const latin = widthIn(font.family, PROBE_LATIN) !== baseLatin;
-  const cyrillic = widthIn(font.family, PROBE_CYRILLIC) !== baseCyrillic;
+  const latin = drawsItself(font.family, PROBE_LATIN);
+  const cyrillic = drawsItself(font.family, PROBE_CYRILLIC);
+  if (latin == null || cyrillic == null) {
+    return { id: font.id, latin: false, cyrillic: false, status: 'unknown' };
+  }
 
   // الترتيب مقصود: غياب اللاتينية معناه أن الخطّ لم يصل، لا أنه
   // ناقص — فلا نتّهم خطًّا بريئًا حين تكون الشبكة هي المقطوعة.
@@ -241,6 +290,56 @@ export async function measureCoverage() {
   const report = {};
   for (const font of FONTS) report[font.id] = measureFont(font);
   return report;
+}
+
+/* ------------------------------------------------------------------ *
+ * البديلُ حين لا يقدر الخطُّ على الروسيّة (WS-CSFIM)
+ * ------------------------------------------------------------------ *
+ *
+ * ⚠️ **بلاغُك**: «الخطّ لسّه مش بيغيّر النصّ الكامل». والقياسُ فرّق بين
+ *    عطبين كانا يبدوان واحدًا:
+ *
+ *      ١) خطٌّ بلا سيريلية (Pacifico) — يُطبَّق فعلًا، والحروفُ الروسيّةُ
+ *         تُرسَم من الاحتياطيّ. فالعائلةُ المحسوبةُ تتغيّر ولا يتغيّر
+ *         ما تراه — وهو أسوأُ من ألّا يتغيّر شيء، لأنّه يبدو معطوبًا.
+ *      ٢) وخطٌّ لم يصل (بلا شبكة) — ولا بديلَ يفيد هنا: **كلُّهم** لم
+ *         يصلوا، والصدقُ أن يُقال ذلك لا أن يُبدَّل واحدٌ بآخرَ مثله.
+ *
+ *    فالبديلُ يقع في الحالة الأولى وحدَها: يُختار خطٌّ **من نفس صيغة
+ *    الكتابة** (يدٌ ← يد) قِيس على هذا الجهاز أنّه يرسم السيريلية.
+ *    فتبقى نيّتُك («أريد خطَّ يد») وتُرى فعلًا.
+ *
+ * ⚠️ **ولا سجلَّ خطوطٍ ثانٍ**: البديلُ من `FONTS` نفسِها، والقياسُ من
+ *    `measureCoverage` نفسِها — سطرٌ يصل ما كان مقطوعًا لا نظامٌ جديد.
+ */
+
+/** آخرُ تقريرِ تغطيةٍ مقيسٍ على هذا الجهاز — تكتبه الشاشةُ بعد القياس. */
+let coverage = null;
+
+/** تُسلِّم الشاشةُ تقريرَ القياس ليُبنى عليه اختيارُ البديل. */
+export function noteCoverage(report) {
+  coverage = report && typeof report === 'object' ? report : null;
+}
+
+/** حالةُ خطٍّ كما قِيست، أو `unknown` قبل أن يصل القياس. */
+export function coverageOf(id) {
+  return coverage?.[id]?.status || 'unknown';
+}
+
+/**
+ * المعرّفُ الذي يُطبَّق فعلًا على **نصٍّ روسيّ**.
+ *
+ * يعيد المعرّفَ نفسَه إلّا إذا قِيس أنّه بلا سيريلية، فيبحث عن بديلٍ
+ * مقيسٍ صالح: من صيغة الكتابة نفسِها أوّلًا، ثمّ من بقيّة السجلّ.
+ * @param {string} id
+ * @returns {string}
+ */
+export function russianFontId(id) {
+  const font = fontById(id);
+  if (coverageOf(font.id) !== 'no-cyrillic') return font.id;
+  const usable = (f) => f.id !== font.id && coverageOf(f.id) === 'ok';
+  const sameForm = FONTS.find((f) => f.form === font.form && usable(f));
+  return (sameForm || FONTS.find(usable) || font).id;
 }
 
 /** وصفٌ صريح لكل حالة — يُعرض في اللوحة بلا تلطيف. */
