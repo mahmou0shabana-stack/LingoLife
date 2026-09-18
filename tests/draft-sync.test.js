@@ -333,8 +333,19 @@ describe('WS-LDFP · مسوّدةُ الصفحة لا لوحُ الشادوين�
      */
     const src = await view();
     const wells = bodyOf(src, 'async function renderWells()');
-    expect(`الكشفُ مشروطٌ بالتثبيت: ${/if \(!wellPinned\) requestAnimationFrame\(\(\) => revealWellTarget\(\)\)/.test(wells)}`)
-      .toBe('الكشفُ مشروطٌ بالتثبيت: true');
+    /*
+     * ⚠️ **ويُقاس الشرطُ لا شكلُ السطر.** كان هذا الحارسُ يشترط السطرَ
+     *    بحرفه، فسقط يومَ صار الكشفُ كشفين داخلَ نفس الشرط (محاذاةُ
+     *    البطاقة ثمّ توسيطُ السطر المنطوق). والمحروسُ هو هو: **لا كشفَ
+     *    مع التثبيت** — فيُقرأ الشرطُ ويُتحقَّق أنّ كلَّ كاشفٍ داخلَه.
+     */
+    const at = wells.indexOf('if (!wellPinned)');
+    expect(`الكشفُ مشروطٌ بالتثبيت: ${at >= 0}`).toBe('الكشفُ مشروطٌ بالتثبيت: true');
+    const guarded = wells.slice(at, wells.indexOf('\n  }', at));
+    for (const reveal of (wells.match(/reveal\w+\(\)/g) || [])) {
+      expect(`${reveal} داخلَ الشرط: ${guarded.includes(reveal)}`)
+        .toBe(`${reveal} داخلَ الشرط: true`);
+    }
     const toggle = bodyOf(src, 'function toggleWellPin()');
     expect(`يجمّد التمرير: ${/overflow|preventDefault|touchAction/.test(toggle)}`)
       .toBe('يجمّد التمرير: false');

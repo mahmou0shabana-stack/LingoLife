@@ -237,6 +237,73 @@ describe('WS-RUE · ٢ · المنطوقُ في المسودّة', () => {
     }
   });
 
+  it('٦ب · والاتّباع يجلس المنطوقَ في وسط منطقة القراءة — لا وسط الشاشة', async () => {
+    /*
+     * ⚠️ **والمنبعُ لوحٌ يُمرَّر داخلَ نفسِه** (قِيس: ٢٥٠px مرئيّةً من
+     *    ١٠٤٢ كلِّها)، فتوسيطٌ بمقياس الشاشة يضع السطرَ خارجَه أصلًا.
+     *    وقِيس حيًّا بعد الإصلاح: بُعدُ مركز السطر عن مركز **المنطقة**
+     *    صفرٌ، وعن مركز **الشاشة** ‎−112‎ — رقمان مختلفان، وهو الفرقُ
+     *    كلُّه. وتمريرُ الصفحة نفسِها ٠ طوال الوقت.
+     */
+    const body = bodyOf(bare(await view()), 'revealWellReading');
+    /* ١) المثبَّتُ لا يُمرَّر — قبل أيّ حساب. */
+    expect(`يقف عند التثبيت: ${/^\s*if \(wellPinned/.test(body)}`)
+      .toBe('يقف عند التثبيت: true');
+    /*
+     * ٢) ولا `scrollIntoView`: تُمرِّر **كلَّ** أبٍ قابلٍ للتمرير —
+     *    ومنهم الصفحةُ — فتتحرّك الشاشةُ واللوحُ هو المقصود.
+     */
+    expect(`ولا scrollIntoView: ${/scrollIntoView/.test(body)}`)
+      .toBe('ولا scrollIntoView: false');
+    /* ٣) والوسطُ من صندوق المنبع لا من نافذة المتصفّح. */
+    expect(`الوسطُ من المنبع: ${/box\.getBoundingClientRect\(\)/.test(body)}`)
+      .toBe('الوسطُ من المنبع: true');
+    for (const wrong of ['innerHeight', 'clientHeight / 2', 'documentElement']) {
+      expect(`${wrong} غائب: ${body.includes(wrong)}`).toBe(`${wrong} غائب: false`);
+    }
+    /* ٤) ويُحسَب من تحت ما يلتصق بالسقف. */
+    expect(`يتجنّب اللاصق: ${/wellReadTop\(box\)/.test(body)}`)
+      .toBe('يتجنّب اللاصق: true');
+    /* ٥) ويُنادى مع النطق. */
+    const src = bare(await view());
+    const at = src.indexOf("case 'repeat'");
+    expect(`يُنادى مع النطق: ${/revealWellReading\(\)/.test(src.slice(at, at + 800))}`)
+      .toBe('يُنادى مع النطق: true');
+  });
+
+  it('٦ج · وحافّةُ القراءة تنزل تحت رأسٍ لاصقٍ فعلًا — مقيسةً لا مكتوبة', async () => {
+    /*
+     * ⚠️ **ويُشغَّل الكودُ المشحونُ نفسُه على شجرةٍ حيّة.** `wellReadTop`
+     *    دالّةٌ خالصة: تأخذ الصندوقَ وتقرأ الشجرةَ والأنماطَ المحسوبة.
+     *    فيُقتطَع جسمُها من المصدر ويُنفَّذ على منبعٍ فيه رأسٌ لاصقٌ
+     *    وآخرُ ليس كذلك — فيُقاس أنّها تُنزِل الحافّةَ بقدر اللاصق
+     *    وحدَه. وحارسٌ يقرأ اسمَ الدالّة يحرس التسمية.
+     */
+    const fn = new Function('box', bodyOf(bare(await view()), 'wellReadTop'));
+    const frame = document.createElement('iframe');
+    frame.style.cssText = 'position:fixed;inset-block-start:-20000px;inline-size:400px;block-size:300px;border:0;';
+    document.body.appendChild(frame);
+    const doc = frame.contentDocument;
+    doc.open();
+    doc.write(`<!doctype html><html><body style="margin:0">
+      <div id="box" style="block-size:200px;overflow-y:auto">
+        <div id="head" style="position:sticky;inset-block-start:0;block-size:40px;background:#fff"></div>
+        <div id="plain" style="block-size:30px"></div>
+        <div style="block-size:900px"></div>
+      </div></body></html>`);
+    doc.close();
+    await new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done)));
+    const box = doc.getElementById('box');
+    const top = box.getBoundingClientRect().top;
+    const withSticky = fn.call(frame.contentWindow, box);
+    doc.getElementById('head').style.position = 'static';
+    await new Promise((done) => requestAnimationFrame(done));
+    const without = fn.call(frame.contentWindow, box);
+    frame.remove();
+    expect(`تنزل بقدر اللاصق: ${Math.round(withSticky - top)}`).toBe('تنزل بقدر اللاصق: 40');
+    expect(`وبلا لاصقٍ لا تنزل: ${Math.round(without - top)}`).toBe('وبلا لاصقٍ لا تنزل: 0');
+  });
+
   it('٧ · والمؤشّرُ يسكن لمن طلب تقليلَ الحركة — ولا يختفي', async () => {
     const sheet = await css();
     const at = sheet.indexOf('@media (prefers-reduced-motion: reduce)',

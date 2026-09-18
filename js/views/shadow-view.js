@@ -2789,6 +2789,8 @@ function handleEvent(event) {
        *    `seek` لَقال المؤشّرُ «أقرأ» والسمّاعةُ صامتة.
        */
       paintWellReading(ctx?.segments?.[event.index]?.targetId || '');
+      /* وفي الاتّباع يجلس المنطوقُ في وسط منطقة القراءة (WS-RUE-CENTER). */
+      revealWellReading();
       break;
     }
 
@@ -8574,6 +8576,55 @@ function paintWellReading(unit, { paused = false } = {}) {
   return found;
 }
 
+/**
+ * حافّةُ القراءة العليا داخلَ المنبع — تحت ما يلتصق بسقفه.
+ *
+ * ⚠️ **ولا رقمَ مكتوبٌ لارتفاع الرأس اللاصق.** رقمٌ يُكتَب اليومَ
+ *    يكذب يومَ يتغيّر الرأس. فتُقرأ الحالةُ الحيّة: كلُّ سليلٍ موضعُه
+ *    `sticky` وهو **ملتصقٌ الآن** بسقف المنبع يدفع الحافّةَ إلى أسفله.
+ *    وسليلو هذا المنبع واحدٌ وسبعون عقدةً، فالمسحُ رخيص.
+ *
+ * ⚠️ **واليومَ لا رأسَ لاصقًا فيه** (قِيس: صفرٌ من ٧١). فالحافّةُ سقفُه
+ *    نفسُه — والآليّةُ موجودةٌ كي يبقى القولُ صادقًا حين يُضاف رأس.
+ */
+function wellReadTop(box) {
+  let edge = box.getBoundingClientRect().top;
+  for (const node of box.querySelectorAll('*')) {
+    if (getComputedStyle(node).position !== 'sticky') continue;
+    const r = node.getBoundingClientRect();
+    if (r.top <= edge + 1 && r.bottom > edge) edge = r.bottom;
+  }
+  return edge;
+}
+
+/**
+ * يضع السطرَ المنطوقَ في **وسط منطقة القراءة** — في الاتّباع وحدَه.
+ *
+ * ⚠️ **ووسطُ المنبع لا وسطُ الشاشة.** الصفحةُ اليسرى لوحٌ يُمرَّر
+ *    داخلَ نفسِه وارتفاعُه يُسحَب بالمقبض (قِيس: ٢٥٠px مرئيّةً من
+ *    ١٠٤٢ كلِّها). فتوسيطٌ بمقياس الشاشة يضع السطرَ خارجَ اللوح أصلًا.
+ *    ولذلك يُحسَب الإزاحةُ بيدٍ ولا يُنادى `scrollIntoView`: هي تُمرِّر
+ *    **كلَّ** أب قابلٍ للتمرير — ومنهم الصفحةُ نفسُها — فتتحرّك الشاشةُ
+ *    تحت عينك بينما اللوحُ هو المقصود.
+ *
+ * ⚠️ **والتثبيتُ يمنعه قبل أيّ حساب** (شرطُك): «مثبِّتٌ» تعني «لا
+ *    تحرّك الورقةَ تحتي» — والإضاءةُ تبقى تتقدّم بلا تمرير.
+ */
+function revealWellReading() {
+  if (wellPinned || well !== 'draft') return;
+  const box = wellScroller();
+  const node = box?.querySelector('.dw-ru.is-reading');
+  if (!box || !node) return;
+  const v = box.getBoundingClientRect();
+  const top = wellReadTop(box);
+  const mid = top + (v.bottom - top) / 2;
+  const r = node.getBoundingClientRect();
+  const next = box.scrollTop + ((r.top + r.height / 2) - mid);
+  box.scrollTop = Math.max(0, Math.min(next, box.scrollHeight - box.clientHeight));
+  /* وموضعُ القراءة الحيُّ يتبعه — وإلّا أعادته إعادةُ الرسم إلى ما قبله. */
+  liveWellTop = box.scrollTop;
+}
+
 /** يُعيد رسمَ الإضاءة بعد أيّ إعادةِ بناءٍ للمنبع — الحالةُ تبقى. */
 function restoreWellReading() {
   if (wellReading.unit) paintWellReading(wellReading.unit, { paused: wellReading.paused });
@@ -8693,7 +8744,17 @@ async function renderWells() {
   restoreWellReading();
   if (well === 'draft') {
     renderWellPin();
-    if (!wellPinned) requestAnimationFrame(() => revealWellTarget());
+    /*
+     * ⚠️ **وبعد الكشف عن الهدف يجلس المنطوقُ في وسطه — بهذا الترتيب.**
+     *    `revealWellTarget` تُحاذي **البطاقة** من حافّتها (سلوكُ الاتّباع
+     *    القائم، لا يُمَسّ)، ثمّ يُوسَّط **السطرُ المنطوق** داخلها. ولو
+     *    عُكس الترتيبُ لَنقضت محاذاةُ البطاقة التوسيطَ الذي قبلها.
+     *    و`revealWellReading` تعود صامتةً إن لم يكن ثمّ سطرٌ يُقرأ —
+     *    فالرسمُ خارجَ التشغيل لا يتحرّك.
+     */
+    if (!wellPinned) {
+      requestAnimationFrame(() => { revealWellTarget(); revealWellReading(); });
+    }
   }
 }
 
