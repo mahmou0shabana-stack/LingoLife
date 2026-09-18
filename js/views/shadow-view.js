@@ -9,7 +9,7 @@
  * وأوضاع العرض. راجع docs/08-shadowing.md
  */
 
-import { html, raw, esc } from '../utils/dom.js';
+import { html, raw, esc, copyToClipboard } from '../utils/dom.js';
 import { icon } from '../components/icons.js';
 import { formatDate } from '../utils/dates.js';
 import { counted } from '../utils/plural.js';
@@ -55,7 +55,10 @@ import {
   INTERVAL_MIN_MS,
   INTERVAL_MAX_MS,
 } from '../services/shadow/playback-controller.js';
-import { listVoices, loadVoices, RATE_MIN, RATE_MAX, speak as speakOnce } from '../services/shadow/tts-controller.js';
+import {
+  listVoices, loadVoices, RATE_MIN, RATE_MAX, DEFAULT_RATE,
+  speak as speakOnce, cancel as ttsCancel,
+} from '../services/shadow/tts-controller.js';
 import { claimAudio, releaseAudio, ownsAudio } from '../services/shadow/audio-bus.js';
 /*
  * ⚠️ **تحليلُ النطق ونظامُ الصوت نظامان لا يلتقيان (WS52).**
@@ -379,6 +382,7 @@ function stopParked() {
   player = null;
   parkedBar?.remove();
   parkedBar = null;
+  stopFullText();
   releaseAudio('session');
   /* ⚠️ وقفتَها بيدك من الشريط العائم — فلا داعيَ لإبقاء الصفحة حيّة (WS47). */
   holdingBackground = false;
@@ -1510,6 +1514,23 @@ function shell() {
               -->
               <div class="sh-sec-head sh-read-head">
                 <span class="sh-mono">TRANSCRIPT · ${segments.length}</span>
+                <!--
+                  ⚠️ **أربعةُ أفعالٍ في حبّةٍ واحدةٍ لا شريطُ أدوات** (WS-SRCF · هـ):
+                     اقرأ · انسخ · أصغر · أكبر. وهي تظهر مع «نصّ كامل»
+                     وحدَه — لا معنى لقراءة «الكلّ» وأنت في وضع الجمل.
+
+                  ⚠️ ولا تُمَسّ شارةُ Aa: تلك عائلةُ الخطّ، وهذه مقاسُه.
+                -->
+                <span class="sh-ft-acts" data-ft-acts hidden>
+                  <button data-sh="ft-play" aria-label="اقرأ النصَّ كلَّه"
+                          title="اقرأ النصَّ كلَّه">▶</button>
+                  <button data-sh="ft-copy" aria-label="انسخ النصَّ كلَّه"
+                          title="انسخ النصَّ كلَّه">⧉</button>
+                  <button data-sh="ft-size" data-v="-1" aria-label="صغّر حجم النصّ الكامل"
+                          title="صغّر حجم النصّ الكامل">A−</button>
+                  <button data-sh="ft-size" data-v="1" aria-label="كبّر حجم النصّ الكامل"
+                          title="كبّر حجم النصّ الكامل">A+</button>
+                </span>
                 <span class="sh-read-modes" role="tablist" aria-label="طريقة القراءة">
                   <button data-sh="read-mode" data-v="lines" role="tab">جمل</button>
                   <button data-sh="read-mode" data-v="flow" role="tab">نص كامل</button>
@@ -1754,14 +1775,6 @@ function shell() {
               -->
 
               <!--
-                ⚠️ مفتاحُ الأوضاع الثلاثة (WS28) — الشرحُ فوق سجلّ
-                    MODES في shadow-view.js. ولا backtick هنا: يكسر
-                    القالب (فخٌّ وقعتُ فيه ثلاث مرّات).
-              -->
-              <div class="sh-modes" data-modes role="tablist"
-                   aria-label="إيه اللي بيتقرا"></div>
-
-              <!--
                 ⚠️ **زرّان يقولان الصدق عند الحافّة** (WS-A، بند ٢٦).
                    في مصدرٍ من جملةٍ واحدة لا سابقَ ولا تالي — فيُعطَّلان
                    ويقول عنوانُ الزرّ لماذا، بدل أن ينقلاك إلى السكريبت.
@@ -1792,6 +1805,21 @@ function shell() {
                 <button class="sh-rec-btn" data-sh="tool" data-v="myvoice"
                   aria-label="سجّل صوتك">🎙</button>
               </div>
+
+              <!--
+                ⚠️ مفتاحُ الأوضاع الثلاثة (WS28) — الشرحُ فوق سجلّ
+                    MODES في shadow-view.js. ولا backtick هنا: يكسر
+                    القالب (فخٌّ وقعتُ فيه ثلاث مرّات).
+
+                ⚠️ **وموضعُه صار تحت صفّ التشغيل بطلبك (WS-SRCF · ج).**
+                    كان فوقه، فيقرأ الترتيبُ: بطلٌ ← ترجمةٌ ← رقائقُ ←
+                    أوضاعٌ ← تشغيل. والمطلوبُ أن يكون التشغيلُ آخرَ ما
+                    تصل إليه العينُ من الأفعال، والأوضاعُ حبّةً تحته.
+                    ولم يُمَسّ منطقُه ولا حالتُه ولا مُعالِجُه — الوسمُ
+                    انتقل مكانًا، والقواعدُ اللاصقةُ عُدِّلت لتتبعه.
+              -->
+              <div class="sh-modes" data-modes role="tablist"
+                   aria-label="إيه اللي بيتقرا"></div>
 
               <!--
                 ══════════ بابٌ واحدٌ للإعدادات (WS-SCLEAN · بندا ٤ و٢٨) ══════════
@@ -7933,6 +7961,9 @@ function paintLines() {
     ? flowHtml(rows, at)
     : rows.map((seg, i) => lineHtml(seg, i, i === at)).join('');
   paintReadModes();
+  /* والحبّةُ ومقاسُها يتبعان الرسم — الحاوي باقٍ فالمتغيّرُ يصمد. */
+  applyFullTextSize();
+  paintFullTextActs();
   /*
    * ⚠️ **والخطُّ يُعاد بعد كلّ رسمٍ لا مرّةً عند التبديل** (WS-VFP).
    *    `applyFont` تكتب أنماطًا **سطريّةً** على العنصر نفسِه، وهذا
@@ -7943,6 +7974,178 @@ function paintLines() {
    * ⚠️ **ولا حلقةَ**: `applyFonts` تكتب خطوطًا ولا تُعيد رسمَ سطور.
    */
   applyFonts();
+}
+
+/* ================================================================== *
+ * «نصٌّ كامل»: قراءةٌ ونسخٌ ومقاس (WS-SRCF · المرحلة هـ)
+ * ================================================================== *
+ *
+ * ⚠️ **ولا مشغّلَ ثانٍ ولا إعداداتٍ ثانية.** هذه حلقةٌ صغيرةٌ فوق ما
+ *    هو قائم: `speak` من `tts-controller` تنطق جملةً وتعيد وعدًا،
+ *    و`claimAudio`/`releaseAudio` من ناقل الصوت هما الحَكَم (مركزُ
+ *    الصوت V1.0A)، والإعداداتُ تُقرأ من الجلسة نفسِها التي يقرأ منها
+ *    التدريب: `speed` سرعةً و`intervalMs(session)` وقفةً بين الجمل.
+ *
+ * ⚠️ **ولا تمسّ تقدّمَ التدريب**: لا `player` ولا `goTo` ولا
+ *    `recordSegmentPractice` ولا `ctx` فهرسًا. القراءةُ قراءةٌ، والدليلُ
+ *    لا يُكتَب إلّا حين تتدرّب فعلًا.
+ *
+ * ⚠️ **وحدُّ القدرة يُقال لا يُخفى**: نطقُ المتصفّح لا يملك استئنافًا
+ *    موثوقًا من منتصف الجملة (‏`speechSynthesis.resume` غيرُ متّسقٍ بين
+ *    المحرّكات). فالإيقافُ يقف **عند حدّ الجملة** والاستئنافُ يبدأ من
+ *    الجملة التي وقف عندها — وهو ما يمكن الوفاءُ به فعلًا.
+ */
+
+/** حالةُ قراءةِ النصّ الكامل — مالكٌ واحدٌ في الناقل باسمٍ واحد. */
+const FT_OWNER = 'fulltext';
+let ftReading = { on: false, at: 0, ticket: 0 };
+
+/** مصدرُ الحقيقة للنصّ الكامل: نفسُ مقاطع المصدر التي يرسمها الراسم. */
+function fullTextRows() {
+  return sourceRows();
+}
+
+/** يوقف القراءةَ ويحرّر الناقل — آمنٌ للنداء مرّتين. */
+function stopFullText() {
+  ftReading.ticket += 1;
+  ftReading.on = false;
+  ttsCancel();
+  releaseAudio(FT_OWNER);
+  paintFullTextActs();
+}
+
+/**
+ * يقرأ النصَّ الكاملَ جملةً جملةً بترتيب المصدر.
+ *
+ * ⚠️ **ولا يُرسَل النصُّ كلُّه طلبًا واحدًا**: حدودُ الجمل موجودةٌ
+ *    أصلًا في المقاطع، والوقفةُ بينها إعدادٌ للمستخدم — ودفعةٌ واحدةٌ
+ *    تُلغي الاثنين.
+ */
+async function playFullText() {
+  const rows = fullTextRows();
+  if (!rows.length) return toastError('مفيش نصّ نقراه');
+  if (ftReading.on) return stopFullText();
+
+  const mine = (ftReading.ticket += 1);
+  ftReading.on = true;
+  if (ftReading.at >= rows.length) ftReading.at = 0;
+  claimAudio(FT_OWNER, () => {
+    /* غيرُنا طلب الصوت: نقف عند حدّ الجملة ونحفظ موضعَنا. */
+    ftReading.on = false;
+    ttsCancel();
+    paintFullTextActs();
+  });
+  paintFullTextActs();
+
+  const session = ctx?.session || {};
+  const rate = Number(session.speed) || DEFAULT_RATE;
+  const voiceName = session.voiceId || null;
+  const pause = intervalMs(session);
+
+  for (; ftReading.at < rows.length; ftReading.at += 1) {
+    if (mine !== ftReading.ticket || !ftReading.on) return;
+    const text = rows[ftReading.at]?.sourceTextSnapshot || '';
+    paintFullTextActs();
+    if (text.trim()) {
+      const out = await speakOnce(text, { rate, voiceName });
+      if (mine !== ftReading.ticket || !ftReading.on) return;
+      if (!out.ok && out.reason === 'unsupported') {
+        ftReading.on = false;
+        releaseAudio(FT_OWNER);
+        paintFullTextActs();
+        return toastError('المتصفّح ده مش بيدعم القراءة بصوت');
+      }
+    }
+    if (ftReading.at < rows.length - 1 && pause > 0) {
+      await new Promise((r) => setTimeout(r, pause));
+      if (mine !== ftReading.ticket || !ftReading.on) return;
+    }
+  }
+  /* وصل الآخر: يعود إلى أوّله ويُفلت الصوت. */
+  ftReading.at = 0;
+  ftReading.on = false;
+  releaseAudio(FT_OWNER);
+  paintFullTextActs();
+  return undefined;
+}
+
+/**
+ * ينسخ النصَّ الروسيَّ كلَّه من **المقاطع** لا من الشجرة.
+ *
+ * ⚠️ الشجرةُ تحمل أرقامَ الجمل وعلاماتِ النبر وأصنافَ التظليل —
+ *    ونسخُها ينسخ ذلك كلَّه. والمصدرُ موجودٌ نصًّا، فيُنسَخ منه.
+ */
+async function copyFullText() {
+  const rows = fullTextRows();
+  const text = rows.map((r) => (r.sourceTextSnapshot || '').trim()).filter(Boolean).join('\n');
+  if (!text) return toastError('مفيش نصّ ننسخه');
+  const ok = await copyToClipboard(text);
+  return ok ? toastOk(`اتنسخ النصّ كلّه (${rows.length} جملة)`) : toastError('النسخ ما زبطش');
+}
+
+/*
+ * مقاسُ «نصّ كامل» — سلّمٌ صغيرٌ ومتغيّرٌ واحد.
+ *
+ * ⚠️ **ولا إعدادُ مقاسٍ ثانٍ ولا تخزينٌ جديد.** المقاسُ عرضٌ لهذه
+ *    القراءة: يُكتَب متغيّرًا على حاوي النصّ فيصمد أمام إعادة الرسم
+ *    (`paintLines` تستبدل الأبناء لا الحاوي)، ويعيش ما دامت الجلسةُ
+ *    مفتوحة. ولا يمسّ عائلةَ الخطّ (‏`Aa`) ولا البطلَ ولا الرقائق
+ *    ولا المسودّة ولا العربيّة — المتغيّرُ يقرأه `.sh-flow-s` وحدَه.
+ */
+const FT_STEPS = Object.freeze([0.85, 1, 1.15, 1.3, 1.5]);
+let ftSize = 1;
+
+/** يغيّر مقاسَ النصّ الكامل خطوةً، ويحفظ موضعَ القراءة. */
+function stepFullTextSize(direction) {
+  const at = FT_STEPS.findIndex((v) => Math.abs(v - ftSize) < 0.001);
+  const next = Math.max(0, Math.min(FT_STEPS.length - 1, (at < 0 ? 1 : at) + direction));
+  if (FT_STEPS[next] === ftSize) return;
+  /*
+   * ⚠️ **ويُحفَظ موضعُ القراءة نسبةً لا بكسلات**: تكبيرُ الحرف يزيد
+   *    ارتفاعَ الوثيقة، فإبقاءُ `scrollTop` كما هو يقفز بك. والنسبةُ
+   *    تُبقيك عند نفس المقطع من النصّ تقريبًا — وهو أقربُ ما تسمح به
+   *    بنيةُ التمرير القائمة.
+   */
+  const box = wellScroller() || $('[data-lines]')?.parentElement || null;
+  const before = box && box.scrollHeight > box.clientHeight
+    ? box.scrollTop / (box.scrollHeight - box.clientHeight) : null;
+  ftSize = FT_STEPS[next];
+  applyFullTextSize();
+  if (before != null && box) {
+    requestAnimationFrame(() => {
+      const span = box.scrollHeight - box.clientHeight;
+      if (span > 0) box.scrollTop = Math.round(before * span);
+    });
+  }
+  paintFullTextActs();
+}
+
+/** يكتب المتغيّرَ على حاوي السطور — يصمد أمام إعادة رسم الأبناء. */
+function applyFullTextSize() {
+  const host = $('[data-lines]');
+  if (host) host.style.setProperty('--sh-ft-size', String(ftSize));
+}
+
+/** يُظهر الحبّةَ في «نصّ كامل» وحدَه، ويضبط حالةَ أزرارها. */
+function paintFullTextActs() {
+  const box = $('[data-ft-acts]');
+  if (!box) return;
+  box.hidden = readMode !== READ_MODE.FLOW;
+  const play = box.querySelector('[data-sh="ft-play"]');
+  if (play) {
+    play.textContent = ftReading.on ? '❚❚' : '▶';
+    play.classList.toggle('on', ftReading.on);
+    const label = ftReading.on ? 'أوقف القراءة' : 'اقرأ النصَّ كلَّه';
+    play.setAttribute('aria-label', label);
+    play.setAttribute('title', label);
+  }
+  const at = FT_STEPS.indexOf(ftSize);
+  for (const b of box.querySelectorAll('[data-sh="ft-size"]')) {
+    const dir = Number(b.dataset.v);
+    const limit = dir < 0 ? at <= 0 : at >= FT_STEPS.length - 1;
+    b.disabled = limit;
+    b.setAttribute('aria-disabled', limit ? 'true' : 'false');
+  }
 }
 
 /** يُعلِّم الزرَّ الجاري في مبدّل القراءة. */
@@ -12627,6 +12830,15 @@ function wireInteractions(main) {
       case 'well-draft-done': return renderWells();
 
       case 'read-mode': return setReadMode(btn.dataset.v);
+
+      /*
+       * «نصّ كامل»: اقرأ · انسخ · أصغر · أكبر (WS-SRCF · هـ).
+       * ⚠️ ولا مُعالِجَ تشغيلٍ ثانٍ: هذه تنادي حلقةَ القراءة وحدَها،
+       *    ولا تمسّ `player` ولا فهرسَ التدريب.
+       */
+      case 'ft-play': return playFullText();
+      case 'ft-copy': return copyFullText();
+      case 'ft-size': return stepFullTextSize(Number(btn.dataset.v) < 0 ? -1 : 1);
 
       /*
        * ⚠️ **وحالةُ الطيّ خارج الرسم** — وإلّا انطبق التفصيلُ مع كلّ

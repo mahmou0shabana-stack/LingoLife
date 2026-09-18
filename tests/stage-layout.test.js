@@ -243,13 +243,13 @@ async function stageAt(width, height,
           </div>
           <div class="sh-chips">${chips}</div>
           <div class="sh-hint sh-mono">TAP A WORD TO HEAR</div>
-          <div class="sh-modes"><button class="on">جملة</button><button>مقطع</button><button>كلمة</button></div>
           <div class="sh-transport">
             <button class="sh-nav-btn"><i class="sh-ico-prev"></i></button>
             <button class="sh-play"><i class="sh-ico-play"></i></button>
             <button class="sh-nav-btn"><i class="sh-ico-next"></i></button>
             ${rec ? '<button class="sh-rec-btn" data-sh="tool" data-v="myvoice">\u{1F399}</button>' : ''}
           </div>
+          <div class="sh-modes"><button class="on">جملة</button><button>مقطع</button><button>كلمة</button></div>
           <!-- ⚠️ صفُّ الرقاقات حُذف (WS-POLISH) وصار لسانًا مطلقًا على الحافّة. -->
           <button class="sh-cc-tab" data-sh="drawer" aria-label="اضبط التدريب">⚙</button>
           <!-- ⚠️ وزرُّ معاينة الخطّ في الإطار كما هو في الراسم: هو أقربُ
@@ -579,13 +579,19 @@ describe('WS-ST · الكلمةُ تُقرأ والجملةُ تهيمن', () =>
      *    شاشةٍ سليمة. القاعدةُ العريضةُ `clamp` سقفُها ٢٠px منذ WS-BG،
      *    و٢٠ × ‎.94 = ١٨٫٨ بالضبط. فالمدى هو المدى القديمُ مضروبًا في
      *    نسبةِ الخفض — لا رقمان اختُرعا.
+     *
+     * ⚠️ **وارتفع الطرفان ١px بطلبك** (WS-SRCF · المرحلة ب: «كبّر حبرَ
+     *    الرقاقة ‎0.5–1px»). فالقاعُ ١٦←١٧ والسقفُ ١٨٫٨←١٩٫٨ — بمقدارٍ
+     *    واحدٍ في الطرفين، وإلّا انفصلا بصمت. **وما يحرسه الحارسُ لم
+     *    يتغيّر**: أن تبقى الكلمةُ المفردةُ فوق متن الصفحة اليسرى
+     *    (١٥٫٤) وتحت سقفِ قاعدتها — لا الرقمان بذاتهما.
      */
     for (const [w, h] of [[412, 915], [1280, 800]]) {
       const f = await stageAt(w, h);
       const chip = parseFloat(f.cs('.sh-chip-w').fontSize);
       f.close();
       expect(`${w}: ${chip} في المدى`)
-        .toBe(`${w}: ${chip} ${chip >= 15.5 && chip <= 18.8 ? 'في' : 'خارج'} المدى`);
+        .toBe(`${w}: ${chip} ${chip >= 15.5 && chip <= 19.8 ? 'في' : 'خارج'} المدى`);
     }
   });
 
@@ -2163,19 +2169,26 @@ describe('WS-DHS · فتحُ لوح المسودّة لا يُخرِج الضو�
  * WS-VFP — خمسُ لمساتٍ: الرقاقةُ · السهمان · الحبّةُ · الميكروفون · الخطّ *
  * ================================================================== */
 describe('WS-VFP · أصغرُ وأشفُّ بلا أن يصغر حبرٌ', () => {
-  it('٦٤ · الرقاقةُ أصغرُ وحبرُها ١٦px كما كان', async () => {
+  it('٦٤ · الرقاقةُ أصغرُ وحبرُها ١٧px بعد رفعِ المرحلة ب', async () => {
     /*
      * ⚠️ **وطلبُك كان مشروطًا**: «أصغرُ وأشفّ **بلا** تصغير النصّ».
      *    فيُقاس الاثنان معًا — وإلّا مرّ تصغيرٌ اشترى الحجمَ من الحبر.
      *    قِيس قبل: ٤٥٫٦×٣٦ وحشوة 6px 8px 5px · وبعد: ٤١٫٦×٢٨ وحشوة
      *    3px 6px 2px، والحبرُ ١٦px في الحالتين.
+     *
+     * ⚠️ **والحبرُ ١٧ الآن لا ١٦ — بطلبٍ صريحٍ منك** (WS-SRCF · المرحلة
+     *    ب: «كبّر حبرَ الرقاقة ‎0.5–1px»). **والشرطُ المحروسُ باقٍ كما
+     *    هو**: صندوقٌ صغيرٌ لا يشتري صِغَرَه من الحبر — فالارتفاعُ ما
+     *    زال ≤٣٢ (قِيس ٢٩) والحبرُ لم ينزل. ولو رُفع الحبرُ فتضخّم
+     *    الصندوقُ لسقط هذا الحارسُ — وهو مقصودُه.
      */
     const f = await stageAt(412, 915);
     const chip = f.doc.querySelector('.sh-chip');
     const word = f.doc.querySelector('.sh-chip-w');
     const box = chip.getBoundingClientRect();
-    expect(`حبرٌ ${f.win.getComputedStyle(word).fontSize}`).toBe('حبرٌ 16px');
-    expect(`ارتفاعٌ ${box.height <= 32}`).toBe('ارتفاعٌ true');
+    expect(`حبرٌ ${f.win.getComputedStyle(word).fontSize}`).toBe('حبرٌ 17px');
+    expect(`ارتفاعٌ ${Math.round(box.height)} ≤ ٣٢`)
+      .toBe(`ارتفاعٌ ${Math.round(box.height)} ${box.height <= 32 ? '≤' : '>'} ٣٢`);
     /* والحبرُ لا يتجاوز صندوقَه — لا قصَّ ولا فيض. */
     expect(`فيضٌ أفقيّ ${word.scrollWidth > word.clientWidth + 1}`).toBe('فيضٌ أفقيّ false');
     /* والحدُّ السماويُّ باقٍ هُويّةً، والحشوةُ أشفُّ ممّا كانت. */
@@ -2272,7 +2285,14 @@ describe('WS-VFP · أصغرُ وأشفُّ بلا أن يصغر حبرٌ', () =
       const pill = f.doc.querySelector('.sh-modes');
       const box = pill.getBoundingClientRect();
       const cs = f.win.getComputedStyle(pill);
-      expect(`${w}: أصغر ${box.width < 135 && box.height <= 28}`).toBe(`${w}: أصغر true`);
+      /*
+       * ⚠️ **ويُطبَع المقيسُ في نصّ الحارس** — لا «false» عارية. فقد
+       *    أسقطت المرحلةُ ج هذا الحارسَ بحشوةٍ رأسيّةٍ على الكبسولة
+       *    (‏٢٨ ← ٤٠)، ورسالةٌ بلا رقمٍ تُخفي **أيَّ** الشرطين سقط.
+       */
+      expect(`${w}: ${Math.round(box.width)}×${Math.round(box.height)} أصغر`)
+        .toBe(`${w}: ${Math.round(box.width)}×${Math.round(box.height)} `
+          + `${box.width < 135 && box.height <= 28 ? 'أصغر' : 'أكبر'}`);
       expect(`${w}: أهدأ ${Number(cs.opacity) < 0.8 && Number(cs.opacity) > 0.4}`).toBe(`${w}: أهدأ true`);
       const btns = [...f.doc.querySelectorAll('.sh-modes button')];
       expect(`${w}: أوضاعٌ ${btns.length}`).toBe(`${w}: أوضاعٌ 3`);
@@ -2757,6 +2777,13 @@ describe('WS-DSCTME · ثلاثُ لمساتٍ مقيسةٌ على المسرح'
      *        بعد: ٢٤ لوحًا · ٢٠ هاتفًا
      *
      * ⚠️ **ولا يُمَسّ منطقُها**: ثلاثةُ أزرارٍ وواحدٌ فعّالٌ كما كانت.
+     *
+     * ⚠️ **وانقلب اتّجاهُ القياس مع الترتيب** (WS-SRCF · المرحلة ج):
+     *    كانت الحبّةُ فوق شريط النقل فقِيست `tr.top - modes.bottom`،
+     *    وصارت تحته فتُقاس `modes.top - tr.bottom`. **والمحروسُ لم
+     *    يتغيّر**: وهجُ الكوكب (١٨–٤٤px) ما زال يعبر الفسحةَ — وهو
+     *    الآن يهبط إليها بدل أن يصعد. فلو بقي الحارسُ على اتّجاهه
+     *    القديم لقاس فسحةً سالبةً وسمّاها عطبًا وهي الترتيبُ نفسُه.
      */
     for (const [w, h, floor] of [[1280, 800, 22], [412, 915, 18], [320, 720, 18]]) {
       const f = await stageAt(w, h);
@@ -2765,8 +2792,9 @@ describe('WS-DSCTME · ثلاثُ لمساتٍ مقيسةٌ على المسرح'
       const on = f.doc.querySelectorAll('.sh-modes button.on').length;
       const all = f.doc.querySelectorAll('.sh-modes button').length;
       f.close();
-      expect(`${w}: الفسحة ${Math.round(tr.top - modes.bottom) >= floor}`)
-        .toBe(`${w}: الفسحة true`);
+      const gap = Math.round(modes.top - tr.bottom);
+      expect(`${w}: فسحةٌ ${gap} ≥ ${floor}`)
+        .toBe(`${w}: فسحةٌ ${gap} ${gap >= floor ? '≥' : '<'} ${floor}`);
       expect(`${w}: أزرارٌ ${all} فعّالٌ ${on}`).toBe(`${w}: أزرارٌ 3 فعّالٌ 1`);
     }
   });
@@ -2790,6 +2818,126 @@ describe('WS-DSCTME · ثلاثُ لمساتٍ مقيسةٌ على المسرح'
       const off = (play.left + play.width / 2) - (page.left + page.width / 2);
       expect(`${w}: انحرافُ التشغيل ${Math.abs(off) <= 1}`)
         .toBe(`${w}: انحرافُ التشغيل true`);
+    }
+  });
+});
+
+/* ================================================================== *
+ * WS-SRCF — تدرّجُ البطل · الرقاقةُ بلا خطوط · الأوضاعُ تحت التشغيل   *
+ * ================================================================== */
+describe('WS-SRCF · مقيسٌ على المسرح', () => {
+  it('٨٤ · تدرّجُ البطل لا يجعل سطوعَ الحرف تابعًا لعدد الأسطر', async () => {
+    /*
+     * ⚠️ **وهذا هو عطبُ «الأبيضُ حالةٌ والذهبُ حالةٌ أخرى».** الأبيضُ
+     *    تدرّجٌ ممدودٌ على صندوق الجملة، والذهبُ لونٌ ثابت. فكلّما
+     *    التفَّت الجملةُ أسطرًا هبط الأبيضُ نحو طرف التدرّج الداكن
+     *    ولم يهبط الذهبُ معه. قِيس سطرًا سطرًا على ٤١٢×٩١٥:
+     *
+     *        سطرٌ واحد        هبوطٌ ٠
+     *        جملتُك ذاتُ ٥ أسطر  ٢١١٫٢ ← ١٩٢٫٨  = **١٨٫٤**
+     *        وبعد التضييق                        = **٥٫٤**
+     *
+     * ⚠️ **والمحروسُ مدى التدرّج لا صورتُه**: تُقرأ محطّاتُه من الورقة
+     *    ويُحسَب فرقُ سطوعها. فتدرّجٌ يعود واسعًا يُسقط هذا السطرَ
+     *    مهما تغيّرت ألوانُه.
+     */
+    const sheet = await css();
+    const rule = /\.sh-current-text\s*\{[^}]*background-image:\s*linear-gradient\(([^;]+)\);/
+      .exec(sheet);
+    expect(`القاعدةُ موجودة: ${Boolean(rule)}`).toBe('القاعدةُ موجودة: true');
+    const stops = [...rule[1].matchAll(/#([0-9a-f]{6})/gi)].map((m) => m[1]);
+    expect(`محطّاتٌ: ${stops.length >= 2}`).toBe('محطّاتٌ: true');
+    const lum = (hex) => {
+      const n = parseInt(hex, 16);
+      return 0.2126 * ((n >> 16) & 255) + 0.7152 * ((n >> 8) & 255) + 0.0722 * (n & 255);
+    };
+    const span = Math.max(...stops.map(lum)) - Math.min(...stops.map(lum));
+    expect(`مدى السطوع ${span.toFixed(1)} ضيّق`)
+      .toBe(`مدى السطوع ${span.toFixed(1)} ${span <= 14 ? 'ضيّق' : 'واسع'}`);
+    /* والقصُّ على الحرف وتتبّعُ المحتوى باقيان — WS-HEROSCROLL لم تُمَسّ. */
+    expect(`يتبع المحتوى: ${/background-attachment:\s*local/.test(sheet)}`)
+      .toBe('يتبع المحتوى: true');
+    expect(`مقصوصٌ على الحرف: ${/background-clip:\s*text/.test(sheet)}`)
+      .toBe('مقصوصٌ على الحرف: true');
+  });
+
+  it('٨٥ · والرقاقةُ بلا خطَّين زخرفيَّين، وحبرُها أكبرُ قليلًا', async () => {
+    /*
+     * ⚠️ **وقِيسا بالتكبير قبل النزع**: لمعةٌ داخليّةٌ فوق الكلمة
+     *    (`inset 0 1px 0`) ومَسلكُ شريطِ النطق تحتها — خطّان لا يقولان
+     *    شيئًا. والذي يقول يبقى: الحدُّ السماويّ، وتسطيرُ النبر الذهبيّ،
+     *    وامتلاءُ الشريط أثناء النطق.
+     */
+    for (const [w, h] of [[412, 915], [1280, 800], [320, 720]]) {
+      const f = await stageAt(w, h);
+      const chip = f.doc.querySelector('.sh-chips .sh-chip:not(.speaking)');
+      const cs = f.win.getComputedStyle(chip);
+      const bar = chip.querySelector('.sh-chip-bar');
+      const word = chip.querySelector('.sh-chip-w');
+      const barBg = bar ? f.win.getComputedStyle(bar).backgroundColor : '';
+      const size = parseFloat(f.win.getComputedStyle(word).fontSize);
+      const border = cs.borderTopColor;
+      /*
+       * ⚠️ **وتُلتقَط القيمةُ قبل `close` لا بعده.** `getComputedStyle`
+       *    تُرجع كائنًا **حيًّا** مربوطًا بإطارِه؛ فمتى أُزيل الإطارُ
+       *    صارت كلُّ خاصّيّةٍ فيه سلسلةً فارغة. وقد قرأتُ `boxShadow`
+       *    بعد الإغلاق فجاء «» — فسقط الحارسُ على شاشةٍ سليمة، وبدا
+       *    أنّ اللمعةَ باقيةٌ وهي منزوعة. والباقياتُ كلُّها مقروءةٌ
+       *    قبل الإغلاق، فانفردت هذه بالعطب.
+       */
+      const shadow = cs.boxShadow;
+      f.close();
+      expect(`${w}: لا لمعةَ علويّة ${shadow}`).toBe(`${w}: لا لمعةَ علويّة none`);
+      expect(`${w}: مَسلكٌ شفّاف ${/rgba\(0, 0, 0, 0\)|transparent/.test(barBg)}`)
+        .toBe(`${w}: مَسلكٌ شفّاف true`);
+      /* والشريطُ نفسُه باقٍ — المعلومةُ لم تُحذَف مع الخطّ. */
+      expect(`${w}: الشريطُ باقٍ ${Boolean(bar)}`).toBe(`${w}: الشريطُ باقٍ true`);
+      expect(`${w}: حبرٌ ${size} أكبرُ من ١٦`)
+        .toBe(`${w}: حبرٌ ${size} ${size >= 17 ? 'أكبرُ من ١٦' : 'كما كان'}`);
+      /* والحدُّ السماويُّ هُويّةٌ باقية. */
+      expect(`${w}: حدٌّ سماويّ ${/^rgba?\(/.test(border)}`).toBe(`${w}: حدٌّ سماويّ true`);
+    }
+  });
+
+  it('٨٦ · والأوضاعُ تحت صفّ التشغيل، والصفُّ لا يتحرّك بطول الجملة', async () => {
+    /*
+     * ⚠️ **وقِيس أنّ الصفَّ ثابتٌ أصلًا** (بلاغُك أنّه يتحرّك): من
+     *    جملةٍ بسطرٍ واحدٍ ورقاقتين إلى خمسةِ أسطرٍ و٢٢ رقاقة، بقي
+     *    y كما هو في المقاسات الثلاثة — تنقّلٌ **٠px**. فلم يُخترَع
+     *    علاجٌ، ووُضع هذا الحارسُ ليمنع تحرّكَه مستقبلًا.
+     *
+     * ⚠️ **والترتيبُ يُقرأ من الراسم أيضًا لا من الإطار وحدَه.** الإطارُ
+     *    يكتب الوسمَ بيدٍ، فمطابقتُه لنفسه لا تحرس شيئًا: لو عاد الوسمُ
+     *    في `shadow-view` إلى ترتيبه القديم لبقي هذا الحارسُ أخضرَ
+     *    والشاشةُ مقلوبة. فيُقاس موضعُ الكتلتين في المصدر كذلك.
+     */
+    const src = await (await fetch('../js/views/shadow-view.js')).text();
+    const iTr = src.indexOf('<div class="sh-transport">');
+    const iMd = src.indexOf('<div class="sh-modes" data-modes');
+    expect(`في الراسم: الأوضاع ${iTr > 0 && iMd > iTr ? 'تحت' : 'فوق'}`)
+      .toBe('في الراسم: الأوضاع تحت');
+    for (const [w, h] of [[1280, 800], [412, 915], [320, 720]]) {
+      const few = await stageAt(w, h, { words: 2, sentence: 'Да.' });
+      const fy = few.doc.querySelector('.sh-transport').getBoundingClientRect().top
+        - few.doc.querySelector('.sh-page.sh-right').getBoundingClientRect().top;
+      few.close();
+      const many = await stageAt(w, h, { words: 26 });
+      const page = many.doc.querySelector('.sh-page.sh-right').getBoundingClientRect();
+      const tr = many.doc.querySelector('.sh-transport').getBoundingClientRect();
+      const modes = many.doc.querySelector('.sh-modes').getBoundingClientRect();
+      const play = many.doc.querySelector('.sh-play').getBoundingClientRect();
+      const my = tr.top - page.top;
+      const below = modes.top >= tr.bottom - 0.5;
+      const overlap = !(modes.bottom <= tr.top || tr.bottom <= modes.top);
+      const off = (play.left + play.width / 2) - (page.left + page.width / 2);
+      const count = many.doc.querySelectorAll('.sh-modes button').length;
+      many.close();
+      expect(`${w}: تنقّلُ الصفّ ${Math.abs(my - fy) <= 1}`).toBe(`${w}: تنقّلُ الصفّ true`);
+      expect(`${w}: الأوضاعُ تحته ${below}`).toBe(`${w}: الأوضاعُ تحته true`);
+      expect(`${w}: بلا تراكب ${overlap}`).toBe(`${w}: بلا تراكب false`);
+      expect(`${w}: التشغيلُ في المركز ${Math.abs(off) <= 1}`)
+        .toBe(`${w}: التشغيلُ في المركز true`);
+      expect(`${w}: ثلاثةُ أوضاع ${count}`).toBe(`${w}: ثلاثةُ أوضاع 3`);
     }
   });
 });
