@@ -748,12 +748,26 @@ describe('WS-MIC · لا مايكَ مكرّرًا ولا خطَّ ثانٍ ول
     const rule = /\.sh-chip-w\s*\{([^}]*)\}/.exec(css);
     expect(Boolean(rule)).toBe(true);
     expect(/font-family:\s*var\(--sh-ru-font/.test(rule[1])).toBe(true);
-    /* والمتغيّرُ يُكتَب من خطّ المسرح وحدَه. */
+    /* والمتغيّرُ يُكتَب من خطّ المسرح وحدَه — كاتبٌ واحدٌ لا كاتبان. */
     const text = await code();
     const writes = text.match(/setProperty\('--sh-ru-font'/g) || [];
     expect(writes).toHaveLength(1);
     const at = text.indexOf("setProperty('--sh-ru-font'");
-    expect(text.slice(at - 200, at).includes('fontById(ctx.font)')).toBe(true);
+    /*
+     * ⚠️ **وكان يشترط `fontById(ctx.font)` بحرفه — أي يحرس المنفذ
+     *    (WS-HSDR).** المصدرُ هو هو (`ctx.font`، خطُّ المسرح وحدَه)،
+     *    لكنّه كان يُقرأ **خامًّا** فيتجاوز حارسَ السيريلية الذي
+     *    وُضع في WS-CSFIM. فتلبس الجملةُ البديلَ المقيسَ وتلبس
+     *    رقائقُها الخطَّ العاجزَ نفسَه — سطحان روسيّان متجاوران
+     *    بوجهين، وهو نصفُ بلاغ «حالةٌ وحالةٌ أخرى».
+     *
+     *    فالمحروسُ الآن أمران معًا: أنّ المصدرَ خطُّ المسرح، وأنّه
+     *    يمرّ من `russianFontId` كما يمرّ كلُّ سطحٍ روسيٍّ آخر.
+     */
+    const head = text.slice(at - 260, at);
+    expect(`من خطّ المسرح: ${head.includes('ctx.font')}`).toBe('من خطّ المسرح: true');
+    expect(`ومن بوّابة السيريلية: ${head.includes('fontById(russianFontId(ctx.font))')}`)
+      .toBe('ومن بوّابة السيريلية: true');
   });
 
   it('٣٢ · وعدّادُ التكرار ظاهرٌ ومن حالةٍ واحدةٍ مع الشريط', async () => {

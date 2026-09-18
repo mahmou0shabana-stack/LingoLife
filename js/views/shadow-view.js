@@ -2891,7 +2891,28 @@ function syncSegment() {
     /* الهُويّةُ تُختَم مع النصّ نفسِه — فيصير «مِن أيّ هدفٍ هذا؟» سؤالًا يُجاب. */
     textEl.dataset.seg = stamp;
     if (fresh) textEl.scrollTop = 0;
-    applyFont(textEl, ctx.font);
+    /*
+     * ⚠️ **وبالمعرّف المحلول لا بالخامّ — وهذا كان ينقض WS-CSFIM مع كلّ
+     *    نقلةِ جملة (WS-HSDR).**
+     *
+     *    كاتبان على نفس الخاصّية بقيمتين: `applyFonts` تكتب
+     *    `russianFontId(ctx.font)` — أي البديلَ المقيسَ القادرَ على
+     *    السيريلية — وهذا السطرُ كان يكتب `ctx.font` **خامًّا**. فهو
+     *    يقع بعدها في الزمن (مع كلّ نقلة)، فيغلبها.
+     *
+     *    قِيس حيًّا في «الأصل» بوجهٍ لاتينيٍّ خالصٍ مسجَّلٍ باسم Pacifico:
+     *
+     *        بعد اختيار الخطّ    البطلُ يلبس **Caveat**    (البديلُ الصحيح)
+     *        وبعد «التالي» واحدة  البطلُ يلبس **Pacifico**  (العاجزُ عاد)
+     *
+     *    فتُرسَم الروسيّةُ من احتياطيٍّ صامتٍ يختاره المتصفّحُ لكلّ
+     *    مقطعٍ نصّيٍّ على حدة — والبطلُ مقاطعُ: نصٌّ عارٍ و`<b>`ات نبرٍ
+     *    بينها. فيصير ما تراه تابعًا لحالةٍ غير التي اخترتَها.
+     *
+     * ⚠️ **ولا حالةَ خطٍّ جديدة**: نفسُ `ctx.font` ونفسُ البوّابة التي
+     *    تستعملها `applyFonts` — سطرٌ يوحّد كاتبَين، لا مصدرٌ ثانٍ.
+     */
+    applyFont(textEl, russianFontId(ctx.font));
     textEl.classList.toggle('hidden-mode', ctx.display === DISPLAY.HIDDEN);
   }
 
@@ -9877,9 +9898,19 @@ function applyFonts() {
      *    فالخطُّ يُنشَر متغيّرًا على جذر التطبيق: يتبعه كلُّ نصٍّ روسيٍّ
      *    في المسرح مهما أُعيد بناؤه، ومصدرُه واحدٌ (`ctx.font`).
      */
-    const ru = fontById(ctx.font);
-    app.style.setProperty('--sh-ru-font', ru.stack);
-    app.style.setProperty('--sh-ru-style', ru.style);
+    /*
+     * ⚠️ **وهذا ثاني المنفذين حول البوّابة (WS-HSDR).** كُتب
+     *    `fontById(ctx.font)` خامًّا — فبينما تلبس الجملةُ البديلَ
+     *    المقيسَ، تلبس رقائقُها الخطَّ العاجزَ نفسَه. سطحان روسيّان
+     *    متجاوران بوجهين.
+     *
+     *    فالمعرّفُ يمرّ من `russianFontId` كما يمرّ كلُّ سطحٍ روسيٍّ
+     *    آخر. والاسمُ صريحٌ (`ruFont`) لا يُظلِّل `ru` الخارجيّ — وقد
+     *    كان يُظلِّله، وهو ما جعل التفاوتَ يقرأ كأنّه اتّفاق.
+     */
+    const ruFont = fontById(russianFontId(ctx.font));
+    app.style.setProperty('--sh-ru-font', ruFont.stack);
+    app.style.setProperty('--sh-ru-style', ruFont.style);
     app.style.setProperty('--sh-font-size', ctx.fontSize);
     /*
      * ⚠️ **ودرجةُ البكسل تُطبَّق هنا أيضًا.** كانت تُكتَب عند الضغط
