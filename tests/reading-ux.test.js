@@ -351,17 +351,23 @@ describe('WS-RUE · ٣ · الزوجُ وحدةٌ واحدة', () => {
  * ٤) ثلاثةُ عروضٍ لنصٍّ واحد                                            *
  * ================================================================== */
 describe('WS-RUE · ٤ · عروضُ النصّ الكامل', () => {
-  it('١٣ · ثلاثةُ عروضٍ بزرٍّ واحدٍ يدور — لا شريطَ أدواتٍ ثانٍ', async () => {
+  it('١٣ · أربعةُ عروضٍ بزرٍّ واحدٍ يدور — لا شريطَ أدواتٍ ثانٍ', async () => {
     const src = bare(await view());
     /* ⚠️ ويُعَدُّ في الوسم وحدَه — الاسمُ يرد ثانيةً في الرسم بحقّ. */
     const acts = src.slice(src.indexOf('data-ft-acts'), src.indexOf('sh-read-modes'));
     expect(`زرٌّ واحد: ${(acts.match(/data-sh="ft-view"/g) || []).length}`)
       .toBe('زرٌّ واحد: 1');
-    expect(`ثلاثةُ عروض: ${/const FT_VIEWS = Object\.freeze\(\[[\s\S]{0,260}?\]\)/.test(src)}`)
-      .toBe('ثلاثةُ عروض: true');
-    for (const id of ['lines', 'cards', 'note']) {
+    expect(`سجلٌّ مجمَّد: ${/const FT_VIEWS = Object\.freeze\(\[[\s\S]{0,400}?\]\)/.test(src)}`)
+      .toBe('سجلٌّ مجمَّد: true');
+    for (const id of ['plain', 'lines', 'cards', 'note']) {
       expect(`${id} موجود: ${src.includes(`id: '${id}'`)}`).toBe(`${id} موجود: true`);
     }
+    /*
+     * ⚠️ **و«بدون تنسيق» هو الافتراض** (طلبُك): الفتحةُ الأولى ترى
+     *    الفقرةَ المتّصلةَ كما كانت قبل أن تُضاف العروض.
+     */
+    expect(`الافتراضُ بدون تنسيق: ${/let ftView = 'plain';/.test(src)}`)
+      .toBe('الافتراضُ بدون تنسيق: true');
     /* والزرُّ يقول حالَه — اسمٌ مقروءٌ يتغيّر لا رمزٌ صامت. */
     const paint = bodyOf(src, 'paintFullTextActs');
     expect(`يقول حالَه: ${/طريقة العرض: \$\{one\.label\}/.test(paint)}`)
@@ -414,6 +420,15 @@ describe('WS-RUE · ٤ · عروضُ النصّ الكامل', () => {
       expect(`${id} مطليّ: ${sheet.includes(`[data-ft-view="${id}"]`)}`)
         .toBe(`${id} مطليّ: true`);
     }
+    /*
+     * ⚠️ **و«بدون تنسيق» بلا قاعدةٍ واحدة — وهذا تعريفُه.** قاعدةٌ
+     *    تُكتَب له تعني أنّه صار تنسيقًا رابعًا يحاكي الأصل، وسيفترق
+     *    عنه يومَ يتغيّر الأصل. والاستثناءُ الوحيدُ المسموح: قاعدةٌ
+     *    تستثنيه من طلاءٍ عامّ (‏`:not`).
+     */
+    const plain = [...sheet.matchAll(/\[data-ft-view="plain"\]/g)].length;
+    const excl = [...sheet.matchAll(/:not\(\[data-ft-view="plain"\]\)/g)].length;
+    expect(`قواعدُ «بدون تنسيق»: ${plain - excl}`).toBe('قواعدُ «بدون تنسيق»: 0');
     /* البطاقاتُ بحدٍّ وحشوة، والسطورُ بفاصلٍ أرفع. */
     expect(`البطاقةُ محدودة: ${/\[data-ft-view="cards"\] \.sh-flow-s \{[^}]*border:/.test(sheet)}`)
       .toBe('البطاقةُ محدودة: true');
