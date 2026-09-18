@@ -443,8 +443,23 @@ export function createPlaybackController({
     }
     if (myToken !== runToken || !state.running || state.paused) return;
 
+    /*
+     * ⚠️ **وسؤالُ الاسترجاع يُقال مرّةً ثمّ يمضي إلى جوابه** (WS-RUE · ٣).
+     *
+     *    الوحدةُ الموسومةُ `pairLead` سؤالٌ، والوحدةُ التي تليها جوابُه.
+     *    فهما **وحدةُ تعلّمٍ واحدة**: تسمع السؤال، تستحضر، ثمّ تسمع
+     *    الجواب — وتكرارُك يقع على الجواب لا على السؤال. ولو كُرّر
+     *    السؤالُ خمسًا كأيّ وحدةٍ لَانفصل عن جوابه ولَعُدَّ تدريبًا
+     *    ثانيًا على شيءٍ لا تتدرّب عليه.
+     *
+     * ⚠️ **ولا يتجاوز التكرارَ المطلوبَ إن كان واحدًا أصلًا** — الشرطُ
+     *    «مرّةً واحدة» لا «مرّةً إضافيّة».
+     */
     const isContinuous = config.repeatMode === REPEAT_MODE.CONTINUOUS;
-    const reachedTarget = !isContinuous && state.repetition >= config.repeatCount;
+    const leads = Boolean(segments[state.index]?.pairLead);
+    const reachedTarget = leads
+      ? state.repetition >= 1
+      : !isContinuous && state.repetition >= config.repeatCount;
 
     if (!reachedTarget) {
       timer = setTimeout(() => {

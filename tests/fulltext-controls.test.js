@@ -49,8 +49,15 @@ describe('WS-SRCF · حبّةُ أفعال «نصّ كامل»', () => {
       .toBe('خطوتان: 2');
     /* ولكلٍّ اسمٌ مقروء. */
     const head = src.slice(src.indexOf('data-ft-acts'), src.indexOf('sh-read-modes'));
+    /*
+     * ⚠️ **وصارت خمسةً لا أربعًا** (WS-RUE · ٤): زِيد زرُّ **طريقة
+     *    العرض** إلى الحبّة نفسِها — لا شريطَ أدواتٍ ثانٍ ولا ثلاثةُ
+     *    أزرارٍ دائمة. والعددُ يُحرَس كي لا يتسلّل سادسٌ بلا قرار.
+     */
     expect(`أسماءٌ مقروءة: ${(head.match(/aria-label=/g) || []).length}`)
-      .toBe('أسماءٌ مقروءة: 4');
+      .toBe('أسماءٌ مقروءة: 5');
+    expect(`وزرُّ العرض موجود: ${src.includes('data-sh="ft-view"')}`)
+      .toBe('وزرُّ العرض موجود: true');
     /* وتُخفى في وضع الجمل — الرسمُ يقرّر لا الأنماط. */
     const paint = code(bodyOf(src, 'paintFullTextActs'));
     expect(`تُخفى في «جمل»: ${/hidden\s*=\s*readMode !== READ_MODE\.FLOW/.test(paint)}`)
@@ -219,7 +226,14 @@ describe('WS-SRCF · حبّةُ أفعال «نصّ كامل»', () => {
      */
     const css = (await sheet()).replace(/\/\*[\s\S]*?\*\//g, ' ');
     const uses = [...css.matchAll(/([^{}]+)\{[^}]*var\(--sh-ft-size/g)].map((m) => m[1].trim());
-    expect(`قرّاءُ المتغيّر: ${uses.join(' | ')}`).toBe('قرّاءُ المتغيّر: .sh-flow-s');
+    /*
+   * ⚠️ **وقارئٌ ثانٍ دخل بحقٍّ** (WS-RUE · ٤): مسطرةُ «الدفتر» تباعدُها
+   *    `--sh-nb` مشتقٌّ من مقاس النصّ — وإلّا انزلق الحبرُ عن خطوطه
+   *    عند كلّ ‎A+‎. وهو **داخلَ** النصّ الكامل لا خارجَه، فيُضاف إلى
+   *    القائمة المسموحة صراحةً لا تُلغى القائمة.
+   */
+  expect(`قرّاءُ المتغيّر: ${uses.join(' | ')}`)
+    .toBe('قرّاءُ المتغيّر: .sh-flow-s | [data-ft-view="note"]');
     /* والموضعُ يُحفَظ نسبةً عند التكبير — لا عودةَ إلى أوّل الوثيقة. */
     const step = code(bodyOf(await source(), 'stepFullTextSize'));
     expect(`يحفظ موضعَ القراءة: ${/scrollTop \/ \(.*scrollHeight - .*clientHeight\)/.test(step)}`)

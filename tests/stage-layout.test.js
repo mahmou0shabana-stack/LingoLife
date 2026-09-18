@@ -243,13 +243,13 @@ async function stageAt(width, height,
           </div>
           <div class="sh-chips">${chips}</div>
           <div class="sh-hint sh-mono">TAP A WORD TO HEAR</div>
+          <div class="sh-modes"><button class="on">جملة</button><button>مقطع</button><button>كلمة</button></div>
           <div class="sh-transport">
             <button class="sh-nav-btn"><i class="sh-ico-prev"></i></button>
             <button class="sh-play"><i class="sh-ico-play"></i></button>
             <button class="sh-nav-btn"><i class="sh-ico-next"></i></button>
             ${rec ? '<button class="sh-rec-btn" data-sh="tool" data-v="myvoice">\u{1F399}</button>' : ''}
           </div>
-          <div class="sh-modes"><button class="on">جملة</button><button>مقطع</button><button>كلمة</button></div>
           <!-- ⚠️ صفُّ الرقاقات حُذف (WS-POLISH) وصار لسانًا مطلقًا على الحافّة. -->
           <button class="sh-cc-tab" data-sh="drawer" aria-label="اضبط التدريب">⚙</button>
           <!-- ⚠️ وزرُّ معاينة الخطّ في الإطار كما هو في الراسم: هو أقربُ
@@ -2778,12 +2778,13 @@ describe('WS-DSCTME · ثلاثُ لمساتٍ مقيسةٌ على المسرح'
      *
      * ⚠️ **ولا يُمَسّ منطقُها**: ثلاثةُ أزرارٍ وواحدٌ فعّالٌ كما كانت.
      *
-     * ⚠️ **وانقلب اتّجاهُ القياس مع الترتيب** (WS-SRCF · المرحلة ج):
-     *    كانت الحبّةُ فوق شريط النقل فقِيست `tr.top - modes.bottom`،
-     *    وصارت تحته فتُقاس `modes.top - tr.bottom`. **والمحروسُ لم
-     *    يتغيّر**: وهجُ الكوكب (١٨–٤٤px) ما زال يعبر الفسحةَ — وهو
-     *    الآن يهبط إليها بدل أن يصعد. فلو بقي الحارسُ على اتّجاهه
-     *    القديم لقاس فسحةً سالبةً وسمّاها عطبًا وهي الترتيبُ نفسُه.
+     * ⚠️ **واتّجاهُ القياس يتبع الترتيبَ — وقد انقلب مرّتين.** في
+     *    WS-SRCF · ج صارت الحبّةُ تحت شريط النقل فقِيست
+     *    `modes.top - tr.bottom`؛ ثمّ راجعتَ القرارَ (WS-RUE · ٧)
+     *    فعادت فوقه، فعاد القياسُ `tr.top - modes.bottom`.
+     *    **والمحروسُ لم يتغيّر في المرّتين**: وهجُ الكوكب (١٨–٤٤px)
+     *    يعبر الفسحةَ فتبدو الحبّةُ ملتصقةً به. وحارسٌ على اتّجاهٍ
+     *    غيرِ اتّجاه الشاشة يقيس فسحةً سالبةً ويسمّيها عطبًا.
      */
     for (const [w, h, floor] of [[1280, 800, 22], [412, 915, 18], [320, 720, 18]]) {
       const f = await stageAt(w, h);
@@ -2792,7 +2793,7 @@ describe('WS-DSCTME · ثلاثُ لمساتٍ مقيسةٌ على المسرح'
       const on = f.doc.querySelectorAll('.sh-modes button.on').length;
       const all = f.doc.querySelectorAll('.sh-modes button').length;
       f.close();
-      const gap = Math.round(modes.top - tr.bottom);
+      const gap = Math.round(tr.top - modes.bottom);
       expect(`${w}: فسحةٌ ${gap} ≥ ${floor}`)
         .toBe(`${w}: فسحةٌ ${gap} ${gap >= floor ? '≥' : '<'} ${floor}`);
       expect(`${w}: أزرارٌ ${all} فعّالٌ ${on}`).toBe(`${w}: أزرارٌ 3 فعّالٌ 1`);
@@ -2899,7 +2900,7 @@ describe('WS-SRCF · مقيسٌ على المسرح', () => {
     }
   });
 
-  it('٨٦ · والأوضاعُ تحت صفّ التشغيل، والصفُّ لا يتحرّك بطول الجملة', async () => {
+  it('٨٦ · والأوضاعُ فوق صفّ التشغيل، والصفُّ لا يتحرّك بطول الجملة', async () => {
     /*
      * ⚠️ **وقِيس أنّ الصفَّ ثابتٌ أصلًا** (بلاغُك أنّه يتحرّك): من
      *    جملةٍ بسطرٍ واحدٍ ورقاقتين إلى خمسةِ أسطرٍ و٢٢ رقاقة، بقي
@@ -2907,15 +2908,21 @@ describe('WS-SRCF · مقيسٌ على المسرح', () => {
      *    علاجٌ، ووُضع هذا الحارسُ ليمنع تحرّكَه مستقبلًا.
      *
      * ⚠️ **والترتيبُ يُقرأ من الراسم أيضًا لا من الإطار وحدَه.** الإطارُ
-     *    يكتب الوسمَ بيدٍ، فمطابقتُه لنفسه لا تحرس شيئًا: لو عاد الوسمُ
-     *    في `shadow-view` إلى ترتيبه القديم لبقي هذا الحارسُ أخضرَ
-     *    والشاشةُ مقلوبة. فيُقاس موضعُ الكتلتين في المصدر كذلك.
+     *    يكتب الوسمَ بيدٍ، فمطابقتُه لنفسه لا تحرس شيئًا: لو تبدّل
+     *    الوسمُ في `shadow-view` لبقي هذا الحارسُ أخضرَ والشاشةُ
+     *    مقلوبة. فيُقاس موضعُ الكتلتين في المصدر كذلك.
+     *
+     * ⚠️ **والمفتاحُ فوق لا تحت — بقرارك المُراجَع** (WS-RUE · ٧).
+     *    كان هذا الحارسُ يشترط العكسَ تمريرةً واحدةً (WS-SRCF · ج)،
+     *    وقد نقضتَ ذلك صراحةً. فيُعاد توجيهُه لا يُشطَب: **ما يحرسه
+     *    ليس الترتيبَ بذاته بل أن تتبعه الشاشةُ والمصدرُ معًا**، وأن
+     *    يبقى صفُّ التشغيل ساكنًا مهما طالت الجملة.
      */
     const src = await (await fetch('../js/views/shadow-view.js')).text();
     const iTr = src.indexOf('<div class="sh-transport">');
     const iMd = src.indexOf('<div class="sh-modes" data-modes');
-    expect(`في الراسم: الأوضاع ${iTr > 0 && iMd > iTr ? 'تحت' : 'فوق'}`)
-      .toBe('في الراسم: الأوضاع تحت');
+    expect(`في الراسم: الأوضاع ${iMd > 0 && iTr > iMd ? 'فوق' : 'تحت'}`)
+      .toBe('في الراسم: الأوضاع فوق');
     for (const [w, h] of [[1280, 800], [412, 915], [320, 720]]) {
       const few = await stageAt(w, h, { words: 2, sentence: 'Да.' });
       const fy = few.doc.querySelector('.sh-transport').getBoundingClientRect().top
@@ -2927,13 +2934,13 @@ describe('WS-SRCF · مقيسٌ على المسرح', () => {
       const modes = many.doc.querySelector('.sh-modes').getBoundingClientRect();
       const play = many.doc.querySelector('.sh-play').getBoundingClientRect();
       const my = tr.top - page.top;
-      const below = modes.top >= tr.bottom - 0.5;
+      const above = modes.bottom <= tr.top + 0.5;
       const overlap = !(modes.bottom <= tr.top || tr.bottom <= modes.top);
       const off = (play.left + play.width / 2) - (page.left + page.width / 2);
       const count = many.doc.querySelectorAll('.sh-modes button').length;
       many.close();
       expect(`${w}: تنقّلُ الصفّ ${Math.abs(my - fy) <= 1}`).toBe(`${w}: تنقّلُ الصفّ true`);
-      expect(`${w}: الأوضاعُ تحته ${below}`).toBe(`${w}: الأوضاعُ تحته true`);
+      expect(`${w}: الأوضاعُ فوقه ${above}`).toBe(`${w}: الأوضاعُ فوقه true`);
       expect(`${w}: بلا تراكب ${overlap}`).toBe(`${w}: بلا تراكب false`);
       expect(`${w}: التشغيلُ في المركز ${Math.abs(off) <= 1}`)
         .toBe(`${w}: التشغيلُ في المركز true`);

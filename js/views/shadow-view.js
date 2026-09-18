@@ -1526,6 +1526,18 @@ function shell() {
                           title="اقرأ النصَّ كلَّه">▶</button>
                   <button data-sh="ft-copy" aria-label="انسخ النصَّ كلَّه"
                           title="انسخ النصَّ كلَّه">⧉</button>
+                  <!--
+                    ⚠️ **زرٌّ واحدٌ يدور على ثلاثة عروض** (WS-RUE · ٤):
+                       سطورٌ · بطاقاتٌ · دفتر. ولا ثلاثةُ أزرارٍ دائمةٍ
+                       في رأسٍ ضيّقٍ فيه أربعةٌ أصلًا، ولا شريطُ أدواتٍ
+                       ثانٍ. والزرُّ يقول حالَه في رمزه واسمِه المقروء.
+
+                    ⚠️ **والعرضُ عرضٌ**: لا يمسّ النصَّ ولا هُويّةَ جملةٍ
+                       ولا خطًّا ولا مقاسًا ولا نطقًا — صنفٌ على الحاوي
+                       لا رسمٌ ثانٍ للوثيقة.
+                  -->
+                  <button data-sh="ft-view" aria-label="طريقة العرض"
+                          title="طريقة العرض">≡</button>
                   <button data-sh="ft-size" data-v="-1" aria-label="صغّر حجم النصّ الكامل"
                           title="صغّر حجم النصّ الكامل">A−</button>
                   <button data-sh="ft-size" data-v="1" aria-label="كبّر حجم النصّ الكامل"
@@ -1607,8 +1619,26 @@ function shell() {
               <div class="sh-sky-dim" aria-hidden="true"></div>
 
               <div class="sh-stage-top">
+                <!--
+                  ⚠️ **وعدّادُ «١ / ٠٢ SENTENCES» نُزع من هنا (WS-RUE · ٥)**
+                     — لأنّه كان يقول ما يقوله سطران آخران في الشاشة
+                     نفسِها: صفُّ التقدّم تحته مباشرةً يقول «١ / ٢»،
+                     وشريطُ القاع يقول «٢ SENTENCES». ثلاثةُ أمكنةٍ
+                     تقول الشيءَ نفسَه تعني أنّ اثنين منها سيكذبان يومًا
+                     — وهو نفسُ السببِ المكتوب فوق paintSourceChip.
+
+                     ⚠️ **ولا علامةَ اقتباسٍ خلفيّةً في تعليقٍ داخل قالب
+                        html** — كتبتُ اسمَ الدالّة بينهما فانتهى القالبُ
+                        عندها وسقط الملفُّ كلُّه بـ«Unexpected identifier».
+                        وهو الفخُّ المكتوبُ بحرفه فوق مفتاح الأوضاع في
+                        هذا الملفّ نفسِه، ووقعتُ فيه للمرّة الحاديةَ عشرة.
+
+                     والحاويةُ تبقى: هي بيتُ data-status («جاهز» ·
+                     «دورك — قول!» · «بصوتك» · «ناطق أصلي»)، وهي التي
+                     تُخفى في مصدرٍ مُركَّب. فلا فراغَ مكانَ المنزوع:
+                     الحالةُ تملأ مكانَها.
+                -->
                 <div class="sh-mono sh-count">
-                  <b data-pos>${idx + 1}</b> / <span data-pos-total>${String(segments.length).padStart(2, '0')}</span> SENTENCES
                   <span data-status class="sh-dim">جاهز</span>
                 </div>
                 <!--
@@ -1775,6 +1805,22 @@ function shell() {
               -->
 
               <!--
+                ⚠️ مفتاحُ الأوضاع الثلاثة (WS28) — الشرحُ فوق سجلّ
+                    MODES في shadow-view.js. ولا backtick هنا: يكسر
+                    القالب (فخٌّ وقعتُ فيه ثلاث مرّات).
+
+                ⚠️ **وعاد فوق صفّ التشغيل بقرارك (WS-RUE · ٧).** نُقل
+                    تحته في WS-SRCF · ج بطلبك، ثمّ راجعتَ القرارَ
+                    صراحةً: «المفتاحُ فوق، والتشغيلُ تحته». فيعود إلى
+                    موضعه الأوّل — **وهذا نقضٌ مُصرَّحٌ به لا انتكاسة**.
+                    ولم يُمَسّ منطقُه ولا حالتُه ولا مُعالِجُه، ولم
+                    يُنقَض ما ثبّتته تلك المرحلةُ من استقرار موضع صفّ
+                    التشغيل: القواعدُ اللاصقةُ تُقلَب معه لا تُلغى.
+              -->
+              <div class="sh-modes" data-modes role="tablist"
+                   aria-label="إيه اللي بيتقرا"></div>
+
+              <!--
                 ⚠️ **زرّان يقولان الصدق عند الحافّة** (WS-A، بند ٢٦).
                    في مصدرٍ من جملةٍ واحدة لا سابقَ ولا تالي — فيُعطَّلان
                    ويقول عنوانُ الزرّ لماذا، بدل أن ينقلاك إلى السكريبت.
@@ -1805,21 +1851,6 @@ function shell() {
                 <button class="sh-rec-btn" data-sh="tool" data-v="myvoice"
                   aria-label="سجّل صوتك">🎙</button>
               </div>
-
-              <!--
-                ⚠️ مفتاحُ الأوضاع الثلاثة (WS28) — الشرحُ فوق سجلّ
-                    MODES في shadow-view.js. ولا backtick هنا: يكسر
-                    القالب (فخٌّ وقعتُ فيه ثلاث مرّات).
-
-                ⚠️ **وموضعُه صار تحت صفّ التشغيل بطلبك (WS-SRCF · ج).**
-                    كان فوقه، فيقرأ الترتيبُ: بطلٌ ← ترجمةٌ ← رقائقُ ←
-                    أوضاعٌ ← تشغيل. والمطلوبُ أن يكون التشغيلُ آخرَ ما
-                    تصل إليه العينُ من الأفعال، والأوضاعُ حبّةً تحته.
-                    ولم يُمَسّ منطقُه ولا حالتُه ولا مُعالِجُه — الوسمُ
-                    انتقل مكانًا، والقواعدُ اللاصقةُ عُدِّلت لتتبعه.
-              -->
-              <div class="sh-modes" data-modes role="tablist"
-                   aria-label="إيه اللي بيتقرا"></div>
 
               <!--
                 ══════════ بابٌ واحدٌ للإعدادات (WS-SCLEAN · بندا ٤ و٢٨) ══════════
@@ -2718,12 +2749,16 @@ function handleEvent(event) {
       document.querySelector('.shadow-app')?.classList.add('is-live');
       play?.classList.add('on');
       if (status) status.textContent = 'بيشتغل';
+      /* الاستئنافُ يرفع «موقوف» فورًا — لا ينتظر أوّلَ `repeat`. */
+      if (wellReading.unit) paintWellReading(wellReading.unit, { paused: false });
       break;
 
     case 'pause':
       play?.classList.remove('on');
       if (status) status.textContent = 'متوقّف';
       card?.classList.remove('speaking');
+      /* الوقفةُ تُسكِت الحركةَ ولا تمحو الموضع — تعرف أين وقفت. */
+      paintWellReading(wellReading.unit, { paused: true });
       break;
 
     case 'stop':
@@ -2732,6 +2767,8 @@ function handleEvent(event) {
       if (status) status.textContent = 'جاهز';
       card?.classList.remove('speaking');
       highlightWord(-1);
+      /* وقوفٌ لا وقفة: لا سطرَ يُقرأ الآن، فلا مؤشّرَ يبقى. */
+      paintWellReading('');
       break;
 
     case 'repeat': {
@@ -2745,6 +2782,13 @@ function handleEvent(event) {
       card?.classList.add('speaking');
       card?.classList.remove('your-turn');
       highlightWord(event.wordIndex);
+      /*
+       * ⚠️ **وهنا — لا في `seek` — تُضاء المسودّة** (WS-RUE · ٢).
+       *    `repeat` هو الحدثُ الذي يسبق النطقَ فعلًا ويحمل نصَّه؛
+       *    و`seek` تقع بالإصبع كذلك (تنقّلٌ بلا صوت). فلو أُضيء على
+       *    `seek` لَقال المؤشّرُ «أقرأ» والسمّاعةُ صامتة.
+       */
+      paintWellReading(ctx?.segments?.[event.index]?.targetId || '');
       break;
     }
 
@@ -2994,10 +3038,13 @@ function syncSegment() {
   const win = player.sourceWindow;
   const from = Math.max(0, win?.from ?? 0);
   const to = Math.min(ctx.segments.length - 1, win?.to ?? (ctx.segments.length - 1));
-  const pos = $('[data-pos]');
-  if (pos) pos.textContent = String(index - from + 1);
-  const posTotal = $('[data-pos-total]');
-  if (posTotal) posTotal.textContent = String(to - from + 1).padStart(2, '0');
+  /*
+   * ⚠️ **ولا كتابةَ لعدّادٍ نُزع (WS-RUE · ٥).** كان هنا سطران يكتبان
+   *    «الموضعَ» و«المقام» في رأس المسرح، وقد نُزع العدّادُ لأنّه
+   *    مكرَّر. والحسابُ نفسُه يبقى — `from`/`to` يقرأهما صفُّ التقدّم
+   *    تحته (`.sh-prog-pos`) وهو الذي يعرض «١ / ٢» — فلم يضِع رقمٌ ولا
+   *    بقي كاتبٌ بلا مكتوبٍ فيه.
+   */
   /*
    * ⚠️ **و«٠ / ٢٠» أصدقُ من «—» (بند ١٤).** الوحدةُ الجديدةُ لم
    *    تُكرَّر بعد، وذلك رقمٌ لا فراغ. و`player.state.repetition`
@@ -3253,6 +3300,14 @@ async function persistSegment(event) {
   if (!ctx) return;
   const segment = ctx.segments[event.index];
   if (!segment) return;
+  /*
+   * ⚠️ **وسؤالُ الاسترجاع لا يُسجَّل دليلَ تدريبٍ ثانيًا** (WS-RUE · ٣).
+   *    هو نصفُ وحدةٍ: يُقال مرّةً ليستدعيَ جوابَه، والتدريبُ يقع على
+   *    الجواب. فلو كُتب له صفُّ دليلٍ لَصار لكلّ زوجٍ **تدريبان** في
+   *    السجلّ — تضخُّمٌ صامتٌ في «كم تدرّبت» لا يقابله نطقٌ إضافيّ.
+   *    والعدُّ في الشاشة يقرأ من هذا السجلّ نفسِه.
+   */
+  if (segment.pairLead) return;
 
   try {
     const updated = await recordSegmentPractice(ctx.session, segment, event.repetitions, {
@@ -7262,10 +7317,33 @@ function draftFieldHtml(label, rows) {
     </div>`;
 }
 
-/** سطرٌ روسيٌّ وترجمتُه تحته مباشرةً — القاعدةُ العامّة في البرومبت. */
-function draftPairHtml(ru, ar, cls = '') {
+/**
+ * مفتاحُ وحدةٍ منطوقة: دورٌ · نصٌّ · القلبُ الأب.
+ *
+ * ⚠️ **وثلاثةُ حقولٍ لا واحد**: نفسُ السؤال قد يتكرّر تحت قلبين،
+ *    فمفتاحٌ بالنصّ وحدَه يُضيء سطرًا في بطاقةٍ أخرى. وهي نفسُ
+ *    الحقول التي تُبنى منها بصمةُ الهدف في `draft-targets`.
+ *
+ * ⚠️ **والفاصلُ يُبنى بـ`fromCharCode` لا بهروبٍ نصّيّ**: كتبتُه أوّلًا
+ *    هروبًا فانتهى في الملفّ **بايتًا صفريًّا حقيقيًّا** — فصار الملفُّ
+ *    ثنائيًّا عند `grep` ووقع بحثٌ ومسبارٌ في غير محلّهما.
+ */
+const UNIT_SEP = String.fromCharCode(31);
+const unitKey = (role, ru, parent) => [role, ru, parent || ''].join(UNIT_SEP);
+
+/**
+ * سطرٌ روسيٌّ وترجمتُه تحته مباشرةً — القاعدةُ العامّة في البرومبت.
+ *
+ * ⚠️ **و`targetId` هُويّةُ الوحدة المنطوقة لا رقمُ سطر** (WS-RUE · ٢):
+ *    السطرُ الذي يُنطَق الآن يُضاء في هذه الصفحة، ولا يُعرَف «أيُّ
+ *    سطر» إلّا بمعرّفِ هدفه. والسؤالُ والإجابةُ **هدفان مستقلّان** في
+ *    النموذج (‏`RECALL_CUE` و`RECALL_ANSWER`)، فلكلٍّ معرّفُه — وبه
+ *    وحدَه يُربَط ما تسمعه بما تقرؤه. ولا ربطَ بتطابق النصّ: نصّان
+ *    متطابقان في قلبين مختلفين وحدتان مختلفتان.
+ */
+function draftPairHtml(ru, ar, cls = '', targetId = '') {
   return html`
-    <p class="dw-ru ${cls}" dir="ltr" lang="ru">${ru}</p>
+    <p class="dw-ru ${cls}" dir="ltr" lang="ru" data-dw-unit="${targetId}">${ru}</p>
     ${raw(ar ? html`<p class="dw-ar" dir="auto">${ar}</p>` : '')}`;
 }
 
@@ -7275,20 +7353,22 @@ function draftPairHtml(ru, ar, cls = '') {
  * ⚠️ **ولا يُخفى قسمٌ كبير** (الطلب): «يجب أن يقرأ المستخدمُ المسودّةَ
  *    الحقيقيّةَ هنا». فما كُتب يُعرَض — والغائبُ وحدَه يغيب.
  */
-function draftCardHtml(one, activeId) {
+function draftCardHtml(one, activeId, unitId = () => '') {
   const qa = (one.pairs || []).map((pair) => html`
     <div class="dw-qa">
       <span class="dw-qlbl">Вопрос</span>
-      ${raw(draftPairHtml(pair.cue, pair.cueAr, 'is-q'))}
+      ${raw(draftPairHtml(pair.cue, pair.cueAr, 'is-q',
+    unitId(ROLE.RECALL_CUE, pair.cue, one.ru)))}
       ${raw(pair.reply ? html`
         <span class="dw-qlbl">Ответ</span>
-        ${raw(draftPairHtml(pair.reply, pair.replyAr, 'is-a'))}` : '')}
+        ${raw(draftPairHtml(pair.reply, pair.replyAr, 'is-a',
+    unitId(ROLE.RECALL_ANSWER, pair.reply, one.ru)))}` : '')}
     </div>`).join('');
 
   return html`
     <article class="dw-card ${one.id && one.id === activeId ? 'is-now' : ''}"
              data-dw-target="${one.id || ''}">
-      ${raw(draftPairHtml(one.ru, one.ar))}
+      ${raw(draftPairHtml(one.ru, one.ar, '', one.id || ''))}
       ${raw(draftFieldHtml('المعنى', (one.sense || []).map((t) => html`<p dir="auto">${t}</p>`)))}
       ${raw(draftFieldHtml('الجذر والعيلة', (one.roots || [])
     .map((r) => draftPairHtml(r.ru, r.ar))))}
@@ -7328,15 +7408,34 @@ function draftWellHtml(entry) {
   const shown = new Set([ROLE.MICRO_CORE, ROLE.EXPANSION, ROLE.VARIATION, ROLE.FULL_BUILD]);
   const groups = (model.groups || []).filter((g) => shown.has(g.role));
 
+  /*
+   * ⚠️ **خريطةُ الوحدات المنطوقة — من النموذج لا من الشجرة** (WS-RUE · ٢).
+   *
+   *    السؤالُ والإجابةُ يُعرَضان **داخل** بطاقة قلبهما (لأنّهما
+   *    استرجاعُه)، لكنّهما في النموذج هدفان مستقلّان لكلٍّ معرّفُه.
+   *    فتُبنى خريطةٌ من (‏الدور · النصّ · القلبُ الأب) إلى المعرّف —
+   *    وهي نفسُ الحقول التي تُبنى منها بصمةُ الهدف، فلا تخمينَ فيها.
+   *
+   * ⚠️ **ولا يُربَط بالنصّ وحدَه**: نفسُ السؤال قد يتكرّر تحت قلبين،
+   *    فالأبُ جزءٌ من المفتاح — كما في `fingerprint` بالضبط.
+   */
+  const units = new Map();
+  for (const one of model.targets || []) {
+    if (!one.id) continue;
+    units.set(unitKey(one.role, one.ru, one.parent), one.id);
+  }
+  const unitId = (role, ru, parent) => units.get(unitKey(role, ru, parent)) || '';
+
   const chain = (model.chain || []).length ? html`
     <section class="dw-group dw-chain">
       <h4 class="dw-head">QUICK RECALL CHAIN<i>${model.chain.length}</i></h4>
       ${raw(model.chain.map((link) => html`
         <div class="dw-qa">
           <span class="dw-qlbl">Вопрос</span>
-          ${raw(draftPairHtml(link.cue, link.cueAr || '', 'is-q'))}
+          ${raw(draftPairHtml(link.cue, link.cueAr || '', 'is-q',
+    unitId(ROLE.RECALL_CUE, link.cue, link.ref?.parent || '')))}
           <span class="dw-qlbl">Ответ</span>
-          ${raw(draftPairHtml(link.ru, link.ar || '', 'is-a'))}
+          ${raw(draftPairHtml(link.ru, link.ar || '', 'is-a', link.ref?.id || ''))}
         </div>`).join(''))}
     </section>` : '';
 
@@ -7353,7 +7452,7 @@ function draftWellHtml(entry) {
           <h4 class="dw-head">${group.label}<i>${group.items.length}</i></h4>
           ${raw(group.role === ROLE.VARIATION && model.families?.length ? html`
             <p class="dw-fam">CORE FAMILY · ${model.families.map((f) => f.label).join(' · ')}</p>` : '')}
-          ${raw(group.items.map((one) => draftCardHtml(one, targetId)).join(''))}
+          ${raw(group.items.map((one) => draftCardHtml(one, targetId, unitId)).join(''))}
         </section>`).join(''))}
 
       ${raw(chain)}
@@ -7961,8 +8060,9 @@ function paintLines() {
     ? flowHtml(rows, at)
     : rows.map((seg, i) => lineHtml(seg, i, i === at)).join('');
   paintReadModes();
-  /* والحبّةُ ومقاسُها يتبعان الرسم — الحاوي باقٍ فالمتغيّرُ يصمد. */
+  /* والحبّةُ ومقاسُها وعرضُها تتبع الرسم — الحاوي باقٍ فالصفاتُ تصمد. */
   applyFullTextSize();
+  applyFullTextView();
   paintFullTextActs();
   /*
    * ⚠️ **والخطُّ يُعاد بعد كلّ رسمٍ لا مرّةً عند التبديل** (WS-VFP).
@@ -8120,6 +8220,63 @@ function stepFullTextSize(direction) {
   paintFullTextActs();
 }
 
+/* ---------- ٤ · ثلاثةُ عروضٍ لنصٍّ واحد (WS-RUE) ---------- */
+/*
+ * ⚠️ **ولا نموذجَ نصٍّ ثانٍ ولا رسمٌ ثانٍ.** العروضُ الثلاثةُ تقرأ
+ *    **نفسَ** `flowHtml` بنفس الوسم ونفس `data-line` ونفس الأصناف —
+ *    والفرقُ كلُّه صنفٌ على الحاوي تقرؤه الورقة. وهذا ليس اختصارًا:
+ *    هو الشرطُ الذي يجعل تبديلَ العرض **لا** يُعيد بناءَ الوثيقة، فلا
+ *    يقطع نطقًا ولا يصفّر مقاسًا ولا يبدّل خطًّا ولا يخترع هُويّةَ جملة.
+ */
+const FT_VIEWS = Object.freeze([
+  { id: 'lines', glyph: '≡', label: 'سطور' },
+  { id: 'cards', glyph: '▤', label: 'بطاقات' },
+  { id: 'note', glyph: '❏', label: 'دفتر' },
+]);
+let ftView = 'lines';
+
+/** يكتب العرضَ الجاري على حاوي السطور — وفي «جمل» لا عرضَ له. */
+function applyFullTextView() {
+  const host = $('[data-lines]');
+  if (!host) return;
+  if (readMode === READ_MODE.FLOW) host.dataset.ftView = ftView;
+  else host.removeAttribute('data-ft-view');
+}
+
+/**
+ * يدور على العروض الثلاثة — **ويحفظ موضعَ قراءتك بهُويّة الجملة**.
+ *
+ * ⚠️ **ولا يُستعاد `scrollTop` خامًّا**: الارتفاعاتُ تتغيّر بين
+ *    العروض (بطاقةٌ أطولُ من سطر)، فرقمُ التمرير نفسُه يهبط بك إلى
+ *    جملةٍ أخرى. فالمرساةُ **أوّلُ جملةٍ مرئيّة** — وهي معلومةٌ ثابتةٌ
+ *    عبر العروض لأنّ الجمل هي الجمل.
+ */
+function stepFullTextView() {
+  const host = $('[data-lines]');
+  const box = wellScroller() || host?.parentElement || null;
+  let anchor = null;
+  let offset = 0;
+  if (host && box) {
+    const top = box.getBoundingClientRect().top;
+    for (const node of host.querySelectorAll('[data-line]')) {
+      const r = node.getBoundingClientRect();
+      if (r.bottom > top) { anchor = node.dataset.line; offset = r.top - top; break; }
+    }
+  }
+  const at = FT_VIEWS.findIndex((v) => v.id === ftView);
+  ftView = FT_VIEWS[(at < 0 ? 0 : at + 1) % FT_VIEWS.length].id;
+  applyFullTextView();
+  if (anchor != null && box && host) {
+    requestAnimationFrame(() => {
+      const node = host.querySelector(`[data-line="${anchor}"]`);
+      if (!node) return;
+      const top = box.getBoundingClientRect().top;
+      box.scrollTop += (node.getBoundingClientRect().top - top) - offset;
+    });
+  }
+  paintFullTextActs();
+}
+
 /** يكتب المتغيّرَ على حاوي السطور — يصمد أمام إعادة رسم الأبناء. */
 function applyFullTextSize() {
   const host = $('[data-lines]');
@@ -8138,6 +8295,14 @@ function paintFullTextActs() {
     const label = ftReading.on ? 'أوقف القراءة' : 'اقرأ النصَّ كلَّه';
     play.setAttribute('aria-label', label);
     play.setAttribute('title', label);
+  }
+  const view = box.querySelector('[data-sh="ft-view"]');
+  if (view) {
+    const one = FT_VIEWS.find((v) => v.id === ftView) || FT_VIEWS[0];
+    view.textContent = one.glyph;
+    const label = `طريقة العرض: ${one.label} — اضغط للتالية`;
+    view.setAttribute('aria-label', label);
+    view.setAttribute('title', label);
   }
   const at = FT_STEPS.indexOf(ftSize);
   for (const b of box.querySelectorAll('[data-sh="ft-size"]')) {
@@ -8345,6 +8510,65 @@ function paintWellTarget(targetId) {
   return found;
 }
 
+/* ================================================================== *
+ * ما يُنطَق الآن — يُضاء في مسودّة الصفحة اليسرى (WS-RUE · ٢)          *
+ * ================================================================== *
+ *
+ * ⚠️ **والمُضاءُ ما يُنطَق فعلًا، لا ما اخترتَه للتدريب.** الصنفُ
+ *    `is-now` على البطاقة يقول «هذا هدفُك الجاري» — وهو صادقٌ وباقٍ.
+ *    وهذا شيءٌ آخر: **السطرُ الذي يخرج من السمّاعة الآن**. وهما
+ *    يفترقان في كلّ زوجِ استرجاع: الهدفُ قلبٌ، والمنطوقُ سؤالُه ثمّ
+ *    جوابُه — سطران داخل بطاقةٍ واحدة.
+ *
+ * ⚠️ **ولا حالةَ نطقٍ ثانية**: المصدرُ أحداثُ المحرّك نفسِها
+ *    (‏`repeat` · `pause` · `resume` · `stop` · `seek`)، والهُويّةُ
+ *    `segment.targetId` — نفسُ المفتاح الذي يقرؤه `paintWellTarget`.
+ *
+ * ⚠️ **وتذكرةٌ تمنع الشبح**: نداءٌ متأخّرٌ بعد تبديل المصدر كان سيُضيء
+ *    سطرًا من مسودّةٍ غادرتَها. فكلُّ إضاءةٍ تحمل تذكرةَ رسمِ المنبع
+ *    التي وُلدت فيها، وتُطرَح إن تبدّلت.
+ */
+let wellReading = { unit: '', paused: false };
+
+/** مؤشّرُ قراءةٍ صغير — ثلاثُ شُرَطٍ تتنفّس، أو نقطةٌ ساكنةٌ لمن طلب. */
+function readingMarkHtml() {
+  return '<i class="dw-wave" aria-hidden="true"><b></b><b></b><b></b></i>';
+}
+
+/**
+ * يُضيء السطرَ المنطوقَ في المسودّة اليسرى — ولا يمرّر ولا يعيد بناءً.
+ *
+ * @param {string} unit معرّفُ الوحدة المنطوقة (‏`''` يُطفئ)
+ * @param {{paused?: boolean}} how
+ */
+function paintWellReading(unit, { paused = false } = {}) {
+  wellReading = { unit: unit || '', paused: Boolean(paused) };
+  const body = $('[data-well-body]');
+  if (!body) return false;
+  let found = false;
+  body.querySelectorAll('[data-dw-unit]').forEach((node) => {
+    const on = Boolean(unit) && node.dataset.dwUnit === unit;
+    node.classList.toggle('is-reading', on);
+    node.classList.toggle('is-held', on && paused);
+    const mark = node.querySelector('.dw-wave');
+    if (on && !mark) node.insertAdjacentHTML('beforeend', readingMarkHtml());
+    if (!on && mark) mark.remove();
+    if (on) found = true;
+  });
+  /*
+   * ⚠️ **ولا تمرير — ولا حتّى في وضع الاتّباع.** التمريرُ إلى الهدف
+   *    بابُه `revealWellTarget` وحدَه، وهو مربوطٌ بنقلة **الهدف** لا
+   *    بنقلة الجملة داخل الزوج. ولو مرّرنا هنا لَقفزت الصفحةُ تحت
+   *    عينك مرّتين لكلّ زوج — ولَقفزت وأنت مثبِّتٌ (`wellPinned`).
+   */
+  return found;
+}
+
+/** يُعيد رسمَ الإضاءة بعد أيّ إعادةِ بناءٍ للمنبع — الحالةُ تبقى. */
+function restoreWellReading() {
+  if (wellReading.unit) paintWellReading(wellReading.unit, { paused: wellReading.paused });
+}
+
 /**
  * يرسم الأشرطة ومحتوى المنبع.
  *
@@ -8450,6 +8674,13 @@ async function renderWells() {
    *    كان الاتباعُ عاملًا: أوّلًا تُستعاد الأرضيّةُ، ثمّ نُقفز عنها.
    */
   restoreWellScroll({ live: sameWell });
+  /*
+   * ⚠️ **والإضاءةُ تُعاد بعد كلّ بناءٍ — الشجرةُ جديدةٌ والحالةُ ليست.**
+   *    `renderWells` تستبدل جسمَ المنبع كلَّه، فالصنفُ الذي كُتب على
+   *    سطرٍ قديمٍ يذهب معه. ولولا هذا لَانطفأ المؤشّرُ في منتصف الزوج
+   *    بلا أن يتوقّف النطق (WS-RUE · ٢).
+   */
+  restoreWellReading();
   if (well === 'draft') {
     renderWellPin();
     if (!wellPinned) requestAnimationFrame(() => revealWellTarget());
@@ -10621,7 +10852,13 @@ function enterExternalText(text) {
 
   ctx.segments.push(...made);
   for (const seg of made) {
-    player.pushSegment({ id: seg.id, text: seg.sourceTextSnapshot, humanAudioUrl: null });
+    /*
+     * ⚠️ **و`pairLead` يعبر إلى المحرّك — وإلّا بقي وصفًا لا يفعل شيئًا.**
+     *    هو يقول «الوحدةُ التي تليني جوابي»، فينطق المحرّكُ السؤالَ
+     *    مرّةً ويمضي إلى جوابه بلا وقفة (WS-RUE · ٣).
+     */
+    player.pushSegment({ id: seg.id, text: seg.sourceTextSnapshot, humanAudioUrl: null,
+      pairLead: Boolean(seg.pairLead) });
   }
 
   /*
@@ -10816,7 +11053,13 @@ async function enterCorrectionSource(error) {
 
   ctx.segments.push(...made);
   for (const seg of made) {
-    player.pushSegment({ id: seg.id, text: seg.sourceTextSnapshot, humanAudioUrl: null });
+    /*
+     * ⚠️ **و`pairLead` يعبر إلى المحرّك — وإلّا بقي وصفًا لا يفعل شيئًا.**
+     *    هو يقول «الوحدةُ التي تليني جوابي»، فينطق المحرّكُ السؤالَ
+     *    مرّةً ويمضي إلى جوابه بلا وقفة (WS-RUE · ٣).
+     */
+    player.pushSegment({ id: seg.id, text: seg.sourceTextSnapshot, humanAudioUrl: null,
+      pairLead: Boolean(seg.pairLead) });
   }
   player.setSourceWindow({ from, to: ctx.segments.length - 1 });
 
@@ -10930,6 +11173,21 @@ async function pickTargetsToPractice(draftId) {
 
   const rows = picked.map((one) => ({ ru: one.ru, ar: one.ar || '' }));
   /*
+   * ⚠️ **و«سؤالٌ يقود جوابَه» يُتحقَّق منه في المختار لا في النموذج.**
+   *    النموذجُ يقول «جوابي يليني» بترتيبه هو؛ وأنت قد تختار السؤالَ
+   *    وتترك جوابَه. فلو مرّ الوصفُ كما هو لَنطق المحرّكُ السؤالَ مرّةً
+   *    واحدةً ومضى إلى وحدةٍ أخرى ليست جوابَه — أي خسر السؤالُ تكرارَه
+   *    بلا مقابل. فيُقاس على **الجار الفعليّ** في ما اخترتَه.
+   */
+  const leads = picked.map((one, i) => {
+    if (!one.pairLead) return false;
+    const nextOne = picked[i + 1];
+    if (!nextOne) return false;
+    return nextOne.role === ROLE.RECALL_ANSWER
+      ? nextOne.parent === one.parent
+      : subjectKey(nextOne.ru) === subjectKey(one.parent || '');
+  });
+  /*
    * ⚠️ **والمعرّفُ الثابتُ يركب مع المقطع** (WS-DV3): `picked[i].id` هو
    *    معرّفُ هدفِ المسودّة نفسِه، فيعرف اللوحُ **أيَّ هدفٍ** تتدرّب
    *    عليه الآن — لا بالنصّ ولا بالموضع. وبلا هذا كان اللوحُ يرى
@@ -10937,7 +11195,8 @@ async function pickTargetsToPractice(draftId) {
    */
   return enterTempSource(`pick:${draftId}`, rows, {
     label: model.source || draft.subjectText || 'المسودّة',
-    stamp: (seg, i) => ({ ...seg, draftId, targetId: picked[i]?.id || '' }),
+    stamp: (seg, i) => ({ ...seg, draftId, targetId: picked[i]?.id || '',
+      pairLead: leads[i] }),
   });
 }
 
@@ -11035,7 +11294,13 @@ async function enterTempSource(sourceId, rows, { label, stamp } = {}) {
 
   ctx.segments.push(...made);
   for (const seg of made) {
-    player.pushSegment({ id: seg.id, text: seg.sourceTextSnapshot, humanAudioUrl: null });
+    /*
+     * ⚠️ **و`pairLead` يعبر إلى المحرّك — وإلّا بقي وصفًا لا يفعل شيئًا.**
+     *    هو يقول «الوحدةُ التي تليني جوابي»، فينطق المحرّكُ السؤالَ
+     *    مرّةً ويمضي إلى جوابه بلا وقفة (WS-RUE · ٣).
+     */
+    player.pushSegment({ id: seg.id, text: seg.sourceTextSnapshot, humanAudioUrl: null,
+      pairLead: Boolean(seg.pairLead) });
   }
 
   /* نفسُ حصر WS-A: التنقّلُ لا يعبر حدَّ المصدر (بندا ٤ و٦٠). */
@@ -12839,6 +13104,7 @@ function wireInteractions(main) {
       case 'ft-play': return playFullText();
       case 'ft-copy': return copyFullText();
       case 'ft-size': return stepFullTextSize(Number(btn.dataset.v) < 0 ? -1 : 1);
+      case 'ft-view': return stepFullTextView();
 
       /*
        * ⚠️ **وحالةُ الطيّ خارج الرسم** — وإلّا انطبق التفصيلُ مع كلّ
