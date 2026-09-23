@@ -1111,7 +1111,7 @@ export async function renderShadow(main, sessionId) {
      *    settings.voiceId؛ فيُحَلّ هنا من الخريطة (مع ترحيل القديم) قبل
      *    أن يصله، فيبقى المحرّكُ لا يعرف أنّ للصوت مزوّدًا.
      */
-    settings: { ...session, voiceId: voiceFor(session), volume: ctx.volume, audioSource: ctx.audioSource },
+    settings: { ...session, voiceId: activeVoiceName(session), volume: ctx.volume, audioSource: ctx.audioSource },
     onEvent: handleEvent,
     nativeResolver: resolveNative,
     speaker: ttsSpeaker.speak,
@@ -5186,6 +5186,9 @@ async function setTTSProvider(next) {
 
   ctx.ttsProviderId = next;
   ttsSpeaker?.setProviderId(next);
+  /* والمحرّكُ يأخذ صوتَ المزوّد الجديد — لا صوتَ القديم (راجع `activeVoiceName`). */
+  player?.updateSettings({ voiceName: activeVoiceName() });
+  syncQuickVoice();
 
   document.querySelectorAll('[data-sh="tts-provider"]').forEach((node) => {
     node.classList.toggle('on', node.dataset.v === next);
@@ -9930,10 +9933,30 @@ function quickVoiceHtml() {
       </div>
       <p class="sh-qv-info" dir="rtl" data-qv-info>${raw(quickVoiceInfo())}</p>
     </div>
+    <details class="sh-qv-browse" data-qv-browse>
+      <summary>كلّ الأصوات</summary>
+      <input type="search" class="sh-qv-search" data-qv-search dir="auto"
+        placeholder="ابحث بالاسم أو اللغة" aria-label="ابحث في الأصوات" />
+      <ul class="sh-qv-list" data-qv-list></ul>
+    </details>
     ${raw(range('speed', 'السرعة', RATE_MIN, RATE_MAX, 0.05, speed, TUNERS.speed.label(speed)))}
     ${raw(range('volume', 'مستوى الصوت', 0, 100, 1, vol, TUNERS.volume.label(vol)))}
     ${raw(range('repeat', 'عدد التكرار', 1, 99, 1, reps, TUNERS.repeat.label(reps)))}
     <button type="button" class="sh-qv-adv" data-sh="qv-advanced">إعدادات الصوت المتقدّمة ‹</button>`;
+}
+
+/**
+ * الصوتُ الذي يُطلَب من **المزوّد المفعَّل** — مدخلُه في خريطة الجلسة.
+ *
+ * ⚠️ **ولمزوّد المتصفّح هو `voiceFor(session)` بالحرف** — فلا يتغيّر شيءٌ
+ *    لمن لم يغيّر المزوّد. أمّا غيرُه فكان يُعطى اسمَ صوتِ جهازٍ لا معنى
+ *    له عنده؛ ومع متصفّح الأصوات (V1.0C) صار له صوتُه المختار — أو
+ *    افتراضيُّه إن لم يُختَر. ويقرؤه المساران اللذان يمرّان بالمزوّد:
+ *    المحرّكُ و`speakScope`. أمّا `speakOnce` فنطقُ متصفّحٍ مباشرٌ دائمًا،
+ *    فيبقى على صوت الجهاز.
+ */
+function activeVoiceName(session = ctx?.session) {
+  return voiceFor(session, ctx?.ttsProviderId || BROWSER_PROVIDER_ID);
 }
 
 /**
@@ -9946,11 +9969,10 @@ function quickVoiceInfo() {
   const entry = (ctx.ttsProviders || []).find(({ provider }) => provider.id === ctx.ttsProviderId);
   const name = entry?.provider.name || ctx.ttsProviderId || '—';
   /*
-   * ⚠️ **الصوتُ الذي يُطلَب فعلًا** — `voiceFor(session)` كما يقرؤه المحرّكُ
-   *    ونطقُ الكلمة والتجربة، أيًّا كان المزوّد. سطرٌ يقول صوتًا غيرَ
-   *    الذي يُطلَب أسوأُ من لا سطر.
+   * ⚠️ **الصوتُ الذي يُطلَب فعلًا** — `activeVoiceName()` كما يقرؤه المحرّكُ
+   *    والتجربة. سطرٌ يقول صوتًا غيرَ الذي يُطلَب أسوأُ من لا سطر.
    */
-  const voice = voiceFor(ctx.session) || 'الافتراضيّ';
+  const voice = activeVoiceName() || 'الافتراضيّ';
   const state = !entry ? '' : entry.availability?.available
     ? 'متاح' : (entry.availability?.reason || 'غير متاح');
   /*
@@ -9972,23 +9994,107 @@ function quickVoiceInfo() {
  */
 /* بلا علامات نبر: مسارُ النطق لا ينزعها (ضغطةُ الكلمة تنزعها قبله). */
 const PREVIEW_TEXT = 'Привет! Так звучит этот голос.';
+/** التجربةُ الجارية: `{ key }` — `current` لزرّ الصوت المختار، أو `مزوّد|صوت` لبطاقة. */
 let previewing = false;
+const voiceKey = (providerId, voiceId) => `${providerId}|${voiceId}`;
 
 function paintPreview() {
-  const btn = quickVoice?.querySelector('[data-sh="qv-preview"]');
-  if (!btn) return;
-  btn.textContent = previewing ? '■' : '▶';
-  btn.setAttribute('aria-pressed', previewing ? 'true' : 'false');
-  btn.setAttribute('aria-label', previewing ? 'أوقف التجربة' : 'جرّب الصوت');
+  if (!quickVoice) return;
+  quickVoice.querySelectorAll('[data-sh="qv-preview"], [data-sh="qv-try"]').forEach((btn) => {
+    const key = btn.dataset.sh === 'qv-preview' ? 'current' : voiceKey(btn.dataset.p, btn.dataset.v);
+    const on = previewing?.key === key;
+    btn.textContent = on ? '■' : '▶';
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    if (key === 'current') btn.setAttribute('aria-label', on ? 'أوقف التجربة' : 'جرّب الصوت');
+  });
 }
 
-async function startPreview() {
-  const mine = {};
+async function startPreview(key = 'current', voiceName = undefined) {
+  const mine = { key };
   previewing = mine;
   paintPreview();
-  await speakScope(PREVIEW_TEXT);
+  await speakScope(PREVIEW_TEXT, voiceName === undefined ? {} : { voiceName });
   if (previewing === mine) previewing = false;
   paintPreview();
+}
+
+/* ══════════════════════════════════════════════════════════════════
+ * متصفّحُ الأصوات (Voice Center V1.0C) — قسمٌ مطويٌّ داخل اللوحة
+ *
+ * ⚠️ **القائمةُ هي `getVoices()` لكلّ مزوّدٍ متاح — كما هي.** لا تُخزَّن:
+ *    تُجلَب حين يُفتَح القسم وتموت مع اللوحة. والتوفّرُ ما قاله المزوّدُ
+ *    عند فتح الشاشة (`ctx.ttsProviders`).
+ *
+ * ⚠️ **والاختيارُ هو الإعدادُ الموجود**: `voicePatch` في خريطة الجلسة
+ *    (والقديمُ مرآةً لصوت المتصفّح)، و`setTTSProvider` إن كانت البطاقةُ
+ *    من مزوّدٍ آخر، والمحرّكُ يأخذ `activeVoiceName()`.
+ *
+ * ⚠️ **والتجربةُ `speakScope` بصوت البطاقة** — عبر مُكيِّف المزوّد
+ *    المفعَّل. فبطاقةُ مزوّدٍ غيرِ المفعَّل لا تُجرَّب قبل اختيارها:
+ *    تجربتُها كانت تحتاج مُكيِّفًا ثانيًا، وهو «مشغّلٌ جديد».
+ * ══════════════════════════════════════════════════════════════════ */
+let browseVoices = [];
+
+async function loadVoiceBrowser() {
+  const list = quickVoice?.querySelector('[data-qv-list]');
+  if (!list) return;
+  list.innerHTML = '<li class="sh-qv-empty">بيحمّل الأصوات…</li>';
+  const available = (ctx.ttsProviders || []).filter(({ availability }) => availability?.available);
+  const perProvider = await Promise.all(available.map(async ({ provider }) => {
+    const voices = await provider.getVoices().catch(() => []);
+    return (Array.isArray(voices) ? voices : []).map((v) => ({
+      providerId: provider.id,
+      providerName: provider.name,
+      id: String(v.id ?? v.name ?? ''),
+      name: String(v.name ?? v.id ?? ''),
+      language: String(v.language ?? v.lang ?? ''),
+    })).filter((v) => v.id);
+  }));
+  if (!quickVoice) return;
+  browseVoices = perProvider.flat();
+  paintVoiceBrowser();
+}
+
+function paintVoiceBrowser() {
+  const list = quickVoice?.querySelector('[data-qv-list]');
+  if (!list) return;
+  const q = (quickVoice.querySelector('[data-qv-search]')?.value || '').trim().toLowerCase();
+  const active = activeVoiceName();
+  const hits = browseVoices.filter((v) => !q
+    || v.name.toLowerCase().includes(q) || v.language.toLowerCase().includes(q));
+  if (!hits.length) {
+    list.innerHTML = html`<li class="sh-qv-empty">${browseVoices.length ? 'مفيش صوت بالبحث ده' : 'مفيش أصوات متاحة'}</li>`;
+    return;
+  }
+  list.innerHTML = hits.map((v) => {
+    const on = v.providerId === ctx.ttsProviderId && v.id === active;
+    const canTry = v.providerId === ctx.ttsProviderId;
+    return html`<li class="sh-qv-card${on ? ' on' : ''}">
+      <button type="button" class="sh-qv-pick" data-sh="qv-pick"
+        data-p="${v.providerId}" data-v="${v.id}" aria-pressed="${on ? 'true' : 'false'}">
+        <b dir="auto">${v.name}</b>
+        <small dir="rtl"><bdi>${v.providerName}</bdi>${raw(v.language ? html` · <bdi>${v.language}</bdi>` : '')}${raw(on ? ' · <bdi>✓ المختار</bdi>' : '')}</small>
+      </button>
+      <button type="button" class="sh-qv-try" data-sh="qv-try" data-p="${v.providerId}" data-v="${v.id}"
+        aria-label="جرّب ${v.name}" aria-pressed="false"
+        ${canTry ? '' : 'disabled'} title="${canTry ? '' : 'اختاره الأوّل — مزوّدُه غيرُ المفعَّل'}">▶</button>
+    </li>`;
+  }).join('');
+  paintPreview();
+}
+
+/** يختار صوتًا من البطاقة — في الإعداد الموجود، ويصل إلى المحرّك فورًا. */
+function pickVoice(providerId, voiceId) {
+  const patch = voicePatch(ctx.session, providerId, voiceId);
+  Object.assign(ctx.session, patch);
+  saveSessionSettings(ctx.session.id, patch).catch(() => {});
+  if (providerId !== ctx.ttsProviderId) setTTSProvider(providerId);
+  player?.updateSettings({ voiceName: activeVoiceName() });
+  if (providerId === BROWSER_PROVIDER_ID) {
+    document.querySelectorAll('[data-sh="voice-select"]').forEach((node) => { node.value = voiceId; });
+  }
+  syncQuickVoice();
+  paintVoiceBrowser();
 }
 
 function stopPreview() {
@@ -10018,6 +10124,10 @@ function openQuickVoice() {
   quickVoice.setAttribute('role', 'dialog');
   quickVoice.setAttribute('aria-label', 'الصوت');
   quickVoice.innerHTML = quickVoiceHtml();
+  /* ⚠️ `toggle` لا يصعد — فيُسمَع على القسم نفسِه، ويُحمَّل حين يُفتَح وحدَه. */
+  quickVoice.querySelector('[data-qv-browse]')?.addEventListener('toggle', (event) => {
+    if (event.target.open) loadVoiceBrowser();
+  });
   host.append(quickVoice);
   btn.setAttribute('aria-expanded', 'true');
   btn.classList.add('on');
@@ -10026,6 +10136,7 @@ function openQuickVoice() {
 
 function closeQuickVoice() {
   stopPreview();
+  browseVoices = [];
   quickVoice?.remove();
   quickVoice = null;
   const btn = document.querySelector('[data-sh="qv"]');
@@ -10038,6 +10149,8 @@ function syncQuickVoice() {
   if (!quickVoice || !ctx) return;
   const info = quickVoice.querySelector('[data-qv-info]');
   if (info) info.innerHTML = quickVoiceInfo();
+  const providerSelect = quickVoice.querySelector('[data-sh="qv-provider"]');
+  if (providerSelect && providerSelect.value !== ctx.ttsProviderId) providerSelect.value = ctx.ttsProviderId;
   const s = ctx.session || {};
   const values = {
     speed: Number(s.speed ?? 0.8),
@@ -11951,12 +12064,13 @@ const SPEAK_OWNER = 'speak';
  */
 let speakTicket = 0;
 
-async function speakScope(text, { times = 1 } = {}) {
+async function speakScope(text, { times = 1, voiceName } = {}) {
   const clean = (text || '').trim();
   if (!clean) return;
   const opts = {
     rate: ctx.session?.speed ?? 1,
-    voiceName: voiceFor(ctx.session),
+    /* صوتٌ بعينه لتجربة بطاقةٍ في متصفّح الأصوات — وإلّا صوتُ الجلسة. */
+    voiceName: voiceName !== undefined ? voiceName : activeVoiceName(),
     volume: ctx.volume ?? 1,
   };
 
@@ -12580,6 +12694,9 @@ function wireInteractions(main) {
       applySkyDark(event.target.value);
     }
 
+    /* بحثُ متصفّح الأصوات — تصفيةٌ للقائمة المجلوبة، بلا جلبٍ جديد. */
+    if (event.target.hasAttribute('data-qv-search')) paintVoiceBrowser();
+
     /* صندوقُ المسودّة يحفظ نفسَه — راجع `scheduleDraftSave`. */
     if (event.target.hasAttribute('data-draft-box')) {
       scheduleDraftSave(event.target.value);
@@ -12613,7 +12730,6 @@ function wireInteractions(main) {
 
     if (event.target.dataset.sh === 'voice-select') {
       const voiceName = event.target.value;
-      player.updateSettings({ voiceName });
       /*
        * ⚠️ **يُكتَب صوتُ مزوّد المتصفّح في الخريطة، والقديمُ معه مرآةً**
        *    (Voice Center V1.0C). هذا المنتقي يعرض أصواتَ الجهاز وحدَها،
@@ -12630,12 +12746,14 @@ function wireInteractions(main) {
        *    واللوحةُ) يتبعان الاختيارَ أيًّا كان بابُه.
        */
       Object.assign(ctx.session, patch);
+      /* ⚠️ بعد تحديث الجلسة: صوتُ الجهاز لا يُسلَّم لمزوّدٍ غيرِ المتصفّح. */
+      player.updateSettings({ voiceName: activeVoiceName() });
       document.querySelectorAll('[data-sh="voice-select"]').forEach((node) => {
         if (node !== event.target) node.value = voiceName;
       });
       syncQuickVoice();
       /* تجربةٌ تُسمَع الآن تُعاد بالصوت الجديد — فتسمع الفرقَ فورًا. */
-      if (previewing) startPreview();
+      if (previewing?.key === 'current') startPreview();
       toast(`الصوت: ${voiceName}`);
     }
 
@@ -12915,7 +13033,13 @@ function wireInteractions(main) {
       case 'qv':
         return quickVoice ? closeQuickVoice() : openQuickVoice();
       case 'qv-preview':
-        return previewing ? stopPreview() : startPreview();
+        return previewing?.key === 'current' ? stopPreview() : startPreview();
+      case 'qv-try': {
+        const key = voiceKey(btn.dataset.p, btn.dataset.v);
+        return previewing?.key === key ? stopPreview() : startPreview(key, btn.dataset.v);
+      }
+      case 'qv-pick':
+        return pickVoice(btn.dataset.p, btn.dataset.v);
       case 'qv-advanced': {
         /* المتقدّمُ هو مركزُ التدريب نفسُه — مفتوحًا على قسم الصوت ومتقدّمِه. */
         closeQuickVoice();

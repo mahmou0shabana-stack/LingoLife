@@ -10050,3 +10050,39 @@ body.shadow-open { overflow: hidden; }
  *    `center` رغم `.sh-qv-info { text-align: left }`).
  */
 .sh-qv-pop .sh-qv-info { text-align: left; }
+
+/*
+ * متصفّحُ الأصوات — قسمٌ مطويٌّ داخل اللوحة لا لوحةٌ ثانية (Voice Center V1.0C).
+ * القائمةُ تمرّر نفسَها (١٨٠px) فلا تطول اللوحةُ على الهاتف.
+ */
+.sh-qv-browse { display: grid; gap: 6px; }
+.sh-qv-browse > summary {
+  cursor: pointer; list-style: none; color: rgba(217, 182, 114, .95);
+  font-size: 12.5px; padding-block: 2px;
+}
+.sh-qv-browse > summary::-webkit-details-marker { display: none; }
+.sh-qv-browse > summary::before { content: '▸ '; }
+.sh-qv-browse[open] > summary::before { content: '▾ '; }
+.sh-qv-search {
+  inline-size: 100%; box-sizing: border-box; padding: 6px 8px; border-radius: 8px;
+  border: 1px solid rgba(217, 182, 114, .3); background: rgba(10, 16, 28, .6);
+  color: inherit; font: inherit; font-size: 12.5px;
+}
+.sh-qv-list {
+  list-style: none; margin: 0; padding: 0; display: grid; gap: 4px;
+  max-block-size: 180px; overflow-y: auto; overscroll-behavior: contain;
+}
+.sh-qv-card { display: flex; gap: 6px; align-items: stretch; }
+.sh-qv-pick {
+  flex: 1 1 auto; min-inline-size: 0; display: grid; gap: 1px; text-align: start;
+  padding: 5px 8px; border-radius: 8px; cursor: pointer; font: inherit; color: inherit;
+  border: 1px solid rgba(217, 182, 114, .16); background: rgba(255, 255, 255, .03);
+}
+.sh-qv-pick > b { font-weight: 600; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sh-qv-pick > small { font-size: 11px; color: rgba(239, 231, 216, .6); }
+/* ⚠️ مضاعَفٌ كسطر المعلومات: القاعدةُ الموروثةُ نفسُها كانت توسّطه (قِيس). */
+.sh-qv-pop .sh-qv-pick > small, .sh-qv-pop .sh-qv-pick > b { text-align: left; }
+.sh-qv-card.on > .sh-qv-pick { border-color: rgba(217, 182, 114, .7); background: rgba(217, 182, 114, .12); }
+.sh-qv-card > .sh-qv-try { inline-size: 32px; }
+.sh-qv-try:disabled { opacity: .35; cursor: not-allowed; }
+.sh-qv-empty { font-size: 12px; color: rgba(239, 231, 216, .55); padding: 4px 2px; }

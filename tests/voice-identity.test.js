@@ -154,8 +154,15 @@ describe('Voice Center V1.0C · أسلاكُ الشاشة', () => {
      *    باقٍ يقرأ settings.voiceId كما كان — والشاشةُ تحلّه له من الخريطة.
      */
     const src = await view();
-    expect(`يُحَلّ عند البناء: ${/settings: \{ \.\.\.session, voiceId: voiceFor\(session\)/.test(src)}`)
+    /*
+     * ⚠️ **ويُحَلّ بصوت المزوّد المفعَّل** (متصفّح الأصوات، V1.0C) — وهو
+     *    لمزوّد المتصفّح `voiceFor(session)` بالحرف، فلا يتغيّر شيءٌ لمن
+     *    لم يغيّر المزوّد؛ وغيرُه يأخذ مدخلَه لا صوتَ الجهاز.
+     */
+    expect(`يُحَلّ عند البناء: ${/settings: \{ \.\.\.session, voiceId: activeVoiceName\(session\)/.test(src)}`)
       .toBe('يُحَلّ عند البناء: true');
+    expect(`بمزوّده: ${/return voiceFor\(session, ctx\?\.ttsProviderId \|\| BROWSER_PROVIDER_ID\);/.test(src)}`)
+      .toBe('بمزوّده: true');
     const engine = await (await fetch('../js/services/shadow/playback-controller.js')).text();
     expect(`المحرّكُ كما كان: ${/voiceName: settings\.voiceId \?\? null,/.test(engine)}`)
       .toBe('المحرّكُ كما كان: true');
