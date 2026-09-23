@@ -10245,3 +10245,20 @@ body.shadow-open { overflow: hidden; }
   display: grid; place-items: center; font-size: 11px;
 }
 .sh-qv-pop .sh-qv-slot-txt, .sh-qv-pop .sh-qv-slot-txt > * { text-align: left; }
+
+/*
+ * مصدرُ الصوت الحاليّ وذاكرةُ الصوت المولَّد (V1.0C): قسمان مطويّان صغيران
+ * بعد «كلّ الأصوات» — سطورُ الحقائق نفسُها التي في «i»، وسطرٌ للذاكرة
+ * بعددها وحجمها وزرِّ مسحها.
+ */
+.sh-qv-cache { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-inline-size: 0; }
+.sh-qv-cache-n {
+  min-inline-size: 0; font-size: 12px; color: rgba(239, 231, 216, .85);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sh-qv-cache-x {
+  flex: 0 0 auto; padding: 4px 10px; border-radius: 8px; cursor: pointer; font: inherit; font-size: 12px;
+  color: rgba(255, 190, 170, .95); background: rgba(255, 120, 90, .08);
+  border: 1px solid rgba(255, 150, 120, .35);
+}
+.sh-qv-cache-x:disabled { opacity: .4; cursor: not-allowed; }

@@ -117,7 +117,7 @@ describe('Voice Center V1.0C · لوحةُ الصوت السريعة', () => {
       expect(`فُتحت: ${!!pop()} · ${btn.getAttribute('aria-expanded')}`).toBe('فُتحت: true · true');
       /* ستّةُ عناصرَ لا غير: المصدر، والصوت (وتجربتُه، و«كلّ الأصوات» المطويّ بمقارنته وبحثه)، والسرعة، والارتفاع، والتكرار، والمتقدّم. */
       expect([...pop().querySelectorAll('select, input, button')].map((n) => n.dataset.sh || n.dataset.tuneRange || ('qvSearch' in n.dataset ? 'qv-search' : null)))
-        .toEqual(['qv-provider', 'voice-select', 'qv-preview', 'qv-cmp-close', 'qv-search', 'speed', 'volume', 'repeat', 'qv-advanced']);
+        .toEqual(['qv-provider', 'voice-select', 'qv-preview', 'qv-cmp-close', 'qv-search', 'qv-cache-clear', 'speed', 'volume', 'repeat', 'qv-advanced']);
       btn.click();
       expect(`زرُّها يغلقها: ${!pop()}`).toBe('زرُّها يغلقها: true');
 
@@ -1403,6 +1403,188 @@ describe('Voice Center V1.0C · المقارنةُ المصغّرة في متص�
       openAll();
       t.dispose();
       bus.forgetAudioOwner();
+    }
+  });
+});
+
+/** سطورُ «مصدر الصوت الحاليّ» كما تُقرأ. */
+const provFacts = (pop) => [...pop.querySelectorAll('[data-qv-prov-dl] .sh-qv-fact')]
+  .map((f) => `${f.querySelector('dt').textContent}=${f.querySelector('dd').textContent}`);
+
+/** يزرع الذاكرةَ المولَّدة بالدالّة القائمة نفسِها — مقاطعُ بأحجامٍ معلومة. */
+async function seedCache(sizes) {
+  const { putGeneratedAudio } = await import('../js/services/shadow/tts/audio-cache.js');
+  for (const [i, size] of sizes.entries()) {
+    // eslint-disable-next-line no-await-in-loop -- زرعٌ متتابع
+    await putGeneratedAudio({
+      cacheKey: `test-cache-${i}`, normalizedText: `нормализованный текст ${i}`, providerId: 'qv-lib',
+      voiceId: 'ru-anna', model: null, language: 'ru', settingsKey: 's1', mimeType: 'audio/wav',
+      duration: 1, blob: new Blob([new Uint8Array(size)], { type: 'audio/wav' }), provenance: 'piper_generated',
+    });
+  }
+}
+
+async function openCacheSection(pop) {
+  pop.querySelector('[data-qv-cache] > summary').click();
+  await until(() => pop.querySelector('[data-qv-cache-stats]').dataset.items !== undefined);
+}
+
+describe('Voice Center V1.0C · مصدرُ الصوت وذاكرةُ الصوت المولَّد', () => {
+  it('٣١ · «مصدرُ الصوت الحاليّ» ممّا أعلنه المزوّدُ نفسُه — ويتبع الاختيارَ والمزوّد', async () => {
+    const lib = libraryProvider('qv-lib');
+    lib.provider.modelId = 'ru_RU-denis-medium';
+    lib.provider.modelVersion = '1.2.0';
+    const t = await mountShadow({ provider: lib.provider });
+    try {
+      t.$('[data-sh="qv"]').click();
+      const pop = document.querySelector('.sh-qv-pop');
+      /* المتصفّحُ أوّلًا: لا نموذجَ يعلنه — فلا سطرَ له. */
+      const browser = provFacts(pop);
+      expect(browser.filter((f) => /^(النموذج|الإصدار)=/.test(f))).toEqual([]);
+      expect(browser.includes('النوع=نطقُ الجهاز (مباشر)')).toBe(true);
+      expect(browser.includes('بثٌّ متدفّق=لا')).toBe(true);
+
+      await openBrowser(pop, 'ru-boris');
+      inList(pop, 'list', 'qv-pick', 'ru-boris').click();
+      expect(provFacts(pop)).toEqual([
+        'المزوّد=مزوّد المكتبة', 'النوع=Piper — نموذجٌ محلّيّ', 'الصوت=ru-boris',
+        'النموذج=ru_RU-denis-medium', 'الإصدار=1.2.0', 'يعمل بلا إنترنت=نعم', 'بثٌّ متدفّق=لا',
+      ]);
+
+      /* ⚠️ ويتبع المزوّدَ حين يُبدَّل من منتقيه — لا يبقى على الأوّل. */
+      const select = pop.querySelector('[data-sh="qv-provider"]');
+      select.value = BROWSER_ID;
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      expect(`${provFacts(pop).some((f) => f.startsWith('النموذج='))} · ${provFacts(pop).includes('النوع=نطقُ الجهاز (مباشر)')}`)
+        .toBe('false · true');
+    } finally {
+      t.dispose();
+    }
+  });
+
+  it('٣٢ · وما لم يُعلَن يغيب سطرُه — لا «غير معروف» ولا قيمةٌ مفترَضة', async () => {
+    const bare = libraryProvider('qv-bare');
+    bare.provider.name = 'مزوّد بلا إعلان';
+    bare.provider.type = 'mystery_engine';
+    delete bare.provider.supportsStreaming;
+    bare.provider.modelId = '   ';
+    const t = await mountShadow({ provider: bare.provider });
+    try {
+      t.$('[data-sh="qv"]').click();
+      const pop = document.querySelector('.sh-qv-pop');
+      const select = pop.querySelector('[data-sh="qv-provider"]');
+      select.value = 'qv-bare';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      /* لم يُختَر له صوتٌ بعد — فلا سطرَ صوت؛ والنوعُ المجهولُ بحرفه. */
+      expect(provFacts(pop)).toEqual(['المزوّد=مزوّد بلا إعلان', 'النوع=mystery_engine', 'يعمل بلا إنترنت=نعم']);
+      expect(`لا «غير معروف»: ${!pop.querySelector('[data-qv-prov-dl]').textContent.includes('غير معروف')}`).toBe('لا «غير معروف»: true');
+    } finally {
+      t.dispose();
+    }
+  });
+
+  it('٣٣ · أرقامُ الذاكرة هي أرقامُ `generatedCacheStats()` نفسِها', async () => {
+    const t = await mountShadow();
+    try {
+      await seedCache([1000, 2500, 40000]);
+      const { generatedCacheStats } = await import('../js/services/shadow/tts/audio-cache.js');
+      const { formatBytes } = await import('../js/utils/dom.js');
+      const stats = await generatedCacheStats();
+      expect(`${stats.items} · ${stats.bytes}`).toBe('3 · 43500');
+
+      t.$('[data-sh="qv"]').click();
+      const pop = document.querySelector('.sh-qv-pop');
+      /* ⚠️ تُقرأ حين يُفتَح قسمُها وحدَه. */
+      expect(pop.querySelector('[data-qv-cache-stats]').textContent).toBe('…');
+      await openCacheSection(pop);
+      const out = pop.querySelector('[data-qv-cache-stats]');
+      expect(out.textContent).toBe(`${stats.items} مقطع · ${formatBytes(stats.bytes)}`);
+      expect(`${out.dataset.items} · ${out.dataset.bytes}`).toBe(`${stats.items} · ${stats.bytes}`);
+      expect(`الزرّ ${pop.querySelector('[data-sh="qv-cache-clear"]').disabled ? 'معطّل' : 'متاح'}`).toBe('الزرّ متاح');
+    } finally {
+      t.dispose();
+    }
+  });
+
+  it('٣٤ · «امسح الذاكرة» يمسحها بـ`clearGeneratedCache()` — والرقمُ يصير صفرًا', async () => {
+    const t = await mountShadow();
+    try {
+      await seedCache([700, 900]);
+      const audioCache = await import('../js/services/shadow/tts/audio-cache.js');
+      t.$('[data-sh="qv"]').click();
+      const pop = document.querySelector('.sh-qv-pop');
+      await openCacheSection(pop);
+      expect(pop.querySelector('[data-qv-cache-stats]').dataset.items).toBe('2');
+
+      pop.querySelector('[data-sh="qv-cache-clear"]').click();
+      await until(() => pop.querySelector('[data-qv-cache-stats]').dataset.items === '0');
+      const after = await audioCache.generatedCacheStats();
+      expect(`${after.items} · ${after.bytes}`).toBe('0 · 0');
+      expect(`الزرّ ${pop.querySelector('[data-sh="qv-cache-clear"]').disabled ? 'معطّل' : 'متاح'} · ${pop.querySelector('[data-qv-cache-stats]').textContent}`)
+        .toBe('الزرّ معطّل · 0 مقطع · 0 بايت');
+    } finally {
+      t.dispose();
+    }
+  });
+
+  it('٣٥ · والمسحُ لا يقطع صوتًا: التدريبُ يكمل ويبقى مالكَ الناقل', async () => {
+    const t = await mountShadow();
+    const bus = await import('../js/services/shadow/audio-bus.js');
+    bus.forgetAudioOwner();
+    try {
+      await seedCache([500]);
+      t.$('[data-sh="qv"]').click();
+      const pop = document.querySelector('.sh-qv-pop');
+      await openCacheSection(pop);
+      t.$('[data-sh="play"]').click();
+      await until(() => t.speech.spoken.length >= 1);
+      const changes = [];
+      const unwatch = bus.watchAudio((owner) => changes.push(owner));
+
+      pop.querySelector('[data-sh="qv-cache-clear"]').click();
+      await until(() => pop.querySelector('[data-qv-cache-stats]').dataset.items === '0');
+      const before = t.speech.spoken.length;
+      await until(() => t.speech.spoken.length > before);
+      unwatch();
+      expect(`تبدّل ${changes.length} · ${bus.audioOwner()} · ${t.$('[data-sh="play"]').classList.contains('on') ? 'يعمل' : 'واقف'}`)
+        .toBe('تبدّل 0 · session · يعمل');
+    } finally {
+      t.dispose();
+      bus.forgetAudioOwner();
+    }
+  });
+
+  it('٣٦ · ولا يمسّ الإعدادات: الجلسةُ والمزوّدُ والمفضّلةُ والأخيرةُ كما كانت', async () => {
+    const lib = libraryProvider('qv-lib');
+    const t = await mountShadow({ provider: lib.provider });
+    try {
+      t.$('[data-sh="qv"]').click();
+      const pop = document.querySelector('.sh-qv-pop');
+      await openBrowser(pop, 'ru-anna');
+      inList(pop, 'list', 'qv-pick', 'ru-boris').click();
+      inList(pop, 'list', 'qv-fav', 'ru-anna').click();
+      await seedCache([300, 300, 300]);
+      await new Promise((r) => setTimeout(r, 150));
+      const { shadowSessions, settings } = await import('../js/db/repositories.js');
+      const snap = async () => {
+        const row = await shadowSessions.get(t.session.id);
+        return JSON.stringify({
+          voiceId: row.voiceId, map: row.voiceByProvider, speed: row.speed, repeat: row.repeatCount, volume: row.volume,
+          provider: await settings.get('shadow.ttsProvider', null),
+          favs: await settings.get('shadow.voiceFavorites', null),
+          recent: await settings.get('shadow.voiceRecent', null),
+        });
+      };
+      const before = await snap();
+
+      await openCacheSection(pop);
+      pop.querySelector('[data-sh="qv-cache-clear"]').click();
+      await until(() => pop.querySelector('[data-qv-cache-stats]').dataset.items === '0');
+      await new Promise((r) => setTimeout(r, 150));
+      expect(await snap()).toBe(before);
+      expect(pop.querySelector('[data-qv-info]').textContent).toBe('مزوّد المكتبة · ru-boris · متاح');
+    } finally {
+      t.dispose();
     }
   });
 });

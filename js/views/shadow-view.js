@@ -9,7 +9,7 @@
  * وأوضاع العرض. راجع docs/08-shadowing.md
  */
 
-import { html, raw, esc, copyToClipboard } from '../utils/dom.js';
+import { html, raw, esc, copyToClipboard, formatBytes } from '../utils/dom.js';
 import { icon } from '../components/icons.js';
 import { formatDate } from '../utils/dates.js';
 import { counted } from '../utils/plural.js';
@@ -181,7 +181,8 @@ import { ensureTTSProvidersRegistered, BROWSER_PROVIDER_ID } from '../services/s
 import { voiceFor, voicePatch } from '../services/shadow/voice-identity.js';
 import { createTTSSpeaker } from '../services/shadow/tts/speaker-adapter.js';
 import { allAvailability } from '../services/shadow/tts/registry.js';
-import { AVAILABILITY } from '../services/shadow/tts/types.js';
+import { AVAILABILITY, PROVIDER_TYPE } from '../services/shadow/tts/types.js';
+import { generatedCacheStats, clearGeneratedCache } from '../services/shadow/tts/audio-cache.js';
 
 /** المزوّد المختار — يعمّ كل الجلسات حتى يُبنى مختارٌ لكلّ جلسة (WS41-E). */
 const TTS_PROVIDER_KEY = 'shadow.ttsProvider';
@@ -9955,6 +9956,17 @@ function quickVoiceHtml() {
         placeholder="ابحث بالاسم أو اللغة" aria-label="ابحث في الأصوات" />
       <ul class="sh-qv-list" data-qv-list></ul>
     </details>
+    <details class="sh-qv-browse sh-qv-mini-sec" data-qv-prov>
+      <summary>مصدرُ الصوت الحاليّ</summary>
+      <dl class="sh-qv-info-dl" data-qv-prov-dl>${raw(provenanceFactsHtml())}</dl>
+    </details>
+    <details class="sh-qv-browse sh-qv-mini-sec" data-qv-cache>
+      <summary>ذاكرةُ الصوت المولَّد</summary>
+      <div class="sh-qv-cache">
+        <span class="sh-qv-cache-n" dir="rtl" data-qv-cache-stats>…</span>
+        <button type="button" class="sh-qv-cache-x" data-sh="qv-cache-clear" disabled>امسح الذاكرة</button>
+      </div>
+    </details>
     ${raw(range('speed', 'السرعة', RATE_MIN, RATE_MAX, 0.05, speed, TUNERS.speed.label(speed)))}
     ${raw(range('volume', 'مستوى الصوت', 0, 100, 1, vol, TUNERS.volume.label(vol)))}
     ${raw(range('repeat', 'عدد التكرار', 1, 99, 1, reps, TUNERS.repeat.label(reps)))}
@@ -10310,6 +10322,79 @@ function voiceInfoHtml(v, entry) {
   </dl>`;
 }
 
+/*
+ * ══════════════════════════════════════════════════════════════════
+ * مصدرُ الصوت الحاليّ (Voice Center V1.0C) — ممّا أعلنه المزوّدُ فقط
+ *
+ * ⚠️ **لا قيمةَ تُخترَع ولا سطرَ يُملأ**: الاسمُ والنوعُ من تعريف المزوّد،
+ *    والصوتُ ممّا اختير (`activeVoiceName`)، والنموذجُ وإصدارُه من
+ *    `modelId`/`modelVersion` **إن أعلنهما** — ولا مزوّدَ يعلنهما اليوم
+ *    (راجع عقد types.js)، فيغيب سطراهما بدل «غير معروف». والقدرتان من
+ *    `supportsOffline`/`supportsStreaming` إن كانتا قيمتين منطقيّتين.
+ *    والنوعُ يُكتَب بكلمةٍ لأنواع العقد الخمسة، وغيرُها بحرفه.
+ * ══════════════════════════════════════════════════════════════════ */
+const PROVIDER_TYPE_LABEL = {
+  [PROVIDER_TYPE.BROWSER]: 'نطقُ الجهاز (مباشر)',
+  [PROVIDER_TYPE.PIPER]: 'Piper — نموذجٌ محلّيّ',
+  [PROVIDER_TYPE.RHVOICE]: 'RHVoice',
+  [PROVIDER_TYPE.XTTS_BRIDGE]: 'XTTS عبر جسرٍ محلّيّ',
+  [PROVIDER_TYPE.CLOUD_AI]: 'سحابيّ',
+};
+
+function provenanceFactsHtml() {
+  const entry = (ctx?.ttsProviders || []).find(({ provider }) => provider.id === ctx?.ttsProviderId);
+  const provider = entry?.provider;
+  if (!provider) return '';
+  const text = (value) => (typeof value === 'string' && value.trim() ? value.trim() : '');
+  const yesNo = (flag) => (flag ? 'نعم' : 'لا');
+  const voice = activeVoiceName();
+  const facts = [
+    text(provider.name) ? ['المزوّد', provider.name, 'rtl'] : null,
+    text(provider.type) ? ['النوع', PROVIDER_TYPE_LABEL[provider.type] || provider.type, 'rtl'] : null,
+    voice ? ['الصوت', voice, 'auto'] : null,
+    text(provider.modelId) ? ['النموذج', provider.modelId, 'ltr'] : null,
+    text(provider.modelVersion) ? ['الإصدار', provider.modelVersion, 'ltr'] : null,
+    typeof provider.supportsOffline === 'boolean' ? ['يعمل بلا إنترنت', yesNo(provider.supportsOffline), 'rtl'] : null,
+    typeof provider.supportsStreaming === 'boolean' ? ['بثٌّ متدفّق', yesNo(provider.supportsStreaming), 'rtl'] : null,
+  ].filter(Boolean);
+  return facts.map(([label, value, dir]) => html`<div class="sh-qv-fact" data-fact="${label}">
+    <dt>${label}</dt><dd dir="${dir}">${value}</dd></div>`).join('');
+}
+
+/*
+ * ذاكرةُ الصوت المولَّد — **بدالّتيها القائمتين وحدهما**:
+ * `generatedCacheStats()` للعدد والحجم، و`clearGeneratedCache()` للمسح.
+ *
+ * ⚠️ **والمسحُ لا يمسّ ما يُسمَع ولا الإعدادات**: يحذف صفوفَ مخزن الصوت
+ *    المولَّد وحدها. وما يُشغَّل الآن رابطُ كائنٍ في الذاكرة لا صفٌّ في
+ *    القاعدة، فيكمل؛ والصوتُ المختارُ والمفضّلةُ والأخيرةُ في مخازنَ أخرى.
+ */
+async function paintCacheInfo() {
+  const out = quickVoice?.querySelector('[data-qv-cache-stats]');
+  const btn = quickVoice?.querySelector('[data-sh="qv-cache-clear"]');
+  if (!out) return;
+  const stats = await generatedCacheStats().catch(() => null);
+  if (!quickVoice) return;
+  if (!stats) {
+    out.textContent = 'تعذّر قراءة الذاكرة';
+    if (btn) btn.disabled = true;
+    return;
+  }
+  out.textContent = `${stats.items} مقطع · ${formatBytes(stats.bytes)}`;
+  out.dataset.items = String(stats.items);
+  out.dataset.bytes = String(stats.bytes);
+  if (btn) btn.disabled = stats.items === 0;
+}
+
+async function clearCacheFromPanel() {
+  const btn = quickVoice?.querySelector('[data-sh="qv-cache-clear"]');
+  if (btn) btn.disabled = true;
+  const removed = await clearGeneratedCache().catch(() => null);
+  await paintCacheInfo();
+  if (removed === null) return toastError('ما قدرناش نمسح الذاكرة');
+  return toast(`اتمسح ${removed} مقطع من الذاكرة`);
+}
+
 /** كلمةٌ لحالة توفّر المزوّد كما قالها — لا فحصَ هنا. */
 const AVAILABILITY_SHORT = {
   [AVAILABILITY.READY_OFFLINE]: 'بلا نت',
@@ -10363,6 +10448,10 @@ function openQuickVoice() {
   quickVoice.querySelector('[data-qv-browse]')?.addEventListener('toggle', (event) => {
     if (event.target.open) loadVoiceMarks().then(loadVoiceBrowser);
   });
+  /* ⚠️ والذاكرةُ تُقرأ حين يُفتَح قسمُها وحدَه — لا مع كلّ فتحٍ للوحة. */
+  quickVoice.querySelector('[data-qv-cache]')?.addEventListener('toggle', (event) => {
+    if (event.target.open) paintCacheInfo();
+  });
   host.append(quickVoice);
   btn.setAttribute('aria-expanded', 'true');
   btn.classList.add('on');
@@ -10386,6 +10475,8 @@ function syncQuickVoice() {
   if (!quickVoice || !ctx) return;
   const info = quickVoice.querySelector('[data-qv-info]');
   if (info) info.innerHTML = quickVoiceInfo();
+  const prov = quickVoice.querySelector('[data-qv-prov-dl]');
+  if (prov) prov.innerHTML = provenanceFactsHtml();
   const providerSelect = quickVoice.querySelector('[data-sh="qv-provider"]');
   if (providerSelect && providerSelect.value !== ctx.ttsProviderId) providerSelect.value = ctx.ttsProviderId;
   const s = ctx.session || {};
@@ -13287,6 +13378,8 @@ function wireInteractions(main) {
         return toggleCompare(btn.dataset.p, btn.dataset.v);
       case 'qv-cmp-close':
         return closeCompare();
+      case 'qv-cache-clear':
+        return clearCacheFromPanel();
       case 'qv-fav':
         /* ⚠️ تفضيلٌ لا اختيار: لا صوتَ ولا مزوّدَ ولا نطقَ يتغيّر. */
         return toggleFavorite(btn.dataset.p, btn.dataset.v);
