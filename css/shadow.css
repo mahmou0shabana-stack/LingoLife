@@ -9967,3 +9967,66 @@ body.shadow-open { overflow: hidden; }
  *    الأصلُ نفسَه في شيءٍ واحدٍ صغير: خفوتُ رقم الجملة.
  */
 [data-ft-view]:not([data-ft-view="plain"]) .sh-flow-n { opacity: .55; }
+
+/* ══════════════════════════════════════════════════════════════════
+ * Voice Center V1.0C — زرُّ الصوت السريع ولوحتُه
+ *
+ * ⚠️ **في خليّة الميكروفون نفسِها ومرفوعٌ فوقه** — لا موضعَ ثانيًا
+ *    يُحسَب. والميكروفونُ يُسمّى خليّتَه صراحةً (`1 / 5`، وهي ما كان
+ *    يأخذه بالتوزيع التلقائيّ): لولا ذلك لَتنحّى عن الخليّة التي
+ *    حجزها الزرُّ الصريح ونزل إلى صفٍّ ثانٍ.
+ *
+ * ⚠️ **ونفسُ مقاس الميكروفون وهامشِه وهالتِه** (٣٠ · ٢٢ · ٤٤) — فيقعان
+ *    على عمودٍ واحد. والرفعُ ١٠٠٪ + ١٤px: هالتا اللمس (٤٤) لا تتراكبان.
+ * ══════════════════════════════════════════════════════════════════ */
+.sh-transport > .sh-rec-btn { grid-area: 1 / 5; }
+.sh-transport > .sh-qv-btn {
+  grid-area: 1 / 5; justify-self: start;
+  position: relative;
+  inline-size: 30px; block-size: 30px; padding: 0;
+  border-radius: 50%; cursor: pointer;
+  border: 1px solid rgba(217, 182, 114, .3);
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23efe7d8' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 10v4h4l5 4V6L8 10z'/%3E%3Cpath d='M16.5 9a4 4 0 0 1 0 6M19 6.5a7.5 7.5 0 0 1 0 11'/%3E%3C/svg%3E")
+      center / 16px no-repeat,
+    rgba(10, 16, 28, .55);
+  opacity: .85;
+  transform: translateY(calc(-100% - 14px));
+  transition: opacity .2s ease, border-color .2s ease;
+}
+.sh-transport > .sh-qv-btn:hover,
+.sh-transport > .sh-qv-btn.on { opacity: 1; border-color: rgba(217, 182, 114, .7); }
+.sh-transport > .sh-qv-btn::after {
+  content: ''; position: absolute;
+  inset: calc((44px - 100%) / -2);
+}
+.sh-right .sh-transport > .sh-qv-btn { margin-left: 22px; }
+@media (max-width: 380px) {
+  .sh-right .sh-transport > .sh-qv-btn { margin-left: 0; }
+}
+
+/* اللوحة: `fixed` بإحداثيّات الزرّ (placeQuickVoice) — فلا يقصّها أبٌ. */
+.sh-qv-pop {
+  position: fixed; z-index: var(--z-overlay);
+  inline-size: min(280px, calc(100vw - 32px));
+  max-block-size: min(70vh, 420px); overflow-y: auto; overscroll-behavior: contain;
+  display: grid; gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(217, 182, 114, .34);
+  background: linear-gradient(180deg, rgba(14, 20, 32, .98), rgba(8, 12, 20, .98));
+  box-shadow: 0 18px 40px -14px rgba(0, 0, 0, .85);
+  color: rgba(239, 231, 216, .92);
+  font-size: 13px;
+}
+.sh-qv-row {
+  display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 4px 8px;
+}
+.sh-qv-row > select, .sh-qv-row > input { grid-column: 1 / -1; inline-size: 100%; }
+.sh-qv-lbl { color: rgba(239, 231, 216, .7); }
+.sh-qv-row > b { font-weight: 600; font-variant-numeric: tabular-nums; }
+.sh-qv-adv {
+  justify-self: start; padding: 6px 0; border: 0; background: none; cursor: pointer;
+  color: rgba(217, 182, 114, .95); font: inherit; text-decoration: underline;
+  text-underline-offset: 3px;
+}

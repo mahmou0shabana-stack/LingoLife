@@ -399,6 +399,7 @@ export function disposeShadow() {
   unwatchLexicon?.();
   unwatchLexicon = null;
   analysis.on = false;
+  closeQuickVoice();
 
   /*
    * ⚠️ **وذاكرةُ المصادر تموت مع الشاشة** (WS-E، بند ٧). هي حالةُ
@@ -1856,6 +1857,14 @@ function shell() {
                 -->
                 <button class="sh-rec-btn" data-sh="tool" data-v="myvoice"
                   aria-label="سجّل صوتك">🎙</button>
+                <!--
+                  ⚠️ **زرُّ الصوت السريع فوق الميكروفون مباشرةً** (Voice Center V1.0C).
+                     في نفس خليّة الميكروفون من الشبكة ومرفوعٌ فوقه، فيتبعه في كلّ
+                     مقاس — والميكروفونُ لا يتحرّك بكسلًا. ولوحتُه لا تخزّن شيئًا:
+                     كلُّ ضابطٍ فيها هو نفسُ ضابط مركز التدريب ويمرّ بنفس المعالِج.
+                -->
+                <button class="sh-qv-btn" type="button" data-sh="qv"
+                  aria-label="الصوت" aria-haspopup="dialog" aria-expanded="false"></button>
               </div>
 
               <!--
@@ -9872,6 +9881,107 @@ function syncControlCenter() {
  * وإلا رأيت رقمًا وسمعت غيره. و`silent` يمنع الحفظ أثناء السحب:
  * كتابةٌ لكل بكسل تُثقل القاعدة بلا فائدة.
  */
+/* ══════════════════════════════════════════════════════════════════
+ * لوحةُ الصوت السريعة (Voice Center V1.0C)
+ *
+ * ⚠️ **لا مخزنَ ولا محرّكَ ولا معالِجَ جديد.** كلُّ ضابطٍ فيها يحمل
+ *    نفسَ وسم ضابطه في مركز التدريب — `data-tune-range` للسرعة والصوت
+ *    والتكرار، و`data-sh="voice-select"` للصوت — فيمرّ بنفس معالِجَي
+ *    `input`/`change` على `main` إلى `setTuner` ومنتقي الصوت: تطبيقٌ
+ *    حيٌّ على المحرّك مع السحب، وكتابةٌ واحدةٌ عند رفع الإصبع. والمزوّدُ
+ *    يمرّ بـ`setTTSProvider` نفسِها.
+ *
+ * ⚠️ **ولا تُصدر صوتًا ولا تطالب بالناقل** — ضبطٌ لا تشغيل. فتفتحها
+ *    والجلسةُ تنطق فتبقى تنطق، ويصل التغييرُ إلى التكرار التالي.
+ *
+ * ⚠️ **وتُرسَم من `ctx` عند كلّ فتح** — فما ضُبط في مركز التدريب وهي
+ *    مغلقةٌ يظهر فيها صحيحًا، بلا نسخةٍ ثانيةٍ من القيَم تتقادم.
+ * ══════════════════════════════════════════════════════════════════ */
+let quickVoice = null;
+
+function quickVoiceHtml() {
+  const s = ctx.session || {};
+  const speed = Number(s.speed ?? 0.8);
+  const reps = Number(s.repeatCount ?? 5);
+  const vol = Math.round((ctx.volume ?? 1) * 100);
+  const range = (key, label, min, max, step, value, text) => html`
+    <label class="sh-qv-row">
+      <span class="sh-qv-lbl">${label}</span><b data-qv-val="${key}">${text}</b>
+      <input type="range" class="sh-range" data-tune-range="${key}"
+        min="${min}" max="${max}" step="${step}" value="${value}" aria-label="${label}" />
+    </label>`;
+  return html`
+    <label class="sh-qv-row">
+      <span class="sh-qv-lbl">مصدر الصوت</span>
+      <select class="sh-select" data-sh="qv-provider" aria-label="مصدر الصوت">
+        ${raw((ctx.ttsProviders || []).map(({ provider, availability }) => html`
+          <option value="${provider.id}" ${provider.id === ctx.ttsProviderId ? 'selected' : ''}
+            ${availability.available ? '' : 'disabled'}>${provider.name}</option>`).join(''))}
+      </select>
+    </label>
+    <label class="sh-qv-row">
+      <span class="sh-qv-lbl">صوت الجهاز</span>
+      <select class="sh-select" data-sh="voice-select" aria-label="صوت الجهاز">
+        ${raw(voiceOptions(ctx.voices || { russian: [], others: [] }, voiceFor(s)))}
+      </select>
+    </label>
+    ${raw(range('speed', 'السرعة', RATE_MIN, RATE_MAX, 0.05, speed, TUNERS.speed.label(speed)))}
+    ${raw(range('volume', 'مستوى الصوت', 0, 100, 1, vol, TUNERS.volume.label(vol)))}
+    ${raw(range('repeat', 'عدد التكرار', 1, 99, 1, reps, TUNERS.repeat.label(reps)))}
+    <button type="button" class="sh-qv-adv" data-sh="qv-advanced">إعدادات الصوت المتقدّمة ‹</button>`;
+}
+
+/** يضع اللوحةَ فوق زرّها — ولا تخرج من الشاشة على الهاتف. */
+function placeQuickVoice() {
+  const btn = document.querySelector('[data-sh="qv"]');
+  if (!quickVoice || !btn) return;
+  const r = btn.getBoundingClientRect();
+  const vw = document.documentElement.clientWidth;
+  quickVoice.style.right = `${Math.max(16, vw - r.right)}px`;
+  quickVoice.style.bottom = `${Math.max(16, window.innerHeight - r.top + 8)}px`;
+}
+
+function openQuickVoice() {
+  const btn = document.querySelector('[data-sh="qv"]');
+  const host = btn?.closest('.shadow-app') || btn?.parentElement;
+  if (!btn || !host || !ctx) return;
+  closeQuickVoice();
+  quickVoice = document.createElement('div');
+  quickVoice.className = 'sh-qv-pop';
+  quickVoice.setAttribute('role', 'dialog');
+  quickVoice.setAttribute('aria-label', 'الصوت');
+  quickVoice.innerHTML = quickVoiceHtml();
+  host.append(quickVoice);
+  btn.setAttribute('aria-expanded', 'true');
+  btn.classList.add('on');
+  placeQuickVoice();
+}
+
+function closeQuickVoice() {
+  quickVoice?.remove();
+  quickVoice = null;
+  const btn = document.querySelector('[data-sh="qv"]');
+  btn?.setAttribute('aria-expanded', 'false');
+  btn?.classList.remove('on');
+}
+
+/** أرقامُ اللوحة تتبع القيمةَ — من أيّ بابٍ ضُبطت. */
+function syncQuickVoice() {
+  if (!quickVoice || !ctx) return;
+  const s = ctx.session || {};
+  const values = {
+    speed: Number(s.speed ?? 0.8),
+    volume: Math.round((ctx.volume ?? 1) * 100),
+    repeat: Number(s.repeatCount ?? 5),
+  };
+  for (const [key, value] of Object.entries(values)) {
+    const out = quickVoice.querySelector(`[data-qv-val="${key}"]`);
+    if (out) out.textContent = TUNERS[key].label(value);
+    const range = quickVoice.querySelector(`[data-tune-range="${key}"]`);
+    if (range && Number(range.value) !== value) range.value = value;
+  }
+}
+
 function setTuner(key, raw, { silent = false } = {}) {
   const spec = TUNERS[key];
   if (!spec) return;
@@ -9909,6 +10019,7 @@ function setTuner(key, raw, { silent = false } = {}) {
    */
   Object.assign(ctx.session, spec.persist(value));
   syncControlCenter();
+  syncQuickVoice();
   /* ⚠️ والمقامُ يتبع الهدفَ حالًا: «٣ / ٢٠» تكذب إن صار الهدفُ ١٠ (بند ١٦). */
   if (key === 'repeat') paintRepetition();
 
@@ -12369,6 +12480,17 @@ function wireInteractions(main) {
     document.querySelector('[data-sh="qfont"]')?.setAttribute('aria-expanded', 'false');
   }, wired());
 
+  /* ولوحةُ الصوت السريعة كذلك: لمسةٌ خارجها أو Escape تغلقها — وزرُّها يبدّلها. */
+  document.addEventListener('pointerdown', (event) => {
+    if (!quickVoice) return;
+    if (event.target.closest('.sh-qv-pop') || event.target.closest('[data-sh="qv"]')) return;
+    closeQuickVoice();
+  }, wired());
+  document.addEventListener('keydown', (event) => {
+    if (quickVoice && event.key === 'Escape') closeQuickVoice();
+  }, wired());
+  window.addEventListener('resize', placeQuickVoice, wired());
+
   // السحب يطبّق فورًا بلا كتابة في القاعدة؛ الحفظ عند رفع الإصبع.
   main.addEventListener('input', (event) => {
     const key = event.target.dataset.tuneRange || event.target.dataset.tuneNum;
@@ -12428,9 +12550,25 @@ function wireInteractions(main) {
        *    فما يُختار فيه صوتُ المتصفّح أيًّا كان المحرّكُ المفعَّل —
        *    ولا يُسلَّم لمحرّكٍ آخر. راجع voice-identity.js.
        */
-      saveSessionSettings(ctx.session.id,
-        voicePatch(ctx.session, BROWSER_PROVIDER_ID, voiceName)).catch(() => {});
+      const patch = voicePatch(ctx.session, BROWSER_PROVIDER_ID, voiceName);
+      saveSessionSettings(ctx.session.id, patch).catch(() => {});
+      /*
+       * ⚠️ **ونسخةُ الشاشة تتحدّث مع القاعدة** — كما يفعل `setTuner`.
+       *    كانت تبقى على الصوت الأوّل، فنطقُ كلمةٍ بضغطةٍ يقرأ منها
+       *    صوتًا قديمًا حتّى يُعاد فتحُ الجلسة، ولوحةُ الصوت السريعة
+       *    تُرسَم منها فتُظهر ما لم يعد مختارًا. والمنتقيان (المركزُ
+       *    واللوحةُ) يتبعان الاختيارَ أيًّا كان بابُه.
+       */
+      Object.assign(ctx.session, patch);
+      document.querySelectorAll('[data-sh="voice-select"]').forEach((node) => {
+        if (node !== event.target) node.value = voiceName;
+      });
       toast(`الصوت: ${voiceName}`);
+    }
+
+    /* مصدرُ الصوت من اللوحة السريعة — بنفس باب أزرار المحرّك في المركز. */
+    if (event.target.dataset.sh === 'qv-provider') {
+      return void setTTSProvider(event.target.value);
     }
   }, wired());
 
@@ -12506,6 +12644,8 @@ function wireInteractions(main) {
       && !event.target.closest('.sh-modes')
       /* ⚠️ ولسانُ الضبط بدل صفّ الرقاقات المحذوف (WS-POLISH). */
       && !event.target.closest('.sh-cc-tab')
+      /* ولوحةُ الصوت السريعة ضبطٌ لا خروج (Voice Center V1.0C). */
+      && !event.target.closest('.sh-qv-pop')
       && !event.target.closest('[data-word]')) {
       rail.open = false;
       renderRail();
@@ -12695,6 +12835,21 @@ function wireInteractions(main) {
       }
 
       case 'drawer':       return toggleDrawer(true);
+
+      /* لوحةُ الصوت السريعة — راجع الشرح فوق `quickVoiceHtml`. */
+      case 'qv':
+        return quickVoice ? closeQuickVoice() : openQuickVoice();
+      case 'qv-advanced': {
+        /* المتقدّمُ هو مركزُ التدريب نفسُه — مفتوحًا على قسم الصوت ومتقدّمِه. */
+        closeQuickVoice();
+        toggleDrawer(true);
+        const drawer = $('[data-drawer]');
+        const adv = drawer?.querySelector('.sh-cc-adv');
+        if (adv) adv.open = true;
+        drawer?.querySelector('[data-sh="voice-select"]')?.closest('.sh-cc-sec')
+          ?.scrollIntoView({ block: 'start' });
+        return undefined;
+      }
       case 'drawer-close': return toggleDrawer(false);
 
       /*
