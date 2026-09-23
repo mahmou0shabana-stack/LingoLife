@@ -38,6 +38,17 @@ export async function openVoiceLab() {
   if (!availability.length) return toastError('مفيش مزوّد نطق مسجَّل أصلًا');
 
   let audioEl = null;
+  /*
+   * ⚠️ **رابطُ الكائن يُحرَّر** (Voice Center V1.0C · الخطوة ٢). كان كلُّ
+   *    ضغطة ▶ ينشئ رابطًا جديدًا ولا يحرّر سابقَه، ولا يحرّر الأخيرَ عند
+   *    الإغلاق — فيبقى كلُّ صوتٍ وُلِّد محجوزًا في الذاكرة حتّى تُغلَق
+   *    الصفحة. والرابطُ لا يُحتاج بعد أن يُستبدَل مصدرُ العنصر أو يُغلَق
+   *    المختبر — فيُحرَّر عندهما، لا قبلهما.
+   */
+  let audioUrl = null;
+  const dropAudioUrl = () => {
+    if (audioUrl) { URL.revokeObjectURL(audioUrl); audioUrl = null; }
+  };
 
   const providerOptions = (selected) => availability.map(({ provider, availability: a }) => `
     <option value="${esc(provider.id)}" ${!a.available ? 'disabled' : ''} ${provider.id === selected ? 'selected' : ''}>
@@ -120,7 +131,11 @@ export async function openVoiceLab() {
 
             if (!audioEl) { audioEl = new Audio(); audioEl.setAttribute('playsinline', ''); }
             claimAudio(AUDIO_OWNER, () => audioEl.pause());
-            audioEl.src = URL.createObjectURL(blob);
+            const previousUrl = audioUrl;
+            audioUrl = URL.createObjectURL(blob);
+            audioEl.src = audioUrl;
+            /* السابقُ يُحرَّر بعد أن يُستبدَل المصدرُ — لا يُسحَب من تحت عنصرٍ يقرؤه. */
+            if (previousUrl) URL.revokeObjectURL(previousUrl);
             await audioEl.play().catch(() => {});
             status.textContent = `${cached ? 'من الذاكرة — بلا توليدٍ جديد' : 'وُلِّد الآن'} · ${provenance}`;
           } catch (err) {
@@ -136,4 +151,5 @@ export async function openVoiceLab() {
     audioEl.pause();
     audioEl.src = '';
   }
+  dropAudioUrl();
 }
