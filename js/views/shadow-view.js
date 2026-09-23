@@ -1122,6 +1122,8 @@ export async function renderShadow(main, sessionId) {
     speaker: ttsSpeaker.speak,
     canceler: ttsSpeaker.cancel,
   });
+  /* زرُّ الصوت فوق الميكروفون يقول الصوتَ الحاليّ منذ الرسم الأوّل. */
+  paintVoiceShortcut();
 
   /*
    * ⚠️ **والقفزةُ المعلَّقة تُستهلَك هنا** (بند ٧): الرجوعُ من قصّةٍ
@@ -9937,6 +9939,10 @@ function quickVoiceHtml() {
           aria-label="جرّب الصوت" aria-pressed="false">▶</button>
       </div>
       <p class="sh-qv-info" dir="rtl" data-qv-info>${raw(quickVoiceInfo())}</p>
+      <div class="sh-qv-now">
+        <span class="sh-qv-lang" data-qv-lang dir="ltr">${currentVoiceLanguage()}</span>
+        <button type="button" class="sh-qv-locate" data-sh="qv-locate">📍 اعرض الصوت الحاليّ</button>
+      </div>
     </div>
     <!--
       ترتيبُ اللوحة (V1.0C · تنظيم): الصوتُ الحاليّ ← الضوابطُ الخفيفة (سرعة ·
@@ -9998,6 +10004,29 @@ function activeVoiceName(session = ctx?.session) {
 }
 
 /**
+ * لغةُ الصوت الحاليّ — **إن عُرفت** من بياناتٍ قائمة: قائمةُ متصفّح الأصوات
+ * (`getVoices()`) إن جُلبت، أو أصواتُ الجهاز (`ctx.voices`) لمزوّد المتصفّح.
+ * ولا تُخمَّن: غيرُ المعروفة فراغ.
+ */
+function currentVoiceLanguage() {
+  const id = activeVoiceName();
+  if (!id) return '';
+  const hit = browseVoices.find((v) => v.providerId === ctx?.ttsProviderId && v.id === id);
+  if (hit?.language) return hit.language;
+  if ((ctx?.ttsProviderId || BROWSER_PROVIDER_ID) === BROWSER_PROVIDER_ID) {
+    const all = [...(ctx?.voices?.russian || []), ...(ctx?.voices?.others || [])];
+    return all.find((v) => v.name === id)?.lang || '';
+  }
+  return '';
+}
+
+/** «الصوت · المزوّد» كما يُعرَض خارج اللوحة (زرُّها، ولوحةُ التسجيل). */
+function currentVoiceLabel() {
+  const entry = (ctx?.ttsProviders || []).find(({ provider }) => provider.id === ctx?.ttsProviderId);
+  return [activeVoiceName() || 'الافتراضيّ', entry?.provider.name].filter(Boolean).join(' · ');
+}
+
+/**
  * سطرُ الصوت الحاليّ: المزوّد · الصوت · التوفّر — من سجلّ المزوّدين كما هو.
  *
  * ⚠️ **والتوفّرُ ما قاله المزوّدُ نفسُه** (`isAvailable()` المحفوظةُ في
@@ -10046,7 +10075,11 @@ function paintPreview() {
     /* ⚠️ حالُ التشغيل صنفٌ يُرى — لا رمزٌ صغيرٌ وحده — والإيقافُ من الزرّ نفسِه. */
     btn.classList.toggle('is-playing', on);
     if (key === 'current') btn.setAttribute('aria-label', on ? 'أوقف التجربة' : 'جرّب الصوت');
-    else btn.setAttribute('aria-label', `${on ? 'أوقف تجربة' : 'جرّب'} ${btn.dataset.name || ''}`.trim());
+    else {
+      /* جانبُ الصوت الحاليّ في المقارنة «يُسمَع» لا «يُجرَّب». */
+      const verb = btn.closest('.sh-qv-slot.is-current') ? 'اسمع' : 'جرّب';
+      btn.setAttribute('aria-label', `${on ? 'أوقف تجربة' : verb} ${btn.dataset.name || ''}`.trim());
+    }
   });
 }
 
@@ -10075,6 +10108,8 @@ async function startPreview(key = 'current', voiceName = undefined) {
  *    تجربتُها كانت تحتاج مُكيِّفًا ثانيًا، وهو «مشغّلٌ جديد».
  * ══════════════════════════════════════════════════════════════════ */
 let browseVoices = [];
+/** «ركّز على الصوت الحاليّ» في الرسمة التالية للقائمة — مرّةً لكلّ فتح. */
+let focusCurrentPending = false;
 /** البطاقةُ التي فُتحت تفاصيلُها (`مزوّد|صوت`) — حالُ عرضٍ لا إعداد، وتموت مع اللوحة. */
 let voiceInfoKey = null;
 
@@ -10131,16 +10166,33 @@ function paintCompare() {
   const byKey = new Map(browseVoices.map((v) => [voiceKey(v.providerId, v.id), v]));
   const sides = voiceCompare.map((k) => byKey.get(k)).filter(Boolean);
   section.hidden = !sides.length;
+  /*
+   * ⚠️ **جرّب قبل أن تعتمد** (Voice Center · التكامل مع التدريب): جانبُ الصوت
+   *    الحاليّ يحمل «الحاليّ» وزرُّه «اسمع»؛ والآخرُ «جرّب» و«استخدم هذا الصوت».
+   *    التجربةُ `qv-try` كما هي — لا تحفظ ولا تمسّ التدريب؛ والاعتمادُ
+   *    `pickVoice` نفسُها — فلا حفظَ إلّا بالضغطة الأخيرة.
+   */
+  const active = activeVoiceName();
+  const isCurrent = (v) => v.providerId === ctx.ttsProviderId && v.id === active;
+  const currentKey = active ? voiceKey(ctx.ttsProviderId, active) : '';
+  const canAddCurrent = currentKey && byKey.has(currentKey) && !voiceCompare.includes(currentKey);
   const slot = (v) => {
-    if (!v) return '<div class="sh-qv-slot is-empty">اختار صوتًا تاني بـ ⇄</div>';
+    if (!v) {
+      return canAddCurrent
+        ? '<div class="sh-qv-slot is-empty"><button type="button" class="sh-qv-cmp-cur" data-sh="qv-cmp-current">+ الصوت الحاليّ</button></div>'
+        : '<div class="sh-qv-slot is-empty">اختار صوتًا تاني بـ ⇄</div>';
+    }
     const canTry = v.providerId === ctx.ttsProviderId;
-    return html`<div class="sh-qv-slot" data-qv-slot="${voiceKey(v.providerId, v.id)}">
+    const cur = isCurrent(v);
+    return html`<div class="sh-qv-slot${cur ? ' is-current' : ''}" data-qv-slot="${voiceKey(v.providerId, v.id)}">
       <span class="sh-qv-slot-txt">
         <span class="sh-qv-name" dir="auto">${v.name}</span>
-        <small dir="rtl"><bdi>${v.providerName}</bdi>${raw(v.language ? html` · <bdi dir="ltr">${v.language}</bdi>` : '')}</small>
+        <small dir="rtl">${raw(cur ? '<b class="sh-qv-cur">الحاليّ</b> · ' : '')}<bdi>${v.providerName}</bdi>${raw(v.language ? html` · <bdi dir="ltr">${v.language}</bdi>` : '')}</small>
+        ${raw(cur ? '' : html`<button type="button" class="sh-qv-use" data-sh="qv-use" data-p="${v.providerId}" data-v="${v.id}"
+          aria-label="استخدم هذا الصوت: ${v.name}">✓ استخدمه</button>`)}
       </span>
       <button type="button" class="sh-qv-try" data-sh="qv-try" data-p="${v.providerId}" data-v="${v.id}"
-        data-name="${v.name}" aria-label="جرّب ${v.name}" aria-pressed="false"
+        data-name="${v.name}" aria-label="${cur ? 'اسمع' : 'جرّب'} ${v.name}" aria-pressed="false"
         ${canTry ? '' : 'disabled'} title="${canTry ? '' : 'مزوّدُه غيرُ المفعَّل'}">▶</button>
     </div>`;
   };
@@ -10194,6 +10246,7 @@ async function loadVoiceBrowser() {
   if (!quickVoice) return;
   browseVoices = perProvider.flat();
   paintVoiceBrowser();
+  syncQuickVoice();
 }
 
 function paintVoiceBrowser({ reveal = true } = {}) {
@@ -10237,6 +10290,12 @@ function paintVoiceBrowser({ reveal = true } = {}) {
     const top = chosen.offsetTop - list.offsetTop;
     const seen = top >= list.scrollTop && top + chosen.offsetHeight <= list.scrollTop + list.clientHeight;
     if (!seen) list.scrollTop = Math.max(0, top - 4);
+  }
+  /* الصوتُ الحاليّ يُضاء لحظةً حين يُفتَح القسم — والقائمةُ مُرَّرت إليه أعلاه. */
+  if (focusCurrentPending && chosen) {
+    focusCurrentPending = false;
+    chosen.classList.add('is-focus');
+    setTimeout(() => chosen.classList.remove('is-focus'), 1600);
   }
   paintVoiceSections(active);
   paintCompare();
@@ -10515,7 +10574,10 @@ function openQuickVoice() {
   quickVoice.innerHTML = quickVoiceHtml();
   /* ⚠️ `toggle` لا يصعد — فيُسمَع على القسم نفسِه، ويُحمَّل حين يُفتَح وحدَه. */
   quickVoice.querySelector('[data-qv-browse]')?.addEventListener('toggle', (event) => {
-    if (event.target.open) loadVoiceMarks().then(loadVoiceBrowser);
+    if (!event.target.open) return;
+    /* ⚠️ ويُركَّز على الصوت الحاليّ: تمريرٌ إليه ووميضٌ قصير — عند كلّ فتح. */
+    focusCurrentPending = true;
+    loadVoiceMarks().then(loadVoiceBrowser);
   }, wired({}, panelSignal()));
   wireQuickVoiceSections();
   /* ⚠️ والذاكرةُ تُقرأ حين يُفتَح قسمُها وحدَه — لا مع كلّ فتحٍ للوحة. */
@@ -10527,6 +10589,15 @@ function openQuickVoice() {
   btn.setAttribute('aria-expanded', 'true');
   btn.classList.add('on');
   placeQuickVoice();
+}
+
+/** زرُّ الصوت فوق الميكروفون يقول صوتَ التعلّم الحاليّ — في اسمه وتلميحه. */
+function paintVoiceShortcut() {
+  const btn = document.querySelector('[data-sh="qv"]');
+  if (!btn || !ctx) return;
+  const label = `الصوت: ${currentVoiceLabel()}`;
+  btn.setAttribute('aria-label', label);
+  btn.title = label;
 }
 
 function closeQuickVoice() {
@@ -10545,11 +10616,14 @@ function closeQuickVoice() {
 
 /** أرقامُ اللوحة تتبع القيمةَ — من أيّ بابٍ ضُبطت. */
 function syncQuickVoice() {
+  paintVoiceShortcut();
   if (!quickVoice || !ctx) return;
   const info = quickVoice.querySelector('[data-qv-info]');
   if (info) info.innerHTML = quickVoiceInfo();
   const prov = quickVoice.querySelector('[data-qv-prov-dl]');
   if (prov) prov.innerHTML = provenanceFactsHtml();
+  const lang = quickVoice.querySelector('[data-qv-lang]');
+  if (lang) lang.textContent = currentVoiceLanguage();
   const providerSelect = quickVoice.querySelector('[data-sh="qv-provider"]');
   if (providerSelect && providerSelect.value !== ctx.ttsProviderId) providerSelect.value = ctx.ttsProviderId;
   const s = ctx.session || {};
@@ -12343,7 +12417,9 @@ function openMyVoice() {
       sourceType: ctx?.session?.sourceType || null,
       sourceId: ctx?.session?.sourceId || null,
     },
-    () => speakScope(target.text, { times: 1 })
+    () => speakScope(target.text, { times: 1 }),
+    /* صوتُ التعلّم الحاليّ مرجعًا — نفسُ ما ينطق به «المرجع» (Voice Center). */
+    { referenceVoice: currentVoiceLabel() },
   );
 }
 
@@ -13451,6 +13527,26 @@ function wireInteractions(main) {
         return toggleCompare(btn.dataset.p, btn.dataset.v);
       case 'qv-cmp-close':
         return closeCompare();
+      case 'qv-cmp-current': {
+        /* الصوتُ الحاليّ جانبًا أوّلَ — مقارنةٌ به لا بغيره. */
+        const key = voiceKey(ctx.ttsProviderId, activeVoiceName());
+        voiceCompare = [key, ...voiceCompare.filter((k) => k !== key)].slice(0, 2);
+        return paintVoiceBrowser({ reveal: false });
+      }
+      case 'qv-use':
+        /* ⚠️ الاعتمادُ وحده يحفظ — بنفس مسار اختيار البطاقة. */
+        return pickVoice(btn.dataset.p, btn.dataset.v);
+      case 'qv-locate': {
+        /* 📍 القسمُ الصحيح يُفتَح (والأكورديونُ يطوي الباقي)، ثمّ التركيز. */
+        const voices = quickVoice?.querySelector('[data-qv-section="voices"]');
+        if (!voices) return undefined;
+        if (voices.open) {
+          focusCurrentPending = true;
+          return paintVoiceBrowser();
+        }
+        voices.querySelector(':scope > summary').click();
+        return undefined;
+      }
       case 'qv-cache-clear':
         return clearCacheFromPanel();
       case 'qv-fav':

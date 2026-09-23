@@ -84,8 +84,12 @@ function whenLabel(at) {
  *
  * @param {object} target لقطةُ الهدف من `currentTarget()` + هُويّاتُ الجلسة.
  * @param {() => any} speakReference ينطق المرجعَ بنفس مسار الشاشة.
+ * @param {{ referenceVoice?: string }} [options]
+ *   `referenceVoice`: اسمُ صوت التعلّم الحاليّ كما تعرضه الشاشة (Voice Center)
+ *   — **للعرض وحده**: لا يدخل `target` ولا أيَّ صفٍّ محفوظ، و«المرجعُ»
+ *   يُنطَق به فعلًا لأنّ `speakReference` هي `speakScope` الشاشة نفسُها.
  */
-export async function openVoiceAttempts(target, speakReference) {
+export async function openVoiceAttempts(target, speakReference, { referenceVoice = '' } = {}) {
   if (!target?.ok || !target.key) {
     return toast('اختار جملة أو مقطع الأول');
   }
@@ -296,6 +300,11 @@ export async function openVoiceAttempts(target, speakReference) {
           </div>` : '')}
       </div>
 
+      ${raw(referenceVoice ? html`
+        <p class="vo-refvoice" dir="rtl" data-vo-refvoice>
+          <span>صوتُ المرجع:</span> <bdi>${referenceVoice}</bdi>
+          <span class="vo-refvoice-mine">· تسجيلي: محاولتك</span>
+        </p>` : '')}
       <div class="vo-compare">
         <button type="button" class="btn btn-ghost" data-vo="ref">▶ القراءة الآلية</button>
         ${raw(attempts.length ? html`
