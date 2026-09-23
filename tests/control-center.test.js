@@ -277,7 +277,13 @@ describe('WS-SCLEAN · مصدرٌ واحدٌ للحقيقة', () => {
     const at = drawer.indexOf('voiceOptions(');
     const before = drawer.slice(Math.max(0, at - 220), at);
     expect(before.includes('<select')).toBe(true);
-    expect(drawer.includes('session.voiceId')).toBe(true);
+    /*
+     * ⚠️ **و«الحقلُ المحفوظ» صار يُقرأ بالمزوّد** (Voice Center V1.0C):
+     *    كان هذا الحارسُ يشترط `session.voiceId` بحرفه، والمعنى الذي
+     *    يحرسه — أنّ القائمةَ تعرف المُختارَ المخزَّن — باقٍ: `voiceFor`
+     *    تقرأ الخريطةَ وتُرحِّل القديمَ إليها. فيُحرَس المعنى لا الحرف.
+     */
+    expect(drawer.includes('voiceOptions(ctx.voices, voiceFor(session))')).toBe(true);
   });
 
   it('١٣ · ولا حالةَ مُعالِجٍ ميّتةٌ بلا زرٍّ يُصدِرها', async () => {

@@ -106,7 +106,8 @@ describe('WS-SRCF · حبّةُ أفعال «نصّ كامل»', () => {
      */
     const body = code(bodyOf(await source(), 'playFullText'));
     expect(`السرعة: ${/rate\s*=\s*Number\(session\.speed\)/.test(body)}`).toBe('السرعة: true');
-    expect(`الصوت: ${/voiceName\s*=\s*session\.voiceId/.test(body)}`).toBe('الصوت: true');
+    /* ⚠️ والصوتُ بمزوّده (Voice Center V1.0C) — نفسُ القيمة لكلّ جلسةٍ قائمة. */
+    expect(`الصوت: ${/voiceName\s*=\s*voiceFor\(session\)/.test(body)}`).toBe('الصوت: true');
     expect(`الوقفة: ${/intervalMs\(session\)/.test(body)}`).toBe('الوقفة: true');
     /* ولا تكتب إعدادًا. */
     expect(`لا تكتب إعدادًا: ${/saveSessionSettings/.test(body)}`).toBe('لا تكتب إعدادًا: false');

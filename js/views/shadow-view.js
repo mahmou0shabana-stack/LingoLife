@@ -178,6 +178,7 @@ import {
   NATIVE_HOSTS,
 } from '../services/shadow/native-audio.js';
 import { ensureTTSProvidersRegistered, BROWSER_PROVIDER_ID } from '../services/shadow/tts/bootstrap.js';
+import { voiceFor, voicePatch } from '../services/shadow/voice-identity.js';
 import { createTTSSpeaker } from '../services/shadow/tts/speaker-adapter.js';
 import { allAvailability } from '../services/shadow/tts/registry.js';
 
@@ -1104,7 +1105,12 @@ export async function renderShadow(main, sessionId) {
       text: s.sourceTextSnapshot,
       humanAudioUrl,
     })),
-    settings: { ...session, volume: ctx.volume, audioSource: ctx.audioSource },
+    /*
+     * ⚠️ **والمحرّكُ يُعطى الصوتَ محلولًا — ولا يُمَسّ المحرّك.** هو يقرأ
+     *    settings.voiceId؛ فيُحَلّ هنا من الخريطة (مع ترحيل القديم) قبل
+     *    أن يصله، فيبقى المحرّكُ لا يعرف أنّ للصوت مزوّدًا.
+     */
+    settings: { ...session, voiceId: voiceFor(session), volume: ctx.volume, audioSource: ctx.audioSource },
     onEvent: handleEvent,
     nativeResolver: resolveNative,
     speaker: ttsSpeaker.speak,
@@ -1280,7 +1286,7 @@ function wireChips(main) {
     if (word) {
       speakOnce(word.spoken, {
         rate: ctx.session.speed ?? 1,
-        voiceName: ctx.session.voiceId || null,
+        voiceName: voiceFor(ctx.session),
         volume: ctx.volume ?? 1,
       });
     }
@@ -2316,7 +2322,7 @@ function settingsDrawer() {
           ${raw(ccRow({
             key: 'voice', label: 'صوت الجهاز',
             body: html`<select class="sh-select" data-sh="voice-select"
-                aria-label="صوت الجهاز">${raw(voiceOptions(ctx.voices, session.voiceId))}</select>
+                aria-label="صوت الجهاز">${raw(voiceOptions(ctx.voices, voiceFor(session)))}</select>
               ${raw(!ctx.voices?.russian?.length ? html`<p class="sh-cc-warn">مفيش صوت روسي على الجهاز — نزّله من إعدادات الجهاز ← تحويل النصّ لكلام.</p>` : '')}`,
           }))}
         </section>
@@ -4504,7 +4510,7 @@ async function playAnalysisPlan(plan) {
     /* eslint-disable-next-line no-await-in-loop -- التتابعُ هو المقصود */
     const out = await speakOnce(step, {
       rate: plan.rate,
-      voiceName: ctx.session?.voiceId || null,
+      voiceName: voiceFor(ctx.session),
       volume: ctx.volume ?? 1,
       signal: controller.signal,
     });
@@ -8158,7 +8164,7 @@ async function playFullText() {
 
   const session = ctx?.session || {};
   const rate = Number(session.speed) || DEFAULT_RATE;
-  const voiceName = session.voiceId || null;
+  const voiceName = voiceFor(session);
   const pause = intervalMs(session);
 
   for (; ftReading.at < rows.length; ftReading.at += 1) {
@@ -11756,7 +11762,7 @@ async function speakScope(text, { times = 1 } = {}) {
   if (!clean) return;
   const opts = {
     rate: ctx.session?.speed ?? 1,
-    voiceName: ctx.session?.voiceId || null,
+    voiceName: voiceFor(ctx.session),
     volume: ctx.volume ?? 1,
   };
 
@@ -12403,7 +12409,14 @@ function wireInteractions(main) {
     if (event.target.dataset.sh === 'voice-select') {
       const voiceName = event.target.value;
       player.updateSettings({ voiceName });
-      saveSessionSettings(ctx.session.id, { voiceId: voiceName }).catch(() => {});
+      /*
+       * ⚠️ **يُكتَب صوتُ مزوّد المتصفّح في الخريطة، والقديمُ معه مرآةً**
+       *    (Voice Center V1.0C). هذا المنتقي يعرض أصواتَ الجهاز وحدَها،
+       *    فما يُختار فيه صوتُ المتصفّح أيًّا كان المحرّكُ المفعَّل —
+       *    ولا يُسلَّم لمحرّكٍ آخر. راجع voice-identity.js.
+       */
+      saveSessionSettings(ctx.session.id,
+        voicePatch(ctx.session, BROWSER_PROVIDER_ID, voiceName)).catch(() => {});
       toast(`الصوت: ${voiceName}`);
     }
   }, wired());
@@ -13327,7 +13340,7 @@ function wireInteractions(main) {
           if (text) {
             await speakOnce(text, {
               rate: analysis.plan.pieces.rate,
-              voiceName: ctx.session?.voiceId || null,
+              voiceName: voiceFor(ctx.session),
               volume: ctx.volume ?? 1,
             });
           }
@@ -13341,7 +13354,7 @@ function wireInteractions(main) {
         stopAnalysisPlayback();
         await speakOnce(step.text, {
           rate: step.rate,
-          voiceName: ctx.session?.voiceId || null,
+          voiceName: voiceFor(ctx.session),
           volume: ctx.volume ?? 1,
         });
         return undefined;
