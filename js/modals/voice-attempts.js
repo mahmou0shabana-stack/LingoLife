@@ -635,6 +635,13 @@ export async function openVoiceAttempts(target, speakReference) {
       return;
     }
     if (play.id === id && play.state === PLAY.PAUSED) {
+      /*
+       * ⚠️ **والاستئنافُ يطالب بالناقل كالبدء** (Voice Center V1.0C · الخطوة ٣).
+       *    مالكٌ آخرُ يُسكِتنا بـ`audio.pause()` فتبقى الحالُ «موقوف» —
+       *    فكان ▶ هنا يستأنف والناقلُ ما زال لغيرنا: صوتان معًا، ولا
+       *    يُسكِتنا ما يبدأ بعدنا.
+       */
+      claimAudio(BUS, () => audio.pause());
       const done = await audio.play();
       if (done && done.ok === false) {
         setPlay({ state: PLAY.ERROR, id, why: 'تعذر تشغيل التسجيل' });
