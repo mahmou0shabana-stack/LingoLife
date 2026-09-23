@@ -38,7 +38,7 @@ function stubSpeech() {
     value: {
       getVoices: () => voices,
       speak(u) {
-        spoken.push({ rate: u.rate, voice: u.voice?.name || null, volume: u.volume });
+        spoken.push({ text: u.text, rate: u.rate, voice: u.voice?.name || null, volume: u.volume });
         u.onstart?.({});
         setTimeout(() => { u.onend?.({}); u.dispatchEvent(new Event('end')); }, 120);
       },
@@ -57,8 +57,10 @@ function stubSpeech() {
 }
 
 /** يركّب الشاشةَ على جلسةٍ جديدة — ويعيد أدواتِ القياس ومفكِّكَها. */
-async function mountShadow() {
+async function mountShadow({ provider = null } = {}) {
   const speech = stubSpeech();
+  const registry = await import('../js/services/shadow/tts/registry.js');
+  if (provider) registry.registerProvider(provider);
   await resetDevices([TABLET]);
   await on(TABLET, () => {});
   const { createSession, SOURCE_TYPE } = await import('../js/services/shadow/shadow-session-service.js');
@@ -75,9 +77,18 @@ async function mountShadow() {
   await until(() => main.querySelector('[data-sh="qv"]'));
   const $ = (sel) => main.querySelector(sel);
   const dispose = () => {
+    /*
+     * ⚠️ **يُوقَف التدريبُ قبل المغادرة.** الشاشةُ تُبقي جلسةً تنطق حيّةً
+     *    بعد مغادرتها (الشريطُ العائم) — وهذا مقصود. لكنّه في الاختبار
+     *    يعني محرّكًا من اختبارٍ سابقٍ ينطق في ناطق الاختبار التالي:
+     *    هكذا سقط ٦ في التشغيل الكامل («نُطق: 1» بلا أيّ ضغطة).
+     */
+    const play = $('[data-sh="play"]');
+    if (play?.classList.contains('on')) play.click();
     try { view.disposeShadow(); } catch { /* الشاشةُ ماتت أصلًا */ }
     main.remove();
     speech.restore();
+    if (provider) registry.unregisterProvider(provider.id);
   };
   return { main, $, session, speech, dispose };
 }
@@ -103,9 +114,9 @@ describe('Voice Center V1.0C · لوحةُ الصوت السريعة', () => {
 
       btn.click();
       expect(`فُتحت: ${!!pop()} · ${btn.getAttribute('aria-expanded')}`).toBe('فُتحت: true · true');
-      /* ستّةُ عناصرَ لا غير: المصدر، والصوت، والسرعة، والارتفاع، والتكرار، والمتقدّم. */
+      /* ستّةُ عناصرَ لا غير: المصدر، والصوت (وتجربتُه بجانبه)، والسرعة، والارتفاع، والتكرار، والمتقدّم. */
       expect([...pop().querySelectorAll('select, input, button')].map((n) => n.dataset.sh || n.dataset.tuneRange))
-        .toEqual(['qv-provider', 'voice-select', 'speed', 'volume', 'repeat', 'qv-advanced']);
+        .toEqual(['qv-provider', 'voice-select', 'qv-preview', 'speed', 'volume', 'repeat', 'qv-advanced']);
       btn.click();
       expect(`زرُّها يغلقها: ${!pop()}`).toBe('زرُّها يغلقها: true');
 
@@ -230,6 +241,155 @@ describe('Voice Center V1.0C · لوحةُ الصوت السريعة', () => {
       expect(`تبدّلُ المالك: ${changes.length ? changes.join(',') : 'لا شيء'}`).toBe('تبدّلُ المالك: لا شيء');
       expect(`ما زال: ${bus.audioOwner()} · يعمل: ${t.$('[data-sh="play"]').classList.contains('on')}`)
         .toBe('ما زال: session · يعمل: true');
+    } finally {
+      unwatch();
+      t.dispose();
+      bus.forgetAudioOwner();
+    }
+  });
+});
+
+/** مزوّدٌ محقونٌ يسجّل ما طُلب منه — ويعيد صمتًا قصيرًا حقيقيًّا يُشغَّل. */
+function fakeProvider(id) {
+  const calls = [];
+  const wav = () => {
+    const n = 8000 * 0.2;
+    const buf = new ArrayBuffer(44 + n * 2);
+    const v = new DataView(buf);
+    const str = (o, t) => { for (let i = 0; i < t.length; i += 1) v.setUint8(o + i, t.charCodeAt(i)); };
+    str(0, 'RIFF'); v.setUint32(4, 36 + n * 2, true); str(8, 'WAVE'); str(12, 'fmt ');
+    v.setUint32(16, 16, true); v.setUint16(20, 1, true); v.setUint16(22, 1, true);
+    v.setUint32(24, 8000, true); v.setUint32(28, 16000, true); v.setUint16(32, 2, true);
+    v.setUint16(34, 16, true); str(36, 'data'); v.setUint32(40, n * 2, true);
+    return new Blob([buf], { type: 'audio/wav' });
+  };
+  return {
+    calls,
+    provider: {
+      id, name: 'مزوّد الاختبار', type: 'piper',
+      supportsOffline: true, supportsStreaming: false,
+      supportsWord: true, supportsSentence: true, supportsLongText: true,
+      async isAvailable() { return { available: true, status: 'ready_offline', reason: '' }; },
+      async getVoices() { return []; },
+      async synthesize({ text, voiceId, speed }) {
+        calls.push({ text, voiceId, speed });
+        return {
+          audioBlob: wav(), audioUrl: null, playedDirectly: false, duration: 0.2,
+          provider: id, voiceId, cacheKey: null,
+          provenance: 'piper_generated', cached: false, error: null,
+        };
+      },
+      cancel() {},
+    },
+  };
+}
+
+/** يختار صوتًا في منتقي اللوحة — ويضيف خيارَه إن لم يكن في قائمة الجهاز. */
+function chooseVoice(pop, name) {
+  const select = pop.querySelector('[data-sh="voice-select"]');
+  if (![...select.options].some((o) => o.value === name)) select.append(new Option(name, name));
+  select.value = name;
+  select.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+describe('Voice Center V1.0C · «جرّب الصوت» في اللوحة السريعة', () => {
+  it('٤ · التجربةُ بالصوت المختار — وتغييرُه يصل إلى التجربة التالية فورًا', async () => {
+    /*
+     * ⚠️ **يُقاس عند المزوّد لا عند الأذن.** قائمةُ أصوات المتصفّح تُخزَّن
+     *    مرّةً للصفحة، فاسمُ الصوت المسموع يتبع ما حمّله اختبارٌ سبق. أمّا
+     *    المزوّدُ المحقونُ فيتلقّى `voiceId` كما طلبته الشاشةُ بالحرف.
+     */
+    const fake = fakeProvider('qv-fake');
+    const t = await mountShadow({ provider: fake.provider });
+    try {
+      t.$('[data-sh="qv"]').click();
+      const pop = document.querySelector('.sh-qv-pop');
+      const providerSelect = pop.querySelector('[data-sh="qv-provider"]');
+      providerSelect.value = 'qv-fake';
+      providerSelect.dispatchEvent(new Event('change', { bubbles: true }));
+      chooseVoice(pop, 'Yuri');
+
+      /* السطرُ يقول المزوّدَ والصوتَ والتوفّر — ممّا قاله المزوّدُ نفسُه. */
+      expect(pop.querySelector('[data-qv-info]').textContent).toBe('مزوّد الاختبار · Yuri · متاح');
+
+      pop.querySelector('[data-sh="qv-preview"]').click();
+      await until(() => fake.calls.length >= 1);
+      expect(fake.calls[0]).toEqual({ text: 'Привет! Так звучит этот голос.', voiceId: 'Yuri', speed: 0.8 });
+      await until(() => pop.querySelector('[data-sh="qv-preview"]').textContent === '▶');
+
+      chooseVoice(pop, 'Milena');
+      expect(pop.querySelector('[data-qv-info]').textContent).toBe('مزوّد الاختبار · Milena · متاح');
+      pop.querySelector('[data-sh="qv-preview"]').click();
+      await until(() => fake.calls.length >= 2);
+      expect(`التجربةُ الثانية بـ ${fake.calls[1].voiceId}`).toBe('التجربةُ الثانية بـ Milena');
+    } finally {
+      t.dispose();
+    }
+  });
+
+  it('٥ · ولا تتنازع مع التدريب: تطالب بالناقل فيقف، وتحرّره عند انتهائها أو إيقافها', async () => {
+    const t = await mountShadow();
+    const bus = await import('../js/services/shadow/audio-bus.js');
+    bus.forgetAudioOwner();
+    try {
+      t.$('[data-sh="play"]').click();
+      await until(() => t.speech.spoken.length >= 1);
+      expect(`قبل: ${bus.audioOwner()}`).toBe('قبل: session');
+
+      t.$('[data-sh="qv"]').click();
+      const pop = document.querySelector('.sh-qv-pop');
+      const tryBtn = pop.querySelector('[data-sh="qv-preview"]');
+      const from = t.speech.spoken.length;
+      tryBtn.click();
+      expect(`أثناءها: ${bus.audioOwner()} · التدريبُ ${t.$('[data-sh="play"]').classList.contains('on') ? 'يعمل' : 'واقف'} · ${tryBtn.textContent}`)
+        .toBe('أثناءها: speak · التدريبُ واقف · ■');
+
+      /* ⚠️ لا صوتان معًا: كلُّ ما قيل بعد الضغطة هو التجربةُ وحدَها. */
+      await until(() => tryBtn.textContent === '▶');
+      const after = t.speech.spoken.slice(from).map((u) => u.text);
+      expect(after).toEqual(['Привет! Так звучит этот голос.']);
+      expect(`بعدها: ${bus.audioOwner() ?? 'لا مالك'}`).toBe('بعدها: لا مالك');
+
+      /* والإيقافُ من نفس الزرّ هو إسكاتُ الناقل الموجود. */
+      tryBtn.click();
+      expect(bus.audioOwner()).toBe('speak');
+      tryBtn.click();
+      expect(`أُوقفت: ${bus.audioOwner() ?? 'لا مالك'} · ${tryBtn.textContent}`).toBe('أُوقفت: لا مالك · ▶');
+
+      /* وإغلاقُ اللوحة أثناءها يوقفها كذلك. */
+      tryBtn.click();
+      t.$('[data-sh="qv"]').click();
+      expect(`أُغلقت أثناءها: ${bus.audioOwner() ?? 'لا مالك'}`).toBe('أُغلقت أثناءها: لا مالك');
+
+      /* والتدريبُ يعود بزرّه ومالكِه. */
+      t.$('[data-sh="play"]').click();
+      expect(`ثمّ: ${bus.audioOwner()}`).toBe('ثمّ: session');
+    } finally {
+      t.dispose();
+      bus.forgetAudioOwner();
+    }
+  });
+
+  it('٦ · وبلا تجربةٍ لا يتغيّر شيء: لا نطقَ عند الفتح، ولا مالكَ، والزرُّ ساكن', async () => {
+    const t = await mountShadow();
+    const bus = await import('../js/services/shadow/audio-bus.js');
+    bus.forgetAudioOwner();
+    const changes = [];
+    const unwatch = bus.watchAudio((owner) => changes.push(owner));
+    try {
+      for (let i = 0; i < 3; i += 1) {
+        t.$('[data-sh="qv"]').click();
+        await new Promise((r) => setTimeout(r, 60));
+        t.$('[data-sh="qv"]').click();
+      }
+      t.$('[data-sh="qv"]').click();
+      const pop = document.querySelector('.sh-qv-pop');
+      await new Promise((r) => setTimeout(r, 200));
+      expect(`نُطق: ${t.speech.spoken.length} · مالك: ${bus.audioOwner() ?? 'لا أحد'} · تبدّل: ${changes.length}`)
+        .toBe('نُطق: 0 · مالك: لا أحد · تبدّل: 0');
+      const tryBtn = pop.querySelector('[data-sh="qv-preview"]');
+      expect(`${tryBtn.textContent} · ${tryBtn.getAttribute('aria-pressed')}`).toBe('▶ · false');
+      expect(pop.querySelector('[data-qv-info]').textContent.startsWith('المتصفّح')).toBe(true);
     } finally {
       unwatch();
       t.dispose();

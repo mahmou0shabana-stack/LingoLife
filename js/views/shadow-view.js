@@ -9919,16 +9919,83 @@ function quickVoiceHtml() {
             ${availability.available ? '' : 'disabled'}>${provider.name}</option>`).join(''))}
       </select>
     </label>
-    <label class="sh-qv-row">
+    <div class="sh-qv-row">
       <span class="sh-qv-lbl">صوت الجهاز</span>
-      <select class="sh-select" data-sh="voice-select" aria-label="صوت الجهاز">
-        ${raw(voiceOptions(ctx.voices || { russian: [], others: [] }, voiceFor(s)))}
-      </select>
-    </label>
+      <div class="sh-qv-pair">
+        <select class="sh-select" data-sh="voice-select" aria-label="صوت الجهاز">
+          ${raw(voiceOptions(ctx.voices || { russian: [], others: [] }, voiceFor(s)))}
+        </select>
+        <button type="button" class="sh-qv-try" data-sh="qv-preview"
+          aria-label="جرّب الصوت" aria-pressed="false">▶</button>
+      </div>
+      <p class="sh-qv-info" dir="rtl" data-qv-info>${raw(quickVoiceInfo())}</p>
+    </div>
     ${raw(range('speed', 'السرعة', RATE_MIN, RATE_MAX, 0.05, speed, TUNERS.speed.label(speed)))}
     ${raw(range('volume', 'مستوى الصوت', 0, 100, 1, vol, TUNERS.volume.label(vol)))}
     ${raw(range('repeat', 'عدد التكرار', 1, 99, 1, reps, TUNERS.repeat.label(reps)))}
     <button type="button" class="sh-qv-adv" data-sh="qv-advanced">إعدادات الصوت المتقدّمة ‹</button>`;
+}
+
+/**
+ * سطرُ الصوت الحاليّ: المزوّد · الصوت · التوفّر — من سجلّ المزوّدين كما هو.
+ *
+ * ⚠️ **والتوفّرُ ما قاله المزوّدُ نفسُه** (`isAvailable()` المحفوظةُ في
+ *    `ctx.ttsProviders`) — لا فحصٌ ثانٍ ولا افتراض.
+ */
+function quickVoiceInfo() {
+  const entry = (ctx.ttsProviders || []).find(({ provider }) => provider.id === ctx.ttsProviderId);
+  const name = entry?.provider.name || ctx.ttsProviderId || '—';
+  /*
+   * ⚠️ **الصوتُ الذي يُطلَب فعلًا** — `voiceFor(session)` كما يقرؤه المحرّكُ
+   *    ونطقُ الكلمة والتجربة، أيًّا كان المزوّد. سطرٌ يقول صوتًا غيرَ
+   *    الذي يُطلَب أسوأُ من لا سطر.
+   */
+  const voice = voiceFor(ctx.session) || 'الافتراضيّ';
+  const state = !entry ? '' : entry.availability?.available
+    ? 'متاح' : (entry.availability?.reason || 'غير متاح');
+  /*
+   * ⚠️ **كلُّ جزءٍ معزولُ الاتّجاه** (`<bdi>`): اسمُ المزوّد عربيٌّ بقوسين
+   *    والصوتُ لاتينيّ — فبلا عزلٍ قلب المتصفّحُ ترتيبَهما وصار القوسُ
+   *    في غير موضعه (قِيس على ٤١٢ و٣٢٠).
+   */
+  return [name, voice, state].filter(Boolean).map((part) => html`<bdi>${part}</bdi>`).join(' · ');
+}
+
+/**
+ * «جرّب الصوت» — جملةٌ قصيرةٌ بالصوت المختار الآن.
+ *
+ * ⚠️ **لا مشغّلَ جديد**: هي `speakScope` نفسُها التي تنطق الكلمةَ
+ *    بضغطة — تطالب بالناقل باسم `speak` (فتُوقِف الجلسةَ إن كانت تنطق)،
+ *    وتقرأ الصوتَ والسرعةَ والارتفاعَ من الجلسة لحظةَ النداء، فتغييرُ
+ *    الصوت يصل إلى التجربة التالية بلا شيءٍ آخر. والإيقافُ هو
+ *    `releaseAudio('speak')`: إسكاتُ الناقل الموجودُ أصلًا.
+ */
+/* بلا علامات نبر: مسارُ النطق لا ينزعها (ضغطةُ الكلمة تنزعها قبله). */
+const PREVIEW_TEXT = 'Привет! Так звучит этот голос.';
+let previewing = false;
+
+function paintPreview() {
+  const btn = quickVoice?.querySelector('[data-sh="qv-preview"]');
+  if (!btn) return;
+  btn.textContent = previewing ? '■' : '▶';
+  btn.setAttribute('aria-pressed', previewing ? 'true' : 'false');
+  btn.setAttribute('aria-label', previewing ? 'أوقف التجربة' : 'جرّب الصوت');
+}
+
+async function startPreview() {
+  const mine = {};
+  previewing = mine;
+  paintPreview();
+  await speakScope(PREVIEW_TEXT);
+  if (previewing === mine) previewing = false;
+  paintPreview();
+}
+
+function stopPreview() {
+  if (!previewing) return;
+  previewing = false;
+  releaseAudio(SPEAK_OWNER);
+  paintPreview();
 }
 
 /** يضع اللوحةَ فوق زرّها — ولا تخرج من الشاشة على الهاتف. */
@@ -9958,6 +10025,7 @@ function openQuickVoice() {
 }
 
 function closeQuickVoice() {
+  stopPreview();
   quickVoice?.remove();
   quickVoice = null;
   const btn = document.querySelector('[data-sh="qv"]');
@@ -9968,6 +10036,8 @@ function closeQuickVoice() {
 /** أرقامُ اللوحة تتبع القيمةَ — من أيّ بابٍ ضُبطت. */
 function syncQuickVoice() {
   if (!quickVoice || !ctx) return;
+  const info = quickVoice.querySelector('[data-qv-info]');
+  if (info) info.innerHTML = quickVoiceInfo();
   const s = ctx.session || {};
   const values = {
     speed: Number(s.speed ?? 0.8),
@@ -12563,12 +12633,17 @@ function wireInteractions(main) {
       document.querySelectorAll('[data-sh="voice-select"]').forEach((node) => {
         if (node !== event.target) node.value = voiceName;
       });
+      syncQuickVoice();
+      /* تجربةٌ تُسمَع الآن تُعاد بالصوت الجديد — فتسمع الفرقَ فورًا. */
+      if (previewing) startPreview();
       toast(`الصوت: ${voiceName}`);
     }
 
     /* مصدرُ الصوت من اللوحة السريعة — بنفس باب أزرار المحرّك في المركز. */
     if (event.target.dataset.sh === 'qv-provider') {
-      return void setTTSProvider(event.target.value);
+      const done = setTTSProvider(event.target.value);
+      syncQuickVoice();
+      return void done;
     }
   }, wired());
 
@@ -12839,6 +12914,8 @@ function wireInteractions(main) {
       /* لوحةُ الصوت السريعة — راجع الشرح فوق `quickVoiceHtml`. */
       case 'qv':
         return quickVoice ? closeQuickVoice() : openQuickVoice();
+      case 'qv-preview':
+        return previewing ? stopPreview() : startPreview();
       case 'qv-advanced': {
         /* المتقدّمُ هو مركزُ التدريب نفسُه — مفتوحًا على قسم الصوت ومتقدّمِه. */
         closeQuickVoice();
