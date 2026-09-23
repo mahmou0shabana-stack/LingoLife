@@ -756,3 +756,216 @@ describe('Voice Center V1.0C · بطاقاتُ متصفّح الأصوات', () 
     }
   });
 });
+
+/** سطورُ التفاصيل المفتوحة كما تُقرأ: «العنوان=القيمة». */
+const factsOf = (pop, voiceId) => {
+  const card = pop.querySelector(`[data-sh="qv-pick"][data-v="${voiceId}"]`)?.closest('.sh-qv-card');
+  return [...(card?.querySelectorAll('[data-qv-details] .sh-qv-fact') || [])]
+    .map((f) => `${f.querySelector('dt').textContent}=${f.querySelector('dd').textContent}`);
+};
+const infoBtn = (pop, voiceId) => pop.querySelector(`[data-sh="qv-info"][data-v="${voiceId}"]`);
+
+describe('Voice Center V1.0C · تفاصيلُ الصوت في متصفّح الأصوات', () => {
+  it('١٦ · تُفتَح من زرّ «i» تحت بطاقتها وحدها — وواحدةٌ في كلّ مرّة، ويغلقها زرُّها', async () => {
+    const lib = libraryProvider('qv-lib');
+    const t = await mountShadow({ provider: lib.provider });
+    try {
+      t.$('[data-sh="qv"]').click();
+      const pop = document.querySelector('.sh-qv-pop');
+      await openBrowser(pop, 'ru-anna');
+      expect(`مغلقة: ${pop.querySelectorAll('[data-qv-details]').length}`).toBe('مغلقة: 0');
+
+      infoBtn(pop, 'ru-anna').click();
+      const openCards = () => [...pop.querySelectorAll('[data-qv-details]')]
+        .map((d) => d.closest('.sh-qv-card').querySelector('.sh-qv-name').textContent);
+      expect(openCards()).toEqual(['Anna']);
+      expect(infoBtn(pop, 'ru-anna').getAttribute('aria-expanded')).toBe('true');
+      /* ⚠️ البطاقةُ باقيةٌ كما هي — التفاصيلُ تحتها لا بدلَها. */
+      expect(`البطاقةُ باقية: ${!!pop.querySelector('[data-sh="qv-pick"][data-v="ru-anna"]')} · التجربةُ باقية: ${!!pop.querySelector('[data-sh="qv-try"][data-v="ru-anna"]')}`)
+        .toBe('البطاقةُ باقية: true · التجربةُ باقية: true');
+
+      infoBtn(pop, 'ru-boris').click();
+      expect(openCards()).toEqual(['Boris']);
+      infoBtn(pop, 'ru-boris').click();
+      expect(`${openCards().length} · ${infoBtn(pop, 'ru-boris').getAttribute('aria-expanded')}`).toBe('0 · false');
+    } finally {
+      t.dispose();
+    }
+  });
+
+  it('١٧ · تعرض ما قاله المزوّدُ فقط — وما لم يُعطَ لا يُعرَض سطرُه', async () => {
+    const lib = libraryProvider('qv-lib');
+    const baseVoices = lib.provider.getVoices;
+    lib.provider.getVoices = async () => [...(await baseVoices()), { id: 'x-nolang', name: 'NoLang' }];
+    /* مزوّدٌ ثانٍ لم يُعلن قدرةَ البثّ، وحالتُه كلمةٌ لا ترجمةَ لها عندنا. */
+    const bare = libraryProvider('qv-bare');
+    bare.provider.name = 'مزوّد بلا إعلان';
+    delete bare.provider.supportsStreaming;
+    bare.provider.isAvailable = async () => ({ available: true, status: 'something_new', reason: '' });
+    bare.provider.getVoices = async () => [{ id: 'b-one', name: 'One', language: 'ru' }];
+    const registry = await import('../js/services/shadow/tts/registry.js');
+    registry.registerProvider(bare.provider);
+    const t = await mountShadow({ provider: lib.provider });
+    try {
+      t.$('[data-sh="qv"]').click();
+      const pop = document.querySelector('.sh-qv-pop');
+      await openBrowser(pop, 'b-one');
+
+      infoBtn(pop, 'ru-anna').click();
+      expect(factsOf(pop, 'ru-anna')).toEqual([
+        'الاسم=Anna', 'المزوّد=مزوّد المكتبة', 'اللغة=ru-RU',
+        'التوفّر=متاح · بلا نت', 'يعمل بلا إنترنت=نعم', 'بثٌّ متدفّق=لا',
+      ]);
+
+      /* ⚠️ بلا لغةٍ في getVoices() — فلا سطرَ لغة، لا «غير معروف». */
+      infoBtn(pop, 'x-nolang').click();
+      expect(factsOf(pop, 'x-nolang').some((f) => f.startsWith('اللغة='))).toBe(false);
+
+      /* ⚠️ وبلا إعلان بثٍّ ولا ترجمةٍ للحالة — لا سطرَ بثٍّ، والتوفّرُ «متاح» وحده. */
+      infoBtn(pop, 'b-one').click();
+      expect(factsOf(pop, 'b-one')).toEqual([
+        'الاسم=One', 'المزوّد=مزوّد بلا إعلان', 'اللغة=ru', 'التوفّر=متاح', 'يعمل بلا إنترنت=نعم',
+      ]);
+    } finally {
+      t.dispose();
+      registry.unregisterProvider('qv-bare');
+    }
+  });
+
+  it('١٨ · وفتحُها لا يُصدر صوتًا ولا يمسّ الناقل', async () => {
+    const lib = libraryProvider('qv-lib');
+    const t = await mountShadow({ provider: lib.provider });
+    const bus = await import('../js/services/shadow/audio-bus.js');
+    bus.forgetAudioOwner();
+    const changes = [];
+    const unwatch = bus.watchAudio((owner) => changes.push(owner));
+    try {
+      t.$('[data-sh="qv"]').click();
+      const pop = document.querySelector('.sh-qv-pop');
+      await openBrowser(pop, 'ru-anna');
+      for (const id of ['ru-anna', 'ru-boris', 'ru-carl', 'ru-carl', 'ru-anna']) {
+        (infoBtn(pop, id) || infoBtn(pop, 'en-carl')).click();
+      }
+      await new Promise((r) => setTimeout(r, 250));
+      expect(`نطقُ الجهاز ${t.speech.spoken.length} · طلبٌ من المزوّد ${lib.calls.length} · مالك ${bus.audioOwner() ?? 'لا أحد'} · تبدّل ${changes.length}`)
+        .toBe('نطقُ الجهاز 0 · طلبٌ من المزوّد 0 · مالك لا أحد · تبدّل 0');
+      expect(`لا زرَّ تجربةٍ يعمل: ${pop.querySelectorAll('.is-playing').length === 0}`).toBe('لا زرَّ تجربةٍ يعمل: true');
+    } finally {
+      unwatch();
+      t.dispose();
+      bus.forgetAudioOwner();
+    }
+  });
+
+  it('١٩ · والمختارُ لا يتغيّر — ولا تجربةٌ تعمل تتوقّف', async () => {
+    const lib = libraryProvider('qv-lib');
+    let release = null;
+    const realSynth = lib.provider.synthesize;
+    lib.provider.synthesize = async (req) => {
+      await new Promise((r) => { release = r; });
+      return realSynth(req);
+    };
+    const t = await mountShadow({ provider: lib.provider });
+    const bus = await import('../js/services/shadow/audio-bus.js');
+    bus.forgetAudioOwner();
+    try {
+      t.$('[data-sh="qv"]').click();
+      const pop = document.querySelector('.sh-qv-pop');
+      await openBrowser(pop, 'ru-boris');
+      pop.querySelector('[data-sh="qv-pick"][data-v="ru-boris"]').click();
+      await new Promise((r) => setTimeout(r, 150));
+      const { shadowSessions } = await import('../js/db/repositories.js');
+      const before = await shadowSessions.get(t.session.id);
+
+      pop.querySelector('[data-sh="qv-try"][data-v="ru-anna"]').click();
+      await until(() => release);
+      infoBtn(pop, 'ru-anna').click();
+      infoBtn(pop, 'en-carl').click();
+
+      expect(pop.querySelector('[data-qv-info]').textContent).toBe('مزوّد المكتبة · ru-boris · متاح');
+      expect([...pop.querySelectorAll('.sh-qv-card.on .sh-qv-name')].map((n) => n.textContent)).toEqual(['Boris']);
+      expect(pop.querySelector('[data-sh="qv-provider"]').value).toBe('qv-lib');
+      await new Promise((r) => setTimeout(r, 150));
+      const after = await shadowSessions.get(t.session.id);
+      expect(`${after.voiceByProvider?.['qv-lib']} · ${after.voiceId} · ${after.updatedAt === before.updatedAt ? 'لم يُكتَب' : 'كُتب'}`)
+        .toBe(`ru-boris · Milena · لم يُكتَب`);
+      expect(`التجربةُ تعمل: ${pop.querySelector('[data-sh="qv-try"][data-v="ru-anna"]').classList.contains('is-playing')} · ${bus.audioOwner()}`)
+        .toBe('التجربةُ تعمل: true · speak');
+    } finally {
+      release?.();
+      t.dispose();
+      bus.forgetAudioOwner();
+    }
+  });
+
+  it('٢٠ · ولا تفيض — بأنماط التطبيق، باسمٍ ولغةٍ طويلين، على ٢٨٠ و٢٤٠', async () => {
+    const unstyle = await withAppStyles();
+    const lib = libraryProvider('qv-lib');
+    const baseVoices = lib.provider.getVoices;
+    lib.provider.getVoices = async () => [
+      ...(await baseVoices()),
+      { id: 'ru-long', name: 'Александра-Вероника Длинноимённая (Premium Neural Multilingual)',
+        language: 'ru-RU-x-very-long-regional-variant-tag' },
+    ];
+    const t = await mountShadow({ provider: lib.provider });
+    try {
+      t.$('[data-sh="qv"]').click();
+      const pop = document.querySelector('.sh-qv-pop');
+      await openBrowser(pop, 'ru-long');
+      infoBtn(pop, 'ru-long').click();
+      const list = pop.querySelector('[data-qv-list]');
+      const dl = pop.querySelector('[data-qv-details]');
+      for (const width of [null, 240]) {
+        if (width) pop.style.inlineSize = `${width}px`;
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const label = width ? `${width}px` : `${Math.round(pop.getBoundingClientRect().width)}px`;
+        expect(`${label} · تفيض: اللوحة ${pop.scrollWidth > pop.clientWidth + 1} · القائمة ${list.scrollWidth > list.clientWidth + 1} · التفاصيل ${dl.scrollWidth > dl.clientWidth + 1}`)
+          .toBe(`${label} · تفيض: اللوحة false · القائمة false · التفاصيل false`);
+        const box = list.getBoundingClientRect();
+        const out = [...dl.querySelectorAll('*')].filter((n) => {
+          const r = n.getBoundingClientRect();
+          return r.width > 0 && (r.left < box.left - 1 || r.right > box.right + 1);
+        });
+        expect(`${label} · خارجَ القائمة: ${out.length}`).toBe(`${label} · خارجَ القائمة: 0`);
+        /*
+         * ⚠️ **والزرّان في سطر البطاقة لا تحتها** — قِيس عطبٌ فعليّ: التفافُ
+         *    البطاقة للتفاصيل ألقى «i» و▶ إلى سطرٍ ثانٍ في **كلّ** بطاقة
+         *    (٦٠ ← ١٠٠px). فمركزُ كلٍّ منهما داخل ارتفاع جسم البطاقة.
+         */
+        const offRow = [...list.querySelectorAll('.sh-qv-card')].filter((card) => {
+          const body = card.querySelector('.sh-qv-pick').getBoundingClientRect();
+          return [...card.querySelectorAll('.sh-qv-i, .sh-qv-try')].some((b) => {
+            const r = b.getBoundingClientRect();
+            const mid = (r.top + r.bottom) / 2;
+            return mid < body.top || mid > body.bottom;
+          });
+        });
+        expect(`${label} · بطاقاتٌ التفّ زرّاها: ${offRow.length}`).toBe(`${label} · بطاقاتٌ التفّ زرّاها: 0`);
+      }
+      expect(`القائمة ≤ ١٨٠: ${list.getBoundingClientRect().height <= 180.5} · اللوحة ≤ ٤٢٠: ${pop.getBoundingClientRect().height <= 420.5}`)
+        .toBe('القائمة ≤ ١٨٠: true · اللوحة ≤ ٤٢٠: true');
+
+      /*
+       * ⚠️ **وفتحُ التفاصيل لا يقفز إلى المختار**: المختارُ آخرُ القائمة،
+       *    والقائمةُ في أوّلها، ثمّ «i» على Anna — فتُرى **بطاقتُها** وتفاصيلُها
+       *    (بأقلّ تمرير)، لا البطاقةُ المختارةُ في آخر القائمة.
+       */
+      infoBtn(pop, 'ru-long').click();
+      pop.querySelector('[data-sh="qv-pick"][data-v="ru-long"]').click();
+      list.scrollTop = 0;
+      infoBtn(pop, 'ru-anna').click();
+      const seen = (node) => {
+        const lr = list.getBoundingClientRect();
+        const r = node.getBoundingClientRect();
+        return r.top >= lr.top - 1 && r.top < lr.bottom;
+      };
+      const anna = pop.querySelector('[data-sh="qv-pick"][data-v="ru-anna"]');
+      const chosen = pop.querySelector('[data-sh="qv-pick"][data-v="ru-long"]');
+      expect(`بعد «i»: بطاقةُ Anna تُرى ${seen(anna)} · تفاصيلُها تُرى ${seen(pop.querySelector('[data-qv-details]'))} · المختارُ يُرى ${seen(chosen)}`)
+        .toBe('بعد «i»: بطاقةُ Anna تُرى true · تفاصيلُها تُرى true · المختارُ يُرى false');
+    } finally {
+      t.dispose();
+      unstyle();
+    }
+  });
+});

@@ -10107,6 +10107,14 @@ body.shadow-open { overflow: hidden; }
  */
 .sh-qv-tags > .sh-qv-tag { flex: 0 1 auto; min-inline-size: 0; }
 .sh-qv-tags > .sh-qv-tag[data-tag="provider"] { flex-shrink: 4; min-inline-size: 2.5em; }
+/*
+ * ⚠️ **واللغةُ والتوفّرُ كاملان ما دام لهما مكان** — قِيس بعد زرّ «i»: ضاق
+ *    جسمُ البطاقة ٣٠px فانكمشت الثلاثُ معًا إلى «ru-…» و«بلا…». فهما لا
+ *    ينكمشان، ولكلٍّ سقفٌ ٤٥٪ يقصّه بنقاط إن طال (وسمُ لغةٍ طويل) —
+ *    والمزوّدُ وحدَه يأخذ الباقي.
+ */
+.sh-qv-tags > .sh-qv-tag[data-tag="lang"],
+.sh-qv-tags > .sh-qv-tag[data-tag="avail"] { flex-shrink: 0; max-inline-size: 45%; }
 .sh-qv-tag {
   max-inline-size: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   padding: 1px 6px; border-radius: 6px; font-size: 10.5px;
@@ -10138,3 +10146,40 @@ body.shadow-open { overflow: hidden; }
 @media (prefers-reduced-motion: reduce) { .sh-qv-try.is-playing { animation: none; } }
 .sh-qv-try:disabled { opacity: .35; cursor: not-allowed; }
 .sh-qv-empty { font-size: 12px; color: rgba(239, 231, 216, .55); padding: 4px 2px; }
+
+/*
+ * تفاصيلُ الصوت (V1.0C): زرُّ «i» صغيرٌ بين البطاقة والتجربة، وتحت البطاقة
+ * قائمةُ ما قاله المزوّدُ فقط — سطرٌ لكلّ حقل، بعرض البطاقة، بلا فيض.
+ */
+/*
+ * ⚠️ **والالتفافُ للتفاصيل وحدها** — قِيس: بلا أساسٍ صفريٍّ للبطاقة التفّ
+ *    زرّا «i» و▶ إلى سطرٍ ثانٍ (عرضُ الاسم الكامل يطلب السطرَ كلَّه)
+ *    فصارت كلُّ بطاقةٍ ١٠٠px بدل ٦٠. فالبطاقةُ تبدأ من صفرٍ وتأخذ ما بقي.
+ */
+.sh-qv-card { flex-wrap: wrap; }
+.sh-qv-card > .sh-qv-pick { flex: 1 1 0; }
+.sh-qv-card > .sh-qv-i {
+  flex: 0 0 auto; align-self: center; inline-size: 24px; block-size: 24px; padding: 0;
+  border-radius: 50%; cursor: pointer; font: italic 700 12px/1 Georgia, serif;
+  color: rgba(239, 231, 216, .75); background: transparent;
+  border: 1px solid rgba(239, 231, 216, .28);
+}
+.sh-qv-card > .sh-qv-i[aria-expanded="true"] {
+  color: #1a1408; background: rgba(239, 231, 216, .85); border-color: transparent;
+}
+.sh-qv-info-dl {
+  flex: 1 0 100%; min-inline-size: 0; margin: 0; padding: 6px 8px;
+  display: grid; gap: 3px; border-radius: 8px;
+  background: rgba(255, 255, 255, .04); border: 1px dashed rgba(217, 182, 114, .25);
+}
+.sh-qv-fact {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px; align-items: baseline;
+  font-size: 11.5px; min-inline-size: 0;
+}
+.sh-qv-fact > dt { color: rgba(239, 231, 216, .55); white-space: nowrap; }
+.sh-qv-fact > dd {
+  margin: 0; min-inline-size: 0; color: rgba(239, 231, 216, .92);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+/* ⚠️ مضاعَفٌ كأخواته: القاعدةُ الموروثةُ توسّط النصّ. */
+.sh-qv-pop .sh-qv-fact > dt, .sh-qv-pop .sh-qv-fact > dd { text-align: left; }

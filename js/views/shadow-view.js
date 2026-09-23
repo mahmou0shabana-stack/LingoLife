@@ -10038,6 +10038,8 @@ async function startPreview(key = 'current', voiceName = undefined) {
  *    تجربتُها كانت تحتاج مُكيِّفًا ثانيًا، وهو «مشغّلٌ جديد».
  * ══════════════════════════════════════════════════════════════════ */
 let browseVoices = [];
+/** البطاقةُ التي فُتحت تفاصيلُها (`مزوّد|صوت`) — حالُ عرضٍ لا إعداد، وتموت مع اللوحة. */
+let voiceInfoKey = null;
 
 async function loadVoiceBrowser() {
   const list = quickVoice?.querySelector('[data-qv-list]');
@@ -10059,9 +10061,10 @@ async function loadVoiceBrowser() {
   paintVoiceBrowser();
 }
 
-function paintVoiceBrowser() {
+function paintVoiceBrowser({ reveal = true } = {}) {
   const list = quickVoice?.querySelector('[data-qv-list]');
   if (!list) return;
+  const keptScroll = list.scrollTop;
   const q = (quickVoice.querySelector('[data-qv-search]')?.value || '').trim().toLowerCase();
   const active = activeVoiceName();
   const hits = browseVoices.filter((v) => !q
@@ -10080,12 +10083,14 @@ function paintVoiceBrowser() {
    *    `ctx.ttsProviders` تُترجَم إلى كلمة، ولا يُفحَص شيء. وحالةٌ لا
    *    ترجمةَ لها لا تُعرَض: لا نخترع وصفًا لما لم يُقَل.
    */
-  const statusOf = (providerId) => (ctx.ttsProviders || [])
-    .find(({ provider }) => provider.id === providerId)?.availability?.status;
+  const entryOf = (providerId) => (ctx.ttsProviders || [])
+    .find(({ provider }) => provider.id === providerId);
+  const statusOf = (providerId) => entryOf(providerId)?.availability?.status;
   list.innerHTML = hits.map((v) => {
     const on = v.providerId === ctx.ttsProviderId && v.id === active;
     const canTry = v.providerId === ctx.ttsProviderId;
     const avail = AVAILABILITY_SHORT[statusOf(v.providerId)] || '';
+    const open = voiceInfoKey === voiceKey(v.providerId, v.id);
     return html`<li class="sh-qv-card${on ? ' on' : ''}">
       <button type="button" class="sh-qv-pick" data-sh="qv-pick"
         data-p="${v.providerId}" data-v="${v.id}" aria-pressed="${on ? 'true' : 'false'}"
@@ -10100,9 +10105,12 @@ function paintVoiceBrowser() {
           ${raw(avail ? html`<span class="sh-qv-tag" data-tag="avail">${avail}</span>` : '')}
         </span>
       </button>
+      <button type="button" class="sh-qv-i" data-sh="qv-info" data-p="${v.providerId}" data-v="${v.id}"
+        aria-expanded="${open ? 'true' : 'false'}" aria-label="تفاصيل ${v.name}">i</button>
       <button type="button" class="sh-qv-try" data-sh="qv-try" data-p="${v.providerId}" data-v="${v.id}"
         data-name="${v.name}" aria-label="جرّب ${v.name}" aria-pressed="false"
         ${canTry ? '' : 'disabled'} title="${canTry ? '' : 'اختاره الأوّل — مزوّدُه غيرُ المفعَّل'}">▶</button>
+      ${raw(open ? voiceInfoHtml(v, entryOf(v.providerId)) : '')}
     </li>`;
   }).join('');
   /*
@@ -10110,13 +10118,51 @@ function paintVoiceBrowser() {
    *    حدّها (١٨٠px) ولا يُعرف أيُّها المختار. فإن كان خارجَ ما يُرى —
    *    وبلا بحثٍ يطلب غيرَه — تُمرَّر القائمةُ إليه وحدَها لا الصفحة.
    */
-  const chosen = !q && list.querySelector('.sh-qv-card.on');
+  /*
+   * ⚠️ **وفتحُ التفاصيل لا يقفز**: تلمس «i» على بطاقةٍ فتبقى القائمةُ حيث
+   *    هي — لا تُمرَّر إلى المختار بعيدًا عن البطاقة التي فتحتَها.
+   */
+  if (!reveal) list.scrollTop = keptScroll;
+  const chosen = reveal && !q && list.querySelector('.sh-qv-card.on');
   if (chosen) {
     const top = chosen.offsetTop - list.offsetTop;
     const seen = top >= list.scrollTop && top + chosen.offsetHeight <= list.scrollTop + list.clientHeight;
     if (!seen) list.scrollTop = Math.max(0, top - 4);
   }
   paintPreview();
+}
+
+/**
+ * تفاصيلُ صوتٍ — **ممّا قيل فقط** (Voice Center V1.0C).
+ *
+ * ⚠️ **لا حقلَ يُخمَّن.** الاسمُ واللغةُ من `getVoices()`، والمزوّدُ
+ *    وقدرتاه (`supportsOffline` · `supportsStreaming`) من تعريفه كما
+ *    أعلنه في عقد types.js، والتوفّرُ ممّا ردّه `isAvailable()` عند فتح
+ *    الشاشة. وما لم يُعطَ — لغةٌ غائبة، أو قدرةٌ ليست قيمةً منطقيّة —
+ *    لا يُعرَض سطرُه أصلًا، بدل «غير معروف» يوحي بأنّه سُئل.
+ */
+function voiceInfoHtml(v, entry) {
+  const provider = entry?.provider || {};
+  const a = entry?.availability;
+  const yesNo = (flag) => (flag ? 'نعم' : 'لا');
+  let availability = '';
+  if (typeof a?.available === 'boolean') {
+    availability = a.available
+      ? ['متاح', AVAILABILITY_SHORT[a.status]].filter(Boolean).join(' · ')
+      : ['غير متاح', a.reason].filter(Boolean).join(' · ');
+  }
+  const facts = [
+    ['الاسم', v.name, 'auto'],
+    ['المزوّد', v.providerName, 'rtl'],
+    v.language ? ['اللغة', v.language, 'ltr'] : null,
+    availability ? ['التوفّر', availability, 'rtl'] : null,
+    typeof provider.supportsOffline === 'boolean' ? ['يعمل بلا إنترنت', yesNo(provider.supportsOffline), 'rtl'] : null,
+    typeof provider.supportsStreaming === 'boolean' ? ['بثٌّ متدفّق', yesNo(provider.supportsStreaming), 'rtl'] : null,
+  ].filter(Boolean);
+  return html`<dl class="sh-qv-info-dl" data-qv-details>
+    ${raw(facts.map(([label, value, dir]) => html`<div class="sh-qv-fact">
+      <dt>${label}</dt><dd dir="${dir}">${value}</dd></div>`).join(''))}
+  </dl>`;
 }
 
 /** كلمةٌ لحالة توفّر المزوّد كما قالها — لا فحصَ هنا. */
@@ -10180,6 +10226,7 @@ function openQuickVoice() {
 function closeQuickVoice() {
   stopPreview();
   browseVoices = [];
+  voiceInfoKey = null;
   quickVoice?.remove();
   quickVoice = null;
   const btn = document.querySelector('[data-sh="qv"]');
@@ -13083,6 +13130,25 @@ function wireInteractions(main) {
       }
       case 'qv-pick':
         return pickVoice(btn.dataset.p, btn.dataset.v);
+      case 'qv-info': {
+        /* ⚠️ عرضٌ لا فعل: لا نطقَ، ولا اختيار، ولا ناقل — بطاقةٌ تُفتَح وحدها. */
+        const key = voiceKey(btn.dataset.p, btn.dataset.v);
+        voiceInfoKey = voiceInfoKey === key ? null : key;
+        paintVoiceBrowser({ reveal: false });
+        /*
+         * والتفاصيلُ المفتوحةُ تُرى كاملةً إن أمكن — بأقلّ تمريرٍ للقائمة
+         * وحدها، ولا تتجاوز رأسَ بطاقتها (فلا تهرب البطاقةُ من تحت إصبعك).
+         */
+        const list = quickVoice?.querySelector('[data-qv-list]');
+        const details = list?.querySelector('[data-qv-details]');
+        if (details) {
+          const cardTop = details.closest('.sh-qv-card').offsetTop - list.offsetTop;
+          const bottom = details.offsetTop - list.offsetTop + details.offsetHeight;
+          const want = Math.max(list.scrollTop, bottom - list.clientHeight);
+          list.scrollTop = Math.min(want, cardTop);
+        }
+        return undefined;
+      }
       case 'qv-advanced': {
         /* المتقدّمُ هو مركزُ التدريب نفسُه — مفتوحًا على قسم الصوت ومتقدّمِه. */
         closeQuickVoice();
