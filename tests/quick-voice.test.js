@@ -115,9 +115,9 @@ describe('Voice Center V1.0C · لوحةُ الصوت السريعة', () => {
 
       btn.click();
       expect(`فُتحت: ${!!pop()} · ${btn.getAttribute('aria-expanded')}`).toBe('فُتحت: true · true');
-      /* ستّةُ عناصرَ لا غير: المصدر، والصوت (وتجربتُه، وبحثُ «كلّ الأصوات» المطويّ)، والسرعة، والارتفاع، والتكرار، والمتقدّم. */
+      /* ستّةُ عناصرَ لا غير: المصدر، والصوت (وتجربتُه، و«كلّ الأصوات» المطويّ بمقارنته وبحثه)، والسرعة، والارتفاع، والتكرار، والمتقدّم. */
       expect([...pop().querySelectorAll('select, input, button')].map((n) => n.dataset.sh || n.dataset.tuneRange || ('qvSearch' in n.dataset ? 'qv-search' : null)))
-        .toEqual(['qv-provider', 'voice-select', 'qv-preview', 'qv-search', 'speed', 'volume', 'repeat', 'qv-advanced']);
+        .toEqual(['qv-provider', 'voice-select', 'qv-preview', 'qv-cmp-close', 'qv-search', 'speed', 'volume', 'repeat', 'qv-advanced']);
       btn.click();
       expect(`زرُّها يغلقها: ${!pop()}`).toBe('زرُّها يغلقها: true');
 
@@ -1194,6 +1194,213 @@ describe('Voice Center V1.0C · المفضّلةُ والأخيرة في متص�
       expect(namesIn(pop, 'favs')).toEqual(['Carl']);
     } finally {
       unwatch();
+      t.dispose();
+      bus.forgetAudioOwner();
+    }
+  });
+});
+
+/** جانبا المقارنة كما يُقرآن: أسماءٌ، و«فارغ» لخانةٍ تنتظر. */
+const sidesOf = (pop) => [...pop.querySelectorAll('[data-qv-cmp] .sh-qv-slot')]
+  .map((s) => (s.classList.contains('is-empty') ? 'فارغ' : s.querySelector('.sh-qv-name').textContent));
+const slotTry = (pop, id) => pop.querySelector(`[data-qv-cmp] [data-sh="qv-try"][data-v="${id}"]`);
+const cmpShown = (pop) => !pop.querySelector('[data-qv-sec="cmp"]').hidden;
+
+/** مزوّدٌ بمكتبةٍ وتوليدٍ يقف عند بوّابةٍ نفتحها — تجربةٌ «تعمل» ما شئنا. */
+function heldLibrary(id) {
+  const lib = libraryProvider(id);
+  const gates = [];
+  const real = lib.provider.synthesize;
+  lib.provider.synthesize = async (req) => {
+    await new Promise((r) => { gates.push(r); });
+    return real(req);
+  };
+  return { lib, openAll: () => gates.splice(0).forEach((r) => r()), gates };
+}
+
+describe('Voice Center V1.0C · المقارنةُ المصغّرة في متصفّح الأصوات', () => {
+  it('٢٦ · «⇄» يضع صوتين في صفّ المقارنة — والثالثُ يُخرج أقدمَهما، و✕ يمحوها', async () => {
+    const lib = libraryProvider('qv-lib');
+    const t = await mountShadow({ provider: lib.provider });
+    try {
+      t.$('[data-sh="qv"]').click();
+      const pop = document.querySelector('.sh-qv-pop');
+      await openBrowser(pop, 'ru-anna');
+      expect(`مخفيّ: ${!cmpShown(pop)}`).toBe('مخفيّ: true');
+      const cmp = (id) => inList(pop, 'list', 'qv-cmp', id);
+
+      cmp('ru-anna').click();
+      expect(`${cmpShown(pop)} · ${sidesOf(pop).join(' | ')} · ${cmp('ru-anna').getAttribute('aria-pressed')}`)
+        .toBe('true · Anna | فارغ · true');
+      cmp('ru-boris').click();
+      expect(sidesOf(pop)).toEqual(['Anna', 'Boris']);
+      cmp('en-carl').click();
+      expect(sidesOf(pop)).toEqual(['Boris', 'Carl']);
+      expect(`Anna خرجت: ${cmp('ru-anna').getAttribute('aria-pressed')}`).toBe('Anna خرجت: false');
+      cmp('ru-boris').click();
+      expect(sidesOf(pop)).toEqual(['Carl', 'فارغ']);
+
+      pop.querySelector('[data-sh="qv-cmp-close"]').click();
+      expect(`بعد ✕: ${cmpShown(pop) ? 'ظاهر' : 'مخفيّ'} · مضغوطة ${pop.querySelectorAll('[data-sh="qv-cmp"][aria-pressed="true"]').length}`)
+        .toBe('بعد ✕: مخفيّ · مضغوطة 0');
+
+      /* وحالٌ مؤقّتةٌ لا تُحفَظ: إغلاقُ اللوحة وفتحُها يبدأ بلا مقارنة. */
+      cmp('ru-anna').click();
+      t.$('[data-sh="qv"]').click();
+      t.$('[data-sh="qv"]').click();
+      const again = document.querySelector('.sh-qv-pop');
+      await openBrowser(again, 'ru-anna');
+      expect(`بعد إعادة الفتح: ${cmpShown(again) ? 'ظاهر' : 'مخفيّ'}`).toBe('بعد إعادة الفتح: مخفيّ');
+    } finally {
+      t.dispose();
+    }
+  });
+
+  it('٢٧ · لكلّ جانبٍ تجربتُه بصوته — وواحدةٌ في كلّ لحظة، والثانيةُ تُسكِت الأولى', async () => {
+    const { lib, openAll, gates } = heldLibrary('qv-lib');
+    const t = await mountShadow({ provider: lib.provider });
+    const bus = await import('../js/services/shadow/audio-bus.js');
+    bus.forgetAudioOwner();
+    try {
+      t.$('[data-sh="qv"]').click();
+      const pop = document.querySelector('.sh-qv-pop');
+      await openBrowser(pop, 'ru-anna');
+      inList(pop, 'list', 'qv-pick', 'en-carl').click();
+      inList(pop, 'list', 'qv-cmp', 'ru-anna').click();
+      inList(pop, 'list', 'qv-cmp', 'ru-boris').click();
+
+      const state = () => ['ru-anna', 'ru-boris'].map((id) => `${id}:${slotTry(pop, id).textContent}`).join(' ');
+      slotTry(pop, 'ru-anna').click();
+      await until(() => gates.length >= 1);
+      expect(`${state()} · ${bus.audioOwner()}`).toBe('ru-anna:■ ru-boris:▶ · speak');
+
+      /* ⚠️ والثانيةُ والأولى ما زالت تعمل — فتُسكِتها. */
+      slotTry(pop, 'ru-boris').click();
+      expect(`${state()} · ${bus.audioOwner()}`).toBe('ru-anna:▶ ru-boris:■ · speak');
+      expect(`تعمل في الصفّ: ${pop.querySelectorAll('[data-qv-cmp] .is-playing').length}`).toBe('تعمل في الصفّ: 1');
+
+      /* ⚠️ الطلبُ الثاني يبلغ البوّابةَ بعد بحثٍ في الذاكرة المشتركة — يُنتظَر لا يُفترَض. */
+      await until(() => gates.length >= 2);
+      openAll();
+      await until(() => lib.calls.length >= 2);
+      expect(lib.calls.map((c) => c.voiceId)).toEqual(['ru-anna', 'ru-boris']);
+      await until(() => !pop.querySelector('[data-qv-cmp] .is-playing'));
+      expect(`بعدها: ${bus.audioOwner() ?? 'لا مالك'}`).toBe('بعدها: لا مالك');
+    } finally {
+      openAll();
+      t.dispose();
+      bus.forgetAudioOwner();
+    }
+  });
+
+  it('٢٨ · والمقارنةُ لا تختار: المختارُ والسطرُ والمزوّدُ والجلسةُ كما كانت', async () => {
+    const lib = libraryProvider('qv-lib');
+    const t = await mountShadow({ provider: lib.provider });
+    try {
+      t.$('[data-sh="qv"]').click();
+      const pop = document.querySelector('.sh-qv-pop');
+      await openBrowser(pop, 'ru-anna');
+      inList(pop, 'list', 'qv-pick', 'en-carl').click();
+      await new Promise((r) => setTimeout(r, 150));
+      const { shadowSessions } = await import('../js/db/repositories.js');
+      const before = await shadowSessions.get(t.session.id);
+      const info = pop.querySelector('[data-qv-info]').textContent;
+
+      inList(pop, 'list', 'qv-cmp', 'ru-anna').click();
+      inList(pop, 'list', 'qv-cmp', 'ru-boris').click();
+      slotTry(pop, 'ru-anna').click();
+      await until(() => lib.calls.length >= 1);
+      slotTry(pop, 'ru-boris').click();
+      await until(() => lib.calls.length >= 2);
+      pop.querySelector('[data-sh="qv-cmp-close"]').click();
+      await new Promise((r) => setTimeout(r, 150));
+
+      expect(`السطر ثابت: ${pop.querySelector('[data-qv-info]').textContent === info} · ${info}`)
+        .toBe('السطر ثابت: true · مزوّد المكتبة · en-carl · متاح');
+      expect([...pop.querySelectorAll('[data-qv-list] .sh-qv-card.on .sh-qv-name')].map((n) => n.textContent)).toEqual(['Carl']);
+      expect(pop.querySelector('[data-sh="qv-provider"]').value).toBe('qv-lib');
+      const after = await shadowSessions.get(t.session.id);
+      expect(JSON.stringify([after.voiceId, after.voiceByProvider])).toBe(JSON.stringify([before.voiceId, before.voiceByProvider]));
+    } finally {
+      t.dispose();
+    }
+  });
+
+  it('٢٩ · ولا تسرّبَ بين المزوّدين: جانبٌ من مزوّدٍ غيرِ المفعَّل لا يُجرَّب ولا يبدّل المزوّد', async () => {
+    const lib = libraryProvider('qv-lib');
+    const other = libraryProvider('qv-other');
+    other.provider.name = 'مزوّدٌ آخر';
+    other.provider.getVoices = async () => [{ id: 'o-zoya', name: 'Zoya', language: 'ru-RU' }];
+    const registry = await import('../js/services/shadow/tts/registry.js');
+    registry.registerProvider(other.provider);
+    const t = await mountShadow({ provider: lib.provider });
+    try {
+      t.$('[data-sh="qv"]').click();
+      const pop = document.querySelector('.sh-qv-pop');
+      await openBrowser(pop, 'o-zoya');
+      inList(pop, 'list', 'qv-pick', 'ru-anna').click();
+      inList(pop, 'list', 'qv-cmp', 'ru-anna').click();
+      inList(pop, 'list', 'qv-cmp', 'o-zoya').click();
+      expect(sidesOf(pop)).toEqual(['Anna', 'Zoya']);
+
+      const zoya = slotTry(pop, 'o-zoya');
+      expect(`معطّل: ${zoya.disabled}`).toBe('معطّل: true');
+      zoya.click();
+      slotTry(pop, 'ru-anna').click();
+      await until(() => lib.calls.length >= 1);
+      await new Promise((r) => setTimeout(r, 150));
+      expect(`المفعَّل طُلب: ${lib.calls.map((c) => c.voiceId).join(',')} · الآخر طُلب: ${other.calls.length}`)
+        .toBe('المفعَّل طُلب: ru-anna · الآخر طُلب: 0');
+      expect(pop.querySelector('[data-sh="qv-provider"]').value).toBe('qv-lib');
+      expect(pop.querySelector('[data-qv-info]').textContent).toBe('مزوّد المكتبة · ru-anna · متاح');
+    } finally {
+      t.dispose();
+      registry.unregisterProvider('qv-other');
+    }
+  });
+
+  it('٣٠ · والناقلُ كما هو: المقارنةُ صامتة، وتجربتُها توقف التدريب وتحرّر، و✕ يوقف تجربتَها وحدها', async () => {
+    const { lib, openAll } = heldLibrary('qv-lib');
+    const t = await mountShadow({ provider: lib.provider });
+    const bus = await import('../js/services/shadow/audio-bus.js');
+    bus.forgetAudioOwner();
+    const changes = [];
+    const unwatch = bus.watchAudio((owner) => changes.push(owner));
+    try {
+      t.$('[data-sh="qv"]').click();
+      const pop = document.querySelector('.sh-qv-pop');
+      await openBrowser(pop, 'ru-anna');
+      inList(pop, 'list', 'qv-pick', 'en-carl').click();
+      inList(pop, 'list', 'qv-cmp', 'ru-anna').click();
+      inList(pop, 'list', 'qv-cmp', 'ru-boris').click();
+      pop.querySelector('[data-sh="qv-cmp-close"]').click();
+      inList(pop, 'list', 'qv-cmp', 'ru-anna').click();
+      inList(pop, 'list', 'qv-cmp', 'ru-boris').click();
+      expect(`صامتة: تبدّل ${changes.length} · طلب ${lib.calls.length} · نطق ${t.speech.spoken.length}`)
+        .toBe('صامتة: تبدّل 0 · طلب 0 · نطق 0');
+
+      /* التدريبُ يعمل — وتجربةُ جانبٍ تطالب فيقف. */
+      t.$('[data-sh="play"]').click();
+      await until(() => bus.audioOwner() === 'session');
+      openAll();
+      slotTry(pop, 'ru-anna').click();
+      expect(`${bus.audioOwner()} · التدريبُ ${t.$('[data-sh="play"]').classList.contains('on') ? 'يعمل' : 'واقف'}`)
+        .toBe('speak · التدريبُ واقف');
+
+      /* ✕ أثناء تجربة أحد الصوتين: تتوقّف ويُحرَّر الناقل. */
+      pop.querySelector('[data-sh="qv-cmp-close"]').click();
+      expect(`بعد ✕: ${bus.audioOwner() ?? 'لا مالك'} · ${cmpShown(pop) ? 'ظاهر' : 'مخفيّ'}`).toBe('بعد ✕: لا مالك · مخفيّ');
+
+      /* و✕ بلا تجربةٍ منها لا يمسّ تجربةً أخرى تعمل. */
+      inList(pop, 'list', 'qv-cmp', 'ru-boris').click();
+      inList(pop, 'list', 'qv-try', 'en-carl').click();
+      expect(bus.audioOwner()).toBe('speak');
+      pop.querySelector('[data-sh="qv-cmp-close"]').click();
+      expect(`تجربةُ Carl باقية: ${bus.audioOwner()} · ${inList(pop, 'list', 'qv-try', 'en-carl').textContent}`)
+        .toBe('تجربةُ Carl باقية: speak · ■');
+    } finally {
+      unwatch();
+      openAll();
       t.dispose();
       bus.forgetAudioOwner();
     }

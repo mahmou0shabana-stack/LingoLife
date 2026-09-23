@@ -9936,6 +9936,13 @@ function quickVoiceHtml() {
     </div>
     <details class="sh-qv-browse" data-qv-browse>
       <summary>كلّ الأصوات</summary>
+      <section class="sh-qv-sec sh-qv-cmp" data-qv-sec="cmp" hidden>
+        <div class="sh-qv-cmp-h">
+          <h4 class="sh-qv-sec-h">⇄ مقارنة</h4>
+          <button type="button" class="sh-qv-cmp-x" data-sh="qv-cmp-close" aria-label="اقفل المقارنة">✕</button>
+        </div>
+        <div class="sh-qv-cmp-row" data-qv-cmp></div>
+      </section>
       <section class="sh-qv-sec" data-qv-sec="favs" hidden>
         <h4 class="sh-qv-sec-h">★ المفضّلة</h4>
         <ul class="sh-qv-list sh-qv-mini" data-qv-favs></ul>
@@ -10065,6 +10072,59 @@ let voiceInfoKey = null;
  * ⚠️ **والقائمتان مستقلّتان**: التفضيلُ لا يختار، والاختيارُ لا يفضّل،
  *    ونزعُ النجمة لا يمسّ «الأخيرة».
  * ══════════════════════════════════════════════════════════════════ */
+/*
+ * ══════════════════════════════════════════════════════════════════
+ * المقارنة (Voice Center V1.0C) — صوتان جنبًا إلى جنب، ولكلٍّ تجربتُه
+ *
+ * ⚠️ **حالٌ مؤقّتةٌ لا إعداد**: مفتاحان على الأكثر (`مزوّد|صوت`)، لا
+ *    تُحفَظ ولا تختار ولا تغيّر مزوّدًا — وتموت بـ✕ أو بإغلاق اللوحة.
+ *    وثالثٌ يُضاف يُخرج أقدمَهما.
+ *
+ * ⚠️ **وتجربةُ كلِّ جانبٍ هي تجربةُ البطاقة نفسُها** (`qv-try`):
+ *    `speakScope` والناقلُ باسم speak — فتجربةٌ واحدةٌ في كلّ لحظة، وبدءُ
+ *    الثانية يُسكِت الأولى. وجانبٌ من مزوّدٍ غيرِ المفعَّل معطّلٌ كبطاقته:
+ *    تجربتُه كانت ستُسلِّم معرّفَه لمزوّدٍ آخر.
+ * ══════════════════════════════════════════════════════════════════ */
+let voiceCompare = [];
+
+function toggleCompare(providerId, voiceId) {
+  const key = voiceKey(providerId, voiceId);
+  voiceCompare = voiceCompare.includes(key)
+    ? voiceCompare.filter((k) => k !== key)
+    : [...voiceCompare, key].slice(-2);
+  paintVoiceBrowser({ reveal: false });
+}
+
+/** ✕ — يمحو الحالَ المؤقّتة، ويوقف تجربةً لأحد الصوتين إن كانت تُسمَع. */
+function closeCompare() {
+  if (previewing && voiceCompare.includes(previewing.key)) stopPreview();
+  voiceCompare = [];
+  paintVoiceBrowser({ reveal: false });
+}
+
+function paintCompare() {
+  const section = quickVoice?.querySelector('[data-qv-sec="cmp"]');
+  const row = quickVoice?.querySelector('[data-qv-cmp]');
+  if (!section || !row) return;
+  const byKey = new Map(browseVoices.map((v) => [voiceKey(v.providerId, v.id), v]));
+  const sides = voiceCompare.map((k) => byKey.get(k)).filter(Boolean);
+  section.hidden = !sides.length;
+  const slot = (v) => {
+    if (!v) return '<div class="sh-qv-slot is-empty">اختار صوتًا تاني بـ ⇄</div>';
+    const canTry = v.providerId === ctx.ttsProviderId;
+    return html`<div class="sh-qv-slot" data-qv-slot="${voiceKey(v.providerId, v.id)}">
+      <span class="sh-qv-slot-txt">
+        <span class="sh-qv-name" dir="auto">${v.name}</span>
+        <small dir="rtl"><bdi>${v.providerName}</bdi>${raw(v.language ? html` · <bdi dir="ltr">${v.language}</bdi>` : '')}</small>
+      </span>
+      <button type="button" class="sh-qv-try" data-sh="qv-try" data-p="${v.providerId}" data-v="${v.id}"
+        data-name="${v.name}" aria-label="جرّب ${v.name}" aria-pressed="false"
+        ${canTry ? '' : 'disabled'} title="${canTry ? '' : 'مزوّدُه غيرُ المفعَّل'}">▶</button>
+    </div>`;
+  };
+  row.innerHTML = slot(sides[0]) + slot(sides[1]);
+}
+
 const VOICE_FAVS_KEY = 'shadow.voiceFavorites';
 const VOICE_RECENT_KEY = 'shadow.voiceRecent';
 const VOICE_RECENT_MAX = 5;
@@ -10125,6 +10185,8 @@ function paintVoiceBrowser({ reveal = true } = {}) {
   if (!hits.length) {
     list.innerHTML = html`<li class="sh-qv-empty">${browseVoices.length ? 'مفيش صوت بالبحث ده' : 'مفيش أصوات متاحة'}</li>`;
     paintVoiceSections(active);
+    paintCompare();
+    paintPreview();
     return;
   }
   /*
@@ -10155,6 +10217,7 @@ function paintVoiceBrowser({ reveal = true } = {}) {
     if (!seen) list.scrollTop = Math.max(0, top - 4);
   }
   paintVoiceSections(active);
+  paintCompare();
   paintPreview();
 }
 
@@ -10185,6 +10248,7 @@ function voiceCardHtml(v, active, { details = true } = {}) {
   const avail = AVAILABILITY_SHORT[statusOf(v.providerId)] || '';
   const open = details && voiceInfoKey === voiceKey(v.providerId, v.id);
   const fav = voiceFavs.includes(voiceKey(v.providerId, v.id));
+  const cmp = voiceCompare.includes(voiceKey(v.providerId, v.id));
   return html`<li class="sh-qv-card${on ? ' on' : ''}${fav ? ' fav' : ''}">
     <button type="button" class="sh-qv-pick" data-sh="qv-pick"
       data-p="${v.providerId}" data-v="${v.id}" aria-pressed="${on ? 'true' : 'false'}"
@@ -10202,6 +10266,8 @@ function voiceCardHtml(v, active, { details = true } = {}) {
     <button type="button" class="sh-qv-star" data-sh="qv-fav" data-p="${v.providerId}" data-v="${v.id}"
       aria-pressed="${fav ? 'true' : 'false'}"
       aria-label="${fav ? `شيل ${v.name} من المفضّلة` : `ضيف ${v.name} للمفضّلة`}">${fav ? '★' : '☆'}</button>
+    ${raw(details ? html`<button type="button" class="sh-qv-cmpb" data-sh="qv-cmp" data-p="${v.providerId}" data-v="${v.id}"
+      aria-pressed="${cmp ? 'true' : 'false'}" aria-label="${cmp ? `شيل ${v.name} من المقارنة` : `قارن ${v.name}`}">⇄</button>` : '')}
     ${raw(details ? html`<button type="button" class="sh-qv-i" data-sh="qv-info" data-p="${v.providerId}" data-v="${v.id}"
       aria-expanded="${open ? 'true' : 'false'}" aria-label="تفاصيل ${v.name}">i</button>` : '')}
     <button type="button" class="sh-qv-try" data-sh="qv-try" data-p="${v.providerId}" data-v="${v.id}"
@@ -10307,6 +10373,7 @@ function closeQuickVoice() {
   stopPreview();
   browseVoices = [];
   voiceInfoKey = null;
+  voiceCompare = [];
   quickVoice?.remove();
   quickVoice = null;
   const btn = document.querySelector('[data-sh="qv"]');
@@ -13215,6 +13282,11 @@ function wireInteractions(main) {
       }
       case 'qv-pick':
         return pickVoice(btn.dataset.p, btn.dataset.v);
+      case 'qv-cmp':
+        /* ⚠️ مقارنةٌ لا اختيار: لا صوتَ ولا مزوّدَ ولا نطق — حالٌ مؤقّتة. */
+        return toggleCompare(btn.dataset.p, btn.dataset.v);
+      case 'qv-cmp-close':
+        return closeCompare();
       case 'qv-fav':
         /* ⚠️ تفضيلٌ لا اختيار: لا صوتَ ولا مزوّدَ ولا نطقَ يتغيّر. */
         return toggleFavorite(btn.dataset.p, btn.dataset.v);

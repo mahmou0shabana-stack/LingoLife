@@ -10204,3 +10204,44 @@ body.shadow-open { overflow: hidden; }
 }
 .sh-qv-pop .sh-qv-sec-h { text-align: left; }
 .sh-qv-list.sh-qv-mini { max-block-size: 128px; }
+
+/*
+ * المقارنة (V1.0C): زرُّ «⇄» صغيرٌ في بطاقات القائمة الكاملة، وصفٌّ من
+ * جانبين في رأس «كلّ الأصوات» — لكلّ جانبٍ اسمُه وزرُّ تجربته. عمودان
+ * متساويان يُقصّ فيهما الاسمُ بنقاط، فلا فيضَ على ٢٨٠px.
+ */
+.sh-qv-card > .sh-qv-cmpb {
+  flex: 0 0 auto; align-self: center; inline-size: 22px; block-size: 22px; padding: 0;
+  border: 0; background: transparent; cursor: pointer;
+  font-size: 13px; line-height: 1; color: rgba(239, 231, 216, .45);
+}
+.sh-qv-card > .sh-qv-cmpb[aria-pressed="true"] { color: rgba(140, 200, 255, 1); text-shadow: 0 0 8px rgba(140, 200, 255, .45); }
+.sh-qv-card > .sh-qv-star { inline-size: 22px; }
+.sh-qv-card > .sh-qv-i { inline-size: 22px; block-size: 22px; }
+.sh-qv-cmp-h { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.sh-qv-cmp-x {
+  inline-size: 22px; block-size: 22px; padding: 0; border-radius: 50%; cursor: pointer;
+  border: 1px solid rgba(239, 231, 216, .25); background: transparent;
+  color: rgba(239, 231, 216, .75); font-size: 11px; line-height: 1;
+}
+.sh-qv-cmp-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px; }
+.sh-qv-slot {
+  min-inline-size: 0; display: flex; align-items: center; gap: 4px;
+  padding: 5px 6px; border-radius: 9px;
+  border: 1px solid rgba(140, 200, 255, .35); background: rgba(140, 200, 255, .06);
+}
+.sh-qv-slot.is-empty {
+  justify-content: center; font-size: 11px; color: rgba(239, 231, 216, .5);
+  border-style: dashed; background: transparent;
+}
+.sh-qv-slot-txt { flex: 1 1 0; min-inline-size: 0; display: grid; gap: 1px; }
+.sh-qv-slot-txt > .sh-qv-name { font-size: 12px; }
+.sh-qv-slot-txt > small {
+  font-size: 10px; color: rgba(239, 231, 216, .6);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sh-qv-slot > .sh-qv-try {
+  flex: 0 0 auto; inline-size: 30px; block-size: 30px; border-radius: 50%;
+  display: grid; place-items: center; font-size: 11px;
+}
+.sh-qv-pop .sh-qv-slot-txt, .sh-qv-pop .sh-qv-slot-txt > * { text-align: left; }
