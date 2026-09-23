@@ -10262,3 +10262,12 @@ body.shadow-open { overflow: hidden; }
   border: 1px solid rgba(255, 150, 120, .35);
 }
 .sh-qv-cache-x:disabled { opacity: .4; cursor: not-allowed; }
+
+/*
+ * تنظيمُ اللوحة (V1.0C): الأقسامُ الثقيلةُ الثلاثةُ مجموعةٌ واحدةٌ مفصولةٌ
+ * بخطٍّ رفيع — عناوينُها صفوفٌ تُلمَس، وواحدٌ مفتوحٌ في كلّ مرّة.
+ */
+.sh-qv-acc { display: grid; gap: 0; border-top: 1px solid rgba(217, 182, 114, .18); }
+.sh-qv-acc > details { padding-block: 6px; border-bottom: 1px solid rgba(217, 182, 114, .12); }
+.sh-qv-acc > details > summary { padding-block: 4px; min-block-size: 28px; display: flex; align-items: center; }
+.sh-qv-acc > details[open] > summary { color: rgba(240, 210, 150, 1); }

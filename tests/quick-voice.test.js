@@ -58,7 +58,12 @@ function stubSpeech() {
 }
 
 /** يركّب الشاشةَ على جلسةٍ جديدة — ويعيد أدواتِ القياس ومفكِّكَها. */
+/* القسمُ المتذكَّر محلّيًّا يعبر الاختبارات في نفس الصفحة — فيُمحى قبل كلّ تركيبٍ وبعده. */
+const QV_SECTION_KEY = 'lingolife.quickVoice.section';
+const forgetSection = () => { try { localStorage.removeItem(QV_SECTION_KEY); } catch { /* محجوب */ } };
+
 async function mountShadow({ provider = null } = {}) {
+  forgetSection();
   const speech = stubSpeech();
   const registry = await import('../js/services/shadow/tts/registry.js');
   if (provider) registry.registerProvider(provider);
@@ -90,6 +95,7 @@ async function mountShadow({ provider = null } = {}) {
     main.remove();
     speech.restore();
     if (provider) registry.unregisterProvider(provider.id);
+    forgetSection();
   };
   return { main, $, session, speech, dispose };
 }
@@ -117,7 +123,7 @@ describe('Voice Center V1.0C · لوحةُ الصوت السريعة', () => {
       expect(`فُتحت: ${!!pop()} · ${btn.getAttribute('aria-expanded')}`).toBe('فُتحت: true · true');
       /* ستّةُ عناصرَ لا غير: المصدر، والصوت (وتجربتُه، و«كلّ الأصوات» المطويّ بمقارنته وبحثه)، والسرعة، والارتفاع، والتكرار، والمتقدّم. */
       expect([...pop().querySelectorAll('select, input, button')].map((n) => n.dataset.sh || n.dataset.tuneRange || ('qvSearch' in n.dataset ? 'qv-search' : null)))
-        .toEqual(['qv-provider', 'voice-select', 'qv-preview', 'qv-cmp-close', 'qv-search', 'qv-cache-clear', 'speed', 'volume', 'repeat', 'qv-advanced']);
+        .toEqual(['qv-provider', 'voice-select', 'qv-preview', 'speed', 'volume', 'repeat', 'qv-cmp-close', 'qv-search', 'qv-cache-clear', 'qv-advanced']);
       btn.click();
       expect(`زرُّها يغلقها: ${!pop()}`).toBe('زرُّها يغلقها: true');
 
@@ -417,7 +423,8 @@ function libraryProvider(id) {
 /** يفتح قسمَ «كلّ الأصوات» كما يفتحه الإصبع — وينتظر أن تُجلَب القائمة. */
 async function openBrowser(pop, expectId) {
   const details = pop.querySelector('[data-qv-browse]');
-  details.querySelector('summary').click();
+  /* ⚠️ وقد يكون مفتوحًا أصلًا — القسمُ المتذكَّرُ يُفتَح مع اللوحة. */
+  if (!details.open) details.querySelector('summary').click();
   await until(() => pop.querySelector(`[data-sh="qv-pick"][data-v="${expectId}"]`));
 }
 
@@ -1741,6 +1748,181 @@ describe('Voice Center · «اختبر الصوت»', () => {
     } finally {
       t.dispose();
       bus.forgetAudioOwner();
+    }
+  });
+});
+
+/** الأقسامُ الثقيلة: أيُّها مفتوح الآن. */
+const openSections = (pop) => [...pop.querySelectorAll('[data-qv-section]')].filter((d) => d.open).map((d) => d.dataset.qvSection);
+const openSection = async (pop, name) => {
+  const d = pop.querySelector(`[data-qv-section="${name}"]`);
+  if (!d.open) d.querySelector('summary').click();
+  /* ⚠️ `toggle` يُطلَق بعد مهمّة — فيُنتظَر أثرُه لا يُفترَض. */
+  await until(() => openSections(pop).join() === name)
+    .catch(() => { throw new Error(`القسم ${name}: المفتوح الآن ${openSections(pop).join() || 'لا شيء'}`); });
+};
+
+describe('Voice Center · تنظيمُ اللوحة', () => {
+  it('٤١ · ترتيبٌ أوضح، والأقسامُ الثقيلةُ تُطوى — وواحدٌ مفتوحٌ في كلّ مرّة', async () => {
+    const t = await mountShadow();
+    try {
+      t.$('[data-sh="qv"]').click();
+      const pop = document.querySelector('.sh-qv-pop');
+      /* الترتيب: الصوتُ الحاليّ ← الضوابطُ الخفيفة ← الأقسامُ الثقيلة ← المتقدّم. */
+      const order = ['[data-sh="qv-provider"]', '[data-sh="voice-select"]', '[data-tune-range="speed"]',
+        '[data-tune-range="repeat"]', '[data-qv-section="voices"]', '[data-qv-section="prov"]',
+        '[data-qv-section="cache"]', '[data-sh="qv-advanced"]'].map((sel) => pop.querySelector(sel));
+      const inOrder = order.every((n, i) => i === 0
+        || (order[i - 1].compareDocumentPosition(n) & Node.DOCUMENT_POSITION_FOLLOWING));
+      expect(`بالترتيب: ${inOrder}`).toBe('بالترتيب: true');
+      expect(`مطويّةٌ كلُّها: ${openSections(pop).length}`).toBe('مطويّةٌ كلُّها: 0');
+
+      await openSection(pop, 'voices');
+      await openSection(pop, 'prov');
+      expect(openSections(pop)).toEqual(['prov']);
+      await openSection(pop, 'cache');
+      expect(openSections(pop)).toEqual(['cache']);
+      pop.querySelector('[data-qv-section="cache"] > summary').click();
+      await until(() => openSections(pop).length === 0);
+      expect(openSections(pop)).toEqual([]);
+    } finally {
+      t.dispose();
+    }
+  });
+
+  it('٤٢ · والطيُّ يحفظ ما في القسم: البحثُ والمقارنةُ والتفاصيلُ كما تُركت', async () => {
+    const lib = libraryProvider('qv-lib');
+    const t = await mountShadow({ provider: lib.provider });
+    try {
+      t.$('[data-sh="qv"]').click();
+      const pop = document.querySelector('.sh-qv-pop');
+      await openBrowser(pop, 'ru-anna');
+      inList(pop, 'list', 'qv-cmp', 'ru-anna').click();
+      inList(pop, 'list', 'qv-info', 'ru-boris').click();
+      const search = pop.querySelector('[data-qv-search]');
+      search.value = 'bor';
+      search.dispatchEvent(new Event('input', { bubbles: true }));
+
+      await openSection(pop, 'prov');
+      await openSection(pop, 'voices');
+      await until(() => inList(pop, 'list', 'qv-pick', 'ru-boris'));
+      expect(`البحث: ${search.value} · القائمة: ${namesIn(pop, 'list').filter((n) => ['Anna', 'Boris', 'Carl'].includes(n)).join(',')}`)
+        .toBe('البحث: bor · القائمة: Boris');
+      expect(sidesOf(pop)).toEqual(['Anna', 'فارغ']);
+      expect(`تفاصيلُ Boris: ${factsOf(pop, 'ru-boris')[0]}`).toBe('تفاصيلُ Boris: الاسم=Boris');
+    } finally {
+      t.dispose();
+    }
+  });
+
+  it('٤٣ · ويُتذكَّر آخرُ قسمٍ مفتوح محلّيًّا — لا في الإعدادات', async () => {
+    const t = await mountShadow();
+    try {
+      t.$('[data-sh="qv"]').click();
+      let pop = document.querySelector('.sh-qv-pop');
+      await openSection(pop, 'cache');
+      expect(localStorage.getItem(QV_SECTION_KEY)).toBe('cache');
+
+      t.$('[data-sh="qv"]').click();
+      t.$('[data-sh="qv"]').click();
+      pop = document.querySelector('.sh-qv-pop');
+      await until(() => openSections(pop).join() === 'cache');
+      /* ويعمل ما فيه كأنّه فُتح باليد: أرقامُ الذاكرة تُقرأ. */
+      await until(() => pop.querySelector('[data-qv-cache-stats]').dataset.items !== undefined);
+      expect(openSections(pop)).toEqual(['cache']);
+
+      /* طيُّه يمحو التذكّر — فتُفتَح اللوحةُ التالية مطويّة. */
+      pop.querySelector('[data-qv-section="cache"] > summary').click();
+      await until(() => openSections(pop).length === 0);
+      expect(localStorage.getItem(QV_SECTION_KEY)).toBe(null);
+      t.$('[data-sh="qv"]').click();
+      t.$('[data-sh="qv"]').click();
+      pop = document.querySelector('.sh-qv-pop');
+      await new Promise((r) => setTimeout(r, 100));
+      expect(openSections(pop)).toEqual([]);
+
+      /* ⚠️ ولا شيءَ في مخزن الإعدادات. */
+      const { settings } = await import('../js/db/repositories.js');
+      expect(await settings.get(QV_SECTION_KEY, 'غائب')).toBe('غائب');
+    } finally {
+      t.dispose();
+    }
+  });
+
+  it('٤٤ · وفتحُ الأقسام وطيُّها صامت: لا صوت، ولا مالك، ولا إعداد، والمختارُ كما هو', async () => {
+    const lib = libraryProvider('qv-lib');
+    const t = await mountShadow({ provider: lib.provider });
+    const bus = await import('../js/services/shadow/audio-bus.js');
+    bus.forgetAudioOwner();
+    try {
+      t.$('[data-sh="qv"]').click();
+      const pop = document.querySelector('.sh-qv-pop');
+      await openBrowser(pop, 'ru-boris');
+      inList(pop, 'list', 'qv-pick', 'ru-boris').click();
+      inList(pop, 'list', 'qv-fav', 'ru-anna').click();
+      await new Promise((r) => setTimeout(r, 150));
+      const { shadowSessions, settings } = await import('../js/db/repositories.js');
+      const snap = async () => {
+        const row = await shadowSessions.get(t.session.id);
+        return JSON.stringify({
+          voiceId: row.voiceId, map: row.voiceByProvider ?? null, speed: row.speed, volume: row.volume,
+          repeat: row.repeatCount, provider: await settings.get('shadow.ttsProvider', null),
+          favs: await settings.get('shadow.voiceFavorites', null), recent: await settings.get('shadow.voiceRecent', null),
+        });
+      };
+      const before = await snap();
+      const info = pop.querySelector('[data-qv-info]').textContent;
+      const spoken = t.speech.spoken.length;
+      const changes = [];
+      const unwatch = bus.watchAudio((owner) => changes.push(owner));
+
+      for (const name of ['prov', 'cache', 'voices', 'prov', 'voices', 'cache']) {
+        // eslint-disable-next-line no-await-in-loop -- قسمٌ بعد قسم
+        await openSection(pop, name);
+      }
+      pop.querySelector('[data-qv-section="cache"] > summary').click();
+      await until(() => openSections(pop).length === 0);
+      await new Promise((r) => setTimeout(r, 200));
+      unwatch();
+
+      expect(`نطق ${t.speech.spoken.length - spoken} · طلب ${lib.calls.length} · تبدّل ${changes.length} · مالك ${bus.audioOwner() ?? 'لا أحد'}`)
+        .toBe('نطق 0 · طلب 0 · تبدّل 0 · مالك لا أحد');
+      expect(await snap()).toBe(before);
+      expect(pop.querySelector('[data-qv-info]').textContent).toBe(info);
+      expect(pop.querySelector('[data-sh="qv-provider"]').value).toBe('qv-lib');
+    } finally {
+      t.dispose();
+      bus.forgetAudioOwner();
+    }
+  });
+
+  it('٤٥ · والتخطيطُ محكومٌ بكلّ قسمٍ مفتوح — على عرض اللوحة (٢٨٠) وأضيقَ منه (٢٤٠)', async () => {
+    const unstyle = await withAppStyles();
+    const lib = libraryProvider('qv-lib');
+    const t = await mountShadow({ provider: lib.provider });
+    try {
+      t.$('[data-sh="qv"]').click();
+      const pop = document.querySelector('.sh-qv-pop');
+      await openBrowser(pop, 'ru-anna');
+      inList(pop, 'list', 'qv-cmp', 'ru-anna').click();
+      inList(pop, 'list', 'qv-cmp', 'ru-boris').click();
+      for (const width of [null, 240]) {
+        if (width) pop.style.inlineSize = `${width}px`;
+        for (const name of ['voices', 'prov', 'cache']) {
+          // eslint-disable-next-line no-await-in-loop -- قسمٌ بعد قسم
+          await openSection(pop, name);
+          // eslint-disable-next-line no-await-in-loop
+          await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+          const label = `${width || Math.round(pop.getBoundingClientRect().width)}px/${name}`;
+          const overflow = [pop, ...pop.querySelectorAll('.sh-qv-list, .sh-qv-info-dl, .sh-qv-cache, .sh-qv-cmp-row')]
+            .some((n) => n.offsetParent && n.scrollWidth > n.clientWidth + 1);
+          expect(`${label} · فيض ${overflow} · ارتفاع ≤ ٤٢٠ ${pop.getBoundingClientRect().height <= 420.5}`)
+            .toBe(`${label} · فيض false · ارتفاع ≤ ٤٢٠ true`);
+        }
+      }
+    } finally {
+      t.dispose();
+      unstyle();
     }
   });
 });

@@ -373,9 +373,12 @@ function freshWires() {
   return wires.signal;
 }
 
-/** الخيارُ الذي يأخذه كلُّ مستمعٍ في هذه الشاشة. */
-function wired(extra = {}) {
-  return { ...extra, signal: wires?.signal };
+/**
+ * الخيارُ الذي يأخذه كلُّ مستمعٍ في هذه الشاشة.
+ * و`signal` يُمرَّر لمستمعٍ يعيش بعمر عنصرٍ أقصر من الشاشة (لوحةُ الصوت).
+ */
+function wired(extra = {}, signal = wires?.signal) {
+  return { ...extra, signal };
 }
 
 /** يوقف الجلسة المُبقاة ويرفع شريطها. */
@@ -9935,7 +9938,16 @@ function quickVoiceHtml() {
       </div>
       <p class="sh-qv-info" dir="rtl" data-qv-info>${raw(quickVoiceInfo())}</p>
     </div>
-    <details class="sh-qv-browse" data-qv-browse>
+    <!--
+      ترتيبُ اللوحة (V1.0C · تنظيم): الصوتُ الحاليّ ← الضوابطُ الخفيفة (سرعة ·
+      ارتفاع · تكرار) مكشوفةً ← الأقسامُ الثقيلةُ الثلاثةُ مطويّةً، واحدٌ
+      مفتوحٌ في كلّ مرّة ← رابطُ المتقدّم.
+    -->
+    ${raw(range('speed', 'السرعة', RATE_MIN, RATE_MAX, 0.05, speed, TUNERS.speed.label(speed)))}
+    ${raw(range('volume', 'مستوى الصوت', 0, 100, 1, vol, TUNERS.volume.label(vol)))}
+    ${raw(range('repeat', 'عدد التكرار', 1, 99, 1, reps, TUNERS.repeat.label(reps)))}
+    <div class="sh-qv-acc" data-qv-acc>
+    <details class="sh-qv-browse" data-qv-browse data-qv-section="voices">
       <summary>كلّ الأصوات</summary>
       <section class="sh-qv-sec sh-qv-cmp" data-qv-sec="cmp" hidden>
         <div class="sh-qv-cmp-h">
@@ -9956,20 +9968,18 @@ function quickVoiceHtml() {
         placeholder="ابحث بالاسم أو اللغة" aria-label="ابحث في الأصوات" />
       <ul class="sh-qv-list" data-qv-list></ul>
     </details>
-    <details class="sh-qv-browse sh-qv-mini-sec" data-qv-prov>
+    <details class="sh-qv-browse sh-qv-mini-sec" data-qv-prov data-qv-section="prov">
       <summary>مصدرُ الصوت الحاليّ</summary>
       <dl class="sh-qv-info-dl" data-qv-prov-dl>${raw(provenanceFactsHtml())}</dl>
     </details>
-    <details class="sh-qv-browse sh-qv-mini-sec" data-qv-cache>
+    <details class="sh-qv-browse sh-qv-mini-sec" data-qv-cache data-qv-section="cache">
       <summary>ذاكرةُ الصوت المولَّد</summary>
       <div class="sh-qv-cache">
         <span class="sh-qv-cache-n" dir="rtl" data-qv-cache-stats>…</span>
         <button type="button" class="sh-qv-cache-x" data-sh="qv-cache-clear" disabled>امسح الذاكرة</button>
       </div>
     </details>
-    ${raw(range('speed', 'السرعة', RATE_MIN, RATE_MAX, 0.05, speed, TUNERS.speed.label(speed)))}
-    ${raw(range('volume', 'مستوى الصوت', 0, 100, 1, vol, TUNERS.volume.label(vol)))}
-    ${raw(range('repeat', 'عدد التكرار', 1, 99, 1, reps, TUNERS.repeat.label(reps)))}
+    </div>
     <button type="button" class="sh-qv-adv" data-sh="qv-advanced">إعدادات الصوت المتقدّمة ‹</button>`;
 }
 
@@ -10424,6 +10434,64 @@ function stopPreview() {
   paintPreview();
 }
 
+/*
+ * ══════════════════════════════════════════════════════════════════
+ * أقسامُ اللوحة الثقيلة — واحدٌ مفتوحٌ في كلّ مرّة (V1.0C · تنظيم)
+ *
+ * ⚠️ **طيٌّ لا هدم**: القسمُ يُطوى بسمة `open` وحدها، فيبقى ما فيه كما
+ *    هو — نصُّ البحث، وصفُّ المقارنة، والتفاصيلُ المفتوحة.
+ *
+ * ⚠️ **ويُتذكَّر محلّيًّا** في `localStorage` — راحةٌ لهذا المتصفّح لا
+ *    إعداد: لا مخزنَ ولا مزامنة ولا جلسة. وإن تعذّر (تصفّحٌ خاصّ) تُفتَح
+ *    اللوحةُ مطويّةً كما كانت. وفتحُ قسمٍ عرضٌ لا فعل: لا صوتَ ولا ناقل.
+ * ══════════════════════════════════════════════════════════════════ */
+const QV_SECTION_KEY = 'lingolife.quickVoice.section';
+
+/*
+ * ⚠️ **حبلُ اللوحة لا حبلُ الشاشة**: مستمعو ما في اللوحة يعيشون بعمرها —
+ *    فحبلُها يُفتَح معها ويُقطَع بإغلاقها (`wired({}, panelSignal())`).
+ */
+let quickVoiceWires = null;
+const panelSignal = () => quickVoiceWires?.signal;
+const QV_SECTIONS = ['voices', 'prov', 'cache'];
+
+function rememberQuickVoiceSection(name) {
+  try {
+    if (name) localStorage.setItem(QV_SECTION_KEY, name);
+    else localStorage.removeItem(QV_SECTION_KEY);
+  } catch { /* تخزينٌ محجوب — لا يُتذكَّر، ولا يتعطّل شيء */ }
+}
+
+/*
+ * ⚠️ **على `click` العنوان لا على `toggle`** — قِيس سباقٌ حقيقيّ: `toggle`
+ *    يُطلَق بعد مهمّة، فنقرتان سريعتان على قسمين تجعلان حدثَ الأوّل
+ *    المتأخّرَ يرى نفسَه مفتوحًا فيطوي الثانيَ الذي فُتح للتوّ — فيبقى
+ *    الأوّلُ لا الأخير. والنقرةُ متزامنةٌ وتقع **قبل** تبدّل `open`، فتطوي
+ *    الباقي وتتذكّر في اللحظة نفسِها. (ومفتاحا Enter/Space على العنوان
+ *    يُطلقان `click` كذلك.)
+ */
+function wireQuickVoiceSections() {
+  const sections = [...quickVoice.querySelectorAll('[data-qv-section]')];
+  for (const section of sections) {
+    section.querySelector(':scope > summary').addEventListener('click', () => {
+      if (section.open) {
+        rememberQuickVoiceSection(null);
+        return;
+      }
+      for (const other of sections) if (other !== section) other.open = false;
+      rememberQuickVoiceSection(section.dataset.qvSection);
+    }, wired({}, panelSignal()));
+  }
+}
+
+function restoreQuickVoiceSection() {
+  let name = null;
+  try { name = localStorage.getItem(QV_SECTION_KEY); } catch { name = null; }
+  if (!QV_SECTIONS.includes(name)) return;
+  const section = quickVoice?.querySelector(`[data-qv-section="${name}"]`);
+  if (section) section.open = true;
+}
+
 /** يضع اللوحةَ فوق زرّها — ولا تخرج من الشاشة على الهاتف. */
 function placeQuickVoice() {
   const btn = document.querySelector('[data-sh="qv"]');
@@ -10439,6 +10507,7 @@ function openQuickVoice() {
   const host = btn?.closest('.shadow-app') || btn?.parentElement;
   if (!btn || !host || !ctx) return;
   closeQuickVoice();
+  quickVoiceWires = new AbortController();
   quickVoice = document.createElement('div');
   quickVoice.className = 'sh-qv-pop';
   quickVoice.setAttribute('role', 'dialog');
@@ -10447,12 +10516,14 @@ function openQuickVoice() {
   /* ⚠️ `toggle` لا يصعد — فيُسمَع على القسم نفسِه، ويُحمَّل حين يُفتَح وحدَه. */
   quickVoice.querySelector('[data-qv-browse]')?.addEventListener('toggle', (event) => {
     if (event.target.open) loadVoiceMarks().then(loadVoiceBrowser);
-  });
+  }, wired({}, panelSignal()));
+  wireQuickVoiceSections();
   /* ⚠️ والذاكرةُ تُقرأ حين يُفتَح قسمُها وحدَه — لا مع كلّ فتحٍ للوحة. */
   quickVoice.querySelector('[data-qv-cache]')?.addEventListener('toggle', (event) => {
     if (event.target.open) paintCacheInfo();
-  });
+  }, wired({}, panelSignal()));
   host.append(quickVoice);
+  restoreQuickVoiceSection();
   btn.setAttribute('aria-expanded', 'true');
   btn.classList.add('on');
   placeQuickVoice();
@@ -10463,6 +10534,8 @@ function closeQuickVoice() {
   browseVoices = [];
   voiceInfoKey = null;
   voiceCompare = [];
+  quickVoiceWires?.abort();
+  quickVoiceWires = null;
   quickVoice?.remove();
   quickVoice = null;
   const btn = document.querySelector('[data-sh="qv"]');
