@@ -10072,17 +10072,69 @@ body.shadow-open { overflow: hidden; }
   list-style: none; margin: 0; padding: 0; display: grid; gap: 4px;
   max-block-size: 180px; overflow-y: auto; overscroll-behavior: contain;
 }
-.sh-qv-card { display: flex; gap: 6px; align-items: stretch; }
+/*
+ * البطاقة (V1.0C · صقل): الاسمُ سطرٌ وحده وبجانبه شارةُ «المختار»، وتحته
+ * رقائقُ منفصلةٌ للمزوّد واللغة والتوفّر. والمختارةُ بإطارٍ ذهبيٍّ وخلفيّةٍ
+ * وشريطٍ على حافّتها — تُرى قبل أن تُقرأ. ولا شيءَ يتجاوز عرضَ اللوحة:
+ * الاسمُ يُقصّ بنقاط، والرقائقُ تلتفّ.
+ */
+.sh-qv-card { display: flex; gap: 6px; align-items: stretch; min-inline-size: 0; }
 .sh-qv-pick {
-  flex: 1 1 auto; min-inline-size: 0; display: grid; gap: 1px; text-align: start;
-  padding: 5px 8px; border-radius: 8px; cursor: pointer; font: inherit; color: inherit;
+  position: relative;
+  flex: 1 1 auto; min-inline-size: 0; display: grid; gap: 4px; text-align: start;
+  padding: 5px 8px 5px 10px; border-radius: 9px; cursor: pointer; font: inherit; color: inherit;
   border: 1px solid rgba(217, 182, 114, .16); background: rgba(255, 255, 255, .03);
 }
-.sh-qv-pick > b { font-weight: 600; font-size: 12.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sh-qv-pick > small { font-size: 11px; color: rgba(239, 231, 216, .6); }
-/* ⚠️ مضاعَفٌ كسطر المعلومات: القاعدةُ الموروثةُ نفسُها كانت توسّطه (قِيس). */
-.sh-qv-pop .sh-qv-pick > small, .sh-qv-pop .sh-qv-pick > b { text-align: left; }
-.sh-qv-card.on > .sh-qv-pick { border-color: rgba(217, 182, 114, .7); background: rgba(217, 182, 114, .12); }
-.sh-qv-card > .sh-qv-try { inline-size: 32px; }
+.sh-qv-head { display: flex; align-items: center; gap: 6px; min-inline-size: 0; }
+.sh-qv-name {
+  flex: 1 1 auto; min-inline-size: 0;
+  font-weight: 600; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sh-qv-sel {
+  flex: 0 0 auto; padding: 1px 7px; border-radius: 999px;
+  font-size: 10.5px; font-weight: 700; color: #1a1408; background: rgba(217, 182, 114, .95);
+}
+/*
+ * ⚠️ **صفٌّ واحدٌ من الرقائق لا صفّان** — قِيس: اسمُ المزوّد الطويل
+ *    («المتصفّح (النطق الآلي)») كان يلفّ الرقائقَ فتصير البطاقةُ ٨٨px
+ *    ثلاثةَ أسطر. فالمزوّدُ وحده ينكمش بنقاط، واللغةُ والتوفّرُ كاملان.
+ */
+.sh-qv-tags { display: flex; flex-wrap: nowrap; gap: 4px; min-inline-size: 0; }
+/*
+ * ⚠️ **وكلُّها ينكمش — والمزوّدُ أوّلًا.** جعلتُ اللغةَ والتوفّرَ لا ينكمشان،
+ *    فأسقطها حارسُ الفيض: وسمُ لغةٍ طويل (ru-RU-x-…) دفع القائمةَ إلى
+ *    تمريرٍ أفقيّ على ٢٨٠px. فالمزوّدُ ينكمش بأربعة أضعاف غيرِه.
+ */
+.sh-qv-tags > .sh-qv-tag { flex: 0 1 auto; min-inline-size: 0; }
+.sh-qv-tags > .sh-qv-tag[data-tag="provider"] { flex-shrink: 4; min-inline-size: 2.5em; }
+.sh-qv-tag {
+  max-inline-size: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  padding: 1px 6px; border-radius: 6px; font-size: 10.5px;
+  color: rgba(239, 231, 216, .72); background: rgba(255, 255, 255, .06);
+  border: 1px solid rgba(255, 255, 255, .08);
+}
+.sh-qv-tag[data-tag="lang"] { font-family: ui-monospace, monospace; letter-spacing: .02em; }
+.sh-qv-tag[data-tag="avail"] { color: rgba(170, 225, 190, .85); border-color: rgba(120, 200, 150, .25); }
+.sh-qv-card.on > .sh-qv-pick {
+  border-color: rgba(217, 182, 114, .85); background: rgba(217, 182, 114, .14);
+  box-shadow: inset 3px 0 0 rgba(217, 182, 114, .95);
+}
+/* ⚠️ مضاعَفٌ: القاعدةُ الموروثةُ في الشاشة توسّط النصّ (قِيس في سطر المعلومات). */
+.sh-qv-pop .sh-qv-pick, .sh-qv-pop .sh-qv-head, .sh-qv-pop .sh-qv-tags { text-align: left; }
+
+/* زرُّ التجربة: دائرةٌ واضحة، وحين تُسمَع تمتلئ وتنبض — والضغطةُ نفسُها توقفها. */
+.sh-qv-card > .sh-qv-try {
+  flex: 0 0 auto; align-self: center; inline-size: 34px; block-size: 34px; border-radius: 50%;
+  font-size: 12px; display: grid; place-items: center;
+}
+.sh-qv-try.is-playing {
+  background: rgba(217, 182, 114, .9); color: #1a1408; border-color: rgba(217, 182, 114, 1);
+  animation: sh-qv-pulse 1.1s ease-in-out infinite;
+}
+@keyframes sh-qv-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(217, 182, 114, .45); }
+  50% { box-shadow: 0 0 0 5px rgba(217, 182, 114, 0); }
+}
+@media (prefers-reduced-motion: reduce) { .sh-qv-try.is-playing { animation: none; } }
 .sh-qv-try:disabled { opacity: .35; cursor: not-allowed; }
 .sh-qv-empty { font-size: 12px; color: rgba(239, 231, 216, .55); padding: 4px 2px; }

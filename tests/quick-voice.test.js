@@ -420,8 +420,15 @@ async function openBrowser(pop, expectId) {
   await until(() => pop.querySelector(`[data-sh="qv-pick"][data-v="${expectId}"]`));
 }
 
+/** البطاقةُ كما تُقرأ: الاسم | المزوّد | اللغة | التوفّر | مختارة؟ — كلٌّ من خانته. */
 const cardsOf = (pop, providerId) => [...pop.querySelectorAll(`[data-sh="qv-pick"][data-p="${providerId}"]`)]
-  .map((b) => `${b.querySelector('b').textContent}|${b.querySelector('small').textContent}|${b.getAttribute('aria-pressed')}`);
+  .map((b) => [
+    b.querySelector('.sh-qv-name')?.textContent,
+    b.querySelector('[data-tag="provider"]')?.textContent,
+    b.querySelector('[data-tag="lang"]')?.textContent ?? '',
+    b.querySelector('[data-tag="avail"]')?.textContent ?? '',
+    b.getAttribute('aria-pressed'),
+  ].join('|'));
 
 describe('Voice Center V1.0C · متصفّحُ الأصوات في اللوحة السريعة', () => {
   it('٧ · يُحمَّل من getVoices() لكلّ مزوّدٍ متاح — حين يُفتَح القسمُ وحدَه', async () => {
@@ -441,9 +448,9 @@ describe('Voice Center V1.0C · متصفّحُ الأصوات في اللوحة 
       expect(`سُئل: ${asked}`).toBe('سُئل: 1');
       /* كلُّ بطاقة: الاسمُ · المزوّد · اللغة · وحالُ الاختيار. */
       expect(cardsOf(pop, 'qv-lib')).toEqual([
-        'Anna|مزوّد المكتبة · ru-RU|false',
-        'Boris|مزوّد المكتبة · ru-RU|false',
-        'Carl|مزوّد المكتبة · en-US|false',
+        'Anna|مزوّد المكتبة|ru-RU|بلا نت|false',
+        'Boris|مزوّد المكتبة|ru-RU|بلا نت|false',
+        'Carl|مزوّد المكتبة|en-US|بلا نت|false',
       ]);
     } finally {
       t.dispose();
@@ -487,7 +494,7 @@ describe('Voice Center V1.0C · متصفّحُ الأصوات في اللوحة 
 
       expect(`المزوّد: ${pop.querySelector('[data-sh="qv-provider"]').value}`).toBe('المزوّد: qv-lib');
       expect(pop.querySelector('[data-qv-info]').textContent).toBe('مزوّد المكتبة · ru-boris · متاح');
-      expect(cardsOf(pop, 'qv-lib').map((c) => c.split('|')[2])).toEqual(['false', 'true', 'false']);
+      expect(cardsOf(pop, 'qv-lib').map((c) => c.split('|').pop())).toEqual(['false', 'true', 'false']);
 
       /* ⚠️ في الخريطة نفسِها — وصوتُ المتصفّح القديمُ باقٍ كما كان. */
       await new Promise((r) => setTimeout(r, 150));
@@ -564,6 +571,186 @@ describe('Voice Center V1.0C · متصفّحُ الأصوات في اللوحة 
       expect(`أُوقفت: ${bus.audioOwner() ?? 'لا مالك'} · ${tryBoris.textContent}`).toBe('أُوقفت: لا مالك · ▶');
     } finally {
       unwatch();
+      t.dispose();
+      bus.forgetAudioOwner();
+    }
+  });
+});
+
+/** يحمّل أوراقَ أنماط التطبيق الحقيقيّة في صفحة الاختبار — ويعيد مُزيلَها. */
+async function withAppStyles() {
+  const files = ['tokens', 'base', 'layout', 'components', 'shadow'];
+  const links = await Promise.all(files.map((name) => new Promise((resolve) => {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = `../css/${name}.css`;
+    link.onload = () => resolve(link);
+    link.onerror = () => resolve(link);
+    document.head.append(link);
+  })));
+  return () => links.forEach((link) => link.remove());
+}
+
+describe('Voice Center V1.0C · بطاقاتُ متصفّح الأصوات', () => {
+  it('١٢ · البطاقةُ المختارة: شارةٌ واحدةٌ في رأسها، وخاناتٌ منفصلة، وتنتقل مع الاختيار', async () => {
+    const lib = libraryProvider('qv-lib');
+    const t = await mountShadow({ provider: lib.provider });
+    try {
+      t.$('[data-sh="qv"]').click();
+      const pop = document.querySelector('.sh-qv-pop');
+      await openBrowser(pop, 'ru-boris');
+      /*
+       * ⚠️ قبل الاختيار قد تكون بطاقةُ صوت الجهاز (Milena) هي المختارةَ —
+       *    وهذا صحيح: هي صوتُ الجلسة والمزوّدُ المفعَّلُ المتصفّح. فالشرطُ:
+       *    لا شيءَ من المكتبة، وشارةٌ واحدةٌ على الأكثر.
+       */
+      const libOn = () => pop.querySelectorAll('.sh-qv-card.on [data-p="qv-lib"]').length;
+      expect(`قبل الاختيار: مكتبةٌ مختارة ${libOn()} · شاراتٌ ≤ ١: ${pop.querySelectorAll('.sh-qv-sel').length <= 1}`)
+        .toBe('قبل الاختيار: مكتبةٌ مختارة 0 · شاراتٌ ≤ ١: true');
+
+      pop.querySelector('[data-sh="qv-pick"][data-v="ru-boris"]').click();
+      const on = [...pop.querySelectorAll('.sh-qv-card.on')];
+      expect(`مختارة: ${on.length} · ${on[0]?.querySelector('.sh-qv-name')?.textContent}`).toBe('مختارة: 1 · Boris');
+      const badge = on[0].querySelector('.sh-qv-head > .sh-qv-sel');
+      expect(`الشارة: ${badge?.textContent} · في رأس البطاقة: ${!!badge}`).toBe('الشارة: ✓ المختار · في رأس البطاقة: true');
+      expect(pop.querySelectorAll('.sh-qv-sel').length).toBe(1);
+      expect(on[0].querySelector('[data-sh="qv-pick"]').getAttribute('aria-label')).toBe('Boris — المختار');
+      /* الخاناتُ عناصرُ منفصلة — لا سطرٌ بفواصل. */
+      expect([...on[0].querySelectorAll('.sh-qv-tag')].map((n) => `${n.dataset.tag}=${n.textContent}`))
+        .toEqual(['provider=مزوّد المكتبة', 'lang=ru-RU', 'avail=بلا نت']);
+
+      pop.querySelector('[data-sh="qv-pick"][data-v="ru-anna"]').click();
+      expect([...pop.querySelectorAll('.sh-qv-card.on .sh-qv-name')].map((n) => n.textContent)).toEqual(['Anna']);
+      expect(pop.querySelectorAll('.sh-qv-sel').length).toBe(1);
+    } finally {
+      t.dispose();
+    }
+  });
+
+  it('١٣ · زرُّ التجربة: يُرى وهو يعمل، ويوقفه نفسُه، ويعود وحده حين تنتهي', async () => {
+    const lib = libraryProvider('qv-lib');
+    const t = await mountShadow({ provider: lib.provider });
+    const bus = await import('../js/services/shadow/audio-bus.js');
+    bus.forgetAudioOwner();
+    try {
+      t.$('[data-sh="qv"]').click();
+      const pop = document.querySelector('.sh-qv-pop');
+      await openBrowser(pop, 'ru-boris');
+      pop.querySelector('[data-sh="qv-pick"][data-v="ru-boris"]').click();
+      const btn = (id) => pop.querySelector(`[data-sh="qv-try"][data-v="${id}"]`);
+      const state = (b) => `${b.textContent} · ${b.classList.contains('is-playing') ? 'يعمل' : 'ساكن'} · ${b.getAttribute('aria-pressed')} · ${b.getAttribute('aria-label')}`;
+
+      expect(state(btn('ru-anna'))).toBe('▶ · ساكن · false · جرّب Anna');
+      btn('ru-anna').click();
+      expect(state(btn('ru-anna'))).toBe('■ · يعمل · true · أوقف تجربة Anna');
+      expect(`غيرُها ساكن: ${[...pop.querySelectorAll('.sh-qv-try.is-playing')].length}`).toBe('غيرُها ساكن: 1');
+
+      btn('ru-anna').click();
+      expect(`${state(btn('ru-anna'))} · ${bus.audioOwner() ?? 'لا مالك'}`).toBe('▶ · ساكن · false · جرّب Anna · لا مالك');
+
+      btn('ru-boris').click();
+      expect(state(btn('ru-boris'))).toBe('■ · يعمل · true · أوقف تجربة Boris');
+      await until(() => !btn('ru-boris').classList.contains('is-playing'));
+      expect(`${state(btn('ru-boris'))} · ${bus.audioOwner() ?? 'لا مالك'}`).toBe('▶ · ساكن · false · جرّب Boris · لا مالك');
+    } finally {
+      t.dispose();
+      bus.forgetAudioOwner();
+    }
+  });
+
+  it('١٤ · ولا يفيض شيء: لا تمريرَ أفقيّ، والاسمُ الطويلُ يُقصّ، وارتفاعُ اللوحة والقائمة محكوم', async () => {
+    /*
+     * ⚠️ **بأوراق الأنماط الحقيقيّة** — صفحةُ الاختبار بلا أنماط التطبيق،
+     *    فالقياسُ بدونها يقيس HTML عاريًا. واللوحةُ عرضُها
+     *    `min(280px, 100vw - 32px)` = ٢٨٠ من ٣١٢px فما فوق — أي نفسُ العرض
+     *    على ٣٢٠ و٤١٢ وسطح المكتب. ويُقاس فوق ذلك عرضٌ أضيق (٢٤٠) هامشًا.
+     */
+    const unstyle = await withAppStyles();
+    const lib = libraryProvider('qv-lib');
+    const longName = 'Александра-Вероника Длинноимённая (Premium Neural Multilingual)';
+    const baseVoices = lib.provider.getVoices;
+    lib.provider.getVoices = async () => [
+      ...(await baseVoices()),
+      { id: 'ru-long', name: longName, language: 'ru-RU-x-very-long-regional-variant-tag' },
+    ];
+    const t = await mountShadow({ provider: lib.provider });
+    try {
+      t.$('[data-sh="qv"]').click();
+      const pop = document.querySelector('.sh-qv-pop');
+      await openBrowser(pop, 'ru-long');
+      const list = pop.querySelector('[data-qv-list]');
+      list.scrollTop = 0;
+      pop.querySelector('[data-sh="qv-pick"][data-v="ru-long"]').click();
+      /* ⚠️ المختارُ آخرُ القائمة — ويُرى بلا تمرير (القائمةُ تمرّ إليه وحدَها). */
+      const lr = list.getBoundingClientRect();
+      const cr = list.querySelector('.sh-qv-card.on').getBoundingClientRect();
+      expect(`المختارُ يُرى: ${cr.top >= lr.top - 1 && cr.bottom <= lr.bottom + 1}`).toBe('المختارُ يُرى: true');
+
+      for (const width of [null, 240]) {
+        if (width) pop.style.inlineSize = `${width}px`;
+        await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+        const label = width ? `${width}px` : `${Math.round(pop.getBoundingClientRect().width)}px`;
+        expect(`${label} · اللوحةُ تفيض: ${pop.scrollWidth > pop.clientWidth + 1} · القائمةُ تفيض: ${list.scrollWidth > list.clientWidth + 1}`)
+          .toBe(`${label} · اللوحةُ تفيض: false · القائمةُ تفيض: false`);
+        const box = list.getBoundingClientRect();
+        const out = [...list.querySelectorAll('.sh-qv-card, .sh-qv-card *')].filter((n) => {
+          const r = n.getBoundingClientRect();
+          return r.width > 0 && (r.left < box.left - 1 || r.right > box.right + 1);
+        });
+        expect(`${label} · خارجَ القائمة: ${out.length}`).toBe(`${label} · خارجَ القائمة: 0`);
+        const name = list.querySelector('[data-v="ru-long"] .sh-qv-name');
+        expect(`${label} · الاسمُ يُقصّ: ${name.scrollWidth > name.clientWidth} · ${getComputedStyle(name).textOverflow}`)
+          .toBe(`${label} · الاسمُ يُقصّ: true · ellipsis`);
+        /* والشارةُ لا يدفعها الاسمُ الطويلُ خارجًا. */
+        const sel = list.querySelector('[data-v="ru-long"] .sh-qv-sel').getBoundingClientRect();
+        expect(`${label} · الشارةُ داخلها: ${sel.right <= box.right + 1 && sel.width > 20}`).toBe(`${label} · الشارةُ داخلها: true`);
+      }
+      expect(`ارتفاعُ القائمة ≤ ١٨٠: ${list.getBoundingClientRect().height <= 180.5} · اللوحة ≤ ٤٢٠: ${pop.getBoundingClientRect().height <= 420.5}`)
+        .toBe('ارتفاعُ القائمة ≤ ١٨٠: true · اللوحة ≤ ٤٢٠: true');
+    } finally {
+      t.dispose();
+      unstyle();
+    }
+  });
+
+  it('١٥ · ولا تغييرَ في الصوت: إعادةُ الرسم أثناء التجربة لا توقفها ولا تطلب نطقًا ولا تمسّ الناقل', async () => {
+    const lib = libraryProvider('qv-lib');
+    /* توليدٌ يقف حتّى نفتحه — فالتجربةُ «تعمل» ما شئنا، بلا مهلةٍ مقدَّرة. */
+    let release = null;
+    const realSynth = lib.provider.synthesize;
+    lib.provider.synthesize = async (req) => {
+      await new Promise((r) => { release = r; });
+      return realSynth(req);
+    };
+    const t = await mountShadow({ provider: lib.provider });
+    const bus = await import('../js/services/shadow/audio-bus.js');
+    bus.forgetAudioOwner();
+    try {
+      t.$('[data-sh="qv"]').click();
+      const pop = document.querySelector('.sh-qv-pop');
+      await openBrowser(pop, 'ru-anna');
+      pop.querySelector('[data-sh="qv-pick"][data-v="ru-boris"]').click();
+      pop.querySelector('[data-sh="qv-try"][data-v="ru-anna"]').click();
+      await until(() => release);
+      const changes = [];
+      const unwatch = bus.watchAudio((owner) => changes.push(owner));
+
+      const search = pop.querySelector('[data-qv-search]');
+      search.value = 'ann';
+      search.dispatchEvent(new Event('input', { bubbles: true }));
+      search.value = '';
+      search.dispatchEvent(new Event('input', { bubbles: true }));
+      pop.querySelector('[data-sh="qv-pick"][data-v="ru-carl"]')?.click();
+      unwatch();
+
+      const anna = pop.querySelector('[data-sh="qv-try"][data-v="ru-anna"]');
+      expect(`بعد إعادة الرسم: ${anna.classList.contains('is-playing') ? 'تعمل' : 'توقفت'} · المالك ${bus.audioOwner()} · تبدّل ${changes.length}`)
+        .toBe('بعد إعادة الرسم: تعمل · المالك speak · تبدّل 0');
+      release();
+      await until(() => lib.calls.length >= 1);
+      expect(`طُلب: ${lib.calls.length} · بصوت ${lib.calls[0].voiceId}`).toBe('طُلب: 1 · بصوت ru-anna');
+    } finally {
+      release?.();
       t.dispose();
       bus.forgetAudioOwner();
     }

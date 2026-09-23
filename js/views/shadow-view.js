@@ -181,6 +181,7 @@ import { ensureTTSProvidersRegistered, BROWSER_PROVIDER_ID } from '../services/s
 import { voiceFor, voicePatch } from '../services/shadow/voice-identity.js';
 import { createTTSSpeaker } from '../services/shadow/tts/speaker-adapter.js';
 import { allAvailability } from '../services/shadow/tts/registry.js';
+import { AVAILABILITY } from '../services/shadow/tts/types.js';
 
 /** المزوّد المختار — يعمّ كل الجلسات حتى يُبنى مختارٌ لكلّ جلسة (WS41-E). */
 const TTS_PROVIDER_KEY = 'shadow.ttsProvider';
@@ -10005,7 +10006,10 @@ function paintPreview() {
     const on = previewing?.key === key;
     btn.textContent = on ? '■' : '▶';
     btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    /* ⚠️ حالُ التشغيل صنفٌ يُرى — لا رمزٌ صغيرٌ وحده — والإيقافُ من الزرّ نفسِه. */
+    btn.classList.toggle('is-playing', on);
     if (key === 'current') btn.setAttribute('aria-label', on ? 'أوقف التجربة' : 'جرّب الصوت');
+    else btn.setAttribute('aria-label', `${on ? 'أوقف تجربة' : 'جرّب'} ${btn.dataset.name || ''}`.trim());
   });
 }
 
@@ -10066,22 +10070,61 @@ function paintVoiceBrowser() {
     list.innerHTML = html`<li class="sh-qv-empty">${browseVoices.length ? 'مفيش صوت بالبحث ده' : 'مفيش أصوات متاحة'}</li>`;
     return;
   }
+  /*
+   * ⚠️ **البطاقةُ أربعُ خاناتٍ لا سطرٌ واحد** (V1.0C · صقلُ البطاقات): الاسمُ
+   *    وحده في سطره، ثمّ رقائقُ منفصلة — المزوّد، واللغة، والتوفّر — وشارةُ
+   *    «المختار» في رأس البطاقة لا ذيلُ سطر. كانت كلُّها سطرًا بفواصل
+   *    تُقرأ ولا تُمسَح بالعين.
+   *
+   * ⚠️ **والتوفّرُ ما قاله المزوّدُ نفسُه** — `status` المحفوظةُ في
+   *    `ctx.ttsProviders` تُترجَم إلى كلمة، ولا يُفحَص شيء. وحالةٌ لا
+   *    ترجمةَ لها لا تُعرَض: لا نخترع وصفًا لما لم يُقَل.
+   */
+  const statusOf = (providerId) => (ctx.ttsProviders || [])
+    .find(({ provider }) => provider.id === providerId)?.availability?.status;
   list.innerHTML = hits.map((v) => {
     const on = v.providerId === ctx.ttsProviderId && v.id === active;
     const canTry = v.providerId === ctx.ttsProviderId;
+    const avail = AVAILABILITY_SHORT[statusOf(v.providerId)] || '';
     return html`<li class="sh-qv-card${on ? ' on' : ''}">
       <button type="button" class="sh-qv-pick" data-sh="qv-pick"
-        data-p="${v.providerId}" data-v="${v.id}" aria-pressed="${on ? 'true' : 'false'}">
-        <b dir="auto">${v.name}</b>
-        <small dir="rtl"><bdi>${v.providerName}</bdi>${raw(v.language ? html` · <bdi>${v.language}</bdi>` : '')}${raw(on ? ' · <bdi>✓ المختار</bdi>' : '')}</small>
+        data-p="${v.providerId}" data-v="${v.id}" aria-pressed="${on ? 'true' : 'false'}"
+        aria-label="${on ? `${v.name} — المختار` : `اختار ${v.name}`}">
+        <span class="sh-qv-head">
+          <span class="sh-qv-name" dir="auto">${v.name}</span>
+          ${raw(on ? '<span class="sh-qv-sel">✓ المختار</span>' : '')}
+        </span>
+        <span class="sh-qv-tags">
+          <span class="sh-qv-tag" data-tag="provider" dir="rtl">${v.providerName}</span>
+          ${raw(v.language ? html`<span class="sh-qv-tag" data-tag="lang" dir="ltr">${v.language}</span>` : '')}
+          ${raw(avail ? html`<span class="sh-qv-tag" data-tag="avail">${avail}</span>` : '')}
+        </span>
       </button>
       <button type="button" class="sh-qv-try" data-sh="qv-try" data-p="${v.providerId}" data-v="${v.id}"
-        aria-label="جرّب ${v.name}" aria-pressed="false"
+        data-name="${v.name}" aria-label="جرّب ${v.name}" aria-pressed="false"
         ${canTry ? '' : 'disabled'} title="${canTry ? '' : 'اختاره الأوّل — مزوّدُه غيرُ المفعَّل'}">▶</button>
     </li>`;
   }).join('');
+  /*
+   * ⚠️ **والمختارُ يُرى بلا تمرير**: كان آخرَ القائمة أحيانًا فيقع تحت
+   *    حدّها (١٨٠px) ولا يُعرف أيُّها المختار. فإن كان خارجَ ما يُرى —
+   *    وبلا بحثٍ يطلب غيرَه — تُمرَّر القائمةُ إليه وحدَها لا الصفحة.
+   */
+  const chosen = !q && list.querySelector('.sh-qv-card.on');
+  if (chosen) {
+    const top = chosen.offsetTop - list.offsetTop;
+    const seen = top >= list.scrollTop && top + chosen.offsetHeight <= list.scrollTop + list.clientHeight;
+    if (!seen) list.scrollTop = Math.max(0, top - 4);
+  }
   paintPreview();
 }
+
+/** كلمةٌ لحالة توفّر المزوّد كما قالها — لا فحصَ هنا. */
+const AVAILABILITY_SHORT = {
+  [AVAILABILITY.READY_OFFLINE]: 'بلا نت',
+  [AVAILABILITY.REQUIRES_NETWORK]: 'يحتاج نت',
+  [AVAILABILITY.AVAILABLE_VIA_LOCAL_BRIDGE]: 'عبر الجسر المحلّي',
+};
 
 /** يختار صوتًا من البطاقة — في الإعداد الموجود، ويصل إلى المحرّك فورًا. */
 function pickVoice(providerId, voiceId) {
