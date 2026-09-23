@@ -32,7 +32,7 @@ import {
   learnModel, learnModelSync, sentenceSummary, selectionSummary,
   speechTargets, setTargetState, GROUP_LABEL,
 } from '../services/shadow/draft-learning.js';
-import { isDraftV2 } from '../services/shadow/draft-v2.js';
+import { isDraftV2, CHAIN_PARENT } from '../services/shadow/draft-v2.js';
 import { sessionProgress, targetIndex } from '../services/shadow/session-progress.js';
 import { ROLE, isPracticeRole } from '../services/shadow/draft-targets.js';
 import { SCOPE, SCOPE_LABEL, resolveTarget } from '../services/shadow/practice-target.js';
@@ -7373,12 +7373,14 @@ function draftCardHtml(one, activeId, unitId = () => '') {
       ${raw(draftPairHtml(one.ru, one.ar, '', one.id || ''))}
       ${raw(draftFieldHtml('المعنى', (one.sense || []).map((t) => html`<p dir="auto">${t}</p>`)))}
       ${raw(draftFieldHtml('الجذر والعيلة', (one.roots || [])
-    .map((r) => draftPairHtml(r.ru, r.ar))))}
+    .map((r) => draftPairHtml(r.ru, r.ar, '',
+      unitId(ROLE.ROOT_FAMILY, r.ru, one.ru)))))}
       ${raw(draftFieldHtml('الإحساس', (one.feel || []).map((t) => html`<p dir="auto">${t}</p>`)))}
       ${raw(draftFieldHtml('القالب', (one.patterns || [])
     .map((t) => html`<p class="dw-ru" dir="ltr" lang="ru">${t}</p>`)))}
       ${raw(draftFieldHtml('أمثلة', (one.examples || [])
-    .map((ex) => draftPairHtml(ex.ru, ex.ar))))}
+    .map((ex) => draftPairHtml(ex.ru, ex.ar, '',
+      unitId(ROLE.EXAMPLE, ex.ru, one.ru)))))}
       ${raw(qa)}
     </article>`;
 }
@@ -7421,6 +7423,20 @@ function draftWellHtml(entry) {
    * ⚠️ **ولا يُربَط بالنصّ وحدَه**: نفسُ السؤال قد يتكرّر تحت قلبين،
    *    فالأبُ جزءٌ من المفتاح — كما في `fingerprint` بالضبط.
    */
+  /*
+   * ⚠️ **وكلُّ هدفٍ في `targets` وحدةُ نطقٍ — لا القلوبُ وحدَها.**
+   *    قِيس قبل الإصلاح على مسودّةٍ فيها كلُّ الأدوار:
+   *
+   *        micro_core    ٢/٢   ✓
+   *        recall_cue    ١/٢   ✗  (سؤالُ الشريط السريع)
+   *        recall_answer ٠/١   ✗
+   *        root_family   ٠/٣   ✗
+   *        example       ٠/٢   ✗
+   *
+   *    فالجذرُ والعائلةُ والأمثلةُ تُنطَق في التدريب كما تُنطَق القلوب،
+   *    وكانت تُرسَم بلا هُويّة — فلا تُضاء ولا تُتابَع. وأزواجُ الشريط
+   *    السريع أبوها الرمزُ `CHAIN_PARENT` لا قلبٌ، فمفتاحُها كان يخطئ.
+   */
   const units = new Map();
   for (const one of model.targets || []) {
     if (!one.id) continue;
@@ -7435,9 +7451,10 @@ function draftWellHtml(entry) {
         <div class="dw-qa">
           <span class="dw-qlbl">Вопрос</span>
           ${raw(draftPairHtml(link.cue, link.cueAr || '', 'is-q',
-    unitId(ROLE.RECALL_CUE, link.cue, link.ref?.parent || '')))}
+    unitId(ROLE.RECALL_CUE, link.cue, CHAIN_PARENT)))}
           <span class="dw-qlbl">Ответ</span>
-          ${raw(draftPairHtml(link.ru, link.ar || '', 'is-a', link.ref?.id || ''))}
+          ${raw(draftPairHtml(link.ru, link.ar || '', 'is-a',
+    unitId(ROLE.RECALL_ANSWER, link.ru, CHAIN_PARENT)))}
         </div>`).join(''))}
     </section>` : '';
 
