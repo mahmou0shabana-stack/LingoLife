@@ -9,6 +9,7 @@
 
 import { describe, it, expect } from './test-runner.js';
 import { resetDevices, on, TABLET } from './sync-devices.js';
+import { BROWSER_PROVIDER_ID as BROWSER_ID } from '../js/services/shadow/tts/browser-provider.js';
 
 const until = async (check, ms = 5000) => {
   const start = Date.now();
@@ -420,8 +421,11 @@ async function openBrowser(pop, expectId) {
   await until(() => pop.querySelector(`[data-sh="qv-pick"][data-v="${expectId}"]`));
 }
 
-/** البطاقةُ كما تُقرأ: الاسم | المزوّد | اللغة | التوفّر | مختارة؟ — كلٌّ من خانته. */
-const cardsOf = (pop, providerId) => [...pop.querySelectorAll(`[data-sh="qv-pick"][data-p="${providerId}"]`)]
+/**
+ * البطاقةُ كما تُقرأ: الاسم | المزوّد | اللغة | التوفّر | مختارة؟ — كلٌّ من خانته.
+ * ⚠️ من القائمة الكاملة وحدها: «المفضّلة» و«الأخيرة» تُرسمان نفسَ البطاقات.
+ */
+const cardsOf = (pop, providerId) => [...pop.querySelectorAll(`[data-qv-list] [data-sh="qv-pick"][data-p="${providerId}"]`)]
   .map((b) => [
     b.querySelector('.sh-qv-name')?.textContent,
     b.querySelector('[data-tag="provider"]')?.textContent,
@@ -604,24 +608,24 @@ describe('Voice Center V1.0C · بطاقاتُ متصفّح الأصوات', () 
        *    وهذا صحيح: هي صوتُ الجلسة والمزوّدُ المفعَّلُ المتصفّح. فالشرطُ:
        *    لا شيءَ من المكتبة، وشارةٌ واحدةٌ على الأكثر.
        */
-      const libOn = () => pop.querySelectorAll('.sh-qv-card.on [data-p="qv-lib"]').length;
-      expect(`قبل الاختيار: مكتبةٌ مختارة ${libOn()} · شاراتٌ ≤ ١: ${pop.querySelectorAll('.sh-qv-sel').length <= 1}`)
+      const libOn = () => pop.querySelectorAll('[data-qv-list] .sh-qv-card.on [data-p="qv-lib"]').length;
+      expect(`قبل الاختيار: مكتبةٌ مختارة ${libOn()} · شاراتٌ ≤ ١: ${pop.querySelectorAll('[data-qv-list] .sh-qv-sel').length <= 1}`)
         .toBe('قبل الاختيار: مكتبةٌ مختارة 0 · شاراتٌ ≤ ١: true');
 
       pop.querySelector('[data-sh="qv-pick"][data-v="ru-boris"]').click();
-      const on = [...pop.querySelectorAll('.sh-qv-card.on')];
+      const on = [...pop.querySelectorAll('[data-qv-list] .sh-qv-card.on')];
       expect(`مختارة: ${on.length} · ${on[0]?.querySelector('.sh-qv-name')?.textContent}`).toBe('مختارة: 1 · Boris');
       const badge = on[0].querySelector('.sh-qv-head > .sh-qv-sel');
       expect(`الشارة: ${badge?.textContent} · في رأس البطاقة: ${!!badge}`).toBe('الشارة: ✓ المختار · في رأس البطاقة: true');
-      expect(pop.querySelectorAll('.sh-qv-sel').length).toBe(1);
+      expect(pop.querySelectorAll('[data-qv-list] .sh-qv-sel').length).toBe(1);
       expect(on[0].querySelector('[data-sh="qv-pick"]').getAttribute('aria-label')).toBe('Boris — المختار');
       /* الخاناتُ عناصرُ منفصلة — لا سطرٌ بفواصل. */
       expect([...on[0].querySelectorAll('.sh-qv-tag')].map((n) => `${n.dataset.tag}=${n.textContent}`))
         .toEqual(['provider=مزوّد المكتبة', 'lang=ru-RU', 'avail=بلا نت']);
 
       pop.querySelector('[data-sh="qv-pick"][data-v="ru-anna"]').click();
-      expect([...pop.querySelectorAll('.sh-qv-card.on .sh-qv-name')].map((n) => n.textContent)).toEqual(['Anna']);
-      expect(pop.querySelectorAll('.sh-qv-sel').length).toBe(1);
+      expect([...pop.querySelectorAll('[data-qv-list] .sh-qv-card.on .sh-qv-name')].map((n) => n.textContent)).toEqual(['Anna']);
+      expect(pop.querySelectorAll('[data-qv-list] .sh-qv-sel').length).toBe(1);
     } finally {
       t.dispose();
     }
@@ -643,7 +647,7 @@ describe('Voice Center V1.0C · بطاقاتُ متصفّح الأصوات', () 
       expect(state(btn('ru-anna'))).toBe('▶ · ساكن · false · جرّب Anna');
       btn('ru-anna').click();
       expect(state(btn('ru-anna'))).toBe('■ · يعمل · true · أوقف تجربة Anna');
-      expect(`غيرُها ساكن: ${[...pop.querySelectorAll('.sh-qv-try.is-playing')].length}`).toBe('غيرُها ساكن: 1');
+      expect(`غيرُها ساكن: ${[...pop.querySelectorAll('[data-qv-list] .sh-qv-try.is-playing')].length}`).toBe('غيرُها ساكن: 1');
 
       btn('ru-anna').click();
       expect(`${state(btn('ru-anna'))} · ${bus.audioOwner() ?? 'لا مالك'}`).toBe('▶ · ساكن · false · جرّب Anna · لا مالك');
@@ -883,7 +887,7 @@ describe('Voice Center V1.0C · تفاصيلُ الصوت في متصفّح ال
       infoBtn(pop, 'en-carl').click();
 
       expect(pop.querySelector('[data-qv-info]').textContent).toBe('مزوّد المكتبة · ru-boris · متاح');
-      expect([...pop.querySelectorAll('.sh-qv-card.on .sh-qv-name')].map((n) => n.textContent)).toEqual(['Boris']);
+      expect([...pop.querySelectorAll('[data-qv-list] .sh-qv-card.on .sh-qv-name')].map((n) => n.textContent)).toEqual(['Boris']);
       expect(pop.querySelector('[data-sh="qv-provider"]').value).toBe('qv-lib');
       await new Promise((r) => setTimeout(r, 150));
       const after = await shadowSessions.get(t.session.id);
@@ -966,6 +970,232 @@ describe('Voice Center V1.0C · تفاصيلُ الصوت في متصفّح ال
     } finally {
       t.dispose();
       unstyle();
+    }
+  });
+});
+
+/** أسماءُ بطاقات قسمٍ بعينه (`favs` · `recent` · القائمة الكاملة `list`). */
+const namesIn = (pop, where) => {
+  const sel = where === 'list' ? '[data-qv-list]' : `[data-qv-${where}]`;
+  return [...pop.querySelectorAll(`${sel} .sh-qv-card .sh-qv-name`)].map((n) => n.textContent);
+};
+const inList = (pop, where, sh, id) => {
+  const sel = where === 'list' ? '[data-qv-list]' : `[data-qv-${where}]`;
+  return pop.querySelector(`${sel} [data-sh="${sh}"][data-v="${id}"]`);
+};
+const sectionShown = (pop, name) => !pop.querySelector(`[data-qv-sec="${name}"]`).hidden;
+
+describe('Voice Center V1.0C · المفضّلةُ والأخيرة في متصفّح الأصوات', () => {
+  it('٢١ · النجمة: تُفضِّل وتنزع، تُرى، وتبقى بعد إعادة الفتح — ولا تختار', async () => {
+    const lib = libraryProvider('qv-lib');
+    const t = await mountShadow({ provider: lib.provider });
+    try {
+      t.$('[data-sh="qv"]').click();
+      let pop = document.querySelector('.sh-qv-pop');
+      await openBrowser(pop, 'ru-anna');
+      expect(`قبل: قسمٌ ${sectionShown(pop, 'favs') ? 'ظاهر' : 'مخفيّ'}`).toBe('قبل: قسمٌ مخفيّ');
+
+      const star = () => inList(pop, 'list', 'qv-fav', 'ru-anna');
+      expect(`${star().textContent} · ${star().getAttribute('aria-pressed')}`).toBe('☆ · false');
+      star().click();
+      expect(`${star().textContent} · ${star().getAttribute('aria-pressed')} · ${star().closest('.sh-qv-card').classList.contains('fav')}`)
+        .toBe('★ · true · true');
+      expect(`${sectionShown(pop, 'favs')} · ${namesIn(pop, 'favs').join(',')}`).toBe('true · Anna');
+
+      /* ولا اختيار: السطرُ والمزوّدُ كما كانا، ولا بطاقةَ من المكتبة مختارة. */
+      expect(pop.querySelector('[data-sh="qv-provider"]').value).toBe(BROWSER_ID);
+      expect(pop.querySelectorAll('[data-qv-list] .sh-qv-card.on [data-p="qv-lib"]').length).toBe(0);
+
+      /* ويبقى بعد إغلاق اللوحة وفتحها — في مخزن الإعدادات القائم. */
+      t.$('[data-sh="qv"]').click();
+      t.$('[data-sh="qv"]').click();
+      pop = document.querySelector('.sh-qv-pop');
+      await openBrowser(pop, 'ru-anna');
+      expect(`بعد إعادة الفتح: ${namesIn(pop, 'favs').join(',')} · ${star().textContent}`).toBe('بعد إعادة الفتح: Anna · ★');
+      const { settings } = await import('../js/db/repositories.js');
+      expect(await settings.get('shadow.voiceFavorites', null)).toEqual(['qv-lib|ru-anna']);
+
+      star().click();
+      expect(`نُزعت: ${star().textContent} · القسمُ ${sectionShown(pop, 'favs') ? 'ظاهر' : 'مخفيّ'}`).toBe('نُزعت: ☆ · القسمُ مخفيّ');
+    } finally {
+      t.dispose();
+    }
+  });
+
+  it('٢٢ · «الأخيرة»: ما اختيرَ أو جُرِّب فعلًا، الأحدثُ أوّلًا بلا تكرار، وحدُّها خمسة', async () => {
+    const lib = libraryProvider('qv-lib');
+    const base = lib.provider.getVoices;
+    lib.provider.getVoices = async () => [
+      ...(await base()),
+      { id: 'ru-d', name: 'Dasha', language: 'ru-RU' },
+      { id: 'ru-e', name: 'Egor', language: 'ru-RU' },
+      { id: 'ru-f', name: 'Fyodor', language: 'ru-RU' },
+    ];
+    /* بوّابةٌ نفتحها حين نشاء — لتبقى تجربةٌ «تعمل» ونحن نضغط ■. */
+    let hold = false;
+    let release = null;
+    const realSynth = lib.provider.synthesize;
+    lib.provider.synthesize = async (req) => {
+      if (hold) await new Promise((r) => { release = r; });
+      return realSynth(req);
+    };
+    const t = await mountShadow({ provider: lib.provider });
+    try {
+      t.$('[data-sh="qv"]').click();
+      const pop = document.querySelector('.sh-qv-pop');
+      await openBrowser(pop, 'ru-anna');
+      expect(`فارغة: ${sectionShown(pop, 'recent') ? 'ظاهرة' : 'مخفيّة'}`).toBe('فارغة: مخفيّة');
+
+      inList(pop, 'list', 'qv-pick', 'ru-boris').click();
+      inList(pop, 'list', 'qv-try', 'ru-anna').click();
+      await until(() => lib.calls.length >= 1);
+      inList(pop, 'list', 'qv-pick', 'en-carl').click();
+      expect(namesIn(pop, 'recent')).toEqual(['Carl', 'Anna', 'Boris']);
+
+      /* تكرارٌ يرفعه إلى الأوّل لا يضاعفه. */
+      inList(pop, 'list', 'qv-pick', 'ru-boris').click();
+      expect(namesIn(pop, 'recent')).toEqual(['Boris', 'Carl', 'Anna']);
+
+      /*
+       * ⚠️ **والإيقافُ ليس تجربة**: تجربةُ Anna تعمل (البوّابةُ مغلقة)، ثمّ
+       *    يُختار Carl فيصير الأوّل، ثمّ ■ على Anna — فلا يرفعها ترتيبًا.
+       */
+      hold = true;
+      inList(pop, 'list', 'qv-try', 'en-carl').click();
+      await until(() => release);
+      expect(namesIn(pop, 'recent')).toEqual(['Carl', 'Boris', 'Anna']);
+      inList(pop, 'list', 'qv-pick', 'ru-boris').click();
+      expect(namesIn(pop, 'recent')).toEqual(['Boris', 'Carl', 'Anna']);
+      inList(pop, 'list', 'qv-try', 'en-carl').click();
+      expect(`بعد ■: ${namesIn(pop, 'recent').join(',')}`).toBe('بعد ■: Boris,Carl,Anna');
+      hold = false;
+      release();
+
+      for (const id of ['ru-d', 'ru-e', 'ru-f']) inList(pop, 'list', 'qv-pick', id).click();
+      expect(namesIn(pop, 'recent')).toEqual(['Fyodor', 'Egor', 'Dasha', 'Boris', 'Carl']);
+
+      /* والاختيارُ لا يُفضِّل. */
+      expect(`مفضّلة: ${namesIn(pop, 'favs').length} · قسمٌ ${sectionShown(pop, 'favs') ? 'ظاهر' : 'مخفيّ'}`).toBe('مفضّلة: 0 · قسمٌ مخفيّ');
+
+      /* ونزعُ النجمة لا يمسّ «الأخيرة». */
+      inList(pop, 'list', 'qv-fav', 'ru-e').click();
+      inList(pop, 'list', 'qv-fav', 'ru-e').click();
+      expect(namesIn(pop, 'recent')).toEqual(['Fyodor', 'Egor', 'Dasha', 'Boris', 'Carl']);
+
+      const { settings } = await import('../js/db/repositories.js');
+      await new Promise((r) => setTimeout(r, 100));
+      expect(await settings.get('shadow.voiceRecent', null))
+        .toEqual(['qv-lib|ru-f', 'qv-lib|ru-e', 'qv-lib|ru-d', 'qv-lib|ru-boris', 'qv-lib|en-carl']);
+    } finally {
+      release?.();
+      t.dispose();
+    }
+  });
+
+  it('٢٣ · الاختيارُ من «المفضّلة» كالاختيار من القائمة: نفسُ الإعداد ونفسُ المحرّك', async () => {
+    const lib = libraryProvider('qv-lib');
+    const t = await mountShadow({ provider: lib.provider });
+    try {
+      t.$('[data-sh="qv"]').click();
+      const pop = document.querySelector('.sh-qv-pop');
+      await openBrowser(pop, 'en-carl');
+      inList(pop, 'list', 'qv-fav', 'en-carl').click();
+      inList(pop, 'favs', 'qv-pick', 'en-carl').click();
+
+      expect(pop.querySelector('[data-qv-info]').textContent).toBe('مزوّد المكتبة · en-carl · متاح');
+      expect(pop.querySelector('[data-sh="qv-provider"]').value).toBe('qv-lib');
+      /* ونفسُ الصوت مختارٌ في كلّ مكانٍ يُرسَم فيه — لا نسخةٌ مستقلّة. */
+      expect(`القائمة: ${inList(pop, 'list', 'qv-pick', 'en-carl').getAttribute('aria-pressed')} · المفضّلة: ${inList(pop, 'favs', 'qv-pick', 'en-carl').getAttribute('aria-pressed')}`)
+        .toBe('القائمة: true · المفضّلة: true');
+      await new Promise((r) => setTimeout(r, 150));
+      const { shadowSessions } = await import('../js/db/repositories.js');
+      expect((await shadowSessions.get(t.session.id)).voiceByProvider?.['qv-lib']).toBe('en-carl');
+
+      t.$('[data-sh="play"]').click();
+      await until(() => lib.calls.length >= 1);
+      expect(`المحرّك طلب: ${lib.calls[0].voiceId}`).toBe('المحرّك طلب: en-carl');
+    } finally {
+      t.dispose();
+    }
+  });
+
+  it('٢٤ · والتجربةُ من «المفضّلة» بصوت بطاقتها — وحالُها يُرى في كلّ نسخة', async () => {
+    const lib = libraryProvider('qv-lib');
+    let release = null;
+    const realSynth = lib.provider.synthesize;
+    lib.provider.synthesize = async (req) => {
+      await new Promise((r) => { release = r; });
+      return realSynth(req);
+    };
+    const t = await mountShadow({ provider: lib.provider });
+    const bus = await import('../js/services/shadow/audio-bus.js');
+    bus.forgetAudioOwner();
+    try {
+      t.$('[data-sh="qv"]').click();
+      const pop = document.querySelector('.sh-qv-pop');
+      await openBrowser(pop, 'ru-anna');
+      inList(pop, 'list', 'qv-pick', 'ru-boris').click();
+      inList(pop, 'list', 'qv-fav', 'ru-anna').click();
+
+      inList(pop, 'favs', 'qv-try', 'ru-anna').click();
+      await until(() => release);
+      const playing = (where) => inList(pop, where, 'qv-try', 'ru-anna').classList.contains('is-playing');
+      expect(`تعمل: المفضّلة ${playing('favs')} · القائمة ${playing('list')} · المالك ${bus.audioOwner()}`)
+        .toBe('تعمل: المفضّلة true · القائمة true · المالك speak');
+      release();
+      await until(() => lib.calls.length >= 1);
+      expect(lib.calls[0]).toEqual({ text: 'Привет! Так звучит этот голос.', voiceId: 'ru-anna', speed: 0.8 });
+      /* والمختارُ باقٍ. */
+      expect(pop.querySelector('[data-qv-info]').textContent).toBe('مزوّد المكتبة · ru-boris · متاح');
+
+      /*
+       * والإيقافُ من المفضّلة يوقفها ويحرّر الناقل. (⚠️ التجربةُ الثانيةُ
+       * لنفس الجملة والصوت تأتي من الذاكرة المشتركة لا من المزوّد — فلا
+       * بوّابةَ تُنتظَر: الحالُ تُقرأ بعد الضغطة مباشرة.)
+       */
+      await until(() => !playing('favs'));
+      inList(pop, 'favs', 'qv-try', 'ru-anna').click();
+      expect(`تعمل ثانيةً: ${playing('favs')} · ${bus.audioOwner()}`).toBe('تعمل ثانيةً: true · speak');
+      inList(pop, 'favs', 'qv-try', 'ru-anna').click();
+      expect(`أُوقفت: ${playing('favs')} · ${bus.audioOwner() ?? 'لا مالك'}`).toBe('أُوقفت: false · لا مالك');
+    } finally {
+      release?.();
+      t.dispose();
+      bus.forgetAudioOwner();
+    }
+  });
+
+  it('٢٥ · والنجمةُ لا تمسّ الصوتَ ولا المزوّدَ ولا الجلسة', async () => {
+    const lib = libraryProvider('qv-lib');
+    const t = await mountShadow({ provider: lib.provider });
+    const bus = await import('../js/services/shadow/audio-bus.js');
+    bus.forgetAudioOwner();
+    const changes = [];
+    const unwatch = bus.watchAudio((owner) => changes.push(owner));
+    try {
+      t.$('[data-sh="qv"]').click();
+      const pop = document.querySelector('.sh-qv-pop');
+      await openBrowser(pop, 'ru-anna');
+      const { shadowSessions, settings } = await import('../js/db/repositories.js');
+      const before = await shadowSessions.get(t.session.id);
+      const info = pop.querySelector('[data-qv-info]').textContent;
+
+      for (const id of ['ru-anna', 'ru-boris', 'en-carl', 'ru-boris']) inList(pop, 'list', 'qv-fav', id).click();
+      inList(pop, 'favs', 'qv-fav', 'ru-anna').click();
+      await new Promise((r) => setTimeout(r, 200));
+
+      expect(`نطقٌ ${t.speech.spoken.length} · طلبٌ ${lib.calls.length} · تبدّلُ مالك ${changes.length}`)
+        .toBe('نطقٌ 0 · طلبٌ 0 · تبدّلُ مالك 0');
+      expect(`المزوّد: ${pop.querySelector('[data-sh="qv-provider"]').value} · السطر ثابت: ${pop.querySelector('[data-qv-info]').textContent === info}`)
+        .toBe(`المزوّد: ${BROWSER_ID} · السطر ثابت: true`);
+      const after = await shadowSessions.get(t.session.id);
+      expect(JSON.stringify([after.voiceId, after.voiceByProvider ?? null])).toBe(JSON.stringify([before.voiceId, before.voiceByProvider ?? null]));
+      expect(`الأخيرة: ${JSON.stringify(await settings.get('shadow.voiceRecent', []))}`).toBe('الأخيرة: []');
+      expect(namesIn(pop, 'favs')).toEqual(['Carl']);
+    } finally {
+      unwatch();
+      t.dispose();
+      bus.forgetAudioOwner();
     }
   });
 });
