@@ -380,7 +380,14 @@ describe('WS-SCLEAN · مركزُ التدريب يُقرأ', () => {
      */
     const open = drawer.indexOf('<details class="sh-cc-adv">');
     const close = drawer.indexOf('</details>', open);
-    const engine = drawer.indexOf('tts-provider');
+    /*
+     * ⚠️ والمرساةُ حاويةُ رقائق المحرّك لا اسمُ زرّها: الرقائقُ صارت تُرسَم من
+     *    `providerChipsHtml()` (تُعاد رسمًا حين يتغيّر التوفّر وهي مفتوحة)،
+     *    والحاويةُ باقيةٌ في القالب حيث تُطوى.
+     */
+    const engine = drawer.indexOf('data-cc-chips="engine"');
+    expect(`الرقائقُ من دالّتها داخل الحاوية: ${/data-cc-chips="engine">\s*\$\{raw\(providerChipsHtml\(\)\)\}/.test(drawer)}`)
+      .toBe('الرقائقُ من دالّتها داخل الحاوية: true');
     expect(`طيٌّ حقيقيّ: ${open > 0}`).toBe('طيٌّ حقيقيّ: true');
     expect(`المحرّكُ داخله: ${engine > open && engine < close}`).toBe('المحرّكُ داخله: true');
     const css = (await (await fetch('../css/shadow.css')).text()).replace(/\/\*[\s\S]*?\*\//g, '');

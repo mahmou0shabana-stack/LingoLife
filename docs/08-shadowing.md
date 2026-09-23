@@ -548,11 +548,12 @@ Lingua Libre · openrussian) وتقول بالحرف ما الذي يُرسَل.
 | `services/shadow/tts/audio-cache.js` | ذاكرة الصوت المولَّد المشتركة |
 | `services/shadow/tts/speaker-adapter.js` | يحقن مزوّدًا مختارًا في `playback-controller.js` |
 | `services/shadow/tts/bootstrap.js` | تسجيل كل المزوّدين عند الإقلاع |
-| `services/shadow/tts/rhvoice-provider.js` | عقدٌ معماريّ — RHVoice غير متاح في الويب |
-| `services/shadow/tts/xtts-bridge-provider.js` | عميل جسر XTTS المحلّي (`fetch`) |
-| `services/shadow/tts/cloud-provider.js` | عقدٌ معماريّ لمزوّدٍ سحابيّ مستقبليّ |
+| `services/shadow/tts/local-bridge.js` | عميلُ الجسر المحلّيّ المشترك (`/health` بمحرّكاته، `/voices?engine=`، `/synthesize`) |
+| `services/shadow/tts/rhvoice-provider.js` | RHVoice عبر الجسر المحلّيّ (محرّك `rhvoice`) — وغيرُ متاحٍ بسببه الحقيقيّ بدونه |
+| `services/shadow/tts/xtts-bridge-provider.js` | XTTS عبر الجسر المحلّيّ (محرّك `xtts`) |
+| `services/shadow/tts/cloud-provider.js` | عقدٌ لمزوّدٍ سحابيّ — يحتاج خادمًا خلفيًّا يحمل المفتاح |
 | `modals/voice-lab.js` | مختبر الأصوات A/B/C |
-| `scripts/tts-bridge/server.py` | خادم جسرٍ مرجعيّ — أداة تطويرٍ منفصلة |
+| `scripts/tts-bridge/server.py` | الجسرُ المحلّيّ: RHVoice (`RHVoice-test`) وXTTS (Coqui)، برؤوس CORS/PNA |
 | `services/saved-service.js` | المحفوظات وتصنيفاتها |
 | `views/shadow-view.js` | الكتاب الغامر وكل التحكّم |
 | `css/shadow.css` | تخطيط الصفحتين |
@@ -587,12 +588,19 @@ synthesize(request), cancel()`، فيقدر مزوّدٌ غير المتصفّح
 |---|---|---|
 | المتصفّح (`speechSynthesis`) | نعم | جاهزٌ دائمًا — السقوطُ الافتراضيّ |
 | Piper (Web/WASM) | لا | إثباتُ مفهومٍ معلَّق — نموذج الصوت الروسيّ لا يمكن تنزيله من بيئة التطوير هنا (Hugging Face محجوبة) |
-| RHVoice | لا | عقدٌ معماريّ فقط — محرّكٌ أصليّ، ينتظر غلاف أندرويد مستقبليًّا |
-| XTTS (جسر محلّي) | عند التطوير فقط | عميلٌ حقيقيّ يفحص `localhost:8765`؛ يعمل فعليًّا إن شغّلتَ `scripts/tts-bridge/server.py` ووصّلتَ محرّكًا فيه |
-| سحابيّ مستقبليّ | لا | عقدٌ معماريّ فقط — لا خدمة خلفه بعد |
+| RHVoice | عبر الجسر المحلّيّ | يعمل فعليًّا: `apt install rhvoice rhvoice-russian` ثمّ `python3 scripts/tts-bridge/server.py` على نفس الجهاز — أصواتُه الروسيّة المثبَّتة تظهر في مركز الصوت وتنطق في المعاينة والشادوينج |
+| XTTS (جسر محلّي) | عبر الجسر المحلّيّ، إن ثُبِّت | يحتاج `pip install TTS` (مع PyTorch) ونموذج xtts_v2 يُنزَّل عند أوّل استعمال؛ بدونها يقول الجسرُ السببَ وتعرضه اللوحة |
+| سحابيّ | لا | لا خدمةَ موصولة — يحتاج خادمًا خلفيًّا يحمل مفتاحَ المزوّد (لا يوضع في الواجهة) |
 
 > لا يُعرَض RHVoice ولا XTTS (بلا جسرٍ شغّال) ولا السحابيّ على أنهما
-> «يعملان دون اتصال في الويب» — لوحتُهما تقول حالتهما الحقيقية.
+> «يعملان دون اتصال في الويب» — لوحتُهما تقول حالتهما الحقيقية، و«مصدر الصوت»
+> في لوحة الصوت السريعة يعرض سببَ كلّ غيرِ متاح، ويُعيد الفحصَ عند كلّ فتح
+> (جسرٌ شُغِّل بعد فتح الشاشة يُرى بلا إعادة تحميل).
+>
+> ⚠️ **لماذا كان الجسرُ «غير متّصل» وهو يعمل:** التطبيقُ على أصلٍ آخر، والجسرُ
+> لم يكن يرسل رؤوسَ CORS ولا يجيب `OPTIONS` — فحجب المتصفّحُ ردودَه. وصار
+> يرسلها لأصول التطبيق وحدها، مع `Access-Control-Allow-Private-Network` التي
+> يشترطها Chrome لصفحة https تنادي `localhost`.
 
 ---
 

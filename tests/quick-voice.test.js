@@ -2230,3 +2230,117 @@ describe('Voice Center · التكاملُ مع تجربة التدريب', () =
     }
   });
 });
+
+describe('Voice Center · تدقيقُ المزوّدين: التوفّرُ الحيّ وأسبابُه', () => {
+  /** مزوّدٌ توفّرُه بيدك — كجسرٍ يُشغَّل أو يُطفأ والشاشةُ مفتوحة. */
+  function switchable(id) {
+    const lib = libraryProvider(id);
+    const state = { up: false };
+    lib.provider.name = 'مزوّد الجسر';
+    /*
+     * ⚠️ **ويتأخّر كالشبكة**: جسرٌ حقيقيٌّ يُسأل عبر `fetch`، فالقسمُ المتذكَّر
+     *    يُفتَح ويُجلَب **قبل** أن يعود الفحص. بلا التأخير يسبق الفحصُ الجلبَ
+     *    فلا يُقاس إعادةُ الجلب أصلًا (نجت منه طفرةٌ حذفتها).
+     */
+    lib.provider.isAvailable = async () => (await new Promise((r) => setTimeout(r, 120)), state.up
+      ? { available: true, status: 'available_via_local_bridge', reason: '' }
+      : { available: false, status: 'requires_local_bridge', reason: 'الجسر المحلّي لا يجيب — شغّل: python3 scripts/tts-bridge/server.py' });
+    return { ...lib, state };
+  }
+
+  it('٥٥ · غيرُ المتاح يقول سببَه في اللوحة — معطّلٌ في «مصدر الصوت»، والأمرُ معزولُ الاتّجاه', async () => {
+    const sw = switchable('qv-sw');
+    const t = await mountShadow({ provider: sw.provider });
+    try {
+      t.$('[data-sh="qv"]').click();
+      const pop = document.querySelector('.sh-qv-pop');
+      const option = pop.querySelector('[data-sh="qv-provider"] option[value="qv-sw"]');
+      expect(`${option.disabled} · ${option.textContent.includes('غير متاح')} · ${option.title.includes('server.py')}`)
+        .toBe('true · true · true');
+      const box = pop.querySelector('[data-qv-whybox]');
+      const line = pop.querySelector('[data-qv-why] [data-qv-why-id="qv-sw"]');
+      expect(`ظاهرٌ: ${!box.hidden} · مطويٌّ: ${!box.open}`).toBe('ظاهرٌ: true · مطويٌّ: true');
+      expect(line.textContent).toContain('مزوّد الجسر');
+      expect(line.textContent).toContain('python3 scripts/tts-bridge/server.py');
+      expect([...line.querySelectorAll('bdi[dir="ltr"]')].map((b) => b.textContent)).toContain('python3 scripts/tts-bridge/server.py');
+      expect(`المتاحُ لا سببَ له: ${!pop.querySelector(`[data-qv-why-id="${BROWSER_ID}"]`)}`).toBe('المتاحُ لا سببَ له: true');
+    } finally {
+      t.dispose();
+    }
+  });
+
+  it('٥٦ · جسرٌ شُغِّل بعد فتح الشاشة يُرى عند فتح اللوحة — مصدرُه وأصواتُه ورقاقتُه، بلا إعادة تحميل', async () => {
+    const sw = switchable('qv-sw');
+    const t = await mountShadow({ provider: sw.provider });
+    try {
+      const btn = t.$('[data-sh="qv"]');
+      btn.click();
+      let pop = document.querySelector('.sh-qv-pop');
+      const opt = () => document.querySelector('.sh-qv-pop [data-sh="qv-provider"] option[value="qv-sw"]');
+      const chip = () => t.$('[data-sh="tts-provider"][data-v="qv-sw"]');
+      expect(`قبل: ${opt().disabled} · ${chip().disabled}`).toBe('قبل: true · true');
+      pop.querySelector('[data-qv-browse] > summary').click();
+      await until(() => !pop.querySelector('[data-qv-list]').textContent.includes('بيحمّل'));
+      expect(`لا أصواتَ له قبل: ${!pop.querySelector('[data-sh="qv-pick"][data-p="qv-sw"]')}`).toBe('لا أصواتَ له قبل: true');
+      btn.click();
+
+      sw.state.up = true;
+      btn.click();
+      pop = document.querySelector('.sh-qv-pop');
+      await until(() => opt() && !opt().disabled);
+      expect(`بعد: ${opt().disabled} · ${chip().disabled} · سببُه باقٍ: ${!!pop.querySelector('[data-qv-why-id="qv-sw"]')}`)
+        .toBe('بعد: false · false · سببُه باقٍ: false');
+      /* ⚠️ والقسمُ المفتوحُ (المتذكَّر) يُجلَب ثانيةً بالمزوّد الجديد. */
+      await until(() => pop.querySelector('[data-sh="qv-pick"][data-p="qv-sw"][data-v="ru-anna"]'));
+      /* ويُختار ويُنطَق به. */
+      const select = pop.querySelector('[data-sh="qv-provider"]');
+      select.value = 'qv-sw';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+      pop.querySelector('[data-sh="qv-preview"]').click();
+      await until(() => sw.calls.length >= 1);
+      expect(`نطقَ به: ${sw.calls.length >= 1}`).toBe('نطقَ به: true');
+
+      /* والعكس: أُطفئ ← يعود معطّلًا بسببه. */
+      btn.click();
+      sw.state.up = false;
+      btn.click();
+      await until(() => opt()?.disabled);
+      expect(`أُطفئ: ${chip().disabled} · ${!!document.querySelector('.sh-qv-pop [data-qv-why-id="qv-sw"]')}`).toBe('أُطفئ: true · true');
+    } finally {
+      t.dispose();
+    }
+  });
+
+  it('٥٧ · والجلبُ البائت لا يكتب فوق الجديد — وإن عاد آخِرًا', async () => {
+    const sw = switchable('qv-sw');
+    /* مزوّدٌ متاحٌ دائمًا، وأوّلُ جلبٍ لأصواته معلَّقٌ بيدك — فيعود الجلبُ البائتُ متأخّرًا. */
+    const slow = libraryProvider('qv-slow');
+    const gate = {};
+    const firstVoices = slow.provider.getVoices;
+    let asked = 0;
+    slow.provider.getVoices = async () => {
+      asked += 1;
+      if (asked === 1) await new Promise((r) => { gate.release = r; });
+      return (await firstVoices()).map((v) => ({ ...v, id: `slow-${v.id}` }));
+    };
+    const registry = await import('../js/services/shadow/tts/registry.js');
+    registry.registerProvider(slow.provider);
+    const t = await mountShadow({ provider: sw.provider });
+    try {
+      sw.state.up = true;
+      localStorage.setItem(QV_SECTION_KEY, 'voices');
+      t.$('[data-sh="qv"]').click();
+      const pop = document.querySelector('.sh-qv-pop');
+      await until(() => pop.querySelector('[data-sh="qv-pick"][data-p="qv-sw"][data-v="ru-anna"]'));
+      await until(() => gate.release);
+      gate.release();
+      await new Promise((r) => setTimeout(r, 150));
+      expect(`بعد عودة البائت: ${!!pop.querySelector('[data-sh="qv-pick"][data-p="qv-sw"][data-v="ru-anna"]')}`)
+        .toBe('بعد عودة البائت: true');
+    } finally {
+      gate.release?.();
+      t.dispose();
+      registry.unregisterProvider(slow.provider.id);
+    }
+  });
+});

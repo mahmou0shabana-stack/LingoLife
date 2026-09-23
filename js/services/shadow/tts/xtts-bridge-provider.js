@@ -1,70 +1,35 @@
 /**
- * LingoLife — XTTSBridgeProvider: عميل جسر التطوير المحلّي (WS41-G، بند 7-8)
+ * LingoLife — XTTSBridgeProvider: XTTS عبر الجسر المحلّيّ
  *
- * ═══════════════════════════════════════════════════════════════
- * بلاغُك
- * ═══════════════════════════════════════════════════════════════
+ * الجسرُ خادمٌ محلّيّ (`scripts/tts-bridge/server.py`) يغلّف XTTS (Coqui)
+ * وغيرَه؛ وهذا المزوّدُ يسأله عن محرّك **xtts** وحده — عبر
+ * `local-bridge.js` المشترك مع RHVoice.
  *
- * > «لا تُدمج XTTS كاملةً في المتصفّح كأوّل تنفيذ. ابنِ بدلًا من ذلك
- * >  جسرَ تطويرٍ محلّيًّا اختياريًّا: LingoLife (ويب) ← جسر localhost
- * >  ← Python/XTTS ← صوتٌ مولَّد ← LingoLife. أدوات تطويرٍ فقط —
- * >  المستخدم يشغّل خدمةً محليّةً صغيرة. نقاطٌ مقترحة: GET /health،
- * >  GET /voices، POST /synthesize بجسم مثل {text, language, voice,
- * >  speed}، وترجع الصوتَ وبياناتِه الوصفية. اجعل الجسر عامًّا بما
- * >  يكفي ليغلّف Piper/RHVoice أثناء التطوير أيضًا لو أفاد.»
+ * ⚠️ **والحالُ ثلاثٌ لا اثنتان** — وكانت اثنتين فكذبت:
+ *    · الجسرُ لا يجيب ← REQUIRES_LOCAL_BRIDGE («شغّل الجسر»)
+ *    · الجسرُ يجيب ولا XTTS فيه ← MODEL_NOT_DOWNLOADED بسبب الجسر نفسِه
+ *      («مكتبة Coqui TTS غير مثبّتة — pip install TTS …»)
+ *    · متاح ← AVAILABLE_VIA_LOCAL_BRIDGE
+ *    وكان كلُّ ما عدا الثالثة «الجسر غير متّصل» — حتّى والجسرُ يعمل ويحجبه
+ *    المتصفّح لغياب رؤوس CORS فيه (أُصلحت في server.py).
  *
- * > «الجسرُ يرتبط بـlocalhost افتراضيًّا، لا يُعرَّض للخارج، ولا
- * >  تُضاف مفاتيح API إلى كود الواجهة الأمامية. عالِج بوضوح: الجسرُ
- * >  غيرُ متاح، تحميلُ المحرّك، فشلُ التوليد، المهلة، الإلغاء.»
- *
- * هذا الملفّ هو **العميل** فقط — يتحدّث مع أيّ خادمٍ يطابق العقد
- * أعلاه عبر `fetch` على `localhost`. الخادمُ المرجعيّ (هيكلٌ لا تنفيذ
- * XTTS فعليّ) في `scripts/tts-bridge/server.py` — أداة تطويرٍ منفصلة
- * لا تُشحَن مع الـPWA، تمامًا كـ`scripts/vendor-tesseract.sh`.
- *
- * ⚠️ **لا سرّ هنا.** لا مفتاح ولا رمز في هذا الملفّ ولا في أيّ طلبٍ
- *    يرسله — الجسرُ محلّيٌّ بلا مصادقة أصلًا (بند الأمان المتكرّر).
+ * ⚠️ **لا سرّ هنا.** الجسرُ محلّيٌّ بلا مصادقة.
  */
 
 import { PROVIDER_TYPE, AVAILABILITY, PROVENANCE } from './types.js';
+import { createLocalBridge } from './local-bridge.js';
 
 export const XTTS_PROVIDER_ID = 'xtts-bridge';
-
-/** المهلة قصيرة عمدًا: فحصُ جسرٍ محلّيّ يجب ألّا يعلّق الواجهة. */
-const HEALTH_TIMEOUT_MS = 1200;
-const SYNTH_TIMEOUT_MS = 20000;
-
-async function withTimeout(fn, ms) {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), ms);
-  try {
-    return await fn(controller.signal);
-  } finally {
-    clearTimeout(timer);
-  }
-}
+const ENGINE = 'xtts';
 
 /**
- * @param {{ baseUrl?: string }} [options]
- *   `baseUrl` قابلٌ للتغيير لأن رقم المنفذ اختيار المطوّر — لا افتراض
- *   واحد يناسب الجميع؛ لكن الافتراض نفسه دائمًا `localhost` (بند 8).
+ * @param {{ baseUrl?: string, bridge?: ReturnType<typeof createLocalBridge> }} [options]
  * @returns {import('./types.js').TTSProvider}
  */
-export function createXTTSBridgeProvider({ baseUrl = 'http://localhost:8765' } = {}) {
+export function createXTTSBridgeProvider({ baseUrl, bridge } = {}) {
+  const client = bridge || createLocalBridge(baseUrl ? { baseUrl } : {});
   /** ضبطُ التوليد الجاري — `cancel()` تُلغيه فعليًّا، لا تُعلمه فقط. */
-  let activeController = null;
-
-  async function checkHealth() {
-    try {
-      const response = await withTimeout(
-        (signal) => fetch(`${baseUrl}/health`, { signal }),
-        HEALTH_TIMEOUT_MS
-      );
-      return response.ok;
-    } catch {
-      return false;
-    }
-  }
+  let active = null;
 
   return {
     id: XTTS_PROVIDER_ID,
@@ -77,71 +42,59 @@ export function createXTTSBridgeProvider({ baseUrl = 'http://localhost:8765' } =
     supportsLongText: true,
 
     async isAvailable() {
-      const healthy = await checkHealth();
-      return healthy
-        ? { available: true, status: AVAILABILITY.AVAILABLE_VIA_LOCAL_BRIDGE, reason: `الجسر متّصل — ${baseUrl}` }
-        : {
-            available: false,
-            status: AVAILABILITY.REQUIRES_LOCAL_BRIDGE,
-            reason: `الجسر المحلّي غير متّصل (${baseUrl}) — شغّل scripts/tts-bridge/server.py أولًا`,
-          };
+      const state = await client.engineState(ENGINE);
+      if (!state.up) {
+        return {
+          available: false,
+          status: AVAILABILITY.REQUIRES_LOCAL_BRIDGE,
+          reason: `الجسر المحلّي لا يجيب على ${client.baseUrl} — شغّل: python3 scripts/tts-bridge/server.py`,
+        };
+      }
+      if (!state.available) {
+        return {
+          available: false,
+          status: AVAILABILITY.MODEL_NOT_DOWNLOADED,
+          reason: state.reason || 'الجسر يعمل لكن XTTS غير مهيّأ فيه',
+        };
+      }
+      return {
+        available: true,
+        status: AVAILABILITY.AVAILABLE_VIA_LOCAL_BRIDGE,
+        reason: `الجسر متّصل — ${client.baseUrl}`,
+      };
     },
 
     async getVoices() {
-      try {
-        const response = await withTimeout((signal) => fetch(`${baseUrl}/voices`, { signal }), HEALTH_TIMEOUT_MS);
-        if (!response.ok) return [];
-        const data = await response.json();
-        return Array.isArray(data?.voices) ? data.voices : [];
-      } catch {
-        return [];
-      }
+      return client.voices(ENGINE);
     },
 
     /** @param {import('./types.js').TTSRequest} request */
     async synthesize({ text, language = 'ru', voiceId = null, speed = 1 } = {}) {
       const controller = new AbortController();
-      activeController = controller;
-      let timedOut = false;
-      const timer = setTimeout(() => { timedOut = true; controller.abort(); }, SYNTH_TIMEOUT_MS);
+      active = controller;
       try {
-        const response = await fetch(`${baseUrl}/synthesize`, {
-          method: 'POST',
-          signal: controller.signal,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ text, language, voice: voiceId, speed }),
+        const { blob, error } = await client.synthesize({
+          engine: ENGINE, text, language, voiceId, speed, signal: controller.signal,
         });
-        if (!response.ok) {
-          return {
-            provider: XTTS_PROVIDER_ID, voiceId, provenance: PROVENANCE.XTTS_GENERATED,
-            error: `bridge-http-${response.status}`,
-          };
-        }
-        const audioBlob = await response.blob();
-        const durationHeader = Number(response.headers.get('X-Audio-Duration'));
         return {
-          audioBlob,
+          audioBlob: blob,
           audioUrl: null,
           playedDirectly: false,
-          duration: Number.isFinite(durationHeader) ? durationHeader : null,
+          duration: null,
           provider: XTTS_PROVIDER_ID,
           voiceId,
           cacheKey: null,
           provenance: PROVENANCE.XTTS_GENERATED,
           cached: false,
-          error: null,
+          error,
         };
-      } catch (err) {
-        const reason = err?.name !== 'AbortError' ? 'bridge-unreachable' : timedOut ? 'timeout' : 'aborted';
-        return { provider: XTTS_PROVIDER_ID, voiceId, provenance: PROVENANCE.XTTS_GENERATED, error: reason };
       } finally {
-        clearTimeout(timer);
-        if (activeController === controller) activeController = null;
+        if (active === controller) active = null;
       }
     },
 
     cancel() {
-      activeController?.abort();
+      active?.abort();
     },
   };
 }

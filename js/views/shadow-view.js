@@ -2379,12 +2379,7 @@ function settingsDrawer() {
           ${raw(ccRow({
             key: 'engine', label: 'محرّك النطق الآليّ',
             body: html`<div class="sh-cc-chips" data-cc-chips="engine">
-              ${raw((ctx.ttsProviders || []).map(({ provider, availability }) => html`
-                <button type="button" data-sh="tts-provider" data-v="${provider.id}"
-                  class="${ctx.ttsProviderId === provider.id ? 'on' : ''}"
-                  ${availability.available ? '' : 'disabled'}
-                  title="${availability.reason || ''}"
-                >${provider.name}${raw(availability.available ? '' : html`<small>غير متاح حاليًا</small>`)}</button>`).join(''))}
+              ${raw(providerChipsHtml())}
             </div>`,
           }))}
 
@@ -5187,6 +5182,84 @@ async function setAudioSource(next) {
  *    يستعمله النداءُ القادم فقط — الموضعُ وعدّادُ التكرار والتحديد
  *    تبقى كما هي تمامًا (بند 19: لا لمسَ لمنطق `playback-controller.js`).
  */
+/* رقائقُ المحرّك في المركز — غيرُ المتاح معطّلٌ وسببُه في تلميحه. */
+function providerChipsHtml() {
+  return (ctx.ttsProviders || []).map(({ provider, availability }) => html`
+    <button type="button" data-sh="tts-provider" data-v="${provider.id}"
+      class="${ctx.ttsProviderId === provider.id ? 'on' : ''}"
+      ${availability.available ? '' : 'disabled'}
+      title="${availability.reason || ''}"
+    >${provider.name}${raw(availability.available ? '' : html`<small>غير متاح حاليًا</small>`)}</button>`).join('');
+}
+
+/* خياراتُ «مصدر الصوت» في اللوحة السريعة. */
+function providerOptionsHtml() {
+  return (ctx.ttsProviders || []).map(({ provider, availability }) => html`
+    <option value="${provider.id}" ${provider.id === ctx.ttsProviderId ? 'selected' : ''}
+      ${availability.available ? '' : 'disabled'}
+      title="${availability.reason || ''}">${provider.name}${availability.available ? '' : ' — غير متاح'}</option>`).join('');
+}
+
+/*
+ * ⚠️ **غيرُ المتاح يقول لماذا — بسببه هو** (`isAvailable().reason`): «شغّل
+ *    الجسر»، «ثبّت Coqui TTS»، «يحتاج خدمةً خلفيّة». كان خيارًا معطّلًا
+ *    صامتًا، فبدا المزوّدُ معطوبًا وهو ينتظر مكوّنًا خارجيًّا.
+ */
+function providerWhyHtml() {
+  return (ctx.ttsProviders || [])
+    .filter(({ availability }) => !availability?.available)
+    .map(({ provider, availability }) => html`<li data-qv-why-id="${provider.id}"><b>${provider.name}</b>: ${raw(isolateLatin(esc(availability?.reason || 'غير متاح')))}</li>`)
+    .join('');
+}
+
+function providerWhyCount() {
+  return (ctx.ttsProviders || []).filter(({ availability }) => !availability?.available).length;
+}
+
+/*
+ * ⚠️ **الأوامرُ والعناوين معزولةُ الاتّجاه**: سببٌ عربيٌّ فيه
+ *    «(python3 scripts/tts-bridge/server.py)» كان يُقلَب قوسُه ويتكسّر
+ *    الأمرُ بين سطرين معكوسين (قِيس على ٤١٢). كلُّ جريانٍ لاتينيٍّ `<bdi>`.
+ */
+function isolateLatin(escaped) {
+  /* والكيانُ (`&amp;`…) يُتخطّى كاملًا — لا يُشطَر بوسم. */
+  return escaped.replace(/&#?\w+;|[A-Za-z][\w.:/-]*(?: [A-Za-z0-9][\w.:/-]*)*/g,
+    (run) => (run.startsWith('&') ? run : `<bdi dir="ltr">${run}</bdi>`));
+}
+
+/**
+ * يُعيد فحصَ توفّر المزوّدين — عند فتح لوحة الصوت.
+ *
+ * ⚠️ **كان الفحصُ مرّةً عند فتح الشاشة وحدها** (`ctx.ttsProviders`)، فجسرٌ
+ *    شُغِّل بعد فتحها لا يُرى حتّى تُعاد الشاشة — وRHVoice «غيرُ متاح»
+ *    والجسرُ يعمل أمامك. والفحصُ رخيص: `isAvailable()` هنا نافذتُها
+ *    ثوانٍ في `local-bridge.js`.
+ * @returns {Promise<boolean>} هل تغيّر شيء
+ */
+function providersSig(list) {
+  return (list || []).map(({ provider, availability }) =>
+    `${provider.id}:${availability?.available}:${availability?.status}:${availability?.reason}`).join('|');
+}
+
+async function refreshTTSProviders() {
+  const fresh = await allAvailability().catch(() => null);
+  if (!ctx || !fresh) return false;
+  if (providersSig(fresh) === providersSig(ctx.ttsProviders)) return false;
+  ctx.ttsProviders = fresh;
+  const chips = document.querySelector('[data-cc-chips="engine"]');
+  if (chips) chips.innerHTML = providerChipsHtml();
+  const select = quickVoice?.querySelector('[data-sh="qv-provider"]');
+  if (select) select.innerHTML = providerOptionsHtml();
+  const why = quickVoice?.querySelector('[data-qv-why]');
+  if (why) why.innerHTML = providerWhyHtml();
+  const whyBox = quickVoice?.querySelector('[data-qv-whybox]');
+  if (whyBox) whyBox.hidden = !providerWhyCount();
+  const whyN = quickVoice?.querySelector('[data-qv-why-n]');
+  if (whyN) whyN.textContent = String(providerWhyCount());
+  syncQuickVoice();
+  return true;
+}
+
 async function setTTSProvider(next) {
   const known = ctx.ttsProviders?.some(({ provider }) => provider.id === next);
   if (!known) return undefined;
@@ -9924,11 +9997,13 @@ function quickVoiceHtml() {
     <label class="sh-qv-row">
       <span class="sh-qv-lbl">مصدر الصوت</span>
       <select class="sh-select" data-sh="qv-provider" aria-label="مصدر الصوت">
-        ${raw((ctx.ttsProviders || []).map(({ provider, availability }) => html`
-          <option value="${provider.id}" ${provider.id === ctx.ttsProviderId ? 'selected' : ''}
-            ${availability.available ? '' : 'disabled'}>${provider.name}</option>`).join(''))}
+        ${raw(providerOptionsHtml())}
       </select>
     </label>
+    <details class="sh-qv-whybox" data-qv-whybox ${providerWhyCount() ? '' : 'hidden'}>
+      <summary>ليه بعض المصادر مش متاحة؟ (<span data-qv-why-n>${providerWhyCount()}</span>)</summary>
+      <ul class="sh-qv-why" dir="rtl" data-qv-why>${raw(providerWhyHtml())}</ul>
+    </details>
     <div class="sh-qv-row">
       <span class="sh-qv-lbl">صوت الجهاز</span>
       <div class="sh-qv-pair">
@@ -10228,9 +10303,18 @@ function noteRecentVoice(providerId, voiceId) {
   settings.set(VOICE_RECENT_KEY, voiceRecent).catch(() => {});
 }
 
+/*
+ * ⚠️ **جيلُ الجلب**: القسمُ المتذكَّر يُجلَب عند فتح اللوحة بمزوّدي ما قبل
+ *    الفحص، ثمّ يُجلَب ثانيةً إن غيّر الفحصُ شيئًا (`refreshTTSProviders`).
+ *    والأقدمُ قد يعود آخِرًا فيكتب قائمتَه البائتة فوق الجديدة — فلا يكتب
+ *    إلّا أحدثُ جلب.
+ */
+let browseLoad = 0;
+
 async function loadVoiceBrowser() {
   const list = quickVoice?.querySelector('[data-qv-list]');
   if (!list) return;
+  const mine = ++browseLoad;
   list.innerHTML = '<li class="sh-qv-empty">بيحمّل الأصوات…</li>';
   const available = (ctx.ttsProviders || []).filter(({ availability }) => availability?.available);
   const perProvider = await Promise.all(available.map(async ({ provider }) => {
@@ -10243,7 +10327,7 @@ async function loadVoiceBrowser() {
       language: String(v.language ?? v.lang ?? ''),
     })).filter((v) => v.id);
   }));
-  if (!quickVoice) return;
+  if (!quickVoice || mine !== browseLoad) return;
   browseVoices = perProvider.flat();
   paintVoiceBrowser();
   syncQuickVoice();
@@ -10589,6 +10673,19 @@ function openQuickVoice() {
   btn.setAttribute('aria-expanded', 'true');
   btn.classList.add('on');
   placeQuickVoice();
+  /*
+   * ⚠️ وقائمةُ الأصوات المفتوحة تُجلَب ثانيةً إن تغيّر التوفّر — لا تبقى بمزوّدي ما قبل.
+   *    والمقارنةُ بما رُسمت به **هذه** اللوحة، لا بـ«هل غيّر هذا الفحصُ شيئًا»:
+   *    فحصُ فتحٍ سابقٍ قد يعود بعد إعادة الفتح فيحدّث `ctx` وحده، فيجد فحصُ
+   *    هذه اللوحة ألّا جديد — وقائمتُها بائتة (قِيس: ٥٦).
+   */
+  const mine = quickVoice;
+  const seen = providersSig(ctx.ttsProviders);
+  refreshTTSProviders().then(() => {
+    if (quickVoice !== mine || !ctx || providersSig(ctx.ttsProviders) === seen) return;
+    placeQuickVoice();
+    if (mine.querySelector('[data-qv-browse]')?.open) loadVoiceBrowser();
+  });
 }
 
 /** زرُّ الصوت فوق الميكروفون يقول صوتَ التعلّم الحاليّ — في اسمه وتلميحه. */

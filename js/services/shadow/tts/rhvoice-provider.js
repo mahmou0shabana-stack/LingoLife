@@ -1,38 +1,43 @@
 /**
- * LingoLife — RHVoiceProvider: عقدٌ لا تشغيل (WS41-G، بند 6)
+ * LingoLife — RHVoiceProvider: RHVoice حقيقيٌّ عبر الجسر المحلّيّ
  *
  * ═══════════════════════════════════════════════════════════════
- * بلاغُك
+ * ما كان، وما صار
  * ═══════════════════════════════════════════════════════════════
  *
- * > «RHVoice مهمٌّ للنطق الروسيّ دون اتصال ولدعم أندرويد. لا تتظاهر
- * >  بأن المحرّك الأصليّ/الأندرويديّ يعمل داخل متصفّحٍ عاديّ في مرحلة
- * >  الويب. نفّذ `RHVoiceProvider` كعقد مزوّدٍ بتوفّرٍ صادق. هيّئ
- * >  الواجهة حتى يستطيع غلافُ أندرويد مستقبلًا استدعاء RHVoice بلا
- * >  إعادة تصميم الشادوينج.»
+ * كان عقدًا بلا تشغيل: `isAvailable()` تقول «لا يعمل في الويب» دائمًا،
+ * و`synthesize()` تُرجع خطأً دائمًا. وذلك صادقٌ عن **المتصفّح وحده**:
+ * RHVoice محرّكٌ أصليّ (C++) بلا WASM رسميّ.
  *
- * ⚠️ **لا توجد طريقةٌ حقيقيّة لتشغيل RHVoice (محرّكٌ أصليّ C++) داخل
- *    صفحة ويب عادية اليوم** — لا WASM رسميّ ولا حزمة npm. فهذا الملفّ
- *    عقدٌ معماريّ بحت: `isAvailable()` تُرجع دائمًا `false` في بناء
- *    الويب هذا، بصراحةٍ لا بافتراضٍ متفائل. اليوم الذي يُبنى فيه
- *    غلافُ أندرويد أصليّ (`WebView` + جسر JS↔Kotlin/Java يستدعي
- *    RHVoice)، يستبدل ذلك الغلافُ `isAvailable`/`synthesize` هنا
- *    بتنفيذٍ حقيقي — والسجلّ (`registry.js`) والشادوينج لا يتغيّران
- *    حرفًا واحدًا، لأنهما يريان العقد لا التنفيذ.
+ * لكنّ الجسرَ المحلّيّ (`scripts/tts-bridge/server.py`) صُمِّم ليغلّف
+ * RHVoice أيضًا — ولم يكن موصولًا. فصار يشغّل أداتَه الرسميّة
+ * `RHVoice-test` بالأصوات المثبَّتة على الجهاز، وهذا المزوّدُ يسأله عن
+ * محرّك **rhvoice** (`local-bridge.js`). والترتيب:
+ *
+ *   ١ غلافُ أندرويد أصليّ (`isAndroidNative`) — محجوزٌ كما كان
+ *   ٢ الجسرُ المحلّيّ وفيه RHVoice ← AVAILABLE_VIA_LOCAL_BRIDGE
+ *   ٣ وإلّا غيرُ متاح — **وبالسبب الحقيقيّ**: الجسرُ لا يجيب، أو يجيب
+ *     وRHVoice غيرُ مثبّتٍ عليه (السببُ من الجسر نفسِه).
+ *
+ * ⚠️ **ولا ادّعاء**: لا يُقال «متاح» إلّا والجسرُ قال إنّ المحرّكَ وأصواتَه
+ *    موجودة. والتوليدُ ملفُّ WAV حقيقيّ يمرّ بالذاكرة المشتركة
+ *    (`synthesizeWithCache`) ومُكيِّف النطق والناقل كأيّ مزوّدٍ مولِّد.
  */
 
 import { PROVIDER_TYPE, AVAILABILITY, PROVENANCE } from './types.js';
+import { createLocalBridge } from './local-bridge.js';
 
 export const RHVOICE_PROVIDER_ID = 'rhvoice';
+const ENGINE = 'rhvoice';
 
 /**
- * @param {{ isAndroidNative?: () => boolean }} [env]
- *   حَقنٌ للاختبار وللغلاف المستقبليّ: يمرّر دالّةً تقول إن كنّا داخل
- *   غلافٍ أصليّ فعلًا. غيابها يعني «متصفّحٌ عاديّ» — الحالة الوحيدة
- *   الممكنة اليوم.
+ * @param {{ isAndroidNative?: () => boolean, bridge?: ReturnType<typeof createLocalBridge>, baseUrl?: string }} [env]
  * @returns {import('./types.js').TTSProvider}
  */
-export function createRHVoiceProvider({ isAndroidNative = () => false } = {}) {
+export function createRHVoiceProvider({ isAndroidNative = () => false, bridge, baseUrl } = {}) {
+  const client = bridge || createLocalBridge(baseUrl ? { baseUrl } : {});
+  let active = null;
+
   return {
     id: RHVOICE_PROVIDER_ID,
     name: 'RHVoice — دون اتصال',
@@ -45,39 +50,62 @@ export function createRHVoiceProvider({ isAndroidNative = () => false } = {}) {
 
     async isAvailable() {
       if (isAndroidNative()) {
-        // لا يتحقّق هذا أبدًا في بناء الويب — محجوزٌ لغلاف أندرويد مستقبليّ.
+        // محجوزٌ لغلاف أندرويد مستقبليّ — يستبدل synthesize كذلك.
         return {
           available: true,
           status: AVAILABILITY.AVAILABLE_NATIVE_ANDROID,
           reason: 'متاحٌ عبر تطبيق أندرويد الأصليّ',
         };
       }
+      const state = await client.engineState(ENGINE);
+      if (state.available) {
+        return {
+          available: true,
+          status: AVAILABILITY.AVAILABLE_VIA_LOCAL_BRIDGE,
+          reason: `RHVoice عبر الجسر المحلّي — ${client.baseUrl}`,
+        };
+      }
       return {
         available: false,
         status: AVAILABILITY.UNAVAILABLE_IN_WEB,
-        reason: 'RHVoice محرّكٌ أصليّ — لا يعمل داخل متصفّح ويب. متاحٌ في نسخة أندرويد فقط',
+        reason: state.up
+          ? (state.reason || 'الجسر المحلّي يعمل لكن RHVoice غير مهيّأ فيه')
+          : `RHVoice محرّكٌ أصليّ لا يعمل داخل المتصفّح وحده — ثبّته وشغّل الجسر المحلّي (python3 scripts/tts-bridge/server.py) على ${client.baseUrl}`,
       };
     },
 
     async getVoices() {
-      return [];
+      const state = await client.engineState(ENGINE);
+      return state.available ? client.voices(ENGINE) : [];
     },
 
-    async synthesize() {
-      return {
-        audioBlob: null,
-        audioUrl: null,
-        playedDirectly: false,
-        duration: null,
-        provider: RHVOICE_PROVIDER_ID,
-        voiceId: null,
-        cacheKey: null,
-        provenance: PROVENANCE.RHVOICE_GENERATED,
-        cached: false,
-        error: 'unavailable-in-web',
-      };
+    /** @param {import('./types.js').TTSRequest} request */
+    async synthesize({ text, language = 'ru', voiceId = null, speed = 1 } = {}) {
+      const controller = new AbortController();
+      active = controller;
+      try {
+        const { blob, error } = await client.synthesize({
+          engine: ENGINE, text, language, voiceId, speed, signal: controller.signal,
+        });
+        return {
+          audioBlob: blob,
+          audioUrl: null,
+          playedDirectly: false,
+          duration: null,
+          provider: RHVOICE_PROVIDER_ID,
+          voiceId,
+          cacheKey: null,
+          provenance: PROVENANCE.RHVOICE_GENERATED,
+          cached: false,
+          error,
+        };
+      } finally {
+        if (active === controller) active = null;
+      }
     },
 
-    cancel() {},
+    cancel() {
+      active?.abort();
+    },
   };
 }
