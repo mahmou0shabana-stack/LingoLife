@@ -1676,7 +1676,344 @@
         ]
       }
     },
-    "cosyvoice": null
+    "cosyvoice": {
+      "model_version": "FunAudioLLM/Fun-CosyVoice3-0.5B-2512@29e01c4e8d (SHA-256-verified, fetched from modelscope.cn); FunAudioLLM/CosyVoice @ git 074ca6d, torch 2.3.1 CPU",
+      "voices": {
+        "zero_shot_prompt": {
+          "model_voice": "zero_shot_prompt",
+          "variant": "text as-is (U+0301 kept) + official CosyVoice3 prefix",
+          "model_bytes": 4425086113,
+          "syntheses": 32,
+          "succeeded": 32,
+          "first_run_wall_s": 45.27,
+          "warm_wall_median_s": 20.608,
+          "rtf_wall_median": 6.6,
+          "rtf_infer_median": 6.5997,
+          "peak_rss_mb_max": 8412.0,
+          "model_load": {
+            "ok": true,
+            "load_s": 26.974,
+            "error": null,
+            "rss_after_load_mb": 7082.4,
+            "peak_rss_during_load_mb": 8412.0,
+            "details": {
+              "rss_before_load_kb": 352124,
+              "rss_after_load_kb": 7252376,
+              "peak_rss_after_load_kb": 8613868,
+              "packages": {
+                "torch": "2.3.1",
+                "transformers": "4.51.3",
+                "onnxruntime": "1.18.0"
+              },
+              "cosyvoice_git_commit": "074ca6dc9e80a2f424f1f74b48bdd7d3fea531cc",
+              "class": "CosyVoice3",
+              "text_frontend_backend": "",
+              "prompt_audio": "tools/CosyVoice/asset/zero_shot_prompt.wav",
+              "mode": "inference_cross_lingual (official CosyVoice3 example)",
+              "device": "cpu",
+              "threads": 4,
+              "sample_rate": 24000
+            }
+          }
+        },
+        "zero_shot_prompt~no-stress-marks": {
+          "model_voice": "zero_shot_prompt",
+          "variant": "U+0301 removed + official prefix (same seed as the as-is run)",
+          "model_bytes": 4425086113,
+          "syntheses": 32,
+          "succeeded": 32,
+          "first_run_wall_s": 13.377,
+          "warm_wall_median_s": 17.98,
+          "rtf_wall_median": 7.1656,
+          "rtf_infer_median": 7.165,
+          "peak_rss_mb_max": 8412.0,
+          "model_load": {
+            "ok": true,
+            "load_s": 26.974,
+            "error": null,
+            "rss_after_load_mb": 7082.4,
+            "peak_rss_during_load_mb": 8412.0,
+            "details": {
+              "rss_before_load_kb": 352124,
+              "rss_after_load_kb": 7252376,
+              "peak_rss_after_load_kb": 8613868,
+              "packages": {
+                "torch": "2.3.1",
+                "transformers": "4.51.3",
+                "onnxruntime": "1.18.0"
+              },
+              "cosyvoice_git_commit": "074ca6dc9e80a2f424f1f74b48bdd7d3fea531cc",
+              "class": "CosyVoice3",
+              "text_frontend_backend": "",
+              "prompt_audio": "tools/CosyVoice/asset/zero_shot_prompt.wav",
+              "mode": "inference_cross_lingual (official CosyVoice3 example)",
+              "device": "cpu",
+              "threads": 4,
+              "sample_rate": 24000
+            }
+          }
+        }
+      },
+      "stress_experiment": {
+        "pairs_compared": 30,
+        "identical": 0,
+        "different": 30,
+        "determinism_control": [
+          {
+            "voice": "zero_shot_prompt",
+            "item_id": "25",
+            "identical_audio": true
+          },
+          {
+            "voice": "zero_shot_prompt",
+            "item_id": "28",
+            "identical_audio": true
+          }
+        ],
+        "pairs": [
+          {
+            "voice": "zero_shot_prompt",
+            "item_id": "01",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.24,
+            "duration_stripped_s": 1.52
+          },
+          {
+            "voice": "zero_shot_prompt",
+            "item_id": "02",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 3.28,
+            "duration_stripped_s": 3.76
+          },
+          {
+            "voice": "zero_shot_prompt",
+            "item_id": "03",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 2.84,
+            "duration_stripped_s": 1.56
+          },
+          {
+            "voice": "zero_shot_prompt",
+            "item_id": "04",
+            "marks": 5,
+            "identical_audio": false,
+            "duration_as_is_s": 3.36,
+            "duration_stripped_s": 2.28
+          },
+          {
+            "voice": "zero_shot_prompt",
+            "item_id": "05",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 2.32,
+            "duration_stripped_s": 1.6
+          },
+          {
+            "voice": "zero_shot_prompt",
+            "item_id": "06",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 1.84,
+            "duration_stripped_s": 1.68
+          },
+          {
+            "voice": "zero_shot_prompt",
+            "item_id": "07",
+            "marks": 6,
+            "identical_audio": false,
+            "duration_as_is_s": 3.64,
+            "duration_stripped_s": 3.2
+          },
+          {
+            "voice": "zero_shot_prompt",
+            "item_id": "08",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.48,
+            "duration_stripped_s": 2.64
+          },
+          {
+            "voice": "zero_shot_prompt",
+            "item_id": "09",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.2,
+            "duration_stripped_s": 2.8
+          },
+          {
+            "voice": "zero_shot_prompt",
+            "item_id": "10",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.68,
+            "duration_stripped_s": 2.2
+          },
+          {
+            "voice": "zero_shot_prompt",
+            "item_id": "11",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 1.12,
+            "duration_stripped_s": 1.04
+          },
+          {
+            "voice": "zero_shot_prompt",
+            "item_id": "12",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.16,
+            "duration_stripped_s": 1.92
+          },
+          {
+            "voice": "zero_shot_prompt",
+            "item_id": "13",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.08,
+            "duration_stripped_s": 2.48
+          },
+          {
+            "voice": "zero_shot_prompt",
+            "item_id": "14",
+            "marks": 5,
+            "identical_audio": false,
+            "duration_as_is_s": 5.24,
+            "duration_stripped_s": 4.68
+          },
+          {
+            "voice": "zero_shot_prompt",
+            "item_id": "15",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 3.52,
+            "duration_stripped_s": 4.16
+          },
+          {
+            "voice": "zero_shot_prompt",
+            "item_id": "16",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.4,
+            "duration_stripped_s": 4.56
+          },
+          {
+            "voice": "zero_shot_prompt",
+            "item_id": "17",
+            "marks": 1,
+            "identical_audio": false,
+            "duration_as_is_s": 6.0,
+            "duration_stripped_s": 5.2
+          },
+          {
+            "voice": "zero_shot_prompt",
+            "item_id": "18",
+            "marks": 6,
+            "identical_audio": false,
+            "duration_as_is_s": 3.92,
+            "duration_stripped_s": 3.84
+          },
+          {
+            "voice": "zero_shot_prompt",
+            "item_id": "19",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.6,
+            "duration_stripped_s": 2.52
+          },
+          {
+            "voice": "zero_shot_prompt",
+            "item_id": "20",
+            "marks": 7,
+            "identical_audio": false,
+            "duration_as_is_s": 7.28,
+            "duration_stripped_s": 3.96
+          },
+          {
+            "voice": "zero_shot_prompt",
+            "item_id": "21",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.16,
+            "duration_stripped_s": 3.04
+          },
+          {
+            "voice": "zero_shot_prompt",
+            "item_id": "22",
+            "marks": 18,
+            "identical_audio": false,
+            "duration_as_is_s": 14.8,
+            "duration_stripped_s": 11.16
+          },
+          {
+            "voice": "zero_shot_prompt",
+            "item_id": "23",
+            "marks": 15,
+            "identical_audio": false,
+            "duration_as_is_s": 12.68,
+            "duration_stripped_s": 8.72
+          },
+          {
+            "voice": "zero_shot_prompt",
+            "item_id": "24",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 1.08,
+            "duration_stripped_s": 0.92
+          },
+          {
+            "voice": "zero_shot_prompt",
+            "item_id": "26",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 1.84,
+            "duration_stripped_s": 1.36
+          },
+          {
+            "voice": "zero_shot_prompt",
+            "item_id": "27",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.2,
+            "duration_stripped_s": 1.92
+          },
+          {
+            "voice": "zero_shot_prompt",
+            "item_id": "29",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 4.4,
+            "duration_stripped_s": 2.6
+          },
+          {
+            "voice": "zero_shot_prompt",
+            "item_id": "30",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.6,
+            "duration_stripped_s": 1.6
+          },
+          {
+            "voice": "zero_shot_prompt",
+            "item_id": "31",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 2.64,
+            "duration_stripped_s": 3.0
+          },
+          {
+            "voice": "zero_shot_prompt",
+            "item_id": "32",
+            "marks": 1,
+            "identical_audio": false,
+            "duration_as_is_s": 3.2,
+            "duration_stripped_s": 3.44
+          }
+        ]
+      }
+    }
   },
   "status": {
     "rhvoice": "working",
@@ -1684,7 +2021,7 @@
     "xtts": "working",
     "qwen3": "working",
     "chatterbox": "working",
-    "cosyvoice": "blocked"
+    "cosyvoice": "working"
   },
   "engines_meta": [
     {
@@ -1716,6 +2053,7 @@
         "source": "/usr/share/doc/rhvoice-russian/copyright"
       },
       "commercial_review": "yes — 9 of the 14 Russian voices are CC-BY-NC-ND-4.0 (non-commercial); aleksandr-hq is CC-BY-SA-4.0; the rest LGPL-2.1+ per the Debian copyright file.",
+      "stress_handling": "Honors U+0301: «пи́шу»/«бе́рега» change the audio; a mark matching default stress gives byte-identical audio (measured in phase 1). Deterministic.",
       "status": "working"
     },
     {
@@ -1734,91 +2072,100 @@
       },
       "commercial_review": "yes — voice is GPLv2 per its model card and is a fine-tune of the lessac voice, whose dataset terms need separate review.",
       "partial_blocker": "The other Russian Piper voices (ru_RU-denis/dmitri/ruslan/irina-medium) are hosted only on huggingface.co/rhasspy/piper-voices — CONNECT 403 here. Only ru-irinia-medium is available as a GitHub release asset.",
+      "stress_handling": "espeak-ng ignores U+0301 and mis-stresses words containing it (dictionary miss → letter rules): «перейти́» → pʲirʲˈejtʲi vs unmarked pʲirʲijtʲˈɪ (phase 1).",
       "status": "working"
     },
     {
       "id": "xtts",
       "label": "XTTS v2",
-      "adapter": null,
-      "model": "coqui/XTTS-v2 (tts_models/multilingual/multi-dataset/xtts_v2)",
-      "python_package": "coqui-tts 0.27.5 on PyPI (maintained idiap fork); requires PyTorch",
-      "cpu_only": "not measured",
-      "gpu_required": "not measured",
+      "adapter": "engines/xtts.py (+ engines/xtts_worker.py in envs/xtts)",
+      "model": "coqui/XTTS-v2 @ 28ac75746581 (tag v2.0.1; identical files to v2.0.0) — model.pth sha256 a9bf08409cde…; NOT the newer v2.0.3 on main",
+      "python_package": "coqui-tts 0.27.5 (idiap fork) + transformers 4.57.6 + spacy 3.8.16 (needed by its sentence splitter), torch 2.6.0 CPU",
+      "cpu_only": "yes (measured, 4-core CPU)",
+      "gpu_required": "no — runs on CPU; GPU would only speed it up",
       "license": {
-        "code": "MPL-2.0 (idiap/coqui-ai-TTS LICENSE.txt)",
-        "model": "CPML — per TTS/.models.json in idiap/coqui-ai-TTS",
-        "source": "raw.githubusercontent.com"
+        "code": "MPL-2.0 (idiap/coqui-ai-TTS)",
+        "model": "Coqui Public Model License 1.0.0 — non-commercial use of the model AND its outputs only",
+        "voices": {
+          "en_sample": "reference clip from the CPML-licensed model repo"
+        },
+        "source": "models/xtts/LICENSE.txt (identical to HF v2.0.1 LICENSE.txt)"
       },
-      "commercial_review": "yes — CPML (Coqui Public Model License) model weights.",
-      "blocker": {
-        "kind": "network",
-        "detail": "Model weights are only served from huggingface.co (coqui/XTTS-v2). `curl https://huggingface.co/coqui/XTTS-v2/resolve/main/config.json` → `CONNECT tunnel failed, response 403` (environment network policy). download.pytorch.org is also refused (403).",
-        "unblock": "Allow huggingface.co (and its LFS CDN) in the environment's network access settings, or run on a machine with that access."
-      },
+      "commercial_review": "yes — CPML forbids commercial use of the model and its outputs; Coqui (the licensor) has shut down, so a commercial license cannot be bought.",
+      "voice": "cloned from samples/en_sample.wav shipped in the model repo (the ModelScope mirror has no speakers_xtts.pth; no Russian sample exists in the repo)",
+      "stress_handling": "Tokenizer vocab has no U+0301: every mark becomes an [UNK] token and breaks the BPE split around it («за́мок» → за·[UNK]·мо·к vs «замок» → за·мо·к). Marks also count toward the 182-char Russian limit and can trigger sentence splitting (#22).",
+      "network_notes": "Weights: huggingface.co API reachable, but its LFS/Xet CDNs (us.aws.cdn.hf.co, cas-server.xethub.hf.co) are refused (CONNECT 403), so files came from modelscope.cn with SHA-256 verified against the HF revision. torch from PyPI (download.pytorch.org redirects to download-r2.pytorch.org, refused).",
       "status": "working"
     },
     {
       "id": "qwen3",
       "label": "Qwen3-TTS",
-      "adapter": null,
-      "model": "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice / -1.7B-CustomVoice / -1.7B-Base (Russian listed in the official README)",
-      "python_package": "qwen-tts 0.1.1 on PyPI; requires PyTorch",
-      "cpu_only": "not measured",
-      "gpu_required": "not measured",
+      "adapter": "engines/qwen3.py (+ engines/qwen3_worker.py in envs/qwen3)",
+      "model": "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice @ 0c0e3051f131 (built-in speakers serena, ryan; float32 on CPU)",
+      "python_package": "qwen-tts 0.1.1, transformers 4.57.3, torch 2.6.0 CPU",
+      "cpu_only": "yes (measured, 4-core CPU)",
+      "gpu_required": "no — runs on CPU, but peak RSS reached 13.5 GB of 15.7 GB (float32 1.7B); the 0.6B variant would need less",
       "license": {
         "code": "Apache-2.0 (QwenLM/Qwen3-TTS LICENSE)",
-        "model": "not verifiable here — the model card is on huggingface.co / modelscope.cn",
-        "source": "raw.githubusercontent.com"
+        "model": "Apache-2.0 (model card front matter)",
+        "voices": {
+          "serena": "built-in speaker, Apache-2.0 model",
+          "ryan": "built-in speaker, Apache-2.0 model"
+        },
+        "source": "models/qwen3-1.7b/README.md"
       },
-      "commercial_review": "yes — weight license not verified.",
-      "blocker": {
-        "kind": "network",
-        "detail": "Weights are served from huggingface.co and modelscope.cn. `curl https://huggingface.co/api/models/Qwen/Qwen3-TTS-12Hz-1.7B-Base` and `curl https://www.modelscope.cn/api/v1/models/Qwen/Qwen3-TTS-12Hz-1.7B-Base` → both `CONNECT tunnel failed, response 403`.",
-        "unblock": "Allow huggingface.co or modelscope.cn."
-      },
+      "commercial_review": "light — Apache-2.0.",
+      "voice": "built-in CustomVoice speakers; none is a native Russian speaker (README: Chinese/English/Japanese/Korean natives)",
+      "stress_handling": "No text normalization; byte-level BPE keeps U+0301 as its own token (5 marks → 5 tokens in #04), so marks reach the model.",
+      "rate_support": "no speed parameter; 1.7B takes a natural-language instruction (used for the two slow items, recorded)",
+      "network_notes": "Weights: huggingface.co API reachable, but its LFS/Xet CDNs (us.aws.cdn.hf.co, cas-server.xethub.hf.co) are refused (CONNECT 403), so files came from modelscope.cn with SHA-256 verified against the HF revision. torch from PyPI (download.pytorch.org redirects to download-r2.pytorch.org, refused).",
       "status": "working"
     },
     {
       "id": "chatterbox",
       "label": "Chatterbox Multilingual V3",
-      "adapter": null,
-      "model": "ResembleAI/chatterbox — t3_mtl23ls_v3.safetensors (+ ve.pt, s3gen.pt, conds.pt); Russian (ru) is in the language list",
-      "python_package": "chatterbox-tts 0.1.7 on PyPI (not verified to contain the V3 loader; GitHub master does); requires PyTorch",
-      "cpu_only": "not measured",
-      "gpu_required": "not measured",
+      "adapter": "engines/chatterbox.py (+ engines/chatterbox_worker.py in envs/chatterbox)",
+      "model": "ResembleAI/chatterbox @ 5bb1f6ee58e5 — t3_mtl23ls_v3.safetensors (V3) + s3gen.pt + ve.pt + conds.pt",
+      "python_package": "chatterbox-tts 0.1.7 from GitHub master @ 5de7a54 (has the V3 loader), transformers 5.2.0, torch 2.6.0 CPU",
+      "cpu_only": "yes (measured, 4-core CPU)",
+      "gpu_required": "no — runs on CPU; GPU would only speed it up",
       "license": {
         "code": "MIT (resemble-ai/chatterbox LICENSE)",
-        "model": "not verifiable here — model card is on huggingface.co",
-        "source": "raw.githubusercontent.com"
+        "model": "MIT (model card front matter, ResembleAI/chatterbox README.md)",
+        "voices": {
+          "builtin": "conds.pt, part of the MIT model repo"
+        },
+        "source": "models/chatterbox/README.md"
       },
-      "commercial_review": "yes — weight license not verified.",
-      "blocker": {
-        "kind": "network",
-        "detail": "mtl_tts.py downloads with huggingface_hub.snapshot_download(REPO_ID=\"ResembleAI/chatterbox\"). `curl https://huggingface.co/api/models/ResembleAI/chatterbox` → `CONNECT tunnel failed, response 403`.",
-        "unblock": "Allow huggingface.co."
-      },
+      "commercial_review": "light — MIT. Output carries Resemble's Perth imperceptible watermark by default.",
+      "voice": "built-in conditioning conds.pt (package default voice)",
+      "stress_handling": "Vocab HAS a U+0301 token and the model is trained on stressed Russian: marks reach the model as their own tokens. The package would auto-stress Russian via an optional `russian_text_stresser` module, which is not a declared dependency and was not installable → skipped with a warning (recorded per synthesis). NFKD also splits й into и+U+0306.",
+      "rate_support": "none — no speed/duration control; slow items synthesized at default rate",
+      "network_notes": "Weights: huggingface.co API reachable, but its LFS/Xet CDNs (us.aws.cdn.hf.co, cas-server.xethub.hf.co) are refused (CONNECT 403), so files came from modelscope.cn with SHA-256 verified against the HF revision. torch from PyPI (download.pytorch.org redirects to download-r2.pytorch.org, refused).",
       "status": "working"
     },
     {
       "id": "cosyvoice",
       "label": "CosyVoice 3",
-      "adapter": null,
-      "model": "FunAudioLLM/Fun-CosyVoice3-0.5B-2512 (Russian is one of its 9 languages per the official README)",
-      "python_package": "none official — the README installs from the GitHub repo; a `cosyvoice` 0.0.8 package exists on PyPI but is not verified as official",
-      "cpu_only": "not measured",
-      "gpu_required": "not measured",
+      "adapter": "engines/cosyvoice.py (+ engines/cosyvoice_worker.py in envs/cosyvoice, repo in tools/CosyVoice)",
+      "model": "FunAudioLLM/Fun-CosyVoice3-0.5B-2512 @ 29e01c4e8d00 (llm.pt, flow.pt, hift.pt; not the RL variant)",
+      "python_package": "no package — official repo FunAudioLLM/CosyVoice @ 074ca6d with its requirements.txt pins (torch 2.3.1 CPU, transformers 4.51.3); CUDA-only deps omitted",
+      "cpu_only": "yes (measured, 4-core CPU)",
+      "gpu_required": "no — runs on CPU (TensorRT/vLLM/fp16 paths are GPU-only and unused)",
       "license": {
         "code": "Apache-2.0 (FunAudioLLM/CosyVoice LICENSE)",
-        "model": "not verifiable here — model card is on modelscope.cn / huggingface.co",
-        "source": "raw.githubusercontent.com"
+        "model": "Apache-2.0 (huggingface.co model card metadata; the ModelScope README has no license header)",
+        "voices": {
+          "zero_shot_prompt": "prompt clip from the Apache-2.0 repo"
+        },
+        "source": "https://huggingface.co/api/models/FunAudioLLM/Fun-CosyVoice3-0.5B-2512"
       },
-      "commercial_review": "yes — weight license not verified.",
-      "blocker": {
-        "kind": "network",
-        "detail": "The README downloads with modelscope.snapshot_download (or Hugging Face). `curl https://www.modelscope.cn/api/v1/models/FunAudioLLM/Fun-CosyVoice3-0.5B-2512` and `curl https://huggingface.co/api/models/FunAudioLLM/Fun-CosyVoice3-0.5B-2512` → both `CONNECT tunnel failed, response 403`.",
-        "unblock": "Allow modelscope.cn or huggingface.co."
-      },
-      "status": "blocked"
+      "commercial_review": "light — Apache-2.0.",
+      "voice": "zero-shot from asset/zero_shot_prompt.wav — the prompt the official CosyVoice3 example uses (Mandarin speaker; no Russian prompt ships)",
+      "stress_handling": "Official CosyVoice3 usage prefixes the text with \"You are a helpful assistant.<|endofprompt|>\", which makes CosyVoice skip its text frontend; the Qwen2 byte-level BPE then keeps U+0301 as its own token, so marks reach the model. (Its wetext normalizer could not load here anyway: it downloads from www.modelscope.cn, refused.)",
+      "network_notes": "Weights: huggingface.co API reachable, but its LFS/Xet CDNs (us.aws.cdn.hf.co, cas-server.xethub.hf.co) are refused (CONNECT 403), so files came from modelscope.cn with SHA-256 verified against the HF revision. torch from PyPI (download.pytorch.org redirects to download-r2.pytorch.org, refused).",
+      "rate_support": "speed argument (0.8 for slow items)",
+      "status": "working"
     }
   ],
   "run_environment": {
@@ -1863,6 +2210,20 @@
       "python": "3.11.15",
       "node": "v22.22.2",
       "disk_free_gb": 6.1
+    },
+    "cosyvoice": {
+      "captured_at": "2026-09-24T17:54:37+00:00",
+      "os": "Ubuntu 24.04.4 LTS",
+      "kernel": "6.18.44-fc-v37",
+      "arch": "x86_64",
+      "cpu": "Intel(R) Xeon(R) Processor @ 2.80GHz",
+      "cpu_cores": 4,
+      "ram_gb": 15.7,
+      "gpu": "none (no nvidia-smi, no /dev/nvidia*)",
+      "vram": "n/a (no GPU)",
+      "python": "3.11.15",
+      "node": "v22.22.2",
+      "disk_free_gb": 6.0
     }
   }
 }

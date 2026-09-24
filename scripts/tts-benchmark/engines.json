@@ -78,7 +78,7 @@
       "model": "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice @ 0c0e3051f131 (built-in speakers serena, ryan; float32 on CPU)",
       "python_package": "qwen-tts 0.1.1, transformers 4.57.3, torch 2.6.0 CPU",
       "cpu_only": "yes (measured, 4-core CPU)",
-      "gpu_required": "no — runs on CPU, but it is the slowest here and peaks near 12 GB RAM while loading",
+      "gpu_required": "no — runs on CPU, but peak RSS reached 13.5 GB of 15.7 GB (float32 1.7B); the 0.6B variant would need less",
       "license": {
         "code": "Apache-2.0 (QwenLM/Qwen3-TTS LICENSE)",
         "model": "Apache-2.0 (model card front matter)",
@@ -122,8 +122,8 @@
       "adapter": "engines/cosyvoice.py (+ engines/cosyvoice_worker.py in envs/cosyvoice, repo in tools/CosyVoice)",
       "model": "FunAudioLLM/Fun-CosyVoice3-0.5B-2512 @ 29e01c4e8d00 (llm.pt, flow.pt, hift.pt; not the RL variant)",
       "python_package": "no package — official repo FunAudioLLM/CosyVoice @ 074ca6d with its requirements.txt pins (torch 2.3.1 CPU, transformers 4.51.3); CUDA-only deps omitted",
-      "cpu_only": "pending run",
-      "gpu_required": "pending run",
+      "cpu_only": "yes (measured, 4-core CPU)",
+      "gpu_required": "no — runs on CPU (TensorRT/vLLM/fp16 paths are GPU-only and unused)",
       "license": {
         "code": "Apache-2.0 (FunAudioLLM/CosyVoice LICENSE)",
         "model": "Apache-2.0 (huggingface.co model card metadata; the ModelScope README has no license header)",
@@ -134,8 +134,9 @@
       },
       "commercial_review": "light — Apache-2.0.",
       "voice": "zero-shot from asset/zero_shot_prompt.wav — the prompt the official CosyVoice3 example uses (Mandarin speaker; no Russian prompt ships)",
-      "stress_handling": "pending run",
-      "network_notes": "Weights: huggingface.co API reachable, but its LFS/Xet CDNs (us.aws.cdn.hf.co, cas-server.xethub.hf.co) are refused (CONNECT 403), so files came from modelscope.cn with SHA-256 verified against the HF revision. torch from PyPI (download.pytorch.org redirects to download-r2.pytorch.org, refused)."
+      "stress_handling": "Official CosyVoice3 usage prefixes the text with \"You are a helpful assistant.<|endofprompt|>\", which makes CosyVoice skip its text frontend; the Qwen2 byte-level BPE then keeps U+0301 as its own token, so marks reach the model. (Its wetext normalizer could not load here anyway: it downloads from www.modelscope.cn, refused.)",
+      "network_notes": "Weights: huggingface.co API reachable, but its LFS/Xet CDNs (us.aws.cdn.hf.co, cas-server.xethub.hf.co) are refused (CONNECT 403), so files came from modelscope.cn with SHA-256 verified against the HF revision. torch from PyPI (download.pytorch.org redirects to download-r2.pytorch.org, refused).",
+      "rate_support": "speed argument (0.8 for slow items)"
     }
   ]
 }
