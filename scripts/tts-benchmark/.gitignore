@@ -1,0 +1,7 @@
+# Generated or downloaded — reproduce with setup.sh, run.py, build_page.py
+.venv/
+tools/
+models/
+output/
+page/packs/
+__pycache__/

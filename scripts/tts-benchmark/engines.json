@@ -1,0 +1,116 @@
+{
+  "about": "One entry per target engine. `status` is set by run.py: `working` only after the real model produced Russian audio files in this environment. Blocked engines have NO adapter — only the recorded blocker. Every claim here cites where it was verified.",
+  "engines": [
+    {
+      "id": "rhvoice",
+      "label": "RHVoice",
+      "role": "baseline",
+      "adapter": "engines/rhvoice.py",
+      "install": "apt-get install rhvoice rhvoice-russian (Ubuntu 24.04 archive)",
+      "cpu_only": "yes (measured)",
+      "gpu_required": "no",
+      "license": {
+        "engine": "LGPL-2.1+",
+        "voices": {
+          "anna": "LGPL-2.1+ (Debian copyright: data/*)",
+          "aleksandr": "LGPL-2.1+ (Debian copyright: data/*)",
+          "elena": "LGPL-2.1+ (Debian copyright: data/*)",
+          "irina": "LGPL-2.1+ (Debian copyright: data/*)",
+          "evgeniy-rus": "LGPL-2.1+ (Debian copyright: data/*)",
+          "aleksandr-hq": "CC-BY-SA-4.0",
+          "artemiy": "CC-BY-NC-ND-4.0",
+          "arina": "CC-BY-NC-ND-4.0",
+          "mikhail": "CC-BY-NC-ND-4.0",
+          "pavel": "CC-BY-NC-ND-4.0",
+          "tatiana": "CC-BY-NC-ND-4.0",
+          "victoria": "CC-BY-NC-ND-4.0",
+          "vitaliy": "CC-BY-NC-ND-4.0",
+          "yuriy": "CC-BY-NC-ND-4.0"
+        },
+        "source": "/usr/share/doc/rhvoice-russian/copyright"
+      },
+      "commercial_review": "yes — 9 of the 14 Russian voices are CC-BY-NC-ND-4.0 (non-commercial); aleksandr-hq is CC-BY-SA-4.0; the rest LGPL-2.1+ per the Debian copyright file."
+    },
+    {
+      "id": "piper",
+      "label": "Piper",
+      "adapter": "engines/piper.py",
+      "install": "setup.sh downloads github.com/rhasspy/piper/releases/download/2023.11.14-2/piper_linux_x86_64.tar.gz and .../v0.0.2/voice-ru-irinia-medium.tar.gz",
+      "cpu_only": "yes (measured)",
+      "gpu_required": "no",
+      "license": {
+        "engine": "MIT (github.com/rhasspy/piper LICENSE.md)",
+        "voices": {
+          "ru-irinia-medium": "GPLv2 per the voice's MODEL_CARD (dataset: RHVoice); fine-tuned from the en_US lessac medium voice"
+        },
+        "source": "models/piper/MODEL_CARD, rhasspy/piper LICENSE.md"
+      },
+      "commercial_review": "yes — voice is GPLv2 per its model card and is a fine-tune of the lessac voice, whose dataset terms need separate review.",
+      "partial_blocker": "The other Russian Piper voices (ru_RU-denis/dmitri/ruslan/irina-medium) are hosted only on huggingface.co/rhasspy/piper-voices — CONNECT 403 here. Only ru-irinia-medium is available as a GitHub release asset."
+    },
+    {
+      "id": "xtts",
+      "label": "XTTS v2",
+      "adapter": null,
+      "model": "coqui/XTTS-v2 (tts_models/multilingual/multi-dataset/xtts_v2)",
+      "python_package": "coqui-tts 0.27.5 on PyPI (maintained idiap fork); requires PyTorch",
+      "cpu_only": "not measured",
+      "gpu_required": "not measured",
+      "license": { "code": "MPL-2.0 (idiap/coqui-ai-TTS LICENSE.txt)", "model": "CPML — per TTS/.models.json in idiap/coqui-ai-TTS", "source": "raw.githubusercontent.com" },
+      "commercial_review": "yes — CPML (Coqui Public Model License) model weights.",
+      "blocker": {
+        "kind": "network",
+        "detail": "Model weights are only served from huggingface.co (coqui/XTTS-v2). `curl https://huggingface.co/coqui/XTTS-v2/resolve/main/config.json` → `CONNECT tunnel failed, response 403` (environment network policy). download.pytorch.org is also refused (403).",
+        "unblock": "Allow huggingface.co (and its LFS CDN) in the environment's network access settings, or run on a machine with that access."
+      }
+    },
+    {
+      "id": "qwen3",
+      "label": "Qwen3-TTS",
+      "adapter": null,
+      "model": "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice / -1.7B-CustomVoice / -1.7B-Base (Russian listed in the official README)",
+      "python_package": "qwen-tts 0.1.1 on PyPI; requires PyTorch",
+      "cpu_only": "not measured",
+      "gpu_required": "not measured",
+      "license": { "code": "Apache-2.0 (QwenLM/Qwen3-TTS LICENSE)", "model": "not verifiable here — the model card is on huggingface.co / modelscope.cn", "source": "raw.githubusercontent.com" },
+      "commercial_review": "yes — weight license not verified.",
+      "blocker": {
+        "kind": "network",
+        "detail": "Weights are served from huggingface.co and modelscope.cn. `curl https://huggingface.co/api/models/Qwen/Qwen3-TTS-12Hz-1.7B-Base` and `curl https://www.modelscope.cn/api/v1/models/Qwen/Qwen3-TTS-12Hz-1.7B-Base` → both `CONNECT tunnel failed, response 403`.",
+        "unblock": "Allow huggingface.co or modelscope.cn."
+      }
+    },
+    {
+      "id": "chatterbox",
+      "label": "Chatterbox Multilingual V3",
+      "adapter": null,
+      "model": "ResembleAI/chatterbox — t3_mtl23ls_v3.safetensors (+ ve.pt, s3gen.pt, conds.pt); Russian (ru) is in the language list",
+      "python_package": "chatterbox-tts 0.1.7 on PyPI (not verified to contain the V3 loader; GitHub master does); requires PyTorch",
+      "cpu_only": "not measured",
+      "gpu_required": "not measured",
+      "license": { "code": "MIT (resemble-ai/chatterbox LICENSE)", "model": "not verifiable here — model card is on huggingface.co", "source": "raw.githubusercontent.com" },
+      "commercial_review": "yes — weight license not verified.",
+      "blocker": {
+        "kind": "network",
+        "detail": "mtl_tts.py downloads with huggingface_hub.snapshot_download(REPO_ID=\"ResembleAI/chatterbox\"). `curl https://huggingface.co/api/models/ResembleAI/chatterbox` → `CONNECT tunnel failed, response 403`.",
+        "unblock": "Allow huggingface.co."
+      }
+    },
+    {
+      "id": "cosyvoice",
+      "label": "CosyVoice 3",
+      "adapter": null,
+      "model": "FunAudioLLM/Fun-CosyVoice3-0.5B-2512 (Russian is one of its 9 languages per the official README)",
+      "python_package": "none official — the README installs from the GitHub repo; a `cosyvoice` 0.0.8 package exists on PyPI but is not verified as official",
+      "cpu_only": "not measured",
+      "gpu_required": "not measured",
+      "license": { "code": "Apache-2.0 (FunAudioLLM/CosyVoice LICENSE)", "model": "not verifiable here — model card is on modelscope.cn / huggingface.co", "source": "raw.githubusercontent.com" },
+      "commercial_review": "yes — weight license not verified.",
+      "blocker": {
+        "kind": "network",
+        "detail": "The README downloads with modelscope.snapshot_download (or Hugging Face). `curl https://www.modelscope.cn/api/v1/models/FunAudioLLM/Fun-CosyVoice3-0.5B-2512` and `curl https://huggingface.co/api/models/FunAudioLLM/Fun-CosyVoice3-0.5B-2512` → both `CONNECT tunnel failed, response 403`.",
+        "unblock": "Allow modelscope.cn or huggingface.co."
+      }
+    }
+  ]
+}
