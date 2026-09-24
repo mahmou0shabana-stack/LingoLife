@@ -34,6 +34,14 @@ def encode(wav_path):
     return buf.getvalue(), "audio/flac"
 
 
+def readable_frontend(fe):
+    """Byte-level BPE tokens (Qwen3, CosyVoice) can hold part of one UTF-8 character; decoded alone they
+    come out as U+FFFD. Shown as ⟨byte⟩ on the page; results.json keeps the raw decode."""
+    if not fe:
+        return fe
+    return {**fe, "tokens": [t.replace("\ufffd", "⟨byte⟩") for t in fe.get("tokens", [])]}
+
+
 def main():
     corpus = json.loads((ROOT / "corpus.json").read_text())
     results = json.loads((ROOT / "results" / "results.json").read_text())["records"]
@@ -52,7 +60,7 @@ def main():
             "rss": r["peak_rss_mb"], "rm": r.get("rate_mapping"), "mv": r["model_version"],
             "v": r.get("model_voice", r["voice"]), "f": r.get("output_file"), "err": r.get("error"),
             "first": r.get("first_call_for_voice"),
-            "seed": r.get("seed"), "fe": r.get("frontend"),
+            "seed": r.get("seed"), "fe": readable_frontend(r.get("frontend")),
         }
         if r["success"]:
             groups.setdefault(f"{r['engine']}/{r['voice']}", []).append(r)
