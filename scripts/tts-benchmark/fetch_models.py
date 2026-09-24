@@ -1,0 +1,123 @@
+#!/usr/bin/env python3
+"""Downloads model weights from modelscope.cn and verifies each file's SHA-256
+against the OFFICIAL Hugging Face repo at a pinned revision.
+
+    python3 fetch_models.py xtts chatterbox qwen3-0.6b qwen3-1.7b cosyvoice3
+
+Why ModelScope: in this environment huggingface.co answers the API and small
+files, but its large-file CDNs (us.aws.cdn.hf.co, cas-server.xethub.hf.co)
+are refused by the network policy (CONNECT 403). modelscope.cn serves the
+same files directly. Every LFS file is checked byte-for-byte (SHA-256)
+against huggingface.co's own LFS metadata for the pinned revision — a
+mismatch aborts. Standard library only.
+"""
+
+import hashlib
+import json
+import sys
+import time
+import urllib.parse
+from concurrent.futures import ThreadPoolExecutor
+import urllib.request
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+
+# id: (official HF repo, pinned HF revision, ModelScope mirror, files to fetch or None = all, excluded)
+MODELS = {
+    # AI-ModelScope/XTTS-v2 carries the files of the official v2.0.0/v2.0.1 tags (identical weights,
+    # config and vocab); it has no speakers_xtts.pth, so XTTS runs with a reference clip.
+    "xtts": ("coqui/XTTS-v2", "28ac75746581f0d43c249ad5e9907b8a32a2d1ab", "AI-ModelScope/XTTS-v2", None, ()),
+    "chatterbox": ("ResembleAI/chatterbox", "5bb1f6ee58e50c3b8d408bc82a6d3740c2db6e18", "ResembleAI/chatterbox",
+                   ["ve.pt", "t3_mtl23ls_v3.safetensors", "s3gen.pt", "grapheme_mtl_merged_expanded_v1.json",
+                    "conds.pt", "Cangjie5_TC.json", "README.md"], ()),
+    "qwen3-0.6b": ("Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice", "85e237c12c027371202489a0ec509ded67b5e4b5",
+                   "Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice", None, ()),
+    "qwen3-1.7b": ("Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice", "0c0e3051f131929182e2c023b9537f8b1c68adfe",
+                   "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice", None, ()),
+    # Excluded: the RL variant of the LLM, the batch tokenizer and the TensorRT-only fp32 ONNX estimator.
+    "cosyvoice3": ("FunAudioLLM/Fun-CosyVoice3-0.5B-2512", "29e01c4e8d000f4bcd70751be16fa94bf3d85a18",
+                   "FunAudioLLM/Fun-CosyVoice3-0.5B-2512", None,
+                   ("llm.rl.pt", "speech_tokenizer_v3.batch.onnx", "flow.decoder.estimator.fp32.onnx")),
+}
+
+
+def get_json(url):
+    return json.load(urllib.request.urlopen(url, timeout=60))
+
+
+CHUNK = 32 << 20
+
+
+def download(url, out, size):
+    """Parallel ranged download — single streams from modelscope.cn run at ~0.3 MB/s here."""
+    tmp = out.with_suffix(out.suffix + ".part")
+    with open(tmp, "wb") as f:
+        f.truncate(size)
+
+    def part(start):
+        end = min(start + CHUNK, size) - 1
+        for attempt in range(8):
+            try:
+                req = urllib.request.Request(url, headers={"Range": f"bytes={start}-{end}"})
+                with urllib.request.urlopen(req, timeout=120) as r:
+                    data = r.read()
+                if len(data) != end - start + 1:
+                    raise IOError(f"short read {len(data)}")
+                with open(tmp, "r+b") as f:
+                    f.seek(start)
+                    f.write(data)
+                return
+            except Exception:  # noqa: BLE001 — retried, then re-raised
+                if attempt == 7:
+                    raise
+                time.sleep(2 ** min(attempt, 4))
+
+    with ThreadPoolExecutor(16) as pool:
+        list(pool.map(part, range(0, size, CHUNK)))
+    tmp.rename(out)
+
+
+def fetch(model_id):
+    hf, rev, ms, only, exclude = MODELS[model_id]
+    dest = ROOT / "models" / model_id
+    dest.mkdir(parents=True, exist_ok=True)
+    hf_meta = get_json(f"https://huggingface.co/api/models/{hf}/revision/{rev}?blobs=true")
+    hf_sha = {s["rfilename"]: (s.get("lfs") or {}).get("sha256") for s in hf_meta["siblings"]}
+    ms_files = get_json(f"https://modelscope.cn/api/v1/models/{ms}/repo/files?Revision=master&Recursive=true")
+    paths = [f["Path"] for f in ms_files["Data"]["Files"] if f["Type"] == "blob"]
+    wanted = [p for p in paths if (only is None or p in only) and p not in exclude]
+    report = {"hf_repo": hf, "hf_revision": rev, "modelscope_repo": ms, "files": {}}
+    for p in wanted:
+        out = dest / p
+        out.parent.mkdir(parents=True, exist_ok=True)
+        expected = hf_sha.get(p)
+        if not out.exists():
+            url = f"https://modelscope.cn/api/v1/models/{ms}/repo?Revision=master&FilePath={urllib.parse.quote(p)}"
+            size = next(f.get("Size") for f in ms_files["Data"]["Files"] if f["Path"] == p)
+            download(url, out, size)
+        h = hashlib.sha256()
+        with open(out, "rb") as f:
+            while chunk := f.read(1 << 22):
+                h.update(chunk)
+        got = h.hexdigest()
+        if expected:
+            if got != expected:
+                raise SystemExit(f"{model_id}/{p}: SHA-256 {got} != official {hf}@{rev[:10]} {expected}")
+            verdict = "sha256 matches official HF LFS"
+        elif p in hf_sha:
+            hf_bytes = urllib.request.urlopen(f"https://huggingface.co/{hf}/resolve/{rev}/{urllib.parse.quote(p)}",
+                                              timeout=60).read()
+            verdict = "identical to official HF file" if hashlib.sha256(hf_bytes).hexdigest() == got \
+                else "differs from HF (non-LFS file)"
+        else:
+            verdict = "ModelScope-only file (not in HF repo)"
+        report["files"][p] = {"bytes": out.stat().st_size, "sha256": got, "check": verdict}
+        print(f"[{model_id}] {p}: {verdict}")
+    (dest / "_provenance.json").write_text(json.dumps(report, indent=1))
+    return report
+
+
+if __name__ == "__main__":
+    for m in sys.argv[1:] or MODELS:
+        fetch(m)

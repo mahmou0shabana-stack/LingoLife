@@ -202,17 +202,691 @@
         }
       }
     },
-    "xtts": null,
+    "xtts": {
+      "model_version": "XTTS v2.0.1 — coqui/XTTS-v2@28ac757465 (tag v2.0.1; files SHA-256-identical, fetched from modelscope.cn/AI-ModelScope/XTTS-v2); coqui-tts 0.27.5, torch 2.6.0 CPU",
+      "voices": {
+        "en_sample": {
+          "model_voice": "en_sample",
+          "variant": "text sent as-is (U+0301 kept)",
+          "model_bytes": 2074091229,
+          "syntheses": 32,
+          "succeeded": 32,
+          "first_run_wall_s": 34.686,
+          "warm_wall_median_s": 6.731,
+          "rtf_wall_median": 2.4127,
+          "rtf_infer_median": 2.4123,
+          "peak_rss_mb_max": 5458.2,
+          "model_load": {
+            "ok": true,
+            "load_s": 28.733,
+            "error": null,
+            "rss_after_load_mb": 3634.5,
+            "peak_rss_during_load_mb": 4484.2,
+            "details": {
+              "rss_before_load_kb": 442424,
+              "rss_after_load_kb": 3721760,
+              "peak_rss_after_load_kb": 4591800,
+              "packages": {
+                "coqui-tts": "0.27.5",
+                "torch": "2.6.0",
+                "transformers": "4.57.6"
+              },
+              "reference_audio": "models/xtts/samples/en_sample.wav",
+              "device": "cpu",
+              "threads": 4,
+              "sampling": {
+                "temperature": 0.75,
+                "length_penalty": 1.0,
+                "repetition_penalty": 10.0,
+                "top_k": 50,
+                "top_p": 0.85
+              }
+            }
+          }
+        },
+        "en_sample~no-stress-marks": {
+          "model_voice": "en_sample",
+          "variant": "U+0301 removed before synthesis (same seed as the as-is run)",
+          "model_bytes": 2074091229,
+          "syntheses": 32,
+          "succeeded": 32,
+          "first_run_wall_s": 4.45,
+          "warm_wall_median_s": 6.337,
+          "rtf_wall_median": 2.2282,
+          "rtf_infer_median": 2.2269,
+          "peak_rss_mb_max": 7026.1,
+          "model_load": {
+            "ok": true,
+            "load_s": 28.733,
+            "error": null,
+            "rss_after_load_mb": 3634.5,
+            "peak_rss_during_load_mb": 4484.2,
+            "details": {
+              "rss_before_load_kb": 442424,
+              "rss_after_load_kb": 3721760,
+              "peak_rss_after_load_kb": 4591800,
+              "packages": {
+                "coqui-tts": "0.27.5",
+                "torch": "2.6.0",
+                "transformers": "4.57.6"
+              },
+              "reference_audio": "models/xtts/samples/en_sample.wav",
+              "device": "cpu",
+              "threads": 4,
+              "sampling": {
+                "temperature": 0.75,
+                "length_penalty": 1.0,
+                "repetition_penalty": 10.0,
+                "top_k": 50,
+                "top_p": 0.85
+              }
+            }
+          }
+        }
+      },
+      "stress_experiment": {
+        "pairs_compared": 30,
+        "identical": 0,
+        "different": 30,
+        "determinism_control": [
+          {
+            "voice": "en_sample",
+            "item_id": "25",
+            "identical_audio": true
+          },
+          {
+            "voice": "en_sample",
+            "item_id": "28",
+            "identical_audio": true
+          }
+        ],
+        "pairs": [
+          {
+            "voice": "en_sample",
+            "item_id": "01",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 1.803,
+            "duration_stripped_s": 1.717
+          },
+          {
+            "voice": "en_sample",
+            "item_id": "02",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 3.339,
+            "duration_stripped_s": 4.267
+          },
+          {
+            "voice": "en_sample",
+            "item_id": "03",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 1.899,
+            "duration_stripped_s": 2.219
+          },
+          {
+            "voice": "en_sample",
+            "item_id": "04",
+            "marks": 5,
+            "identical_audio": false,
+            "duration_as_is_s": 2.549,
+            "duration_stripped_s": 2.219
+          },
+          {
+            "voice": "en_sample",
+            "item_id": "05",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 1.856,
+            "duration_stripped_s": 1.856
+          },
+          {
+            "voice": "en_sample",
+            "item_id": "06",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 3.061,
+            "duration_stripped_s": 2.923
+          },
+          {
+            "voice": "en_sample",
+            "item_id": "07",
+            "marks": 6,
+            "identical_audio": false,
+            "duration_as_is_s": 5.013,
+            "duration_stripped_s": 3.808
+          },
+          {
+            "voice": "en_sample",
+            "item_id": "08",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.923,
+            "duration_stripped_s": 2.731
+          },
+          {
+            "voice": "en_sample",
+            "item_id": "09",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.339,
+            "duration_stripped_s": 3.243
+          },
+          {
+            "voice": "en_sample",
+            "item_id": "10",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.453,
+            "duration_stripped_s": 2.592
+          },
+          {
+            "voice": "en_sample",
+            "item_id": "11",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 1.387,
+            "duration_stripped_s": 1.067
+          },
+          {
+            "voice": "en_sample",
+            "item_id": "12",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.176,
+            "duration_stripped_s": 2.08
+          },
+          {
+            "voice": "en_sample",
+            "item_id": "13",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.549,
+            "duration_stripped_s": 1.856
+          },
+          {
+            "voice": "en_sample",
+            "item_id": "14",
+            "marks": 5,
+            "identical_audio": false,
+            "duration_as_is_s": 4.875,
+            "duration_stripped_s": 5.099
+          },
+          {
+            "voice": "en_sample",
+            "item_id": "15",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 3.712,
+            "duration_stripped_s": 4.171
+          },
+          {
+            "voice": "en_sample",
+            "item_id": "16",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 5.291,
+            "duration_stripped_s": 4.597
+          },
+          {
+            "voice": "en_sample",
+            "item_id": "17",
+            "marks": 1,
+            "identical_audio": false,
+            "duration_as_is_s": 5.568,
+            "duration_stripped_s": 5.152
+          },
+          {
+            "voice": "en_sample",
+            "item_id": "18",
+            "marks": 6,
+            "identical_audio": false,
+            "duration_as_is_s": 4.448,
+            "duration_stripped_s": 4.448
+          },
+          {
+            "voice": "en_sample",
+            "item_id": "19",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.435,
+            "duration_stripped_s": 3.339
+          },
+          {
+            "voice": "en_sample",
+            "item_id": "20",
+            "marks": 7,
+            "identical_audio": false,
+            "duration_as_is_s": 6.123,
+            "duration_stripped_s": 5.056
+          },
+          {
+            "voice": "en_sample",
+            "item_id": "21",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.808,
+            "duration_stripped_s": 3.339
+          },
+          {
+            "voice": "en_sample",
+            "item_id": "22",
+            "marks": 18,
+            "identical_audio": false,
+            "duration_as_is_s": 12.896,
+            "duration_stripped_s": 9.376
+          },
+          {
+            "voice": "en_sample",
+            "item_id": "23",
+            "marks": 15,
+            "identical_audio": false,
+            "duration_as_is_s": 10.677,
+            "duration_stripped_s": 11.605
+          },
+          {
+            "voice": "en_sample",
+            "item_id": "24",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 1.856,
+            "duration_stripped_s": 1.717
+          },
+          {
+            "voice": "en_sample",
+            "item_id": "26",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 1.941,
+            "duration_stripped_s": 1.717
+          },
+          {
+            "voice": "en_sample",
+            "item_id": "27",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.688,
+            "duration_stripped_s": 2.827
+          },
+          {
+            "voice": "en_sample",
+            "item_id": "29",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 4.032,
+            "duration_stripped_s": 2.923
+          },
+          {
+            "voice": "en_sample",
+            "item_id": "30",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.869,
+            "duration_stripped_s": 3.008
+          },
+          {
+            "voice": "en_sample",
+            "item_id": "31",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 2.645,
+            "duration_stripped_s": 2.688
+          },
+          {
+            "voice": "en_sample",
+            "item_id": "32",
+            "marks": 1,
+            "identical_audio": false,
+            "duration_as_is_s": 3.381,
+            "duration_stripped_s": 2.923
+          }
+        ]
+      }
+    },
     "qwen3": null,
-    "chatterbox": null,
+    "chatterbox": {
+      "model_version": "Chatterbox Multilingual V3 — t3_mtl23ls_v3.safetensors, ResembleAI/chatterbox@5bb1f6ee58 (SHA-256-verified, fetched from modelscope.cn); chatterbox-tts 0.1.7 @ git 5de7a54, torch 2.6.0 CPU",
+      "voices": {
+        "builtin": {
+          "model_voice": "builtin",
+          "variant": "text sent as-is (U+0301 kept)",
+          "model_bytes": 3206854398,
+          "syntheses": 32,
+          "succeeded": 32,
+          "first_run_wall_s": 37.445,
+          "warm_wall_median_s": 16.854,
+          "rtf_wall_median": 6.4518,
+          "rtf_infer_median": 6.4514,
+          "peak_rss_mb_max": 6967.4,
+          "model_load": {
+            "ok": true,
+            "load_s": 22.023,
+            "error": null,
+            "rss_after_load_mb": 4818.4,
+            "peak_rss_during_load_mb": 6967.4,
+            "details": {
+              "rss_before_load_kb": 446888,
+              "rss_after_load_kb": 4934088,
+              "peak_rss_after_load_kb": 7134568,
+              "packages": {
+                "chatterbox-tts": "0.1.7",
+                "torch": "2.6.0",
+                "transformers": "5.2.0"
+              },
+              "chatterbox_git_commit": "5de7a54aa4e5e2baadb0182dde554908b48b85c2",
+              "t3_checkpoint": "t3_mtl23ls_v3.safetensors",
+              "voice": "built-in conds.pt",
+              "device": "cpu",
+              "threads": 4,
+              "sample_rate": 24000
+            }
+          }
+        },
+        "builtin~no-stress-marks": {
+          "model_voice": "builtin",
+          "variant": "U+0301 removed before synthesis (same seed as the as-is run)",
+          "model_bytes": 3206854398,
+          "syntheses": 32,
+          "succeeded": 32,
+          "first_run_wall_s": 13.088,
+          "warm_wall_median_s": 17.1,
+          "rtf_wall_median": 6.2375,
+          "rtf_infer_median": 6.2372,
+          "peak_rss_mb_max": 6967.4,
+          "model_load": {
+            "ok": true,
+            "load_s": 22.023,
+            "error": null,
+            "rss_after_load_mb": 4818.4,
+            "peak_rss_during_load_mb": 6967.4,
+            "details": {
+              "rss_before_load_kb": 446888,
+              "rss_after_load_kb": 4934088,
+              "peak_rss_after_load_kb": 7134568,
+              "packages": {
+                "chatterbox-tts": "0.1.7",
+                "torch": "2.6.0",
+                "transformers": "5.2.0"
+              },
+              "chatterbox_git_commit": "5de7a54aa4e5e2baadb0182dde554908b48b85c2",
+              "t3_checkpoint": "t3_mtl23ls_v3.safetensors",
+              "voice": "built-in conds.pt",
+              "device": "cpu",
+              "threads": 4,
+              "sample_rate": 24000
+            }
+          }
+        }
+      },
+      "stress_experiment": {
+        "pairs_compared": 30,
+        "identical": 0,
+        "different": 30,
+        "determinism_control": [
+          {
+            "voice": "builtin",
+            "item_id": "25",
+            "identical_audio": true
+          },
+          {
+            "voice": "builtin",
+            "item_id": "28",
+            "identical_audio": true
+          }
+        ],
+        "pairs": [
+          {
+            "voice": "builtin",
+            "item_id": "01",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 1.8,
+            "duration_stripped_s": 1.8
+          },
+          {
+            "voice": "builtin",
+            "item_id": "02",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 2.96,
+            "duration_stripped_s": 2.88
+          },
+          {
+            "voice": "builtin",
+            "item_id": "03",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 2.36,
+            "duration_stripped_s": 2.36
+          },
+          {
+            "voice": "builtin",
+            "item_id": "04",
+            "marks": 5,
+            "identical_audio": false,
+            "duration_as_is_s": 2.24,
+            "duration_stripped_s": 2.2
+          },
+          {
+            "voice": "builtin",
+            "item_id": "05",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 2.08,
+            "duration_stripped_s": 2.24
+          },
+          {
+            "voice": "builtin",
+            "item_id": "06",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 2.24,
+            "duration_stripped_s": 2.48
+          },
+          {
+            "voice": "builtin",
+            "item_id": "07",
+            "marks": 6,
+            "identical_audio": false,
+            "duration_as_is_s": 2.84,
+            "duration_stripped_s": 2.92
+          },
+          {
+            "voice": "builtin",
+            "item_id": "08",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 1.92,
+            "duration_stripped_s": 2.08
+          },
+          {
+            "voice": "builtin",
+            "item_id": "09",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.96,
+            "duration_stripped_s": 3.16
+          },
+          {
+            "voice": "builtin",
+            "item_id": "10",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.0,
+            "duration_stripped_s": 2.72
+          },
+          {
+            "voice": "builtin",
+            "item_id": "11",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 1.4,
+            "duration_stripped_s": 1.52
+          },
+          {
+            "voice": "builtin",
+            "item_id": "12",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 1.96,
+            "duration_stripped_s": 2.08
+          },
+          {
+            "voice": "builtin",
+            "item_id": "13",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.44,
+            "duration_stripped_s": 2.36
+          },
+          {
+            "voice": "builtin",
+            "item_id": "14",
+            "marks": 5,
+            "identical_audio": false,
+            "duration_as_is_s": 3.88,
+            "duration_stripped_s": 3.84
+          },
+          {
+            "voice": "builtin",
+            "item_id": "15",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 4.0,
+            "duration_stripped_s": 3.96
+          },
+          {
+            "voice": "builtin",
+            "item_id": "16",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.44,
+            "duration_stripped_s": 3.52
+          },
+          {
+            "voice": "builtin",
+            "item_id": "17",
+            "marks": 1,
+            "identical_audio": false,
+            "duration_as_is_s": 6.2,
+            "duration_stripped_s": 4.84
+          },
+          {
+            "voice": "builtin",
+            "item_id": "18",
+            "marks": 6,
+            "identical_audio": false,
+            "duration_as_is_s": 3.72,
+            "duration_stripped_s": 3.8
+          },
+          {
+            "voice": "builtin",
+            "item_id": "19",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.04,
+            "duration_stripped_s": 3.04
+          },
+          {
+            "voice": "builtin",
+            "item_id": "20",
+            "marks": 7,
+            "identical_audio": false,
+            "duration_as_is_s": 3.92,
+            "duration_stripped_s": 4.28
+          },
+          {
+            "voice": "builtin",
+            "item_id": "21",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.68,
+            "duration_stripped_s": 2.88
+          },
+          {
+            "voice": "builtin",
+            "item_id": "22",
+            "marks": 18,
+            "identical_audio": false,
+            "duration_as_is_s": 8.2,
+            "duration_stripped_s": 9.04
+          },
+          {
+            "voice": "builtin",
+            "item_id": "23",
+            "marks": 15,
+            "identical_audio": false,
+            "duration_as_is_s": 7.2,
+            "duration_stripped_s": 7.16
+          },
+          {
+            "voice": "builtin",
+            "item_id": "24",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 1.48,
+            "duration_stripped_s": 1.44
+          },
+          {
+            "voice": "builtin",
+            "item_id": "26",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 1.44,
+            "duration_stripped_s": 1.44
+          },
+          {
+            "voice": "builtin",
+            "item_id": "27",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.0,
+            "duration_stripped_s": 3.2
+          },
+          {
+            "voice": "builtin",
+            "item_id": "29",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 2.32,
+            "duration_stripped_s": 2.28
+          },
+          {
+            "voice": "builtin",
+            "item_id": "30",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 1.92,
+            "duration_stripped_s": 3.08
+          },
+          {
+            "voice": "builtin",
+            "item_id": "31",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 2.48,
+            "duration_stripped_s": 2.52
+          },
+          {
+            "voice": "builtin",
+            "item_id": "32",
+            "marks": 1,
+            "identical_audio": false,
+            "duration_as_is_s": 2.56,
+            "duration_stripped_s": 2.72
+          }
+        ]
+      }
+    },
     "cosyvoice": null
   },
   "status": {
     "rhvoice": "working",
     "piper": "working",
-    "xtts": "blocked",
+    "xtts": "working",
     "qwen3": "blocked",
-    "chatterbox": "blocked",
+    "chatterbox": "working",
     "cosyvoice": "blocked"
   },
   "engines_meta": [
@@ -284,7 +958,7 @@
         "detail": "Model weights are only served from huggingface.co (coqui/XTTS-v2). `curl https://huggingface.co/coqui/XTTS-v2/resolve/main/config.json` → `CONNECT tunnel failed, response 403` (environment network policy). download.pytorch.org is also refused (403).",
         "unblock": "Allow huggingface.co (and its LFS CDN) in the environment's network access settings, or run on a machine with that access."
       },
-      "status": "blocked"
+      "status": "working"
     },
     {
       "id": "qwen3",
@@ -326,7 +1000,7 @@
         "detail": "mtl_tts.py downloads with huggingface_hub.snapshot_download(REPO_ID=\"ResembleAI/chatterbox\"). `curl https://huggingface.co/api/models/ResembleAI/chatterbox` → `CONNECT tunnel failed, response 403`.",
         "unblock": "Allow huggingface.co."
       },
-      "status": "blocked"
+      "status": "working"
     },
     {
       "id": "cosyvoice",
@@ -349,5 +1023,35 @@
       },
       "status": "blocked"
     }
-  ]
+  ],
+  "run_environment": {
+    "xtts": {
+      "captured_at": "2026-09-24T15:52:48+00:00",
+      "os": "Ubuntu 24.04.4 LTS",
+      "kernel": "6.18.44-fc-v37",
+      "arch": "x86_64",
+      "cpu": "Intel(R) Xeon(R) Processor @ 2.80GHz",
+      "cpu_cores": 4,
+      "ram_gb": 15.7,
+      "gpu": "none (no nvidia-smi, no /dev/nvidia*)",
+      "vram": "n/a (no GPU)",
+      "python": "3.11.15",
+      "node": "v22.22.2",
+      "disk_free_gb": 6.5
+    },
+    "chatterbox": {
+      "captured_at": "2026-09-24T16:19:31+00:00",
+      "os": "Ubuntu 24.04.4 LTS",
+      "kernel": "6.18.44-fc-v37",
+      "arch": "x86_64",
+      "cpu": "Intel(R) Xeon(R) Processor @ 2.80GHz",
+      "cpu_cores": 4,
+      "ram_gb": 15.7,
+      "gpu": "none (no nvidia-smi, no /dev/nvidia*)",
+      "vram": "n/a (no GPU)",
+      "python": "3.11.15",
+      "node": "v22.22.2",
+      "disk_free_gb": 3.0
+    }
+  }
 }

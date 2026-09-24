@@ -52,18 +52,23 @@ def main():
             "rss": r["peak_rss_mb"], "rm": r.get("rate_mapping"), "mv": r["model_version"],
             "v": r.get("model_voice", r["voice"]), "f": r.get("output_file"), "err": r.get("error"),
             "first": r.get("first_call_for_voice"),
+            "seed": r.get("seed"), "fe": r.get("frontend"),
         }
         if r["success"]:
             groups.setdefault(f"{r['engine']}/{r['voice']}", []).append(r)
 
-    for old in (PAGE / "packs").glob("*"):
-        old.unlink()
     for key, recs in groups.items():
+        name = key.replace("/", "__").replace("~", "_") + ".json"
+        if not all((ROOT / r["output_file"]).exists() for r in recs):
+            # audio from an earlier run that is not on this machine: keep the pack already built from it
+            if (PAGE / "packs" / name).exists():
+                packs[key] = {"file": f"packs/{name}", "type": json.loads((PAGE / "packs" / name).read_text())["type"]}
+                continue
+            raise SystemExit(f"{key}: WAVs missing and no existing pack — re-run run.py for this engine")
         clips, kind = {}, None
         for r in recs:
             data, kind = encode(ROOT / r["output_file"])
             clips[r["item_id"]] = base64.b64encode(data).decode("ascii")
-        name = key.replace("/", "__").replace("~", "_") + ".json"
         (PAGE / "packs" / name).write_text(json.dumps({"type": kind, "clips": clips}))
         packs[key] = {"file": f"packs/{name}", "type": kind}
 

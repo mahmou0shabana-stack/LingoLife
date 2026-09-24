@@ -31,7 +31,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
-ADAPTERS = {"rhvoice": "engines.rhvoice", "piper": "engines.piper"}
+ADAPTERS = {"rhvoice": "engines.rhvoice", "piper": "engines.piper", "xtts": "engines.xtts",
+            "chatterbox": "engines.chatterbox", "qwen3": "engines.qwen3", "cosyvoice": "engines.cosyvoice"}
+DEFAULT_ENGINES = ["rhvoice", "piper"]  # neural engines are run by name (each needs its own venv + weights)
 
 
 def sh(cmd):
@@ -74,7 +76,8 @@ def run_engine(engine_id, corpus, records):
         return None
     version = mod.version()
     per_voice = {}
-    for voice, (suffix, normalize, variant_note) in [(v, var) for v in mod.voices() for var in mod.VARIANTS]:
+    runs = [(v, var) for v in mod.voices() for var in mod.VARIANTS]
+    for idx, (voice, (suffix, normalize, variant_note)) in enumerate(runs):
         model_voice = voice["id"]
         vid = model_voice + suffix
         out_dir = ROOT / "output" / engine_id / vid
@@ -115,6 +118,7 @@ def run_engine(engine_id, corpus, records):
             }
             if "espeak_phonemes" in res:
                 rec["espeak_phonemes"] = res["espeak_phonemes"]
+            rec.update(res.get("extra") or {})
             if res["ok"]:
                 dur, sr, ch = wav_info(out)
                 rec.update({"audio_duration_s": dur, "sample_rate": sr, "channels": ch,
@@ -140,13 +144,54 @@ def run_engine(engine_id, corpus, records):
                                  if any(r.get("rtf_infer") for r in ok_recs) else None),
             "peak_rss_mb_max": max(rss) if rss else None,
         }
-    return {"model_version": version, "voices": per_voice}
+        if hasattr(mod, "load_info") and mod.load_info.get(model_voice):
+            li = mod.load_info[model_voice]
+            per_voice[vid]["model_load"] = {
+                "ok": li.get("ready"), "load_s": li.get("load_s"), "error": li.get("error"),
+                "rss_after_load_mb": round(li["rss_after_load_kb"] / 1024, 1) if li.get("rss_after_load_kb") else None,
+                "peak_rss_during_load_mb": round(li["peak_rss_after_load_kb"] / 1024, 1) if li.get("peak_rss_after_load_kb") else None,
+                "details": {k: v for k, v in li.items() if k not in ("ready", "load_s", "error", "trace")},
+            }
+        last_for_voice = idx + 1 == len(runs) or runs[idx + 1][0]["id"] != model_voice
+        if last_for_voice and hasattr(mod, "close"):
+            mod.close(model_voice)
+    return {"model_version": version, "voices": per_voice, "stress_experiment": stress_experiment(engine_id, records)}
+
+
+def stress_experiment(engine_id, records):
+    """Pairs each sentence's as-is run with its U+0301-stripped run (same seed for neural engines).
+
+    identical_audio=True means the marks changed nothing in the output. Whether a changed output
+    moved the stress to the right syllable is for the listener — this only measures that it changed.
+    """
+    by = {}
+    for r in records:
+        if r["engine"] == engine_id and r["success"]:
+            by[(r["model_voice"], r["voice"].endswith("~no-stress-marks"), r["item_id"])] = r
+    pairs, controls = [], []
+    for (mv, stripped, item), r in by.items():
+        other = by.get((mv, True, item))
+        if stripped or not other:
+            continue
+        a, b = (ROOT / r["output_file"]).read_bytes(), (ROOT / other["output_file"]).read_bytes()
+        if not r["stress_marks_in_input"]:
+            # identical input + identical seed in both runs: shows whether the engine is deterministic,
+            # i.e. whether a difference in the marked pairs can be attributed to the marks at all
+            controls.append({"voice": mv, "item_id": item, "identical_audio": a == b})
+            continue
+        pairs.append({"voice": mv, "item_id": item, "marks": r["stress_marks_in_input"], "identical_audio": a == b,
+                      "duration_as_is_s": r["audio_duration_s"], "duration_stripped_s": other["audio_duration_s"]})
+    if not pairs:
+        return None
+    return {"pairs_compared": len(pairs), "identical": sum(p["identical_audio"] for p in pairs),
+            "different": sum(not p["identical_audio"] for p in pairs),
+            "determinism_control": controls, "pairs": pairs}
 
 
 def main():
     corpus = json.loads((ROOT / "corpus.json").read_text())
     engines_meta = json.loads((ROOT / "engines.json").read_text())
-    wanted = sys.argv[1:] or list(ADAPTERS)
+    wanted = sys.argv[1:] or DEFAULT_ENGINES
     (ROOT / "results").mkdir(exist_ok=True)
     results_path = ROOT / "results" / "results.json"
     records = [r for r in json.loads(results_path.read_text())["records"] if r["engine"] not in wanted] \
@@ -168,6 +213,8 @@ def main():
             meta["blocker"] = {"kind": "adapter-unavailable", "detail": "adapter reported the engine unavailable"}
 
     env = environment()
+    for engine_id in wanted:
+        summary.setdefault("run_environment", {})[engine_id] = env
     (ROOT / "results" / "environment.json").write_text(json.dumps(env, ensure_ascii=False, indent=2))
     results_path.write_text(json.dumps({"corpus_version": corpus["version"], "records": records},
                                        ensure_ascii=False, indent=1))

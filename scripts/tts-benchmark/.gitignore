@@ -5,3 +5,5 @@ models/
 output/
 page/packs/
 __pycache__/
+envs/
+logs/
