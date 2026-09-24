@@ -544,7 +544,804 @@
         ]
       }
     },
-    "qwen3": null,
+    "qwen3": {
+      "model_version": "Qwen/Qwen3-TTS-12Hz-1.7B-CustomVoice@0c0e3051f1 (SHA-256-verified, fetched from modelscope.cn); qwen-tts 0.1.1, transformers 4.57.3, torch 2.6.0 CPU float32",
+      "voices": {
+        "serena": {
+          "model_voice": "serena",
+          "variant": "text sent as-is (U+0301 kept)",
+          "model_bytes": 4515695644,
+          "syntheses": 32,
+          "succeeded": 32,
+          "first_run_wall_s": 28.774,
+          "warm_wall_median_s": 30.332,
+          "rtf_wall_median": 7.0681,
+          "rtf_infer_median": 7.0677,
+          "peak_rss_mb_max": 12085.3,
+          "model_load": {
+            "ok": true,
+            "load_s": 7.334,
+            "error": null,
+            "rss_after_load_mb": 8269.3,
+            "peak_rss_during_load_mb": 11726.7,
+            "details": {
+              "rss_before_load_kb": 442092,
+              "rss_after_load_kb": 8467736,
+              "peak_rss_after_load_kb": 12008100,
+              "packages": {
+                "qwen-tts": "0.1.1",
+                "torch": "2.6.0",
+                "transformers": "4.57.3"
+              },
+              "model_dir": "models/qwen3-1.7b",
+              "speaker": "serena",
+              "dtype": "float32",
+              "device": "cpu",
+              "threads": 4,
+              "tts_model_size": "1b7",
+              "generate_defaults": {
+                "do_sample": true,
+                "repetition_penalty": 1.05,
+                "temperature": 0.9,
+                "top_p": 1.0,
+                "top_k": 50,
+                "subtalker_dosample": true,
+                "subtalker_temperature": 0.9,
+                "subtalker_top_p": 1.0,
+                "subtalker_top_k": 50,
+                "max_new_tokens": 8192
+              },
+              "supported_languages": [
+                "auto",
+                "chinese",
+                "english",
+                "french",
+                "german",
+                "italian",
+                "japanese",
+                "korean",
+                "portuguese",
+                "russian",
+                "spanish"
+              ],
+              "supported_speakers": [
+                "aiden",
+                "dylan",
+                "eric",
+                "ono_anna",
+                "ryan",
+                "serena",
+                "sohee",
+                "uncle_fu",
+                "vivian"
+              ]
+            }
+          }
+        },
+        "serena~no-stress-marks": {
+          "model_voice": "serena",
+          "variant": "U+0301 removed before synthesis (same seed as the as-is run)",
+          "model_bytes": 4515695644,
+          "syntheses": 32,
+          "succeeded": 32,
+          "first_run_wall_s": 17.977,
+          "warm_wall_median_s": 19.519,
+          "rtf_wall_median": 6.489,
+          "rtf_infer_median": 6.4885,
+          "peak_rss_mb_max": 12862.2,
+          "model_load": {
+            "ok": true,
+            "load_s": 7.334,
+            "error": null,
+            "rss_after_load_mb": 8269.3,
+            "peak_rss_during_load_mb": 11726.7,
+            "details": {
+              "rss_before_load_kb": 442092,
+              "rss_after_load_kb": 8467736,
+              "peak_rss_after_load_kb": 12008100,
+              "packages": {
+                "qwen-tts": "0.1.1",
+                "torch": "2.6.0",
+                "transformers": "4.57.3"
+              },
+              "model_dir": "models/qwen3-1.7b",
+              "speaker": "serena",
+              "dtype": "float32",
+              "device": "cpu",
+              "threads": 4,
+              "tts_model_size": "1b7",
+              "generate_defaults": {
+                "do_sample": true,
+                "repetition_penalty": 1.05,
+                "temperature": 0.9,
+                "top_p": 1.0,
+                "top_k": 50,
+                "subtalker_dosample": true,
+                "subtalker_temperature": 0.9,
+                "subtalker_top_p": 1.0,
+                "subtalker_top_k": 50,
+                "max_new_tokens": 8192
+              },
+              "supported_languages": [
+                "auto",
+                "chinese",
+                "english",
+                "french",
+                "german",
+                "italian",
+                "japanese",
+                "korean",
+                "portuguese",
+                "russian",
+                "spanish"
+              ],
+              "supported_speakers": [
+                "aiden",
+                "dylan",
+                "eric",
+                "ono_anna",
+                "ryan",
+                "serena",
+                "sohee",
+                "uncle_fu",
+                "vivian"
+              ]
+            }
+          }
+        },
+        "ryan": {
+          "model_voice": "ryan",
+          "variant": "text sent as-is (U+0301 kept)",
+          "model_bytes": 4515695644,
+          "syntheses": 32,
+          "succeeded": 32,
+          "first_run_wall_s": 31.853,
+          "warm_wall_median_s": 29.424,
+          "rtf_wall_median": 6.6697,
+          "rtf_infer_median": 6.6696,
+          "peak_rss_mb_max": 11717.5,
+          "model_load": {
+            "ok": true,
+            "load_s": 10.287,
+            "error": null,
+            "rss_after_load_mb": 8252.8,
+            "peak_rss_during_load_mb": 11717.5,
+            "details": {
+              "rss_before_load_kb": 433876,
+              "rss_after_load_kb": 8450892,
+              "peak_rss_after_load_kb": 11998744,
+              "packages": {
+                "qwen-tts": "0.1.1",
+                "torch": "2.6.0",
+                "transformers": "4.57.3"
+              },
+              "model_dir": "models/qwen3-1.7b",
+              "speaker": "ryan",
+              "dtype": "float32",
+              "device": "cpu",
+              "threads": 4,
+              "tts_model_size": "1b7",
+              "generate_defaults": {
+                "do_sample": true,
+                "repetition_penalty": 1.05,
+                "temperature": 0.9,
+                "top_p": 1.0,
+                "top_k": 50,
+                "subtalker_dosample": true,
+                "subtalker_temperature": 0.9,
+                "subtalker_top_p": 1.0,
+                "subtalker_top_k": 50,
+                "max_new_tokens": 8192
+              },
+              "supported_languages": [
+                "auto",
+                "chinese",
+                "english",
+                "french",
+                "german",
+                "italian",
+                "japanese",
+                "korean",
+                "portuguese",
+                "russian",
+                "spanish"
+              ],
+              "supported_speakers": [
+                "aiden",
+                "dylan",
+                "eric",
+                "ono_anna",
+                "ryan",
+                "serena",
+                "sohee",
+                "uncle_fu",
+                "vivian"
+              ]
+            }
+          }
+        },
+        "ryan~no-stress-marks": {
+          "model_voice": "ryan",
+          "variant": "U+0301 removed before synthesis (same seed as the as-is run)",
+          "model_bytes": 4515695644,
+          "syntheses": 32,
+          "succeeded": 32,
+          "first_run_wall_s": 19.501,
+          "warm_wall_median_s": 23.461,
+          "rtf_wall_median": 6.4234,
+          "rtf_infer_median": 6.4232,
+          "peak_rss_mb_max": 13520.3,
+          "model_load": {
+            "ok": true,
+            "load_s": 10.287,
+            "error": null,
+            "rss_after_load_mb": 8252.8,
+            "peak_rss_during_load_mb": 11717.5,
+            "details": {
+              "rss_before_load_kb": 433876,
+              "rss_after_load_kb": 8450892,
+              "peak_rss_after_load_kb": 11998744,
+              "packages": {
+                "qwen-tts": "0.1.1",
+                "torch": "2.6.0",
+                "transformers": "4.57.3"
+              },
+              "model_dir": "models/qwen3-1.7b",
+              "speaker": "ryan",
+              "dtype": "float32",
+              "device": "cpu",
+              "threads": 4,
+              "tts_model_size": "1b7",
+              "generate_defaults": {
+                "do_sample": true,
+                "repetition_penalty": 1.05,
+                "temperature": 0.9,
+                "top_p": 1.0,
+                "top_k": 50,
+                "subtalker_dosample": true,
+                "subtalker_temperature": 0.9,
+                "subtalker_top_p": 1.0,
+                "subtalker_top_k": 50,
+                "max_new_tokens": 8192
+              },
+              "supported_languages": [
+                "auto",
+                "chinese",
+                "english",
+                "french",
+                "german",
+                "italian",
+                "japanese",
+                "korean",
+                "portuguese",
+                "russian",
+                "spanish"
+              ],
+              "supported_speakers": [
+                "aiden",
+                "dylan",
+                "eric",
+                "ono_anna",
+                "ryan",
+                "serena",
+                "sohee",
+                "uncle_fu",
+                "vivian"
+              ]
+            }
+          }
+        }
+      },
+      "stress_experiment": {
+        "pairs_compared": 60,
+        "identical": 0,
+        "different": 60,
+        "determinism_control": [
+          {
+            "voice": "serena",
+            "item_id": "25",
+            "identical_audio": true
+          },
+          {
+            "voice": "serena",
+            "item_id": "28",
+            "identical_audio": true
+          },
+          {
+            "voice": "ryan",
+            "item_id": "25",
+            "identical_audio": true
+          },
+          {
+            "voice": "ryan",
+            "item_id": "28",
+            "identical_audio": true
+          }
+        ],
+        "pairs": [
+          {
+            "voice": "serena",
+            "item_id": "01",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.64,
+            "duration_stripped_s": 2.56
+          },
+          {
+            "voice": "serena",
+            "item_id": "02",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 4.72,
+            "duration_stripped_s": 4.32
+          },
+          {
+            "voice": "serena",
+            "item_id": "03",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 2.72,
+            "duration_stripped_s": 2.16
+          },
+          {
+            "voice": "serena",
+            "item_id": "04",
+            "marks": 5,
+            "identical_audio": false,
+            "duration_as_is_s": 3.28,
+            "duration_stripped_s": 2.08
+          },
+          {
+            "voice": "serena",
+            "item_id": "05",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 2.48,
+            "duration_stripped_s": 2.0
+          },
+          {
+            "voice": "serena",
+            "item_id": "06",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 4.48,
+            "duration_stripped_s": 2.88
+          },
+          {
+            "voice": "serena",
+            "item_id": "07",
+            "marks": 6,
+            "identical_audio": false,
+            "duration_as_is_s": 6.32,
+            "duration_stripped_s": 3.52
+          },
+          {
+            "voice": "serena",
+            "item_id": "08",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 5.12,
+            "duration_stripped_s": 2.88
+          },
+          {
+            "voice": "serena",
+            "item_id": "09",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 4.24,
+            "duration_stripped_s": 2.88
+          },
+          {
+            "voice": "serena",
+            "item_id": "10",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.2,
+            "duration_stripped_s": 2.96
+          },
+          {
+            "voice": "serena",
+            "item_id": "11",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 1.28,
+            "duration_stripped_s": 1.12
+          },
+          {
+            "voice": "serena",
+            "item_id": "12",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.16,
+            "duration_stripped_s": 1.76
+          },
+          {
+            "voice": "serena",
+            "item_id": "13",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.88,
+            "duration_stripped_s": 2.08
+          },
+          {
+            "voice": "serena",
+            "item_id": "14",
+            "marks": 5,
+            "identical_audio": false,
+            "duration_as_is_s": 6.16,
+            "duration_stripped_s": 4.16
+          },
+          {
+            "voice": "serena",
+            "item_id": "15",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 4.64,
+            "duration_stripped_s": 4.56
+          },
+          {
+            "voice": "serena",
+            "item_id": "16",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 5.6,
+            "duration_stripped_s": 5.28
+          },
+          {
+            "voice": "serena",
+            "item_id": "17",
+            "marks": 1,
+            "identical_audio": false,
+            "duration_as_is_s": 11.68,
+            "duration_stripped_s": 8.32
+          },
+          {
+            "voice": "serena",
+            "item_id": "18",
+            "marks": 6,
+            "identical_audio": false,
+            "duration_as_is_s": 4.88,
+            "duration_stripped_s": 3.28
+          },
+          {
+            "voice": "serena",
+            "item_id": "19",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 5.2,
+            "duration_stripped_s": 4.32
+          },
+          {
+            "voice": "serena",
+            "item_id": "20",
+            "marks": 7,
+            "identical_audio": false,
+            "duration_as_is_s": 5.92,
+            "duration_stripped_s": 6.0
+          },
+          {
+            "voice": "serena",
+            "item_id": "21",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 6.56,
+            "duration_stripped_s": 4.32
+          },
+          {
+            "voice": "serena",
+            "item_id": "22",
+            "marks": 18,
+            "identical_audio": false,
+            "duration_as_is_s": 13.2,
+            "duration_stripped_s": 12.72
+          },
+          {
+            "voice": "serena",
+            "item_id": "23",
+            "marks": 15,
+            "identical_audio": false,
+            "duration_as_is_s": 10.24,
+            "duration_stripped_s": 9.52
+          },
+          {
+            "voice": "serena",
+            "item_id": "24",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 1.36,
+            "duration_stripped_s": 1.6
+          },
+          {
+            "voice": "serena",
+            "item_id": "26",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 2.08,
+            "duration_stripped_s": 1.44
+          },
+          {
+            "voice": "serena",
+            "item_id": "27",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.48,
+            "duration_stripped_s": 1.92
+          },
+          {
+            "voice": "serena",
+            "item_id": "29",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 6.0,
+            "duration_stripped_s": 5.36
+          },
+          {
+            "voice": "serena",
+            "item_id": "30",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 5.2,
+            "duration_stripped_s": 3.68
+          },
+          {
+            "voice": "serena",
+            "item_id": "31",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 2.72,
+            "duration_stripped_s": 2.88
+          },
+          {
+            "voice": "serena",
+            "item_id": "32",
+            "marks": 1,
+            "identical_audio": false,
+            "duration_as_is_s": 3.92,
+            "duration_stripped_s": 3.12
+          },
+          {
+            "voice": "ryan",
+            "item_id": "01",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.8,
+            "duration_stripped_s": 2.64
+          },
+          {
+            "voice": "ryan",
+            "item_id": "02",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 4.72,
+            "duration_stripped_s": 3.68
+          },
+          {
+            "voice": "ryan",
+            "item_id": "03",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 3.84,
+            "duration_stripped_s": 4.0
+          },
+          {
+            "voice": "ryan",
+            "item_id": "04",
+            "marks": 5,
+            "identical_audio": false,
+            "duration_as_is_s": 3.44,
+            "duration_stripped_s": 3.52
+          },
+          {
+            "voice": "ryan",
+            "item_id": "05",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 2.32,
+            "duration_stripped_s": 2.88
+          },
+          {
+            "voice": "ryan",
+            "item_id": "06",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 6.72,
+            "duration_stripped_s": 4.48
+          },
+          {
+            "voice": "ryan",
+            "item_id": "07",
+            "marks": 6,
+            "identical_audio": false,
+            "duration_as_is_s": 4.88,
+            "duration_stripped_s": 4.24
+          },
+          {
+            "voice": "ryan",
+            "item_id": "08",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 4.72,
+            "duration_stripped_s": 3.68
+          },
+          {
+            "voice": "ryan",
+            "item_id": "09",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.36,
+            "duration_stripped_s": 3.04
+          },
+          {
+            "voice": "ryan",
+            "item_id": "10",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.76,
+            "duration_stripped_s": 3.2
+          },
+          {
+            "voice": "ryan",
+            "item_id": "11",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 1.84,
+            "duration_stripped_s": 1.52
+          },
+          {
+            "voice": "ryan",
+            "item_id": "12",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.28,
+            "duration_stripped_s": 2.96
+          },
+          {
+            "voice": "ryan",
+            "item_id": "13",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.68,
+            "duration_stripped_s": 3.68
+          },
+          {
+            "voice": "ryan",
+            "item_id": "14",
+            "marks": 5,
+            "identical_audio": false,
+            "duration_as_is_s": 7.44,
+            "duration_stripped_s": 6.48
+          },
+          {
+            "voice": "ryan",
+            "item_id": "15",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 5.6,
+            "duration_stripped_s": 6.48
+          },
+          {
+            "voice": "ryan",
+            "item_id": "16",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.68,
+            "duration_stripped_s": 9.76
+          },
+          {
+            "voice": "ryan",
+            "item_id": "17",
+            "marks": 1,
+            "identical_audio": false,
+            "duration_as_is_s": 8.4,
+            "duration_stripped_s": 16.48
+          },
+          {
+            "voice": "ryan",
+            "item_id": "18",
+            "marks": 6,
+            "identical_audio": false,
+            "duration_as_is_s": 11.84,
+            "duration_stripped_s": 3.44
+          },
+          {
+            "voice": "ryan",
+            "item_id": "19",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 4.08,
+            "duration_stripped_s": 3.44
+          },
+          {
+            "voice": "ryan",
+            "item_id": "20",
+            "marks": 7,
+            "identical_audio": false,
+            "duration_as_is_s": 7.44,
+            "duration_stripped_s": 8.72
+          },
+          {
+            "voice": "ryan",
+            "item_id": "21",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 5.04,
+            "duration_stripped_s": 6.32
+          },
+          {
+            "voice": "ryan",
+            "item_id": "22",
+            "marks": 18,
+            "identical_audio": false,
+            "duration_as_is_s": 20.64,
+            "duration_stripped_s": 16.64
+          },
+          {
+            "voice": "ryan",
+            "item_id": "23",
+            "marks": 15,
+            "identical_audio": false,
+            "duration_as_is_s": 14.56,
+            "duration_stripped_s": 7.36
+          },
+          {
+            "voice": "ryan",
+            "item_id": "24",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 4.24,
+            "duration_stripped_s": 2.16
+          },
+          {
+            "voice": "ryan",
+            "item_id": "26",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 2.48,
+            "duration_stripped_s": 1.68
+          },
+          {
+            "voice": "ryan",
+            "item_id": "27",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 4.32,
+            "duration_stripped_s": 3.92
+          },
+          {
+            "voice": "ryan",
+            "item_id": "29",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 4.48,
+            "duration_stripped_s": 3.76
+          },
+          {
+            "voice": "ryan",
+            "item_id": "30",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 9.12,
+            "duration_stripped_s": 2.72
+          },
+          {
+            "voice": "ryan",
+            "item_id": "31",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 4.64,
+            "duration_stripped_s": 5.76
+          },
+          {
+            "voice": "ryan",
+            "item_id": "32",
+            "marks": 1,
+            "identical_audio": false,
+            "duration_as_is_s": 2.88,
+            "duration_stripped_s": 3.44
+          }
+        ]
+      }
+    },
     "chatterbox": {
       "model_version": "Chatterbox Multilingual V3 — t3_mtl23ls_v3.safetensors, ResembleAI/chatterbox@5bb1f6ee58 (SHA-256-verified, fetched from modelscope.cn); chatterbox-tts 0.1.7 @ git 5de7a54, torch 2.6.0 CPU",
       "voices": {
@@ -885,7 +1682,7 @@
     "rhvoice": "working",
     "piper": "working",
     "xtts": "working",
-    "qwen3": "blocked",
+    "qwen3": "working",
     "chatterbox": "working",
     "cosyvoice": "blocked"
   },
@@ -979,7 +1776,7 @@
         "detail": "Weights are served from huggingface.co and modelscope.cn. `curl https://huggingface.co/api/models/Qwen/Qwen3-TTS-12Hz-1.7B-Base` and `curl https://www.modelscope.cn/api/v1/models/Qwen/Qwen3-TTS-12Hz-1.7B-Base` → both `CONNECT tunnel failed, response 403`.",
         "unblock": "Allow huggingface.co or modelscope.cn."
       },
-      "status": "blocked"
+      "status": "working"
     },
     {
       "id": "chatterbox",
@@ -1052,6 +1849,20 @@
       "python": "3.11.15",
       "node": "v22.22.2",
       "disk_free_gb": 3.0
+    },
+    "qwen3": {
+      "captured_at": "2026-09-24T17:28:46+00:00",
+      "os": "Ubuntu 24.04.4 LTS",
+      "kernel": "6.18.44-fc-v37",
+      "arch": "x86_64",
+      "cpu": "Intel(R) Xeon(R) Processor @ 2.80GHz",
+      "cpu_cores": 4,
+      "ram_gb": 15.7,
+      "gpu": "none (no nvidia-smi, no /dev/nvidia*)",
+      "vram": "n/a (no GPU)",
+      "python": "3.11.15",
+      "node": "v22.22.2",
+      "disk_free_gb": 6.1
     }
   }
 }

@@ -39,7 +39,7 @@ uv pip install -q torch==2.3.1 torchaudio==2.3.1 conformer==0.3.2 diffusers==0.2
   HyperPyYAML==1.2.3 inflect==7.3.1 librosa==0.10.2 lightning==2.2.4 modelscope==1.20.0 numpy==1.26.4 \
   omegaconf==2.3.0 onnx==1.16.0 onnxruntime==1.18.0 openai-whisper==20231117 protobuf==4.25 pyarrow==18.1.0 \
   pyworld==0.3.4 soundfile==0.12.1 transformers==4.51.3 x-transformers==2.11.24 wetext==0.0.4 \
-  matplotlib==3.7.5 rich==13.7.1 psutil
+  matplotlib==3.7.5 rich==13.7.1 gdown==5.1.0 wget==3.2 psutil
 unset VIRTUAL_ENV
 
 python3 fetch_models.py xtts chatterbox qwen3-1.7b cosyvoice3
