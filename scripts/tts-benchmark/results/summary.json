@@ -2013,6 +2013,1010 @@
           }
         ]
       }
+    },
+    "moss-nano": {
+      "model_version": "MOSS-TTS-Nano-100M OpenMOSS-Team/MOSS-TTS-Nano-100M@44502f80db + MOSS-Audio-Tokenizer-Nano 6aa02b01e4 (SHA-256-verified, via modelscope.cn); OpenMOSS/MOSS-TTS-Nano @ git 8b7bcc9, torch 2.7.0 CPU float32",
+      "voices": {
+        "ru_female_fleurs": {
+          "model_voice": "ru_female_fleurs",
+          "variant": "text sent as-is (U+0301 kept)",
+          "model_bytes": 322615663,
+          "syntheses": 32,
+          "succeeded": 32,
+          "first_run_wall_s": 12.928,
+          "warm_wall_median_s": 5.916,
+          "rtf_wall_median": 1.3965,
+          "rtf_infer_median": 1.3853,
+          "peak_rss_mb_max": 1433.4,
+          "first_audio_first_call_s": 0.7102,
+          "first_audio_warm_median_s": 0.659,
+          "model_load": {
+            "ok": true,
+            "load_s": 3.374,
+            "error": null,
+            "rss_after_load_mb": 1211.1,
+            "peak_rss_during_load_mb": 1341.1,
+            "details": {
+              "rss_before_load_kb": 415936,
+              "rss_after_load_kb": 1240132,
+              "peak_rss_after_load_kb": 1373304,
+              "packages": {
+                "torch": "2.7.0",
+                "transformers": "4.57.1",
+                "WeTextProcessing": "1.2.0",
+                "sentencepiece": "0.2.2"
+              },
+              "repo_commit": "8b7bcc9341b3b4ef3a3a58ba1338a7d85ff133eb",
+              "reference_audio": "references/ru_female_fleurs.wav",
+              "wetext_processing": true,
+              "robust_normalization": true,
+              "device": "cpu",
+              "dtype": "float32",
+              "threads": 4,
+              "sentencepiece_has_u0301": false
+            }
+          }
+        },
+        "ru_female_fleurs~no-stress-marks": {
+          "model_voice": "ru_female_fleurs",
+          "variant": "U+0301 removed before synthesis (same seed as the as-is run)",
+          "model_bytes": 322615663,
+          "syntheses": 32,
+          "succeeded": 32,
+          "first_run_wall_s": 3.513,
+          "warm_wall_median_s": 5.654,
+          "rtf_wall_median": 1.4274,
+          "rtf_infer_median": 1.4271,
+          "peak_rss_mb_max": 1433.4,
+          "first_audio_first_call_s": 0.6435,
+          "first_audio_warm_median_s": 0.65,
+          "model_load": {
+            "ok": true,
+            "load_s": 3.374,
+            "error": null,
+            "rss_after_load_mb": 1211.1,
+            "peak_rss_during_load_mb": 1341.1,
+            "details": {
+              "rss_before_load_kb": 415936,
+              "rss_after_load_kb": 1240132,
+              "peak_rss_after_load_kb": 1373304,
+              "packages": {
+                "torch": "2.7.0",
+                "transformers": "4.57.1",
+                "WeTextProcessing": "1.2.0",
+                "sentencepiece": "0.2.2"
+              },
+              "repo_commit": "8b7bcc9341b3b4ef3a3a58ba1338a7d85ff133eb",
+              "reference_audio": "references/ru_female_fleurs.wav",
+              "wetext_processing": true,
+              "robust_normalization": true,
+              "device": "cpu",
+              "dtype": "float32",
+              "threads": 4,
+              "sentencepiece_has_u0301": false
+            }
+          }
+        },
+        "ru_male_fleurs": {
+          "model_voice": "ru_male_fleurs",
+          "variant": "text sent as-is (U+0301 kept)",
+          "model_bytes": 322615663,
+          "syntheses": 32,
+          "succeeded": 32,
+          "first_run_wall_s": 8.545,
+          "warm_wall_median_s": 6.968,
+          "rtf_wall_median": 1.4043,
+          "rtf_infer_median": 1.4042,
+          "peak_rss_mb_max": 1471.4,
+          "first_audio_first_call_s": 0.9333,
+          "first_audio_warm_median_s": 0.807,
+          "model_load": {
+            "ok": true,
+            "load_s": 3.207,
+            "error": null,
+            "rss_after_load_mb": 1211.3,
+            "peak_rss_during_load_mb": 1341.1,
+            "details": {
+              "rss_before_load_kb": 415956,
+              "rss_after_load_kb": 1240324,
+              "peak_rss_after_load_kb": 1373336,
+              "packages": {
+                "torch": "2.7.0",
+                "transformers": "4.57.1",
+                "WeTextProcessing": "1.2.0",
+                "sentencepiece": "0.2.2"
+              },
+              "repo_commit": "8b7bcc9341b3b4ef3a3a58ba1338a7d85ff133eb",
+              "reference_audio": "references/ru_male_fleurs.wav",
+              "wetext_processing": true,
+              "robust_normalization": true,
+              "device": "cpu",
+              "dtype": "float32",
+              "threads": 4,
+              "sentencepiece_has_u0301": false
+            }
+          }
+        },
+        "ru_male_fleurs~no-stress-marks": {
+          "model_voice": "ru_male_fleurs",
+          "variant": "U+0301 removed before synthesis (same seed as the as-is run)",
+          "model_bytes": 322615663,
+          "syntheses": 32,
+          "succeeded": 32,
+          "first_run_wall_s": 4.329,
+          "warm_wall_median_s": 5.943,
+          "rtf_wall_median": 1.4116,
+          "rtf_infer_median": 1.4113,
+          "peak_rss_mb_max": 1481.8,
+          "first_audio_first_call_s": 0.8765,
+          "first_audio_warm_median_s": 0.816,
+          "model_load": {
+            "ok": true,
+            "load_s": 3.207,
+            "error": null,
+            "rss_after_load_mb": 1211.3,
+            "peak_rss_during_load_mb": 1341.1,
+            "details": {
+              "rss_before_load_kb": 415956,
+              "rss_after_load_kb": 1240324,
+              "peak_rss_after_load_kb": 1373336,
+              "packages": {
+                "torch": "2.7.0",
+                "transformers": "4.57.1",
+                "WeTextProcessing": "1.2.0",
+                "sentencepiece": "0.2.2"
+              },
+              "repo_commit": "8b7bcc9341b3b4ef3a3a58ba1338a7d85ff133eb",
+              "reference_audio": "references/ru_male_fleurs.wav",
+              "wetext_processing": true,
+              "robust_normalization": true,
+              "device": "cpu",
+              "dtype": "float32",
+              "threads": 4,
+              "sentencepiece_has_u0301": false
+            }
+          }
+        },
+        "ru_female_fleurs+no-wetext": {
+          "model_voice": "ru_female_fleurs+no-wetext",
+          "variant": "text sent as-is (U+0301 kept)",
+          "model_bytes": 322615663,
+          "syntheses": 32,
+          "succeeded": 32,
+          "first_run_wall_s": 11.756,
+          "warm_wall_median_s": 5.747,
+          "rtf_wall_median": 1.348,
+          "rtf_infer_median": 1.3468,
+          "peak_rss_mb_max": 1357.0,
+          "first_audio_first_call_s": 0.6587,
+          "first_audio_warm_median_s": 0.618,
+          "model_load": {
+            "ok": true,
+            "load_s": 2.148,
+            "error": null,
+            "rss_after_load_mb": 1133.5,
+            "peak_rss_during_load_mb": 1341.1,
+            "details": {
+              "rss_before_load_kb": 415988,
+              "rss_after_load_kb": 1160732,
+              "peak_rss_after_load_kb": 1373320,
+              "packages": {
+                "torch": "2.7.0",
+                "transformers": "4.57.1",
+                "WeTextProcessing": "1.2.0",
+                "sentencepiece": "0.2.2"
+              },
+              "repo_commit": "8b7bcc9341b3b4ef3a3a58ba1338a7d85ff133eb",
+              "reference_audio": "references/ru_female_fleurs.wav",
+              "wetext_processing": false,
+              "robust_normalization": true,
+              "device": "cpu",
+              "dtype": "float32",
+              "threads": 4,
+              "sentencepiece_has_u0301": false
+            }
+          }
+        },
+        "ru_female_fleurs+no-wetext~no-stress-marks": {
+          "model_voice": "ru_female_fleurs+no-wetext",
+          "variant": "U+0301 removed before synthesis (same seed as the as-is run)",
+          "model_bytes": 322615663,
+          "syntheses": 32,
+          "succeeded": 32,
+          "first_run_wall_s": 3.184,
+          "warm_wall_median_s": 5.291,
+          "rtf_wall_median": 1.4072,
+          "rtf_infer_median": 1.4069,
+          "peak_rss_mb_max": 1357.7,
+          "first_audio_first_call_s": 0.6159,
+          "first_audio_warm_median_s": 0.63,
+          "model_load": {
+            "ok": true,
+            "load_s": 2.148,
+            "error": null,
+            "rss_after_load_mb": 1133.5,
+            "peak_rss_during_load_mb": 1341.1,
+            "details": {
+              "rss_before_load_kb": 415988,
+              "rss_after_load_kb": 1160732,
+              "peak_rss_after_load_kb": 1373320,
+              "packages": {
+                "torch": "2.7.0",
+                "transformers": "4.57.1",
+                "WeTextProcessing": "1.2.0",
+                "sentencepiece": "0.2.2"
+              },
+              "repo_commit": "8b7bcc9341b3b4ef3a3a58ba1338a7d85ff133eb",
+              "reference_audio": "references/ru_female_fleurs.wav",
+              "wetext_processing": false,
+              "robust_normalization": true,
+              "device": "cpu",
+              "dtype": "float32",
+              "threads": 4,
+              "sentencepiece_has_u0301": false
+            }
+          }
+        }
+      },
+      "stress_experiment": {
+        "pairs_compared": 90,
+        "identical": 0,
+        "different": 90,
+        "determinism_control": [
+          {
+            "voice": "ru_female_fleurs",
+            "item_id": "25",
+            "identical_audio": true
+          },
+          {
+            "voice": "ru_female_fleurs",
+            "item_id": "28",
+            "identical_audio": true
+          },
+          {
+            "voice": "ru_male_fleurs",
+            "item_id": "25",
+            "identical_audio": true
+          },
+          {
+            "voice": "ru_male_fleurs",
+            "item_id": "28",
+            "identical_audio": true
+          },
+          {
+            "voice": "ru_female_fleurs+no-wetext",
+            "item_id": "25",
+            "identical_audio": true
+          },
+          {
+            "voice": "ru_female_fleurs+no-wetext",
+            "item_id": "28",
+            "identical_audio": true
+          }
+        ],
+        "pairs": [
+          {
+            "voice": "ru_female_fleurs",
+            "item_id": "01",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 6.32,
+            "duration_stripped_s": 2.24
+          },
+          {
+            "voice": "ru_female_fleurs",
+            "item_id": "02",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 8.88,
+            "duration_stripped_s": 5.76
+          },
+          {
+            "voice": "ru_female_fleurs",
+            "item_id": "03",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 2.08,
+            "duration_stripped_s": 2.08
+          },
+          {
+            "voice": "ru_female_fleurs",
+            "item_id": "04",
+            "marks": 5,
+            "identical_audio": false,
+            "duration_as_is_s": 3.6,
+            "duration_stripped_s": 2.56
+          },
+          {
+            "voice": "ru_female_fleurs",
+            "item_id": "05",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 3.6,
+            "duration_stripped_s": 2.64
+          },
+          {
+            "voice": "ru_female_fleurs",
+            "item_id": "06",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 4.96,
+            "duration_stripped_s": 2.8
+          },
+          {
+            "voice": "ru_female_fleurs",
+            "item_id": "07",
+            "marks": 6,
+            "identical_audio": false,
+            "duration_as_is_s": 4.4,
+            "duration_stripped_s": 4.56
+          },
+          {
+            "voice": "ru_female_fleurs",
+            "item_id": "08",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 4.48,
+            "duration_stripped_s": 2.48
+          },
+          {
+            "voice": "ru_female_fleurs",
+            "item_id": "09",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 4.72,
+            "duration_stripped_s": 4.32
+          },
+          {
+            "voice": "ru_female_fleurs",
+            "item_id": "10",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.28,
+            "duration_stripped_s": 4.08
+          },
+          {
+            "voice": "ru_female_fleurs",
+            "item_id": "11",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 3.36,
+            "duration_stripped_s": 5.84
+          },
+          {
+            "voice": "ru_female_fleurs",
+            "item_id": "12",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.84,
+            "duration_stripped_s": 2.08
+          },
+          {
+            "voice": "ru_female_fleurs",
+            "item_id": "13",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.88,
+            "duration_stripped_s": 13.6
+          },
+          {
+            "voice": "ru_female_fleurs",
+            "item_id": "14",
+            "marks": 5,
+            "identical_audio": false,
+            "duration_as_is_s": 5.92,
+            "duration_stripped_s": 4.96
+          },
+          {
+            "voice": "ru_female_fleurs",
+            "item_id": "15",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 4.96,
+            "duration_stripped_s": 3.68
+          },
+          {
+            "voice": "ru_female_fleurs",
+            "item_id": "16",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 20.88,
+            "duration_stripped_s": 4.0
+          },
+          {
+            "voice": "ru_female_fleurs",
+            "item_id": "17",
+            "marks": 1,
+            "identical_audio": false,
+            "duration_as_is_s": 4.16,
+            "duration_stripped_s": 5.44
+          },
+          {
+            "voice": "ru_female_fleurs",
+            "item_id": "18",
+            "marks": 6,
+            "identical_audio": false,
+            "duration_as_is_s": 8.88,
+            "duration_stripped_s": 6.4
+          },
+          {
+            "voice": "ru_female_fleurs",
+            "item_id": "19",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 6.16,
+            "duration_stripped_s": 5.52
+          },
+          {
+            "voice": "ru_female_fleurs",
+            "item_id": "20",
+            "marks": 7,
+            "identical_audio": false,
+            "duration_as_is_s": 7.12,
+            "duration_stripped_s": 5.52
+          },
+          {
+            "voice": "ru_female_fleurs",
+            "item_id": "21",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 4.96,
+            "duration_stripped_s": 3.92
+          },
+          {
+            "voice": "ru_female_fleurs",
+            "item_id": "22",
+            "marks": 18,
+            "identical_audio": false,
+            "duration_as_is_s": 27.52,
+            "duration_stripped_s": 29.52
+          },
+          {
+            "voice": "ru_female_fleurs",
+            "item_id": "23",
+            "marks": 15,
+            "identical_audio": false,
+            "duration_as_is_s": 21.92,
+            "duration_stripped_s": 12.48
+          },
+          {
+            "voice": "ru_female_fleurs",
+            "item_id": "24",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 4.08,
+            "duration_stripped_s": 4.16
+          },
+          {
+            "voice": "ru_female_fleurs",
+            "item_id": "26",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 3.12,
+            "duration_stripped_s": 1.44
+          },
+          {
+            "voice": "ru_female_fleurs",
+            "item_id": "27",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.92,
+            "duration_stripped_s": 2.88
+          },
+          {
+            "voice": "ru_female_fleurs",
+            "item_id": "29",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 4.24,
+            "duration_stripped_s": 3.68
+          },
+          {
+            "voice": "ru_female_fleurs",
+            "item_id": "30",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 6.32,
+            "duration_stripped_s": 4.0
+          },
+          {
+            "voice": "ru_female_fleurs",
+            "item_id": "31",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 2.4,
+            "duration_stripped_s": 2.24
+          },
+          {
+            "voice": "ru_female_fleurs",
+            "item_id": "32",
+            "marks": 1,
+            "identical_audio": false,
+            "duration_as_is_s": 3.12,
+            "duration_stripped_s": 3.52
+          },
+          {
+            "voice": "ru_male_fleurs",
+            "item_id": "01",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.48,
+            "duration_stripped_s": 2.88
+          },
+          {
+            "voice": "ru_male_fleurs",
+            "item_id": "02",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 4.48,
+            "duration_stripped_s": 4.72
+          },
+          {
+            "voice": "ru_male_fleurs",
+            "item_id": "03",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 4.08,
+            "duration_stripped_s": 2.24
+          },
+          {
+            "voice": "ru_male_fleurs",
+            "item_id": "04",
+            "marks": 5,
+            "identical_audio": false,
+            "duration_as_is_s": 6.8,
+            "duration_stripped_s": 5.76
+          },
+          {
+            "voice": "ru_male_fleurs",
+            "item_id": "05",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 4.24,
+            "duration_stripped_s": 4.32
+          },
+          {
+            "voice": "ru_male_fleurs",
+            "item_id": "06",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 5.52,
+            "duration_stripped_s": 4.32
+          },
+          {
+            "voice": "ru_male_fleurs",
+            "item_id": "07",
+            "marks": 6,
+            "identical_audio": false,
+            "duration_as_is_s": 10.48,
+            "duration_stripped_s": 4.16
+          },
+          {
+            "voice": "ru_male_fleurs",
+            "item_id": "08",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 5.2,
+            "duration_stripped_s": 6.16
+          },
+          {
+            "voice": "ru_male_fleurs",
+            "item_id": "09",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.52,
+            "duration_stripped_s": 4.8
+          },
+          {
+            "voice": "ru_male_fleurs",
+            "item_id": "10",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 4.08,
+            "duration_stripped_s": 3.6
+          },
+          {
+            "voice": "ru_male_fleurs",
+            "item_id": "11",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 3.12,
+            "duration_stripped_s": 3.92
+          },
+          {
+            "voice": "ru_male_fleurs",
+            "item_id": "12",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.88,
+            "duration_stripped_s": 1.92
+          },
+          {
+            "voice": "ru_male_fleurs",
+            "item_id": "13",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.12,
+            "duration_stripped_s": 3.04
+          },
+          {
+            "voice": "ru_male_fleurs",
+            "item_id": "14",
+            "marks": 5,
+            "identical_audio": false,
+            "duration_as_is_s": 13.36,
+            "duration_stripped_s": 4.4
+          },
+          {
+            "voice": "ru_male_fleurs",
+            "item_id": "15",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 8.08,
+            "duration_stripped_s": 5.36
+          },
+          {
+            "voice": "ru_male_fleurs",
+            "item_id": "16",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 4.72,
+            "duration_stripped_s": 6.0
+          },
+          {
+            "voice": "ru_male_fleurs",
+            "item_id": "17",
+            "marks": 1,
+            "identical_audio": false,
+            "duration_as_is_s": 7.44,
+            "duration_stripped_s": 4.8
+          },
+          {
+            "voice": "ru_male_fleurs",
+            "item_id": "18",
+            "marks": 6,
+            "identical_audio": false,
+            "duration_as_is_s": 6.24,
+            "duration_stripped_s": 6.24
+          },
+          {
+            "voice": "ru_male_fleurs",
+            "item_id": "19",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 9.6,
+            "duration_stripped_s": 3.76
+          },
+          {
+            "voice": "ru_male_fleurs",
+            "item_id": "20",
+            "marks": 7,
+            "identical_audio": false,
+            "duration_as_is_s": 7.92,
+            "duration_stripped_s": 5.68
+          },
+          {
+            "voice": "ru_male_fleurs",
+            "item_id": "21",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 4.96,
+            "duration_stripped_s": 5.76
+          },
+          {
+            "voice": "ru_male_fleurs",
+            "item_id": "22",
+            "marks": 18,
+            "identical_audio": false,
+            "duration_as_is_s": 18.8,
+            "duration_stripped_s": 24.08
+          },
+          {
+            "voice": "ru_male_fleurs",
+            "item_id": "23",
+            "marks": 15,
+            "identical_audio": false,
+            "duration_as_is_s": 36.16,
+            "duration_stripped_s": 12.8
+          },
+          {
+            "voice": "ru_male_fleurs",
+            "item_id": "24",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 7.84,
+            "duration_stripped_s": 2.24
+          },
+          {
+            "voice": "ru_male_fleurs",
+            "item_id": "26",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 2.64,
+            "duration_stripped_s": 4.24
+          },
+          {
+            "voice": "ru_male_fleurs",
+            "item_id": "27",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.76,
+            "duration_stripped_s": 3.12
+          },
+          {
+            "voice": "ru_male_fleurs",
+            "item_id": "29",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 3.84,
+            "duration_stripped_s": 3.28
+          },
+          {
+            "voice": "ru_male_fleurs",
+            "item_id": "30",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 7.6,
+            "duration_stripped_s": 3.6
+          },
+          {
+            "voice": "ru_male_fleurs",
+            "item_id": "31",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 6.4,
+            "duration_stripped_s": 2.88
+          },
+          {
+            "voice": "ru_male_fleurs",
+            "item_id": "32",
+            "marks": 1,
+            "identical_audio": false,
+            "duration_as_is_s": 4.56,
+            "duration_stripped_s": 3.92
+          },
+          {
+            "voice": "ru_female_fleurs+no-wetext",
+            "item_id": "01",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 6.32,
+            "duration_stripped_s": 2.24
+          },
+          {
+            "voice": "ru_female_fleurs+no-wetext",
+            "item_id": "02",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 8.88,
+            "duration_stripped_s": 5.76
+          },
+          {
+            "voice": "ru_female_fleurs+no-wetext",
+            "item_id": "03",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 2.08,
+            "duration_stripped_s": 2.08
+          },
+          {
+            "voice": "ru_female_fleurs+no-wetext",
+            "item_id": "04",
+            "marks": 5,
+            "identical_audio": false,
+            "duration_as_is_s": 3.6,
+            "duration_stripped_s": 2.56
+          },
+          {
+            "voice": "ru_female_fleurs+no-wetext",
+            "item_id": "05",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 3.6,
+            "duration_stripped_s": 2.64
+          },
+          {
+            "voice": "ru_female_fleurs+no-wetext",
+            "item_id": "06",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 4.96,
+            "duration_stripped_s": 2.8
+          },
+          {
+            "voice": "ru_female_fleurs+no-wetext",
+            "item_id": "07",
+            "marks": 6,
+            "identical_audio": false,
+            "duration_as_is_s": 4.4,
+            "duration_stripped_s": 4.56
+          },
+          {
+            "voice": "ru_female_fleurs+no-wetext",
+            "item_id": "08",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 4.48,
+            "duration_stripped_s": 2.48
+          },
+          {
+            "voice": "ru_female_fleurs+no-wetext",
+            "item_id": "09",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 4.72,
+            "duration_stripped_s": 4.32
+          },
+          {
+            "voice": "ru_female_fleurs+no-wetext",
+            "item_id": "10",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.28,
+            "duration_stripped_s": 4.08
+          },
+          {
+            "voice": "ru_female_fleurs+no-wetext",
+            "item_id": "11",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 3.36,
+            "duration_stripped_s": 5.84
+          },
+          {
+            "voice": "ru_female_fleurs+no-wetext",
+            "item_id": "12",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.84,
+            "duration_stripped_s": 2.08
+          },
+          {
+            "voice": "ru_female_fleurs+no-wetext",
+            "item_id": "13",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.88,
+            "duration_stripped_s": 13.6
+          },
+          {
+            "voice": "ru_female_fleurs+no-wetext",
+            "item_id": "14",
+            "marks": 5,
+            "identical_audio": false,
+            "duration_as_is_s": 4.96,
+            "duration_stripped_s": 5.28
+          },
+          {
+            "voice": "ru_female_fleurs+no-wetext",
+            "item_id": "15",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 4.08,
+            "duration_stripped_s": 4.08
+          },
+          {
+            "voice": "ru_female_fleurs+no-wetext",
+            "item_id": "16",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 5.12,
+            "duration_stripped_s": 4.56
+          },
+          {
+            "voice": "ru_female_fleurs+no-wetext",
+            "item_id": "17",
+            "marks": 1,
+            "identical_audio": false,
+            "duration_as_is_s": 4.88,
+            "duration_stripped_s": 7.2
+          },
+          {
+            "voice": "ru_female_fleurs+no-wetext",
+            "item_id": "18",
+            "marks": 6,
+            "identical_audio": false,
+            "duration_as_is_s": 7.6,
+            "duration_stripped_s": 5.2
+          },
+          {
+            "voice": "ru_female_fleurs+no-wetext",
+            "item_id": "19",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 6.16,
+            "duration_stripped_s": 5.52
+          },
+          {
+            "voice": "ru_female_fleurs+no-wetext",
+            "item_id": "20",
+            "marks": 7,
+            "identical_audio": false,
+            "duration_as_is_s": 7.12,
+            "duration_stripped_s": 5.52
+          },
+          {
+            "voice": "ru_female_fleurs+no-wetext",
+            "item_id": "21",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 4.96,
+            "duration_stripped_s": 3.92
+          },
+          {
+            "voice": "ru_female_fleurs+no-wetext",
+            "item_id": "22",
+            "marks": 18,
+            "identical_audio": false,
+            "duration_as_is_s": 27.52,
+            "duration_stripped_s": 29.52
+          },
+          {
+            "voice": "ru_female_fleurs+no-wetext",
+            "item_id": "23",
+            "marks": 15,
+            "identical_audio": false,
+            "duration_as_is_s": 13.28,
+            "duration_stripped_s": 12.48
+          },
+          {
+            "voice": "ru_female_fleurs+no-wetext",
+            "item_id": "24",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 4.08,
+            "duration_stripped_s": 4.16
+          },
+          {
+            "voice": "ru_female_fleurs+no-wetext",
+            "item_id": "26",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 3.12,
+            "duration_stripped_s": 1.44
+          },
+          {
+            "voice": "ru_female_fleurs+no-wetext",
+            "item_id": "27",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.92,
+            "duration_stripped_s": 2.88
+          },
+          {
+            "voice": "ru_female_fleurs+no-wetext",
+            "item_id": "29",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 4.24,
+            "duration_stripped_s": 3.68
+          },
+          {
+            "voice": "ru_female_fleurs+no-wetext",
+            "item_id": "30",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 6.32,
+            "duration_stripped_s": 4.0
+          },
+          {
+            "voice": "ru_female_fleurs+no-wetext",
+            "item_id": "31",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 2.4,
+            "duration_stripped_s": 2.24
+          },
+          {
+            "voice": "ru_female_fleurs+no-wetext",
+            "item_id": "32",
+            "marks": 1,
+            "identical_audio": false,
+            "duration_as_is_s": 3.12,
+            "duration_stripped_s": 3.52
+          }
+        ]
+      }
     }
   },
   "status": {
@@ -2224,6 +3228,20 @@
       "python": "3.11.15",
       "node": "v22.22.2",
       "disk_free_gb": 6.0
+    },
+    "moss-nano": {
+      "captured_at": "2026-09-25T04:34:36+00:00",
+      "os": "Ubuntu 24.04.4 LTS",
+      "kernel": "6.18.44-fc-v37",
+      "arch": "x86_64",
+      "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+      "cpu_cores": 4,
+      "ram_gb": 15.7,
+      "gpu": "none (no nvidia-smi, no /dev/nvidia*)",
+      "vram": "n/a (no GPU)",
+      "python": "3.11.15",
+      "node": "v22.22.2",
+      "disk_free_gb": 7.6
     }
   }
 }
