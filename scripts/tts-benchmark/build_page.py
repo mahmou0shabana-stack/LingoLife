@@ -61,6 +61,7 @@ def main():
             "v": r.get("model_voice", r["voice"]), "f": r.get("output_file"), "err": r.get("error"),
             "first": r.get("first_call_for_voice"),
             "seed": r.get("seed"), "fe": readable_frontend(r.get("frontend")),
+            "fa": r.get("first_audio_s"),
         }
         if r["success"]:
             groups.setdefault(f"{r['engine']}/{r['voice']}", []).append(r)
@@ -89,6 +90,8 @@ def main():
         "items": corpus["items"],
         "records": records,
         "packs": packs,
+        "references": json.loads((ROOT / "references" / "references.json").read_text())
+        if (ROOT / "references" / "references.json").exists() else None,
     }
     html = (PAGE / "template.html").read_text().replace(
         "/*__DATA__*/null", json.dumps(data, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/"))

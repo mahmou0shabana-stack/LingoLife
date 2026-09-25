@@ -137,6 +137,92 @@
       "stress_handling": "Official CosyVoice3 usage prefixes the text with \"You are a helpful assistant.<|endofprompt|>\", which makes CosyVoice skip its text frontend; the Qwen2 byte-level BPE then keeps U+0301 as its own token, so marks reach the model. (Its wetext normalizer could not load here anyway: it downloads from www.modelscope.cn, refused.)",
       "network_notes": "Weights: huggingface.co API reachable, but its LFS/Xet CDNs (us.aws.cdn.hf.co, cas-server.xethub.hf.co) are refused (CONNECT 403), so files came from modelscope.cn with SHA-256 verified against the HF revision. torch from PyPI (download.pytorch.org redirects to download-r2.pytorch.org, refused).",
       "rate_support": "speed argument (0.8 for slow items)"
+    },
+    {
+      "id": "moss-nano",
+      "label": "MOSS-TTS-Nano",
+      "phase": "1B",
+      "adapter": "engines/moss_nano.py (+ engines/moss_nano_worker.py in envs/moss-nano, repo tools/MOSS-TTS-Nano)",
+      "model": "OpenMOSS-Team/MOSS-TTS-Nano-100M @ 44502f80dbf9 (0.1B, pytorch_model.bin 235 MB) + OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano @ 6aa02b01e445 (~20M, 85 MB); 48 kHz stereo output",
+      "python_package": "official repo OpenMOSS/MOSS-TTS-Nano @ 8b7bcc9 (requirements.txt pins: torch 2.7.0, transformers 4.57.1, WeTextProcessing 1.2.0), float32 CPU",
+      "cpu_only": "yes (measured, 4-core CPU)",
+      "gpu_required": "no",
+      "voice": "cloned from native-Russian FLEURS clips (references/references.json; Google FLEURS, CC-BY-4.0): ru_female_fleurs, ru_male_fleurs; the repo's built-in presets are Chinese/English/Japanese only",
+      "license": {
+        "code": "Apache-2.0 (OpenMOSS/MOSS-TTS-Nano LICENSE)",
+        "model": "Apache-2.0 (model card front matter; same for MOSS-Audio-Tokenizer-Nano)",
+        "voices": {
+          "ru_female_fleurs": "FLEURS clip, CC-BY-4.0",
+          "ru_male_fleurs": "FLEURS clip, CC-BY-4.0",
+          "ru_female_fleurs+no-wetext": "FLEURS clip, CC-BY-4.0"
+        },
+        "source": "models/moss-nano/README.md"
+      },
+      "commercial_review": "light — Apache-2.0 model and code; reference clips are CC-BY-4.0 (attribution).",
+      "rate_support": "none — no speed control; slow items synthesized at default rate",
+      "stress_handling": "pending run"
+    },
+    {
+      "id": "moss-nano-onnx",
+      "label": "MOSS-TTS-Nano (ONNX)",
+      "phase": "1B",
+      "adapter": "engines/moss_nano_onnx.py (+ engines/moss_nano_onnx_worker.py)",
+      "model": "OpenMOSS-Team/MOSS-TTS-Nano-100M-ONNX @ f52645cb4674 (642 MB, fp32 export) + OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX @ ceff0d0749bf (87 MB)",
+      "python_package": "official repo onnx_tts_runtime.py (OnnxTtsRuntime) on onnxruntime 1.30.0 CPU, 4 threads, streaming codec decode ON",
+      "cpu_only": "yes (measured)",
+      "gpu_required": "no",
+      "voice": "cloned from native-Russian FLEURS clips (references/references.json; Google FLEURS, CC-BY-4.0): ru_female_fleurs, ru_male_fleurs",
+      "license": {
+        "code": "Apache-2.0",
+        "model": "Apache-2.0 (ONNX model cards)",
+        "voices": {
+          "ru_female_fleurs": "FLEURS clip, CC-BY-4.0",
+          "ru_male_fleurs": "FLEURS clip, CC-BY-4.0"
+        },
+        "source": "models/moss-nano-onnx/README.md"
+      },
+      "commercial_review": "light — Apache-2.0.",
+      "rate_support": "none",
+      "stress_handling": "pending run"
+    },
+    {
+      "id": "f5-espeech",
+      "label": "F5-TTS Russian",
+      "phase": "1B",
+      "adapter": "engines/f5_espeech.py (+ engines/f5_espeech_worker.py in envs/f5) — prepared, never ran",
+      "model": "intended: hotstone228/F5-TTS-Russian @ 4b9fcb51e68b (the only Russian checkpoint in F5-TTS SHARED.md; F5-TTS Base fine-tune, 813k steps, Common Voice 17 + Golos + SOVA + RESD) — fallback: ESpeech/ESpeech-TTS-1_RL-V2 @ f582b6e5897f (Russian F5-TTS, Apache-2.0)",
+      "python_package": "f5-tts 1.1.22 (SWivid/F5-TTS @ 2832525)",
+      "cpu_only": "not measured",
+      "gpu_required": "not measured",
+      "license": {
+        "code": "MIT (F5-TTS)",
+        "model": "hotstone228/F5-TTS-Russian: CC-BY-NC-SA-4.0 per its model card (SHARED.md says cc-by-nc-4.0); ESpeech-TTS-1: Apache-2.0",
+        "source": "model cards on huggingface.co"
+      },
+      "commercial_review": "hotstone228 checkpoint is non-commercial (NC-SA).",
+      "stress_handling": "not measured (no weights). Static finding: both Russian vocabs contain U+0301 (index 1574, inherited from the base vocab) AND '+'; ESpeech's own pipeline writes stress as '+' before the vowel via ruaccent.",
+      "blocker": {
+        "kind": "network",
+        "detail": "No Russian F5-TTS checkpoint was obtainable here. hotstone228/F5-TTS-Russian: weights only on huggingface.co, whose large-file CDNs (us.aws.cdn.hf.co, cas-server.xethub.hf.co) are refused (CONNECT 403). ESpeech-TTS-1 (all variants) on modelscope.cn: every GET is redirected to cdn-lfs-cn-1.modelscope.cn, refused (403); the repo's Git-LFS batch API answers 'mirror→mirror loop detected'. ESpeech's auto-stress models (ruaccent/accentuator) are huggingface.co-only as well. No substitute (non-Russian) F5 model was used.",
+        "unblock": "Allow us.aws.cdn.hf.co / cas-server.xethub.hf.co (Hugging Face) or cdn-lfs-cn-1.modelscope.cn, then: python3 fetch_models.py espeech-rlv2 vocos-mel-24khz && python3 run.py f5-espeech"
+      }
+    },
+    {
+      "id": "moss-local",
+      "label": "MOSS-TTS Local 1.7B",
+      "phase": "1B",
+      "adapter": "moss_local_smoke.py (guarded smoke test only)",
+      "model": "OpenMOSS-Team/MOSS-TTS-Local-Transformer @ 12aa734e4f11 (MossTTSLocal; Qwen3-1.7B backbone, 3.06B params total, bf16 6.1 GB) + OpenMOSS-Team/MOSS-Audio-Tokenizer @ 3cd226ba2947 (1.77B params, fp32 7.1 GB)",
+      "python_package": "OpenMOSS/MOSS-TTS @ 934d682 remote code via transformers 4.57.1, torch 2.7.0 CPU",
+      "cpu_only": "pending smoke test",
+      "gpu_required": "pending smoke test",
+      "license": {
+        "code": "Apache-2.0 (OpenMOSS/MOSS-TTS)",
+        "model": "Apache-2.0 (model card)",
+        "source": "huggingface.co model card"
+      },
+      "commercial_review": "light — Apache-2.0.",
+      "stress_handling": "pending smoke test"
     }
   ]
 }

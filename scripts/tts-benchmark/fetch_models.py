@@ -39,6 +39,27 @@ MODELS = {
     "cosyvoice3": ("FunAudioLLM/Fun-CosyVoice3-0.5B-2512", "29e01c4e8d000f4bcd70751be16fa94bf3d85a18",
                    "FunAudioLLM/Fun-CosyVoice3-0.5B-2512", None,
                    ("llm.rl.pt", "speech_tokenizer_v3.batch.onnx", "flow.decoder.estimator.fp32.onnx")),
+    # ---- Phase 1B ----
+    # MOSS-TTS-Nano: HF renamed OpenMOSS-Team/MOSS-TTS-Nano → …-100M (the old id 307-redirects); same files.
+    "moss-nano": ("OpenMOSS-Team/MOSS-TTS-Nano-100M", "44502f80dbf9743528fa921cc544d662c685ebec",
+                  "openmoss/MOSS-TTS-Nano-100M", None, ()),
+    "moss-audio-tokenizer-nano": ("OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano", "6aa02b01e445cc585582cf0ba480bc3ea6c8dd68",
+                                  "openmoss/MOSS-Audio-Tokenizer-Nano", None, ()),
+    "moss-nano-onnx": ("OpenMOSS-Team/MOSS-TTS-Nano-100M-ONNX", "f52645cb467506d8e18e746ddd59482685b74e58",
+                       "openmoss/MOSS-TTS-Nano-100M-ONNX", None, ()),
+    "moss-audio-tokenizer-nano-onnx": ("OpenMOSS-Team/MOSS-Audio-Tokenizer-Nano-ONNX", "ceff0d0749bfb3fa2d61149794ec6feef0d1e1ae",
+                                       "openmoss/MOSS-Audio-Tokenizer-Nano-ONNX", None, ()),
+    # ESpeech-TTS-1 RL-V2: Russian F5-TTS checkpoint (the SHARED.md-listed hotstone228/F5-TTS-Russian is HF-only).
+    "espeech-rlv2": ("ESpeech/ESpeech-TTS-1_RL-V2", "f582b6e5897fe8a5835059405a8439d13bdf7684",
+                     "ESpeech/ESpeech-TTS-1_RL-V2", None, ()),
+    # MOSS-TTS Local (MossTTSLocal, Qwen3-1.7B backbone; 3.06B params total, bf16) + its codec (1.77B, fp32)
+    "moss-local": ("OpenMOSS-Team/MOSS-TTS-Local-Transformer", "12aa734e4f11a7b3fdf4eb0ad2aa2029675ffc2e",
+                   "openmoss/MOSS-TTS-Local-Transformer", None, ()),
+    "moss-audio-tokenizer": ("OpenMOSS-Team/MOSS-Audio-Tokenizer", "3cd226ba2947efa357ef453bcad111b6eafba782",
+                             "openmoss/MOSS-Audio-Tokenizer", None, ("images/arch.png", "images/pesq-nb.png",
+                                                                     "images/pesq-wb.png", "images/sim.png", "images/stoi.png")),
+    "vocos-mel-24khz": ("charactr/vocos-mel-24khz", "0feb3fdd929bcd6649e0e7c5a688cf7dd012ef21",
+                        "pengzhendong/vocos-mel-24khz", None, ()),
 }
 
 
@@ -108,8 +129,13 @@ def fetch(model_id):
         elif p in hf_sha:
             hf_bytes = urllib.request.urlopen(f"https://huggingface.co/{hf}/resolve/{rev}/{urllib.parse.quote(p)}",
                                               timeout=60).read()
-            verdict = "identical to official HF file" if hashlib.sha256(hf_bytes).hexdigest() == got \
-                else "differs from HF (non-LFS file)"
+            if hashlib.sha256(hf_bytes).hexdigest() == got:
+                verdict = "identical to official HF file"
+            else:
+                # small non-LFS files are served by huggingface.co itself: use the official copy
+                out.write_bytes(hf_bytes)
+                got = hashlib.sha256(hf_bytes).hexdigest()
+                verdict = "ModelScope copy differed — replaced with the official HF file (non-LFS)"
         else:
             verdict = "ModelScope-only file (not in HF repo)"
         report["files"][p] = {"bytes": out.stat().st_size, "sha256": got, "check": verdict}

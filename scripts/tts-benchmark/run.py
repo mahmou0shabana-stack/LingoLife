@@ -32,7 +32,10 @@ ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT))
 
 ADAPTERS = {"rhvoice": "engines.rhvoice", "piper": "engines.piper", "xtts": "engines.xtts",
-            "chatterbox": "engines.chatterbox", "qwen3": "engines.qwen3", "cosyvoice": "engines.cosyvoice"}
+            "chatterbox": "engines.chatterbox", "qwen3": "engines.qwen3", "cosyvoice": "engines.cosyvoice",
+            # Phase 1B
+            "moss-nano": "engines.moss_nano", "moss-nano-onnx": "engines.moss_nano_onnx",
+            "f5-espeech": "engines.f5_espeech", "moss-local": "engines.moss_local"}
 DEFAULT_ENGINES = ["rhvoice", "piper"]  # neural engines are run by name (each needs its own venv + weights)
 
 
@@ -144,6 +147,10 @@ def run_engine(engine_id, corpus, records):
                                  if any(r.get("rtf_infer") for r in ok_recs) else None),
             "peak_rss_mb_max": max(rss) if rss else None,
         }
+        fa = [r["first_audio_s"] for r in ok_recs if r.get("first_audio_s") is not None]
+        if fa:
+            per_voice[vid]["first_audio_first_call_s"] = fa[0] if ok_recs[0].get("first_audio_s") is not None else None
+            per_voice[vid]["first_audio_warm_median_s"] = round(statistics.median(fa[1:] or fa), 3)
         if hasattr(mod, "load_info") and mod.load_info.get(model_voice):
             li = mod.load_info[model_voice]
             per_voice[vid]["model_load"] = {

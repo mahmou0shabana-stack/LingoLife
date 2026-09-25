@@ -40,12 +40,12 @@ def seed_for(out_path):
 
 
 class Worker:
-    def __init__(self, engine, args):
-        py = ROOT / "envs" / engine / "bin" / "python"
+    def __init__(self, engine, args, worker=None, env=None):
+        py = ROOT / "envs" / (env or engine) / "bin" / "python"
         tag = "-".join(Path(a).stem for a in args) or "default"
         self.stderr_path = ROOT / "logs" / f"{engine}-{tag}.stderr.log"
         self.stderr_path.parent.mkdir(exist_ok=True)
-        self.proc = subprocess.Popen([str(py), str(ROOT / "engines" / f"{engine}_worker.py"), *args],
+        self.proc = subprocess.Popen([str(py), str(ROOT / "engines" / f"{worker or engine}_worker.py"), *args],
                                      stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                      stderr=open(self.stderr_path, "a"), text=True, cwd=str(ROOT))
         self.info = self._read(timeout=3600)
@@ -87,8 +87,10 @@ class NeuralAdapter:
 
     VARIANTS = VARIANTS
 
-    def __init__(self, engine, worker_args_for_voice, rate_mapping):
+    def __init__(self, engine, worker_args_for_voice, rate_mapping, worker=None, env=None):
         self.engine = engine
+        self.worker_name = worker or engine
+        self.env = env or ("moss-nano" if self.worker_name.startswith("moss_nano") else engine)
         self.args_for = worker_args_for_voice
         self.rate_mapping = rate_mapping
         self.workers = {}
@@ -97,7 +99,7 @@ class NeuralAdapter:
     def worker(self, voice):
         if voice not in self.workers:
             try:
-                self.workers[voice] = Worker(self.engine, self.args_for(voice))
+                self.workers[voice] = Worker(self.engine, self.args_for(voice), self.worker_name, self.env)
                 self.load_info[voice] = self.workers[voice].info
             except RuntimeError as exc:
                 self.workers[voice] = None
@@ -118,10 +120,11 @@ class NeuralAdapter:
             "peak_rss_kb": res.get("peak_rss_kb") or 0,
             "engine_infer_s": res.get("infer_s"),
             "rate_mapping": rate_note,
-            "command": f"envs/{self.engine}/bin/python engines/{self.engine}_worker.py {' '.join(self.args_for(voice))}"
+            "command": f"envs/{self.env}/bin/python engines/{self.worker_name}_worker.py {' '.join(self.args_for(voice))}"
                        f"  (persistent worker; request {json.dumps({k: v for k, v in req.items() if k != 'text'})})",
             "extra": {"seed": req["seed"], "frontend": res.get("frontend"), "worker_rss_mb": round((res.get("rss_kb") or 0) / 1024, 1),
-                      "clipped": res.get("clipped"), "peak_sample": res.get("peak")},
+                      "clipped": res.get("clipped"), "peak_sample": res.get("peak"),
+                      **({"first_audio_s": res["first_audio_s"]} if res.get("first_audio_s") is not None else {})},
         }
 
     def close(self, voice):

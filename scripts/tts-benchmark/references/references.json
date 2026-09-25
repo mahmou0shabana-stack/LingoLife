@@ -1,0 +1,31 @@
+{
+  "about": "Native-Russian reference clips for voice-cloning engines (Phase 1B). Chosen by measurement from the first 205 clips of the FLEURS ru_ru dev split: highest estimated SNR per gender, 6–12 s, no clipping. Not chosen by ear.",
+  "source": "FLEURS (Conneau et al. 2022), Google — https://storage.googleapis.com/xtreme_translations/FLEURS102/ru_ru.tar.gz (GCS md5 of the full archive: /7dMQcB6QsqqFRO0htBktA==)",
+  "license": "CC-BY-4.0 (FLEURS dataset license; see huggingface.co/datasets/google/fleurs). Attribution: Google, FLEURS.",
+  "clips": {
+    "ru_female_fleurs": {
+      "file": "references/ru_female_fleurs.wav",
+      "fleurs_split": "dev",
+      "fleurs_file": "6674922529925288605.wav",
+      "fleurs_sentence_id": "1530",
+      "gender": "FEMALE",
+      "transcript": "Его планировали срубить во вторник, но постановлением чрезвычайного суда оно было сохранено.",
+      "transcript_normalized": "его планировали срубить во вторник но постановлением чрезвычайного суда оно было сохранено",
+      "num_samples": 120000,
+      "sample_rate": 16000,
+      "sha256": "dd8fe729fca10005586c0e84c298e3dd087ca7123213a6be0dcd948e8da4d8f7"
+    },
+    "ru_male_fleurs": {
+      "file": "references/ru_male_fleurs.wav",
+      "fleurs_split": "dev",
+      "fleurs_file": "8689892029826394680.wav",
+      "fleurs_sentence_id": "1642",
+      "gender": "MALE",
+      "transcript": "Военные расходы американского империализма на завоевание Филиппин оплатили сами филиппинцы.",
+      "transcript_normalized": "военные расходы американского империализма на завоевание филиппин оплатили сами филиппинцы",
+      "num_samples": 141120,
+      "sample_rate": 16000,
+      "sha256": "07b6ebdfc92bb90c223fdd7e24dd7f86516d3587a6cfd9f99182e2a4f81c0df8"
+    }
+  }
+}

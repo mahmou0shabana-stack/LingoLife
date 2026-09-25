@@ -94,6 +94,7 @@ select { font: 14px var(--sans); color: var(--ink); background: var(--surface); 
     <div class="lede">
       <p>Every row is one sentence from the benchmark corpus. The buttons play that <strong>same sentence</strong> from each engine, always in the same order. Nothing on this page ranks quality.</p>
       <p>An engine has a play button only if its real model produced Russian audio on this machine. The others show the exact reason they're blocked.</p>
+      <p><strong>Phase 1B</strong> (MOSS-TTS-Nano and the other new candidates) clones from <strong>native-Russian</strong> reference clips from FLEURS (Google, CC-BY-4.0): <span id="refs"></span>. Earlier neural engines used non-native reference voices; see their voice notes.</p>
     </div>
     <p class="env" id="env"></p>
   </header>
@@ -127,7 +128,7 @@ select { font: 14px var(--sans); color: var(--ink); background: var(--surface); 
 
 <script>
 const DATA = /*__DATA__*/null;
-const ORDER = ['rhvoice', 'piper', 'xtts', 'qwen3', 'chatterbox', 'cosyvoice'];
+const ORDER = ['rhvoice', 'piper', 'xtts', 'qwen3', 'chatterbox', 'cosyvoice', 'moss-nano', 'moss-nano-onnx', 'f5-espeech', 'moss-local'];
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const meta = Object.fromEntries(DATA.engines.map((e) => [e.id, e]));
@@ -178,13 +179,14 @@ $('#blockers').innerHTML = ORDER.map((id) => meta[id]).filter((e) => e.blocker |
   <span>${esc(e.blocker ? e.blocker.detail : e.partial_blocker)}</span>
   ${e.blocker?.unblock ? `<span>To unblock: ${esc(e.blocker.unblock)}</span>` : ''}</div>`).join('');
 
-$('#voice-table').innerHTML = `<thead><tr><th>Engine</th><th>Voice</th><th>Variant</th><th>Model</th><th>First call</th><th>Warm median</th><th>RTF wall</th><th>RTF infer</th><th>Peak RAM</th><th>Model load</th><th>OK</th><th>Voice license</th></tr></thead><tbody>${
+$('#voice-table').innerHTML = `<thead><tr><th>Engine</th><th>Voice</th><th>Variant</th><th>Model</th><th>First call</th><th>Warm median</th><th>RTF wall</th><th>RTF infer</th><th>Peak RAM</th><th>Model load</th><th>First audio (warm)</th><th>OK</th><th>Voice license</th></tr></thead><tbody>${
   ORDER.flatMap((id) => Object.entries(DATA.summary[id]?.voices || {}).map(([vid, v]) => `<tr>
     <td>${esc(meta[id].label)}</td><td class="num">${esc(vid)}</td><td>${esc(v.variant)}</td>
     <td class="num">${mb(v.model_bytes)}</td><td class="num">${fmt(v.first_run_wall_s)} s</td>
     <td class="num">${fmt(v.warm_wall_median_s)} s</td><td class="num">${fmt(v.rtf_wall_median)}</td>
     <td class="num">${fmt(v.rtf_infer_median)}</td><td class="num">${fmt(v.peak_rss_mb_max, 1)} MB</td>
     <td class="num">${v.model_load ? `${fmt(v.model_load.load_s, 1)} s · ${fmt(v.model_load.rss_after_load_mb, 0)} MB` : 'per call'}</td>
+    <td class="num">${v.first_audio_warm_median_s != null ? `${fmt(v.first_audio_warm_median_s, 2)} s (streaming)` : '—'}</td>
     <td class="num">${v.succeeded}/${v.syntheses}</td><td>${esc(meta[id].license?.voices?.[v.model_voice] || '')}</td></tr>`)).join('')
 }</tbody>`;
 
@@ -199,6 +201,10 @@ $('#stress-table').innerHTML = `<thead><tr><th>Engine</th><th>What happens to U+
       <td class="num">${x ? x.different : '—'}</td><td>${esc(ctl)}</td></tr>`;
   }).join('')
 }</tbody>`;
+
+if (DATA.references) {
+  $('#refs').textContent = Object.entries(DATA.references.clips).map(([k, c]) => `${k} (${c.gender.toLowerCase()}, «${c.transcript}»)`).join('; ');
+}
 
 /* ---------- controls ---------- */
 $('#controls').innerHTML = ORDER.filter((id) => voicesOf(id).length).map((id) => `
@@ -240,7 +246,9 @@ function metaHtml(eid, iid) {
     r.fe ? ['Engine frontend', `<dd class="ru-in" lang="ru">${esc(r.fe.normalized_text)}</dd>`] : null,
     r.fe ? ['U+0301 inside engine', `<dd>${r.fe.u0301_in_normalized} after the engine's own normalization · ${r.fe.tokens_containing_u0301} of ${r.fe.tokens.length} tokens carry it · ${r.fe.unk_tokens} [UNK]${r.fe.russian_auto_stress ? ` · auto-stress: ${esc(r.fe.russian_auto_stress)}` : ''}${r.fe.text_frontend ? ` · text frontend: ${esc(r.fe.text_frontend)}` : ''}${r.fe.instruct ? ` · instruct: ${esc(r.fe.instruct)}` : ''}</dd>`] : null,
     r.fe ? ['Tokens', `<dd><details><summary>${r.fe.tokens.length} tokens</summary>${esc(r.fe.tokens.join(' · '))}</details></dd>`] : null,
-    r.seed != null ? ['Seed', `<dd>${r.seed} (same for both stress variants)</dd>`] : null,
+    r.fe?.normalization_method ? ['Normalization', `<dd>${esc(r.fe.normalization_method)}${r.fe.text_normalization_language ? ` · WeText language routed to: ${esc(r.fe.text_normalization_language)}` : ''}</dd>`] : null,
+    r.fa != null ? ['First audio', `<dd>${fmt(r.fa, 3)} s after the request (streaming)</dd>`] : null,
+    r.seed != null ? ['Seed', `<dd>${r.seed} (same for all stress variants of this sentence)</dd>`] : null,
     ['Audio', `<dd>${fmt(r.d)} s · ${r.sr} Hz · ${r.ch === 1 ? 'mono' : r.ch + ' ch'} · ${(r.b / 1024).toFixed(0)} KB WAV</dd>`],
     ['Synthesis', `<dd>${fmt(r.w)} s wall${r.i != null ? ` · ${fmt(r.i)} s inference` : ''} · RTF ${fmt(r.rtf)}${r.first ? ' · first call for this voice' : ''}</dd>`],
     ['Peak RAM', `<dd>${fmt(r.rss, 1)} MB (${r.fe ? 'persistent worker, model included' : 'process'})</dd>`],

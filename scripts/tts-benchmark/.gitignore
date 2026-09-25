@@ -7,3 +7,4 @@ page/packs/
 __pycache__/
 envs/
 logs/
+references/fleurs_raw/
