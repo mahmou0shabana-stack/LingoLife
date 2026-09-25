@@ -1,0 +1,95 @@
+{
+  "about": "Phase 1C viability measurements (4-core Xeon 2.1 GHz, 15.7 GB RAM, no GPU). Cold = page cache dropped before starting the worker.",
+  "supertonic_fp32_onnx": {
+    "model_mb": 398.1,
+    "params": "~99M (README)",
+    "download": "ONNX graphs + unicode_indexer.json + tts.json + 10 voice styles (~0.3 MB each)",
+    "cold_start": {
+      "load_s": 0.979,
+      "rss_after_load_mb": 467,
+      "first_request_infer_s": 0.709,
+      "first_audio_s": 0.68,
+      "peak_rss_mb": 478,
+      "process_total_s": 1.91
+    },
+    "corpus": {
+      "F1": {
+        "warm_wall_median_s": 1.07,
+        "rtf_wall_median": 0.2852,
+        "peak_rss_mb_max": 532.3,
+        "first_audio_warm_median_s": 1.066
+      },
+      "F1~no-stress-marks": {
+        "warm_wall_median_s": 1.036,
+        "rtf_wall_median": 0.3049,
+        "peak_rss_mb_max": 533.0,
+        "first_audio_warm_median_s": 1.032
+      },
+      "M1": {
+        "warm_wall_median_s": 1.109,
+        "rtf_wall_median": 0.3025,
+        "peak_rss_mb_max": 531.7,
+        "first_audio_warm_median_s": 1.104
+      },
+      "M1~no-stress-marks": {
+        "warm_wall_median_s": 1.039,
+        "rtf_wall_median": 0.3057,
+        "peak_rss_mb_max": 532.4,
+        "first_audio_warm_median_s": 1.032
+      }
+    },
+    "torch_free": true,
+    "runtime": "onnxruntime 1.23.1 (official py/helper.py)",
+    "streaming": "No token streaming: non-autoregressive flow matching (8 steps) per text chunk (≤300 chars, sentence split); first audio = first chunk done."
+  },
+  "supertonic_int8_sherpa_onnx": {
+    "model_mb": 144.5,
+    "source": "sherpa-onnx GitHub release tts-models/sherpa-onnx-supertonic-3-tts-int8-2026-05-11.tar.bz2 (INT8 by the sherpa-onnx/k2-fsa project, not by Supertone)",
+    "cold_start": {
+      "load_s": 0.842,
+      "rss_after_load_mb": 223,
+      "peak_rss_mb_first_requests": 292,
+      "process_total_s": 6.76,
+      "note": "process total includes 5 syntheses in that cold run"
+    },
+    "corpus": {
+      "F1": {
+        "warm_wall_median_s": 1.385,
+        "rtf_wall_median": 0.406,
+        "peak_rss_mb_max": 340.8,
+        "first_audio_warm_median_s": 1.369
+      },
+      "F1~no-stress-marks": {
+        "warm_wall_median_s": 1.314,
+        "rtf_wall_median": 0.3928,
+        "peak_rss_mb_max": 341.9,
+        "first_audio_warm_median_s": 1.299
+      },
+      "M1": {
+        "warm_wall_median_s": 1.346,
+        "rtf_wall_median": 0.412,
+        "peak_rss_mb_max": 337.8,
+        "first_audio_warm_median_s": 1.332
+      },
+      "M1~no-stress-marks": {
+        "warm_wall_median_s": 1.293,
+        "rtf_wall_median": 0.3948,
+        "peak_rss_mb_max": 338.7,
+        "first_audio_warm_median_s": 1.283
+      }
+    },
+    "note": "INT8 is ~2.7× smaller and uses ~half the RAM, but on this x86 CPU it is slower than fp32 (RTF ~0.40 vs ~0.29).",
+    "binding_bug": "sherpa-onnx 1.13.8 Python: GenerationConfig.extra returns a copy, so the official example's `gen_config.extra['lang'] = …` is silently lost (language and seed never reach the engine). Assign the whole dict: gen_config.extra = {'lang': 'ru', 'seed': '…'}."
+  },
+  "browser": "Official: supertone-inc/supertonic web/ (onnxruntime-web; WebGPU with automatic WASM fallback; 'runs entirely in the browser'). Not executed here (no browser run). sherpa-onnx also publishes WebAssembly TTS builds.",
+  "android": "No official Supertone Android sample (Flutter sample tested on macOS only; Java sample is desktop JVM; iOS/Swift samples are official). Credible route: sherpa-onnx (Apache-2.0), which ships Android/iOS/WASM builds and supports Supertonic 3 natively; the INT8 package measured here (~145 MB model, ~0.23–0.34 GB RSS on x86) is phone-sized.",
+  "offline": "Fully offline once downloaded: no network calls in the ONNX runtimes (models are local files; ONNX Runtime only).",
+  "omnivoice": {
+    "load_s_warm_cache": 11.061,
+    "rss_after_load_mb": 2568,
+    "stage_a_rtf_median": 25.661,
+    "peak_rss_mb": 4256.0,
+    "model_mb": 3256,
+    "verdict": "clearly impractical on this CPU (RTF ≈ 25) — stopped after Stage A"
+  }
+}

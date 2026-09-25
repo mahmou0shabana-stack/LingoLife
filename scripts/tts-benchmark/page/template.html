@@ -136,7 +136,7 @@ select { font: 14px var(--sans); color: var(--ink); background: var(--surface); 
 
 <script>
 const DATA = /*__DATA__*/null;
-const ORDER = ['rhvoice', 'piper', 'xtts', 'qwen3', 'chatterbox', 'cosyvoice', 'moss-nano', 'moss-nano-onnx', 'f5-espeech', 'moss-local', 'supertonic', 'omnivoice', 'silero', 'voxtream2-ru'];
+const ORDER = ['rhvoice', 'piper', 'xtts', 'qwen3', 'chatterbox', 'cosyvoice', 'moss-nano', 'moss-nano-onnx', 'f5-espeech', 'moss-local', 'supertonic', 'supertonic-int8', 'omnivoice', 'silero', 'voxtream2-ru'];
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const meta = Object.fromEntries(DATA.engines.map((e) => [e.id, e]));

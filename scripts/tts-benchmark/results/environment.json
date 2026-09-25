@@ -1,14 +1,14 @@
 {
-  "captured_at": "2026-09-25T05:01:59+00:00",
+  "captured_at": "2026-09-25T09:56:40+00:00",
   "os": "Ubuntu 24.04.4 LTS",
   "kernel": "6.18.44-fc-v37",
   "arch": "x86_64",
-  "cpu": "Intel(R) Xeon(R) Processor @ 2.10GHz",
+  "cpu": "Intel(R) Xeon(R) Processor @ 2.80GHz",
   "cpu_cores": 4,
   "ram_gb": 15.7,
   "gpu": "none (no nvidia-smi, no /dev/nvidia*)",
   "vram": "n/a (no GPU)",
   "python": "3.11.15",
   "node": "v22.22.2",
-  "disk_free_gb": 7.4
+  "disk_free_gb": 10.6
 }

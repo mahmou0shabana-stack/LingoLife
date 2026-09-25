@@ -277,7 +277,7 @@
       "adapter": "engines/supertonic.py (+ engines/supertonic_worker.py in envs/supertonic — torch-free)",
       "model": "Supertone/supertonic-3 @ 3cadd1ee6394 (ONNX: duration_predictor, text_encoder, vector_estimator, vocoder; ~99M params, fp32 398 MB; identical files in supertone-oss-archive/supertonic-3 @ aafc6e32416a); 44.1 kHz mono",
       "python_package": "official repo supertone-inc/supertonic @ 1e9799e (archived — no further updates) py/helper.py on onnxruntime 1.23.1 CPU; defaults total_step 8, speed 1.05",
-      "cpu_only": "yes (measured)",
+      "cpu_only": "yes (measured; RTF ~0.29–0.31, 0.47 GB RSS)",
       "gpu_required": "no",
       "voice": "built-in preset voice styles F1 (female) and M1 (male); the open-weight release has no voice cloning (Supertone's hosted Voice Builder only)",
       "license": {
@@ -291,7 +291,30 @@
       },
       "commercial_review": "moderate — OpenRAIL-M use restrictions must be passed on; repo archived (no support).",
       "rate_support": "speed argument",
-      "stress_handling": "pending"
+      "stress_handling": "No stress model and no Russian normalization in the frontend (NFKD + symbol cleanup; digits passed raw). U+0301 is a known symbol (unicode_indexer index 146) and reaches the model; NFKD also decomposes ё → е + U+0308 (index 152). Stage A: in all 4 neutral minimal pairs (за́мок/замо́к, му́ка/мука́, а́тлас/атла́с, пла́чу/плачу́; shared seed) the unmarked versions are byte-identical and moving the mark changes the audio; removing marks changes the audio in 21/22 items; unmarked control identical. Marks also lengthen the predicted duration slightly (e.g. S05 4.25 vs 3.97 s), but within a minimal pair (same length) duration is identical — the change comes from the mark position. Stage B corpus: 60/60 marked pairs differ."
+    },
+    {
+      "id": "supertonic-int8",
+      "label": "Supertonic 3 INT8 (sherpa-onnx)",
+      "phase": "1C",
+      "adapter": "engines/supertonic_int8.py (+ engines/supertonic_int8_worker.py in envs/sherpa)",
+      "model": "sherpa-onnx release asset sherpa-onnx-supertonic-3-tts-int8-2026-05-11 (INT8 of Supertonic 3 by the sherpa-onnx/k2-fsa project; 144.5 MB ONNX; same 10 voice styles — sid 0 = F1, 5 = M1, verified)",
+      "python_package": "sherpa-onnx 1.13.8 (Apache-2.0), C++ Supertonic frontend, 4 threads, 8 steps",
+      "cpu_only": "yes (measured; RTF ~0.39–0.41, 0.22–0.34 GB RSS)",
+      "gpu_required": "no",
+      "voice": "built-in preset voice styles F1 (female) and M1 (male); the open-weight release has no voice cloning (Supertone's hosted Voice Builder only)",
+      "license": {
+        "code": "Apache-2.0 (sherpa-onnx)",
+        "model": "Supertonic 3 weights: BigScience OpenRAIL-M (quantized derivative — the use restrictions carry over)",
+        "voices": {
+          "F1": "preset voice style",
+          "M1": "preset voice style"
+        },
+        "source": "models/sherpa/…/LICENSE"
+      },
+      "commercial_review": "moderate — OpenRAIL-M use restrictions must be passed on; repo archived (no support).",
+      "rate_support": "speed argument",
+      "stress_handling": "Same behaviour as fp32 in Stage A: in all 4 neutral minimal pairs (за́мок/замо́к, му́ка/мука́, а́тлас/атла́с, пла́чу/плачу́; shared seed) the unmarked versions are byte-identical and moving the mark changes the audio; removing marks changes the audio in 21/22 items; unmarked control identical. (sherpa-onnx's C++ frontend keeps U+0301.) Binding bug: GenerationConfig.extra item assignment is silently lost — assign the whole dict."
     },
     {
       "id": "omnivoice",
@@ -312,7 +335,12 @@
         "source": "models/omnivoice/README.md"
       },
       "commercial_review": "yes — weights non-commercial.",
-      "stress_handling": "pending"
+      "stress_handling": "No text normalization; Qwen3 BPE keeps U+0301 as its own token. Pronunciation control is documented only for Chinese (pinyin) and English (CMU phones) — none for Russian. Stage A: in all 4 neutral minimal pairs (за́мок/замо́к, му́ка/мука́, а́тлас/атла́с, пла́чу/плачу́; shared seed) the unmarked versions are byte-identical and moving the mark changes the audio; removing marks changes the audio in 21/22 items; unmarked control identical. Here the mark position also changes the predicted duration (e.g. пла́чу 1.40 s vs плачу́ 1.02 s).",
+      "blocker": {
+        "kind": "resources",
+        "detail": "Runs on CPU, but RTF ≈ 25 (≈ 50 s per short sentence at the default num_step 32), 4.3 GB peak RSS: clearly impractical on this CPU. Stopped after Stage A (66 syntheses); full corpus not run.",
+        "unblock": "A GPU (the README's benchmarks are on H100)."
+      }
     },
     {
       "id": "voxtream2-ru",

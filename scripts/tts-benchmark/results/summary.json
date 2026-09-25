@@ -3737,7 +3737,1338 @@
       }
     },
     "f5-espeech": null,
-    "moss-local": null
+    "moss-local": null,
+    "supertonic": {
+      "model_version": "Supertonic 3 — Supertone/supertonic-3@3cadd1ee63 ONNX (SHA-256-verified via modelscope.cn; identical to supertone-oss-archive/supertonic-3); repo supertonic @ 1e9799e (archived), onnxruntime 1.23.1 CPU, 8 steps",
+      "voices": {
+        "F1": {
+          "model_voice": "F1",
+          "variant": "text sent as-is (U+0301 kept)",
+          "model_bytes": 398075273,
+          "syntheses": 32,
+          "succeeded": 32,
+          "first_run_wall_s": 1.901,
+          "warm_wall_median_s": 1.07,
+          "rtf_wall_median": 0.2852,
+          "rtf_infer_median": 0.285,
+          "peak_rss_mb_max": 532.3,
+          "first_audio_first_call_s": 0.977,
+          "first_audio_warm_median_s": 1.066,
+          "model_load": {
+            "ok": true,
+            "load_s": 0.822,
+            "error": null,
+            "rss_after_load_mb": 466.6,
+            "peak_rss_during_load_mb": 477.1,
+            "details": {
+              "rss_before_load_kb": 26524,
+              "rss_after_load_kb": 477792,
+              "peak_rss_after_load_kb": 488532,
+              "packages": {
+                "onnxruntime": "1.23.1",
+                "numpy": "2.5.3"
+              },
+              "torch_imported": false,
+              "repo_commit": "1e9799e964ea4c0dad7cde993b65c3c813a7b373",
+              "voice_style": "F1",
+              "total_step": 8,
+              "speed": 1.05,
+              "providers": [
+                "AzureExecutionProvider",
+                "CPUExecutionProvider"
+              ],
+              "sample_rate": 44100
+            }
+          }
+        },
+        "F1~no-stress-marks": {
+          "model_voice": "F1",
+          "variant": "U+0301 removed before synthesis (same seed as the as-is run)",
+          "model_bytes": 398075273,
+          "syntheses": 32,
+          "succeeded": 32,
+          "first_run_wall_s": 0.861,
+          "warm_wall_median_s": 1.036,
+          "rtf_wall_median": 0.3049,
+          "rtf_infer_median": 0.3047,
+          "peak_rss_mb_max": 533.0,
+          "first_audio_first_call_s": 0.8572,
+          "first_audio_warm_median_s": 1.032,
+          "model_load": {
+            "ok": true,
+            "load_s": 0.822,
+            "error": null,
+            "rss_after_load_mb": 466.6,
+            "peak_rss_during_load_mb": 477.1,
+            "details": {
+              "rss_before_load_kb": 26524,
+              "rss_after_load_kb": 477792,
+              "peak_rss_after_load_kb": 488532,
+              "packages": {
+                "onnxruntime": "1.23.1",
+                "numpy": "2.5.3"
+              },
+              "torch_imported": false,
+              "repo_commit": "1e9799e964ea4c0dad7cde993b65c3c813a7b373",
+              "voice_style": "F1",
+              "total_step": 8,
+              "speed": 1.05,
+              "providers": [
+                "AzureExecutionProvider",
+                "CPUExecutionProvider"
+              ],
+              "sample_rate": 44100
+            }
+          }
+        },
+        "M1": {
+          "model_voice": "M1",
+          "variant": "text sent as-is (U+0301 kept)",
+          "model_bytes": 398075273,
+          "syntheses": 32,
+          "succeeded": 32,
+          "first_run_wall_s": 1.831,
+          "warm_wall_median_s": 1.109,
+          "rtf_wall_median": 0.3025,
+          "rtf_infer_median": 0.3022,
+          "peak_rss_mb_max": 531.7,
+          "first_audio_first_call_s": 0.9166,
+          "first_audio_warm_median_s": 1.104,
+          "model_load": {
+            "ok": true,
+            "load_s": 0.816,
+            "error": null,
+            "rss_after_load_mb": 466.1,
+            "peak_rss_during_load_mb": 476.6,
+            "details": {
+              "rss_before_load_kb": 26516,
+              "rss_after_load_kb": 477304,
+              "peak_rss_after_load_kb": 487996,
+              "packages": {
+                "onnxruntime": "1.23.1",
+                "numpy": "2.5.3"
+              },
+              "torch_imported": false,
+              "repo_commit": "1e9799e964ea4c0dad7cde993b65c3c813a7b373",
+              "voice_style": "M1",
+              "total_step": 8,
+              "speed": 1.05,
+              "providers": [
+                "AzureExecutionProvider",
+                "CPUExecutionProvider"
+              ],
+              "sample_rate": 44100
+            }
+          }
+        },
+        "M1~no-stress-marks": {
+          "model_voice": "M1",
+          "variant": "U+0301 removed before synthesis (same seed as the as-is run)",
+          "model_bytes": 398075273,
+          "syntheses": 32,
+          "succeeded": 32,
+          "first_run_wall_s": 0.972,
+          "warm_wall_median_s": 1.039,
+          "rtf_wall_median": 0.3057,
+          "rtf_infer_median": 0.3055,
+          "peak_rss_mb_max": 532.4,
+          "first_audio_first_call_s": 0.9682,
+          "first_audio_warm_median_s": 1.032,
+          "model_load": {
+            "ok": true,
+            "load_s": 0.816,
+            "error": null,
+            "rss_after_load_mb": 466.1,
+            "peak_rss_during_load_mb": 476.6,
+            "details": {
+              "rss_before_load_kb": 26516,
+              "rss_after_load_kb": 477304,
+              "peak_rss_after_load_kb": 487996,
+              "packages": {
+                "onnxruntime": "1.23.1",
+                "numpy": "2.5.3"
+              },
+              "torch_imported": false,
+              "repo_commit": "1e9799e964ea4c0dad7cde993b65c3c813a7b373",
+              "voice_style": "M1",
+              "total_step": 8,
+              "speed": 1.05,
+              "providers": [
+                "AzureExecutionProvider",
+                "CPUExecutionProvider"
+              ],
+              "sample_rate": 44100
+            }
+          }
+        }
+      },
+      "stress_experiment": {
+        "pairs_compared": 60,
+        "identical": 0,
+        "different": 60,
+        "determinism_control": [
+          {
+            "voice": "F1",
+            "item_id": "25",
+            "identical_audio": true
+          },
+          {
+            "voice": "F1",
+            "item_id": "28",
+            "identical_audio": true
+          },
+          {
+            "voice": "M1",
+            "item_id": "25",
+            "identical_audio": true
+          },
+          {
+            "voice": "M1",
+            "item_id": "28",
+            "identical_audio": true
+          }
+        ],
+        "pairs": [
+          {
+            "voice": "F1",
+            "item_id": "01",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.647,
+            "duration_stripped_s": 2.508
+          },
+          {
+            "voice": "F1",
+            "item_id": "02",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 3.971,
+            "duration_stripped_s": 3.762
+          },
+          {
+            "voice": "F1",
+            "item_id": "03",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 2.786,
+            "duration_stripped_s": 2.577
+          },
+          {
+            "voice": "F1",
+            "item_id": "04",
+            "marks": 5,
+            "identical_audio": false,
+            "duration_as_is_s": 3.065,
+            "duration_stripped_s": 2.856
+          },
+          {
+            "voice": "F1",
+            "item_id": "05",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 2.856,
+            "duration_stripped_s": 2.717
+          },
+          {
+            "voice": "F1",
+            "item_id": "06",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 2.856,
+            "duration_stripped_s": 2.647
+          },
+          {
+            "voice": "F1",
+            "item_id": "07",
+            "marks": 6,
+            "identical_audio": false,
+            "duration_as_is_s": 4.18,
+            "duration_stripped_s": 3.901
+          },
+          {
+            "voice": "F1",
+            "item_id": "08",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.717,
+            "duration_stripped_s": 2.508
+          },
+          {
+            "voice": "F1",
+            "item_id": "09",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.692,
+            "duration_stripped_s": 3.553
+          },
+          {
+            "voice": "F1",
+            "item_id": "10",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 4.11,
+            "duration_stripped_s": 3.901
+          },
+          {
+            "voice": "F1",
+            "item_id": "11",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 1.672,
+            "duration_stripped_s": 1.602
+          },
+          {
+            "voice": "F1",
+            "item_id": "12",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.577,
+            "duration_stripped_s": 2.508
+          },
+          {
+            "voice": "F1",
+            "item_id": "13",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.692,
+            "duration_stripped_s": 3.483
+          },
+          {
+            "voice": "F1",
+            "item_id": "14",
+            "marks": 5,
+            "identical_audio": false,
+            "duration_as_is_s": 4.807,
+            "duration_stripped_s": 4.528
+          },
+          {
+            "voice": "F1",
+            "item_id": "15",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 4.876,
+            "duration_stripped_s": 4.598
+          },
+          {
+            "voice": "F1",
+            "item_id": "16",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 4.04,
+            "duration_stripped_s": 3.901
+          },
+          {
+            "voice": "F1",
+            "item_id": "17",
+            "marks": 1,
+            "identical_audio": false,
+            "duration_as_is_s": 5.294,
+            "duration_stripped_s": 5.224
+          },
+          {
+            "voice": "F1",
+            "item_id": "18",
+            "marks": 6,
+            "identical_audio": false,
+            "duration_as_is_s": 5.016,
+            "duration_stripped_s": 4.876
+          },
+          {
+            "voice": "F1",
+            "item_id": "19",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.901,
+            "duration_stripped_s": 3.762
+          },
+          {
+            "voice": "F1",
+            "item_id": "20",
+            "marks": 7,
+            "identical_audio": false,
+            "duration_as_is_s": 6.2,
+            "duration_stripped_s": 5.921
+          },
+          {
+            "voice": "F1",
+            "item_id": "21",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 4.18,
+            "duration_stripped_s": 3.971
+          },
+          {
+            "voice": "F1",
+            "item_id": "22",
+            "marks": 18,
+            "identical_audio": false,
+            "duration_as_is_s": 12.608,
+            "duration_stripped_s": 12.121
+          },
+          {
+            "voice": "F1",
+            "item_id": "23",
+            "marks": 15,
+            "identical_audio": false,
+            "duration_as_is_s": 11.355,
+            "duration_stripped_s": 10.797
+          },
+          {
+            "voice": "F1",
+            "item_id": "24",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 1.741,
+            "duration_stripped_s": 1.672
+          },
+          {
+            "voice": "F1",
+            "item_id": "26",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 1.881,
+            "duration_stripped_s": 1.811
+          },
+          {
+            "voice": "F1",
+            "item_id": "27",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.856,
+            "duration_stripped_s": 2.717
+          },
+          {
+            "voice": "F1",
+            "item_id": "29",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 3.901,
+            "duration_stripped_s": 3.692
+          },
+          {
+            "voice": "F1",
+            "item_id": "30",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.553,
+            "duration_stripped_s": 3.413
+          },
+          {
+            "voice": "F1",
+            "item_id": "31",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 3.204,
+            "duration_stripped_s": 3.135
+          },
+          {
+            "voice": "F1",
+            "item_id": "32",
+            "marks": 1,
+            "identical_audio": false,
+            "duration_as_is_s": 3.622,
+            "duration_stripped_s": 3.622
+          },
+          {
+            "voice": "M1",
+            "item_id": "01",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.647,
+            "duration_stripped_s": 2.438
+          },
+          {
+            "voice": "M1",
+            "item_id": "02",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 3.971,
+            "duration_stripped_s": 3.762
+          },
+          {
+            "voice": "M1",
+            "item_id": "03",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 2.786,
+            "duration_stripped_s": 2.577
+          },
+          {
+            "voice": "M1",
+            "item_id": "04",
+            "marks": 5,
+            "identical_audio": false,
+            "duration_as_is_s": 3.065,
+            "duration_stripped_s": 2.856
+          },
+          {
+            "voice": "M1",
+            "item_id": "05",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 2.856,
+            "duration_stripped_s": 2.717
+          },
+          {
+            "voice": "M1",
+            "item_id": "06",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 2.856,
+            "duration_stripped_s": 2.647
+          },
+          {
+            "voice": "M1",
+            "item_id": "07",
+            "marks": 6,
+            "identical_audio": false,
+            "duration_as_is_s": 4.18,
+            "duration_stripped_s": 3.901
+          },
+          {
+            "voice": "M1",
+            "item_id": "08",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.717,
+            "duration_stripped_s": 2.508
+          },
+          {
+            "voice": "M1",
+            "item_id": "09",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.692,
+            "duration_stripped_s": 3.553
+          },
+          {
+            "voice": "M1",
+            "item_id": "10",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 4.11,
+            "duration_stripped_s": 3.901
+          },
+          {
+            "voice": "M1",
+            "item_id": "11",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 1.672,
+            "duration_stripped_s": 1.602
+          },
+          {
+            "voice": "M1",
+            "item_id": "12",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.577,
+            "duration_stripped_s": 2.508
+          },
+          {
+            "voice": "M1",
+            "item_id": "13",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.692,
+            "duration_stripped_s": 3.483
+          },
+          {
+            "voice": "M1",
+            "item_id": "14",
+            "marks": 5,
+            "identical_audio": false,
+            "duration_as_is_s": 4.807,
+            "duration_stripped_s": 4.528
+          },
+          {
+            "voice": "M1",
+            "item_id": "15",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 4.876,
+            "duration_stripped_s": 4.598
+          },
+          {
+            "voice": "M1",
+            "item_id": "16",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.971,
+            "duration_stripped_s": 3.901
+          },
+          {
+            "voice": "M1",
+            "item_id": "17",
+            "marks": 1,
+            "identical_audio": false,
+            "duration_as_is_s": 5.294,
+            "duration_stripped_s": 5.224
+          },
+          {
+            "voice": "M1",
+            "item_id": "18",
+            "marks": 6,
+            "identical_audio": false,
+            "duration_as_is_s": 5.016,
+            "duration_stripped_s": 4.876
+          },
+          {
+            "voice": "M1",
+            "item_id": "19",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.901,
+            "duration_stripped_s": 3.762
+          },
+          {
+            "voice": "M1",
+            "item_id": "20",
+            "marks": 7,
+            "identical_audio": false,
+            "duration_as_is_s": 6.2,
+            "duration_stripped_s": 5.921
+          },
+          {
+            "voice": "M1",
+            "item_id": "21",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 4.18,
+            "duration_stripped_s": 3.971
+          },
+          {
+            "voice": "M1",
+            "item_id": "22",
+            "marks": 18,
+            "identical_audio": false,
+            "duration_as_is_s": 12.608,
+            "duration_stripped_s": 12.121
+          },
+          {
+            "voice": "M1",
+            "item_id": "23",
+            "marks": 15,
+            "identical_audio": false,
+            "duration_as_is_s": 11.355,
+            "duration_stripped_s": 10.797
+          },
+          {
+            "voice": "M1",
+            "item_id": "24",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 1.741,
+            "duration_stripped_s": 1.672
+          },
+          {
+            "voice": "M1",
+            "item_id": "26",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 1.881,
+            "duration_stripped_s": 1.741
+          },
+          {
+            "voice": "M1",
+            "item_id": "27",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.856,
+            "duration_stripped_s": 2.717
+          },
+          {
+            "voice": "M1",
+            "item_id": "29",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 3.901,
+            "duration_stripped_s": 3.692
+          },
+          {
+            "voice": "M1",
+            "item_id": "30",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.553,
+            "duration_stripped_s": 3.413
+          },
+          {
+            "voice": "M1",
+            "item_id": "31",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 3.204,
+            "duration_stripped_s": 3.135
+          },
+          {
+            "voice": "M1",
+            "item_id": "32",
+            "marks": 1,
+            "identical_audio": false,
+            "duration_as_is_s": 3.622,
+            "duration_stripped_s": 3.622
+          }
+        ]
+      }
+    },
+    "silero": null,
+    "omnivoice": null,
+    "voxtream2-ru": null,
+    "supertonic-int8": {
+      "model_version": "Supertonic 3 INT8 — sherpa-onnx release asset sherpa-onnx-supertonic-3-tts-int8-2026-05-11.tar.bz2 (sha256 82fa96f9…); sherpa-onnx 1.13.8 CPU, 4 threads, 8 steps",
+      "voices": {
+        "F1": {
+          "model_voice": "F1",
+          "variant": "text sent as-is (U+0301 kept)",
+          "model_bytes": 144508203,
+          "syntheses": 32,
+          "succeeded": 32,
+          "first_run_wall_s": 2.064,
+          "warm_wall_median_s": 1.385,
+          "rtf_wall_median": 0.406,
+          "rtf_infer_median": 0.4056,
+          "peak_rss_mb_max": 340.8,
+          "first_audio_first_call_s": 1.2411,
+          "first_audio_warm_median_s": 1.369,
+          "model_load": {
+            "ok": true,
+            "load_s": 0.71,
+            "error": null,
+            "rss_after_load_mb": 225.0,
+            "peak_rss_during_load_mb": 224.6,
+            "details": {
+              "rss_before_load_kb": 26348,
+              "rss_after_load_kb": 230388,
+              "peak_rss_after_load_kb": 230012,
+              "packages": {
+                "sherpa-onnx": "1.13.8"
+              },
+              "torch_imported": false,
+              "sid": 0,
+              "num_steps": 8,
+              "threads": 4,
+              "sample_rate": 44100,
+              "model": "sherpa-onnx-supertonic-3-tts-int8-2026-05-11"
+            }
+          }
+        },
+        "F1~no-stress-marks": {
+          "model_voice": "F1",
+          "variant": "U+0301 removed before synthesis (same seed as the as-is run)",
+          "model_bytes": 144508203,
+          "syntheses": 32,
+          "succeeded": 32,
+          "first_run_wall_s": 0.891,
+          "warm_wall_median_s": 1.314,
+          "rtf_wall_median": 0.3928,
+          "rtf_infer_median": 0.3925,
+          "peak_rss_mb_max": 341.9,
+          "first_audio_first_call_s": 0.877,
+          "first_audio_warm_median_s": 1.299,
+          "model_load": {
+            "ok": true,
+            "load_s": 0.71,
+            "error": null,
+            "rss_after_load_mb": 225.0,
+            "peak_rss_during_load_mb": 224.6,
+            "details": {
+              "rss_before_load_kb": 26348,
+              "rss_after_load_kb": 230388,
+              "peak_rss_after_load_kb": 230012,
+              "packages": {
+                "sherpa-onnx": "1.13.8"
+              },
+              "torch_imported": false,
+              "sid": 0,
+              "num_steps": 8,
+              "threads": 4,
+              "sample_rate": 44100,
+              "model": "sherpa-onnx-supertonic-3-tts-int8-2026-05-11"
+            }
+          }
+        },
+        "M1": {
+          "model_voice": "M1",
+          "variant": "text sent as-is (U+0301 kept)",
+          "model_bytes": 144508203,
+          "syntheses": 32,
+          "succeeded": 32,
+          "first_run_wall_s": 1.931,
+          "warm_wall_median_s": 1.346,
+          "rtf_wall_median": 0.412,
+          "rtf_infer_median": 0.4116,
+          "peak_rss_mb_max": 337.8,
+          "first_audio_first_call_s": 1.0994,
+          "first_audio_warm_median_s": 1.332,
+          "model_load": {
+            "ok": true,
+            "load_s": 0.721,
+            "error": null,
+            "rss_after_load_mb": 223.9,
+            "peak_rss_during_load_mb": 223.6,
+            "details": {
+              "rss_before_load_kb": 26312,
+              "rss_after_load_kb": 229308,
+              "peak_rss_after_load_kb": 228932,
+              "packages": {
+                "sherpa-onnx": "1.13.8"
+              },
+              "torch_imported": false,
+              "sid": 5,
+              "num_steps": 8,
+              "threads": 4,
+              "sample_rate": 44100,
+              "model": "sherpa-onnx-supertonic-3-tts-int8-2026-05-11"
+            }
+          }
+        },
+        "M1~no-stress-marks": {
+          "model_voice": "M1",
+          "variant": "U+0301 removed before synthesis (same seed as the as-is run)",
+          "model_bytes": 144508203,
+          "syntheses": 32,
+          "succeeded": 32,
+          "first_run_wall_s": 0.922,
+          "warm_wall_median_s": 1.293,
+          "rtf_wall_median": 0.3948,
+          "rtf_infer_median": 0.3946,
+          "peak_rss_mb_max": 338.7,
+          "first_audio_first_call_s": 0.9134,
+          "first_audio_warm_median_s": 1.283,
+          "model_load": {
+            "ok": true,
+            "load_s": 0.721,
+            "error": null,
+            "rss_after_load_mb": 223.9,
+            "peak_rss_during_load_mb": 223.6,
+            "details": {
+              "rss_before_load_kb": 26312,
+              "rss_after_load_kb": 229308,
+              "peak_rss_after_load_kb": 228932,
+              "packages": {
+                "sherpa-onnx": "1.13.8"
+              },
+              "torch_imported": false,
+              "sid": 5,
+              "num_steps": 8,
+              "threads": 4,
+              "sample_rate": 44100,
+              "model": "sherpa-onnx-supertonic-3-tts-int8-2026-05-11"
+            }
+          }
+        }
+      },
+      "stress_experiment": {
+        "pairs_compared": 60,
+        "identical": 0,
+        "different": 60,
+        "determinism_control": [
+          {
+            "voice": "F1",
+            "item_id": "25",
+            "identical_audio": true
+          },
+          {
+            "voice": "F1",
+            "item_id": "28",
+            "identical_audio": true
+          },
+          {
+            "voice": "M1",
+            "item_id": "25",
+            "identical_audio": true
+          },
+          {
+            "voice": "M1",
+            "item_id": "28",
+            "identical_audio": true
+          }
+        ],
+        "pairs": [
+          {
+            "voice": "F1",
+            "item_id": "01",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.361,
+            "duration_stripped_s": 2.206
+          },
+          {
+            "voice": "F1",
+            "item_id": "02",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 3.938,
+            "duration_stripped_s": 3.716
+          },
+          {
+            "voice": "F1",
+            "item_id": "03",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 2.726,
+            "duration_stripped_s": 2.54
+          },
+          {
+            "voice": "F1",
+            "item_id": "04",
+            "marks": 5,
+            "identical_audio": false,
+            "duration_as_is_s": 3.057,
+            "duration_stripped_s": 2.83
+          },
+          {
+            "voice": "F1",
+            "item_id": "05",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 2.816,
+            "duration_stripped_s": 2.653
+          },
+          {
+            "voice": "F1",
+            "item_id": "06",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 2.814,
+            "duration_stripped_s": 2.625
+          },
+          {
+            "voice": "F1",
+            "item_id": "07",
+            "marks": 6,
+            "identical_audio": false,
+            "duration_as_is_s": 4.164,
+            "duration_stripped_s": 3.837
+          },
+          {
+            "voice": "F1",
+            "item_id": "08",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.665,
+            "duration_stripped_s": 2.499
+          },
+          {
+            "voice": "F1",
+            "item_id": "09",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.67,
+            "duration_stripped_s": 3.549
+          },
+          {
+            "voice": "F1",
+            "item_id": "10",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 4.055,
+            "duration_stripped_s": 3.9
+          },
+          {
+            "voice": "F1",
+            "item_id": "11",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 1.612,
+            "duration_stripped_s": 1.54
+          },
+          {
+            "voice": "F1",
+            "item_id": "12",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.577,
+            "duration_stripped_s": 2.452
+          },
+          {
+            "voice": "F1",
+            "item_id": "13",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.236,
+            "duration_stripped_s": 3.029
+          },
+          {
+            "voice": "F1",
+            "item_id": "14",
+            "marks": 5,
+            "identical_audio": false,
+            "duration_as_is_s": 4.738,
+            "duration_stripped_s": 4.502
+          },
+          {
+            "voice": "F1",
+            "item_id": "15",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 4.829,
+            "duration_stripped_s": 4.585
+          },
+          {
+            "voice": "F1",
+            "item_id": "16",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.972,
+            "duration_stripped_s": 3.834
+          },
+          {
+            "voice": "F1",
+            "item_id": "17",
+            "marks": 1,
+            "identical_audio": false,
+            "duration_as_is_s": 5.25,
+            "duration_stripped_s": 5.192
+          },
+          {
+            "voice": "F1",
+            "item_id": "18",
+            "marks": 6,
+            "identical_audio": false,
+            "duration_as_is_s": 5.004,
+            "duration_stripped_s": 4.834
+          },
+          {
+            "voice": "F1",
+            "item_id": "19",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.893,
+            "duration_stripped_s": 3.723
+          },
+          {
+            "voice": "F1",
+            "item_id": "20",
+            "marks": 7,
+            "identical_audio": false,
+            "duration_as_is_s": 6.17,
+            "duration_stripped_s": 5.855
+          },
+          {
+            "voice": "F1",
+            "item_id": "21",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 4.114,
+            "duration_stripped_s": 3.961
+          },
+          {
+            "voice": "F1",
+            "item_id": "22",
+            "marks": 18,
+            "identical_audio": false,
+            "duration_as_is_s": 12.54,
+            "duration_stripped_s": 12.065
+          },
+          {
+            "voice": "F1",
+            "item_id": "23",
+            "marks": 15,
+            "identical_audio": false,
+            "duration_as_is_s": 11.289,
+            "duration_stripped_s": 10.78
+          },
+          {
+            "voice": "F1",
+            "item_id": "24",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 1.717,
+            "duration_stripped_s": 1.623
+          },
+          {
+            "voice": "F1",
+            "item_id": "26",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 1.836,
+            "duration_stripped_s": 1.744
+          },
+          {
+            "voice": "F1",
+            "item_id": "27",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.833,
+            "duration_stripped_s": 2.711
+          },
+          {
+            "voice": "F1",
+            "item_id": "29",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 3.883,
+            "duration_stripped_s": 3.638
+          },
+          {
+            "voice": "F1",
+            "item_id": "30",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.537,
+            "duration_stripped_s": 3.381
+          },
+          {
+            "voice": "F1",
+            "item_id": "31",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 3.194,
+            "duration_stripped_s": 3.103
+          },
+          {
+            "voice": "F1",
+            "item_id": "32",
+            "marks": 1,
+            "identical_audio": false,
+            "duration_as_is_s": 3.621,
+            "duration_stripped_s": 3.576
+          },
+          {
+            "voice": "M1",
+            "item_id": "01",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.358,
+            "duration_stripped_s": 2.202
+          },
+          {
+            "voice": "M1",
+            "item_id": "02",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 3.937,
+            "duration_stripped_s": 3.714
+          },
+          {
+            "voice": "M1",
+            "item_id": "03",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 2.724,
+            "duration_stripped_s": 2.538
+          },
+          {
+            "voice": "M1",
+            "item_id": "04",
+            "marks": 5,
+            "identical_audio": false,
+            "duration_as_is_s": 3.055,
+            "duration_stripped_s": 2.829
+          },
+          {
+            "voice": "M1",
+            "item_id": "05",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 2.814,
+            "duration_stripped_s": 2.65
+          },
+          {
+            "voice": "M1",
+            "item_id": "06",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 2.812,
+            "duration_stripped_s": 2.624
+          },
+          {
+            "voice": "M1",
+            "item_id": "07",
+            "marks": 6,
+            "identical_audio": false,
+            "duration_as_is_s": 4.165,
+            "duration_stripped_s": 3.835
+          },
+          {
+            "voice": "M1",
+            "item_id": "08",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.663,
+            "duration_stripped_s": 2.496
+          },
+          {
+            "voice": "M1",
+            "item_id": "09",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.668,
+            "duration_stripped_s": 3.547
+          },
+          {
+            "voice": "M1",
+            "item_id": "10",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 4.055,
+            "duration_stripped_s": 3.898
+          },
+          {
+            "voice": "M1",
+            "item_id": "11",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 1.608,
+            "duration_stripped_s": 1.536
+          },
+          {
+            "voice": "M1",
+            "item_id": "12",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.574,
+            "duration_stripped_s": 2.448
+          },
+          {
+            "voice": "M1",
+            "item_id": "13",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.234,
+            "duration_stripped_s": 3.027
+          },
+          {
+            "voice": "M1",
+            "item_id": "14",
+            "marks": 5,
+            "identical_audio": false,
+            "duration_as_is_s": 4.74,
+            "duration_stripped_s": 4.504
+          },
+          {
+            "voice": "M1",
+            "item_id": "15",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 4.832,
+            "duration_stripped_s": 4.588
+          },
+          {
+            "voice": "M1",
+            "item_id": "16",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.969,
+            "duration_stripped_s": 3.832
+          },
+          {
+            "voice": "M1",
+            "item_id": "17",
+            "marks": 1,
+            "identical_audio": false,
+            "duration_as_is_s": 5.253,
+            "duration_stripped_s": 5.195
+          },
+          {
+            "voice": "M1",
+            "item_id": "18",
+            "marks": 6,
+            "identical_audio": false,
+            "duration_as_is_s": 5.007,
+            "duration_stripped_s": 4.837
+          },
+          {
+            "voice": "M1",
+            "item_id": "19",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.891,
+            "duration_stripped_s": 3.72
+          },
+          {
+            "voice": "M1",
+            "item_id": "20",
+            "marks": 7,
+            "identical_audio": false,
+            "duration_as_is_s": 6.174,
+            "duration_stripped_s": 5.859
+          },
+          {
+            "voice": "M1",
+            "item_id": "21",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 4.112,
+            "duration_stripped_s": 3.958
+          },
+          {
+            "voice": "M1",
+            "item_id": "22",
+            "marks": 18,
+            "identical_audio": false,
+            "duration_as_is_s": 12.553,
+            "duration_stripped_s": 12.078
+          },
+          {
+            "voice": "M1",
+            "item_id": "23",
+            "marks": 15,
+            "identical_audio": false,
+            "duration_as_is_s": 11.3,
+            "duration_stripped_s": 10.79
+          },
+          {
+            "voice": "M1",
+            "item_id": "24",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 1.712,
+            "duration_stripped_s": 1.619
+          },
+          {
+            "voice": "M1",
+            "item_id": "26",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 1.832,
+            "duration_stripped_s": 1.741
+          },
+          {
+            "voice": "M1",
+            "item_id": "27",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 2.831,
+            "duration_stripped_s": 2.709
+          },
+          {
+            "voice": "M1",
+            "item_id": "29",
+            "marks": 4,
+            "identical_audio": false,
+            "duration_as_is_s": 3.881,
+            "duration_stripped_s": 3.636
+          },
+          {
+            "voice": "M1",
+            "item_id": "30",
+            "marks": 3,
+            "identical_audio": false,
+            "duration_as_is_s": 3.534,
+            "duration_stripped_s": 3.379
+          },
+          {
+            "voice": "M1",
+            "item_id": "31",
+            "marks": 2,
+            "identical_audio": false,
+            "duration_as_is_s": 3.192,
+            "duration_stripped_s": 3.101
+          },
+          {
+            "voice": "M1",
+            "item_id": "32",
+            "marks": 1,
+            "identical_audio": false,
+            "duration_as_is_s": 3.619,
+            "duration_stripped_s": 3.574
+          }
+        ]
+      }
+    }
   },
   "status": {
     "rhvoice": "working",
@@ -3749,7 +5080,12 @@
     "moss-nano": "working",
     "moss-nano-onnx": "working",
     "f5-espeech": "blocked",
-    "moss-local": "smoke test only"
+    "moss-local": "smoke test only",
+    "silero": "blocked",
+    "supertonic": "working",
+    "omnivoice": "stress shootout only",
+    "voxtream2-ru": "blocked",
+    "supertonic-int8": "working"
   },
   "engines_meta": [
     {
@@ -4008,6 +5344,127 @@
         "unblock": "A GPU (official bf16 path), or ≥ 24 GB RAM for the official fp32 CPU path."
       },
       "status": "smoke test only"
+    },
+    {
+      "id": "silero",
+      "label": "Silero TTS v5 (ru)",
+      "phase": "1C",
+      "adapter": null,
+      "model": "intended: v5_5_ru (latest Russian v5; speakers aidar, baya, kseniya, xenia, eugene; auto-stress / homographs / questions per README) — snakers4/silero-models @ d935534 models.yml → https://models.silero.ai/models/tts/ru/v5_5_ru.pt",
+      "python_package": "torch.hub / silero package (downloads from models.silero.ai)",
+      "cpu_only": "not measured (no weights)",
+      "gpu_required": "not measured",
+      "license": {
+        "code": "silero-models repo LICENSE text: CC BY-NC-SA 4.0 (README badge says CC BY-NC 4.0); v5_cis_base models MIT",
+        "model": "v5_5_ru: CC BY-NC(-SA) 4.0 — non-commercial",
+        "source": "tools/silero-models LICENSE, README"
+      },
+      "commercial_review": "yes — Russian v5 voices are non-commercial (CC BY-NC).",
+      "stress_handling": "TTS not measured. Silero's standalone stress+homograph model (silero-stress 1.5, MIT, PyPI) WAS tested on the Stage A suite: 8/8 homographs in disambiguating context got the intended stress; in neutral sentences it picks one reading (за́мок, му́ка, а́тлас, пла́чу); restores ё (пришёл, принёс, ёлку); leaves digits untouched; non-target slip: «для двер+и» (standard: для две́ри). Load 5.02 s. See results/silero_stress_test.json.",
+      "blocker": {
+        "kind": "network",
+        "detail": "All Silero TTS weights (v5_5_ru … v3) are served only from models.silero.ai, which the environment's proxy refuses (CONNECT 403, policy denial). The GitHub repo has release tags but no model assets; no official mirror on modelscope.cn or huggingface.co (only unrelated third-party v3/v4 uploads). No substitute model used.",
+        "unblock": "Allow models.silero.ai, then add the adapter (torch.hub.load('snakers4/silero-models', 'silero_tts', language='ru', speaker='v5_5_ru'))."
+      },
+      "status": "blocked"
+    },
+    {
+      "id": "supertonic",
+      "label": "Supertonic 3",
+      "phase": "1C",
+      "adapter": "engines/supertonic.py (+ engines/supertonic_worker.py in envs/supertonic — torch-free)",
+      "model": "Supertone/supertonic-3 @ 3cadd1ee6394 (ONNX: duration_predictor, text_encoder, vector_estimator, vocoder; ~99M params, fp32 398 MB; identical files in supertone-oss-archive/supertonic-3 @ aafc6e32416a); 44.1 kHz mono",
+      "python_package": "official repo supertone-inc/supertonic @ 1e9799e (archived — no further updates) py/helper.py on onnxruntime 1.23.1 CPU; defaults total_step 8, speed 1.05",
+      "cpu_only": "yes (measured; RTF ~0.29–0.31, 0.47 GB RSS)",
+      "gpu_required": "no",
+      "voice": "built-in preset voice styles F1 (female) and M1 (male); the open-weight release has no voice cloning (Supertone's hosted Voice Builder only)",
+      "license": {
+        "code": "MIT (supertone-inc/supertonic LICENSE)",
+        "model": "BigScience OpenRAIL-M (model LICENSE) — commercial use allowed with use-based restrictions (Attachment A)",
+        "voices": {
+          "F1": "preset voice style, OpenRAIL-M",
+          "M1": "preset voice style, OpenRAIL-M"
+        },
+        "source": "models/supertonic3/LICENSE"
+      },
+      "commercial_review": "moderate — OpenRAIL-M use restrictions must be passed on; repo archived (no support).",
+      "rate_support": "speed argument",
+      "stress_handling": "No stress model and no Russian normalization in the frontend (NFKD + symbol cleanup; digits passed raw). U+0301 is a known symbol (unicode_indexer index 146) and reaches the model; NFKD also decomposes ё → е + U+0308 (index 152). Stage A: in all 4 neutral minimal pairs (за́мок/замо́к, му́ка/мука́, а́тлас/атла́с, пла́чу/плачу́; shared seed) the unmarked versions are byte-identical and moving the mark changes the audio; removing marks changes the audio in 21/22 items; unmarked control identical. Marks also lengthen the predicted duration slightly (e.g. S05 4.25 vs 3.97 s), but within a minimal pair (same length) duration is identical — the change comes from the mark position. Stage B corpus: 60/60 marked pairs differ.",
+      "status": "working"
+    },
+    {
+      "id": "supertonic-int8",
+      "label": "Supertonic 3 INT8 (sherpa-onnx)",
+      "phase": "1C",
+      "adapter": "engines/supertonic_int8.py (+ engines/supertonic_int8_worker.py in envs/sherpa)",
+      "model": "sherpa-onnx release asset sherpa-onnx-supertonic-3-tts-int8-2026-05-11 (INT8 of Supertonic 3 by the sherpa-onnx/k2-fsa project; 144.5 MB ONNX; same 10 voice styles — sid 0 = F1, 5 = M1, verified)",
+      "python_package": "sherpa-onnx 1.13.8 (Apache-2.0), C++ Supertonic frontend, 4 threads, 8 steps",
+      "cpu_only": "yes (measured; RTF ~0.39–0.41, 0.22–0.34 GB RSS)",
+      "gpu_required": "no",
+      "voice": "built-in preset voice styles F1 (female) and M1 (male); the open-weight release has no voice cloning (Supertone's hosted Voice Builder only)",
+      "license": {
+        "code": "Apache-2.0 (sherpa-onnx)",
+        "model": "Supertonic 3 weights: BigScience OpenRAIL-M (quantized derivative — the use restrictions carry over)",
+        "voices": {
+          "F1": "preset voice style",
+          "M1": "preset voice style"
+        },
+        "source": "models/sherpa/…/LICENSE"
+      },
+      "commercial_review": "moderate — OpenRAIL-M use restrictions must be passed on; repo archived (no support).",
+      "rate_support": "speed argument",
+      "stress_handling": "Same behaviour as fp32 in Stage A: in all 4 neutral minimal pairs (за́мок/замо́к, му́ка/мука́, а́тлас/атла́с, пла́чу/плачу́; shared seed) the unmarked versions are byte-identical and moving the mark changes the audio; removing marks changes the audio in 21/22 items; unmarked control identical. (sherpa-onnx's C++ frontend keeps U+0301.) Binding bug: GenerationConfig.extra item assignment is silently lost — assign the whole dict.",
+      "status": "working"
+    },
+    {
+      "id": "omnivoice",
+      "label": "OmniVoice",
+      "phase": "1C",
+      "adapter": "engines/omnivoice.py (+ engines/omnivoice_worker.py in envs/omnivoice)",
+      "model": "k2-fsa/OmniVoice @ c5fdb5ccb189 (diffusion-LM TTS on Qwen3-0.6B, 600+ languages incl. Russian ~20.3k h; model.safetensors 2.45 GB + audio_tokenizer 0.81 GB); 24 kHz",
+      "python_package": "omnivoice 0.2.1 (PyPI; github k2-fsa/OmniVoice @ 08be0b4), torch 2.8.0 CPU float32, transformers 5.17.0",
+      "cpu_only": "runs on CPU (measured) — very slow",
+      "gpu_required": "effectively yes: RTF ≈ 24 on this CPU (num_step 32)",
+      "voice": "cloned from the native-Russian FLEURS female clip + transcript (CC-BY-4.0)",
+      "license": {
+        "code": "Apache-2.0",
+        "model": "CC-BY-NC (model card: 'due to constraints from its training data (e.g., Emilia)')",
+        "voices": {
+          "ru_female_fleurs": "FLEURS clip, CC-BY-4.0"
+        },
+        "source": "models/omnivoice/README.md"
+      },
+      "commercial_review": "yes — weights non-commercial.",
+      "stress_handling": "No text normalization; Qwen3 BPE keeps U+0301 as its own token. Pronunciation control is documented only for Chinese (pinyin) and English (CMU phones) — none for Russian. Stage A: in all 4 neutral minimal pairs (за́мок/замо́к, му́ка/мука́, а́тлас/атла́с, пла́чу/плачу́; shared seed) the unmarked versions are byte-identical and moving the mark changes the audio; removing marks changes the audio in 21/22 items; unmarked control identical. Here the mark position also changes the predicted duration (e.g. пла́чу 1.40 s vs плачу́ 1.02 s).",
+      "blocker": {
+        "kind": "resources",
+        "detail": "Runs on CPU, but RTF ≈ 25 (≈ 50 s per short sentence at the default num_step 32), 4.3 GB peak RSS: clearly impractical on this CPU. Stopped after Stage A (66 syntheses); full corpus not run.",
+        "unblock": "A GPU (the README's benchmarks are on H100)."
+      },
+      "status": "stress shootout only"
+    },
+    {
+      "id": "voxtream2-ru",
+      "label": "VoXtream2-RU",
+      "phase": "1C",
+      "adapter": null,
+      "model": "simba9/voxtream2-ru @ 79475fec8ada (community Russian fine-tune of herimor/voxtream2, 1.85 GB) — not downloaded",
+      "cpu_only": "not measured",
+      "gpu_required": "model card: GPU with ~4 GB VRAM",
+      "license": {
+        "model": "OpenRAIL-M, 'for scientific and research purposes' (card)",
+        "base": "herimor/voxtream2: card metadata CC-BY-4.0, but the RU card calls it MIT; Depth Transformer (Sesame CSM) Apache-2.0",
+        "data": "base trained on Emilia + HiFiTTS-2 (the RU card says both CC BY 4.0; OmniVoice's card treats Emilia as a non-commercial constraint); Russian fine-tune data only described as 'open Russian speech sets, ~1870 h' — not listed",
+        "source": "huggingface.co model cards"
+      },
+      "commercial_review": "blocked — research-only framing, inconsistent base license, unlisted fine-tune data.",
+      "stress_handling": "not measured; its Russian stack relies on RUAccent (auto-stress) + espeak phonemizer + RUNorm",
+      "blocker": {
+        "kind": "provenance + network",
+        "detail": "Stopped at verification, as instructed. Provenance/licence: research-purpose OpenRAIL-M fine-tune, base licence stated inconsistently (MIT vs CC-BY-4.0), Russian training data not listed. Runtime: the checkpoint (simba9/voxtream2-ru) and its RUAccent/RUNorm models are huggingface.co-only (large files refused here; no modelscope.cn mirror); it also pulls herimor/voxtream2, kyutai Mimi and IDRnD/ReDimNet; the card asks for a GPU (~4 GB VRAM).",
+        "unblock": "Clarify licence and training data with the author; allow huggingface.co large-file CDNs; a GPU is recommended."
+      },
+      "status": "blocked"
     }
   ],
   "run_environment": {
@@ -4094,6 +5551,34 @@
       "python": "3.11.15",
       "node": "v22.22.2",
       "disk_free_gb": 7.4
+    },
+    "supertonic": {
+      "captured_at": "2026-09-25T09:48:42+00:00",
+      "os": "Ubuntu 24.04.4 LTS",
+      "kernel": "6.18.44-fc-v37",
+      "arch": "x86_64",
+      "cpu": "Intel(R) Xeon(R) Processor @ 2.80GHz",
+      "cpu_cores": 4,
+      "ram_gb": 15.7,
+      "gpu": "none (no nvidia-smi, no /dev/nvidia*)",
+      "vram": "n/a (no GPU)",
+      "python": "3.11.15",
+      "node": "v22.22.2",
+      "disk_free_gb": 10.8
+    },
+    "supertonic-int8": {
+      "captured_at": "2026-09-25T09:56:40+00:00",
+      "os": "Ubuntu 24.04.4 LTS",
+      "kernel": "6.18.44-fc-v37",
+      "arch": "x86_64",
+      "cpu": "Intel(R) Xeon(R) Processor @ 2.80GHz",
+      "cpu_cores": 4,
+      "ram_gb": 15.7,
+      "gpu": "none (no nvidia-smi, no /dev/nvidia*)",
+      "vram": "n/a (no GPU)",
+      "python": "3.11.15",
+      "node": "v22.22.2",
+      "disk_free_gb": 10.6
     }
   }
 }

@@ -37,7 +37,8 @@ ADAPTERS = {"rhvoice": "engines.rhvoice", "piper": "engines.piper", "xtts": "eng
             "moss-nano": "engines.moss_nano", "moss-nano-onnx": "engines.moss_nano_onnx",
             "f5-espeech": "engines.f5_espeech", "moss-local": "engines.moss_local",
             # Phase 1C
-            "supertonic": "engines.supertonic", "omnivoice": "engines.omnivoice"}
+            "supertonic": "engines.supertonic", "omnivoice": "engines.omnivoice",
+            "supertonic-int8": "engines.supertonic_int8"}
 DEFAULT_ENGINES = ["rhvoice", "piper"]  # neural engines are run by name (each needs its own venv + weights)
 
 

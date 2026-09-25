@@ -166,3 +166,84 @@ MOSS-TTS-Nano voices: `ru_female_fleurs`, `ru_male_fleurs`, plus `ru_female_fleu
   `storage.googleapis.com`; ModelScope *dataset* downloads (via `cdn-lfs-cn-1.modelscope.cn`) are refused. For small files
   where ModelScope's copy differs from the pinned HF revision (`.gitattributes`, ONNX meta JSON), `fetch_models.py` now uses
   the official HF copy.
+
+---
+
+## Phase 1C (2026-09-25): Silero, Supertonic, OmniVoice, VoXtream2-RU — staged
+
+**Stage A** (smoke test + Russian stress shootout) came before any full run. `stress_suite.json` has 22 items:
+- normal text, ё written and ё omitted;
+- the minimal pairs за́мок/замо́к, му́ка/мука́, а́тлас/атла́с and пла́чу/плачу́, each once in a sentence that decides the
+  meaning and once in a *neutral* sentence where only the mark decides it;
+- numbers and a date, plus a short and a long sentence.
+
+Every engine speaks every item three ways with the same seed: **as-is** (U+0301), **no marks** (its own stress handling), and
+**Silero auto** (marks removed, then added back by Silero Stress). Both sentences of a neutral pair share one seed, so the only
+difference between them is where the mark sits. `python3 stage_a.py <engine>` writes `results/stage_a.json` and
+`output/stage_a/…`. **Audio that changes is not evidence the stress is right**; the listener judges that.
+**Stage B** is the usual 32-sentence corpus, run only for engines that passed Stage A and are practical on this CPU.
+
+| Candidate | Exact model | Weights license | Outcome |
+|---|---|---|---|
+| Silero TTS v5 (ru) | `v5_5_ru` (models.yml @ d935534) | CC BY-NC(-SA) 4.0 | **blocked**: weights only on models.silero.ai (403 here) |
+| Silero Stress (text model) | `silero-stress` 1.5 (@ d38096c) | MIT | ran: stress/homograph text test |
+| Supertonic 3 (fp32 ONNX) | `Supertone/supertonic-3` @ 3cadd1e | OpenRAIL-M | Stage A ✓ → **Stage B 128/128** |
+| Supertonic 3 INT8 | sherpa-onnx `supertonic-3-tts-int8-2026-05-11` | OpenRAIL-M (quantized derivative) | Stage A ✓ → **Stage B 128/128** |
+| OmniVoice | `k2-fsa/OmniVoice` @ c5fdb5c (Qwen3-0.6B based) | **CC-BY-NC** | Stage A ✓, **stopped**: RTF ≈ 25 |
+| VoXtream2-RU | `simba9/voxtream2-ru` @ 79475fe | OpenRAIL-M, "research purposes" | **stopped at verification** (provenance, network, GPU) |
+
+### Measured (CPU only; `results/phase1c_viability.json`)
+
+| Engine | Model size | Cold load | RAM after load / peak | Warm / sentence | RTF | First audio |
+|---|---|---|---|---|---|---|
+| Supertonic 3 fp32 (ONNX, torch-free) | 398 MB | 0.98 s | 0.47 / 0.53 GB | 1.04–1.11 s | **0.29–0.31** | ~1.0 s (per sentence) |
+| Supertonic 3 INT8 (sherpa-onnx) | **145 MB** | 0.84 s | **0.22 / 0.34 GB** | 1.29–1.39 s | 0.39–0.41 | ~1.3 s |
+| OmniVoice | 3.26 GB | ~11 s (warm cache) | 2.6 / 4.3 GB | ~50 s | **≈ 25** | — |
+| Silero Stress (text) | 38.7 MB wheel | 5.0 s | — | ~ms per sentence | — | — |
+
+### Russian stress and homograph findings
+
+- **Silero Stress:** put the intended stress on **8/8 homographs whose sentence decides the meaning** (за́мок/замо́к,
+  мука́/му́ка, а́тлас/атла́са, пла́чу/плачу́). In neutral sentences it picks one reading (за́мок, му́ка, а́тлас, пла́чу). It
+  restores ё («пришёл», «принёс», «ёлку») and leaves digits alone. One non-target slip: «для двер+и» (standard: две́ри).
+- **Supertonic 3 (fp32 and INT8):** no stress model and no Russian normalization. Digits are passed through raw. U+0301 is a
+  known symbol (index 146) and **reaches the model**. NFKD turns ё into е + U+0308, which is also known.
+  - In all 4 neutral minimal pairs, the unmarked versions are byte-identical and **moving the mark changes the audio at
+    identical duration**, so the change comes from where the mark sits.
+  - Marks slightly lengthen the predicted duration of a sentence overall.
+  - Corpus: 60/60 marked pairs differ for both builds.
+- **OmniVoice:** Qwen3 BPE keeps U+0301 as a token, and the minimal pairs behave like Supertonic's (4/4). Here the mark
+  position also changes the duration (e.g. пла́чу 1.40 s vs плачу́ 1.02 s). Pronunciation control is documented only for
+  Chinese pinyin and English CMU phones, none for Russian.
+- **Silero auto marks** can feed any engine that honors U+0301 (the "Silero auto" variant). That's a possible automatic stress
+  front-end for homographs that the sentence disambiguates.
+- **My own suite had two stress errors** (бле́стящего, для двери́), exposed by Silero and fixed to блестя́щего and для две́ри
+  before the runs that are published here.
+
+### Offline / browser / Android
+
+- **Supertonic:** fully offline (local ONNX files, ONNX Runtime only, no torch).
+  - **Browser:** official web sample on onnxruntime-web, WebGPU with WASM fallback. Not executed here.
+  - **iOS/Swift:** official samples.
+  - **Android:** no official Supertone sample (the Flutter sample is tested on macOS only; the Java sample is desktop). The
+    measured route is **sherpa-onnx** (Apache-2.0; ships Android/iOS/WASM builds), whose INT8 Supertonic 3 is 145 MB and uses
+    0.22–0.34 GB RSS here.
+  - INT8 is smaller but *slower* than fp32 on this x86 CPU.
+- **sherpa-onnx 1.13.8 Python bug:** `GenerationConfig.extra[...] = …` edits a copy and is silently lost, which is exactly the
+  official example's pattern, so `lang` and `seed` never reach the engine. Assign the whole dict instead:
+  `gen.extra = {"lang": "ru", "seed": "…"}`.
+- **OmniVoice:** needs a GPU in practice. **Silero TTS:** its Russian voices are non-commercial and not downloadable here.
+
+### Blockers (exact)
+
+- **Silero TTS v5:**
+  - every TTS model file is served only from `models.silero.ai` (CONNECT 403, policy);
+  - the GitHub tags have no assets;
+  - there is no official modelscope.cn/huggingface.co mirror.
+- **OmniVoice:** RTF ≈ 25 and 4.3 GB on this CPU. It stopped after Stage A, and its weights are CC-BY-NC.
+- **VoXtream2-RU:**
+  - Provenance and license: the fine-tune is framed "for scientific and research purposes" (OpenRAIL-M); its base license is
+    stated inconsistently (MIT in the RU card, CC-BY-4.0 in the base repo's metadata); and the Russian fine-tune data
+    (~1870 h) is not listed.
+  - Runtime: the checkpoint, RUAccent and RUNorm are huggingface.co-only (large files refused here); it also pulls
+    herimor/voxtream2, kyutai Mimi and ReDimNet; and its card asks for a GPU.
