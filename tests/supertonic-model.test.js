@@ -490,6 +490,15 @@ describe('Supertonic 1A · البيانُ المُثبَّت والحدود', ()
     expect(Object.isFrozen(M) && Object.isFrozen(M.files) && Object.isFrozen(M.files[0])).toBe(true);
   });
 
+  it('١٥ب · التخزينُ الافتراضيّ يصل خدمةَ التخزين الحقيقيّة (لا مسارَ مكسورًا يُبتلع خطؤه)', async () => {
+    const { defaultStorage } = await mod();
+    const estimate = await defaultStorage.estimateStorage();
+    expect(typeof estimate.quota).toBe('number');
+    expect(typeof estimate.usage).toBe('number');
+    const persisted = await defaultStorage.requestPersistence();
+    expect(typeof persisted.supported).toBe('boolean');
+  });
+
   it('١٦ · لا تنزيلَ تلقائيّ: المديرُ الحقيقيّ يُسأل عن حالته بلا شبكةٍ وبلا كاش', async () => {
     const realFetch = globalThis.fetch;
     let calls = 0;

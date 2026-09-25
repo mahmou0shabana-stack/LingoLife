@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>فحص Supertonic داخل المتصفّح — أداة مطوّر</title>
+  <!--
+    LingoLife — أداةُ مطوّر لـSupertonic المرحلة 1B. **ليست جزءًا من الواجهة**
+    ولا يربطها شيءٌ في التطبيق (مثل `drive-check.html`).
+
+    ما تفعله:
+      1. «ثبّت النموذج»: يمرّ بمدير النموذج الحقيقيّ (المرحلة 1A) بكاشِه
+         وتحقّقِ SHA-256 نفسِه، لكن **النقلُ** من نسخةٍ محلّيّة (`?src=`، افتراضيًّا
+         ملفّاتُ `scripts/tts-benchmark/models/sherpa/…` التي قِيست في 1C) لا
+         من Hugging Face — النقلُ مستقلٌّ عن الاستدلال عمدًا.
+      2. «ولّد»: محرّكُ 1B (`supertonic-engine.js`) بنموذجه الافتراضيّ
+         `getSupertonicModel()` — أي من الكاش المُتحقَّق وحده.
+    وللأتمتة: `await window.smoke({ install: true })` يُرجع القياسات.
+  -->
+  <style>
+    :root { color-scheme: light; }
+    body { font-family: system-ui, sans-serif; background: #F5F1E6; color: #1F2430;
+      margin: 0 auto; padding: 16px; line-height: 1.7; max-width: 780px; }
+    .card { background: #fff; border: 1px solid #E5E1D6; border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+    button { font: inherit; font-weight: 700; padding: 12px 16px; border-radius: 10px; border: 0;
+      background: #6C5CE7; color: #fff; min-height: 44px; margin: 4px 0; }
+    textarea, select { font: inherit; width: 100%; box-sizing: border-box; padding: 8px; }
+    pre { white-space: pre-wrap; word-break: break-word; font-size: 12px; direction: ltr; text-align: left; }
+  </style>
+</head>
+<body>
+  <h1>Supertonic 3 INT8 — فحص المطوّر</h1>
+  <div class="card">
+    <button id="install">ثبّت النموذج من النسخة المحلّيّة</button>
+    <button id="status">الحالة</button>
+    <pre id="status-out"></pre>
+  </div>
+  <div class="card">
+    <textarea id="text" rows="2">Он до́лго смотре́л на замо́к.</textarea>
+    <select id="voice"><option>F1</option><option>M1</option></select>
+    <button id="speak">ولّد وشغّل</button>
+    <audio id="audio" controls></audio>
+    <pre id="out"></pre>
+  </div>
+  <script type="module">
+    import { createModelManager, getSupertonicModel } from '../js/services/shadow/tts/supertonic-model.js';
+    import { SUPERTONIC_MANIFEST } from '../js/services/shadow/tts/supertonic-manifest.js';
+    import { createSupertonicEngine } from '../js/services/shadow/tts/supertonic-engine.js';
+
+    const params = new URLSearchParams(location.search);
+    const SRC = new URL(params.get('src')
+      || '../scripts/tts-benchmark/models/sherpa/sherpa-onnx-supertonic-3-tts-int8-2026-05-11/', location.href).href;
+    const $ = (id) => document.getElementById(id);
+    const show = (el, v) => { $(el).textContent = typeof v === 'string' ? v : JSON.stringify(v, null, 1); };
+
+    /** مديرُ 1A نفسُه، والفرقُ الوحيد: من أين تُجلب البايتات. */
+    const installer = () => createModelManager({
+      manifest: SUPERTONIC_MANIFEST,
+      fetchImpl: (url, init) => fetch(SRC + url.split('/').pop(), init),
+    });
+
+    async function sha(blob) {
+      const d = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
+      return [...new Uint8Array(d)].map((b) => b.toString(16).padStart(2, '0')).join('');
+    }
+    const heapMB = () => (performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1e6) : null);
+    const brief = (r) => ({ voice: r.voice, audio_s: +r.duration.toFixed(3), infer_ms: r.inferMs,
+      rtf: +(r.inferMs / 1000 / r.duration).toFixed(2), samples: r.samples, sampleRate: r.sampleRate,
+      processed: r.frontend.map((f) => f.processed), unknown: r.frontend.reduce((n, f) => n + f.unknown, 0) });
+
+    window.smoke = async ({ install = false } = {}) => {
+      const out = { crossOriginIsolated: self.crossOriginIsolated };
+      if (install && (await getSupertonicModel().getStatus()).state !== 'ready') {
+        const t = performance.now();
+        await installer().download();
+        out.install_ms = Math.round(performance.now() - t);
+      }
+      out.status = (await getSupertonicModel().getStatus()).state;
+      out.heap_before_mb = heapMB();
+      const engine = createSupertonicEngine();
+      const t0 = performance.now();
+      out.init = await engine.init();
+      out.cold_init_ms = Math.round(performance.now() - t0);
+      out.heap_after_init_mb = heapMB();
+
+      const text = 'Он до́лго смотре́л на замо́к.';
+      const f1 = await engine.synthesize({ text, voice: 'F1' });
+      const f1b = await engine.synthesize({ text, voice: 'F1' });
+      const m1 = await engine.synthesize({ text, voice: 'M1' });
+      out.F1 = brief(f1);
+      out.F1_repeat_ms = f1b.inferMs;
+      out.M1 = brief(m1);
+      out.deterministic_same_engine = (await sha(f1.blob)) === (await sha(f1b.blob));
+      out.F1_sha256 = await sha(f1.blob);
+      out.M1_differs_from_F1 = out.F1_sha256 !== (await sha(m1.blob));
+
+      const castle = await engine.synthesize({ text: 'Он до́лго смотре́л на за́мок.', voice: 'F1' });
+      out.castle = brief(castle);
+      out.castle_vs_lock_audio_differs = (await sha(castle.blob)) !== out.F1_sha256;
+      const yo = await engine.synthesize({ text: 'Ёлка уже́ стои́т, и всё гото́во.', voice: 'F1' });
+      out.yo = brief(yo);
+      out.yo_ids_have_diaeresis_152 = yo.frontend[0].ids.filter((i) => i === 152).length;
+      out.lock_ids_have_stress_146 = f1.frontend[0].ids.filter((i) => i === 146).length;
+
+      await engine.dispose();
+      const t1 = performance.now();
+      await engine.init();
+      out.reinit_ms = Math.round(performance.now() - t1);
+      const again = await engine.synthesize({ text, voice: 'F1' });
+      out.deterministic_after_reinit = (await sha(again.blob)) === out.F1_sha256;
+      out.heap_end_mb = heapMB();
+      await engine.dispose();
+      window.lastBlob = f1.blob;
+      return out;
+    };
+
+    $('install').onclick = async () => {
+      show('status-out', 'جارٍ…');
+      try {
+        await installer().download((p) => show('status-out', `${p.phase} ${p.file || ''} ${(p.downloadedBytes / 1e6).toFixed(1)}/${(p.totalBytes / 1e6).toFixed(1)} MB`));
+        show('status-out', await getSupertonicModel().getStatus());
+      } catch (e) { show('status-out', `${e.code}: ${e.message}`); }
+    };
+    $('status').onclick = async () => show('status-out', await getSupertonicModel().getStatus());
+    let engine = null;
+    $('speak').onclick = async () => {
+      try {
+        engine ||= createSupertonicEngine();
+        const r = await engine.synthesize({ text: $('text').value, voice: $('voice').value });
+        $('audio').src = URL.createObjectURL(r.blob);
+        $('audio').play();
+        show('out', brief(r));
+      } catch (e) { show('out', `${e.code}: ${e.message}`); }
+    };
+  </script>
+</body>
+</html>

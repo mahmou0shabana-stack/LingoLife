@@ -93,13 +93,21 @@ async function sha256Hex(buffer) {
 
 const toMB = (n) => `${(n / MB).toFixed(1)} MB`;
 
-/** الافتراضيّ: خدمةُ التخزين القائمة — تُستورد عند الحاجة لا عند التحميل. */
-const defaultStorage = {
+/**
+ * الافتراضيّ: خدمةُ التخزين القائمة — تُستورد عند الحاجة لا عند التحميل.
+ *
+ * ⚠️ **مُصدَّرٌ ليختبره اختبارٌ بالمسار الحقيقيّ.** كان المسارُ خاطئًا
+ *    (`../../../` → `js/storage-service.js` غيرِ الموجود) في المرحلة 1A،
+ *    والخطآن يُبتلعان عمدًا (فشلُ طلب الدوام لا يوقف التنزيل) — فكان فحصُ
+ *    الحصّة وطلبُ الدوام **لا يجريان أصلًا** بصمت، واختباراتُ 1A تحقن
+ *    تخزينًا مزيّفًا فلم تره. اكتشفه فحصُ 1B في Chromium (404 على الملفّ).
+ */
+export const defaultStorage = {
   async requestPersistence() {
-    return (await import('../../../storage-service.js')).requestPersistence();
+    return (await import('../../storage-service.js')).requestPersistence();
   },
   async estimateStorage() {
-    return (await import('../../../storage-service.js')).estimateStorage();
+    return (await import('../../storage-service.js')).estimateStorage();
   },
 };
 
