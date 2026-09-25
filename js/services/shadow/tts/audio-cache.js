@@ -216,7 +216,12 @@ export async function clearGeneratedCache() {
  *   cached: boolean, error: string|null}>}
  */
 export async function synthesizeWithCache({ provider, text, language = 'ru', voiceId = null, speed = 1 }) {
-  const settingsKey = `speed=${speed ?? ''}`;
+  /*
+   * ⚠️ **إعدادٌ يعلنه المزوّدُ يسبق السرعة** (راجع `settingsKey` في types.js):
+   *    مزوّدٌ يولّد بإعدادٍ ثابتٍ ويترك السرعةَ للتشغيل لا يُكرَّر صوتُه تحت
+   *    مفتاحٍ لكلّ سرعة. ومَن لا يعلنه — كلُّ مزوّدٍ قبل Supertonic — مفتاحُه كما كان.
+   */
+  const settingsKey = typeof provider.settingsKey === 'string' ? provider.settingsKey : `speed=${speed ?? ''}`;
   /*
    * ══════════ هويّةُ النموذج — ما يُعرَف، لا ما يُتمنّى (WS-VC1B) ══════════
    *

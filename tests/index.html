@@ -201,6 +201,7 @@
       await import('./sentence-learning.test.js');
       await import('./supertonic-model.test.js');
       await import('./supertonic-engine.test.js');
+      await import('./supertonic-provider.test.js');
 
       const result = await run((event) => {
         if (event.type === 'suite') {

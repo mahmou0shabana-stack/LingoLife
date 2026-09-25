@@ -10264,6 +10264,19 @@ body.shadow-open { overflow: hidden; }
 .sh-qv-cache-x:disabled { opacity: .4; cursor: not-allowed; }
 
 /*
+ * قسمُ «نموذج Supertonic» (المرحلة 1C) — بنمط قسم الذاكرة: سطرُ حالٍ يلتفّ
+ * (رسائلُ الخطأ طويلة)، وشريطُ تقدّم، وأزرارٌ صغيرةٌ في صفٍّ يلتفّ على الهاتف.
+ */
+.sh-qv-model-n { margin: 0; font-size: 12px; color: rgba(239, 231, 216, .85); overflow-wrap: anywhere; }
+.sh-qv-model-bar { inline-size: 100%; block-size: 6px; accent-color: rgba(217, 182, 114, .95); }
+.sh-qv-model-acts { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; }
+.sh-qv-model-act {
+  flex: 0 0 auto; padding: 4px 10px; border-radius: 8px; cursor: pointer; font: inherit; font-size: 12px;
+  color: rgba(240, 210, 150, 1); background: rgba(217, 182, 114, .08);
+  border: 1px solid rgba(217, 182, 114, .4);
+}
+
+/*
  * تنظيمُ اللوحة (V1.0C): الأقسامُ الثقيلةُ الثلاثةُ مجموعةٌ واحدةٌ مفصولةٌ
  * بخطٍّ رفيع — عناوينُها صفوفٌ تُلمَس، وواحدٌ مفتوحٌ في كلّ مرّة.
  */

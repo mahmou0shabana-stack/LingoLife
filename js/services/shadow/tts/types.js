@@ -26,6 +26,8 @@ export const PROVIDER_TYPE = Object.freeze({
   RHVOICE: 'rhvoice',
   XTTS_BRIDGE: 'xtts_bridge',
   CLOUD_AI: 'cloud_ai',
+  /** Supertonic 3 INT8 داخل المتصفّح (ONNX Runtime Web في عامل) — نموذجٌ يُنزَّل عند الطلب. */
+  SUPERTONIC: 'supertonic',
 });
 
 /**
@@ -50,6 +52,13 @@ export const AVAILABILITY = Object.freeze({
   NOT_AVAILABLE_ON_WEB: 'not_available_on_web',
   /** المحرّك متاح لكن نموذج الصوت لم يُنزَّل بعد. */
   MODEL_NOT_DOWNLOADED: 'model_not_downloaded',
+  /** النموذجُ يُنزَّل الآن — غيرُ متاحٍ حتى يكتمل ويُتحقَّق منه (Supertonic 1C). */
+  MODEL_DOWNLOADING: 'model_downloading',
+  /**
+   * النموذجُ منزَّلٌ لكنّ محرّكَه فشل (تحميلٌ أو عاملٌ مات) — غيرُ متاحٍ حتى
+   * «أعد المحاولة»، لا سقوطٌ صامتٌ يوحي بأنّه يعمل (Supertonic 1C).
+   */
+  ENGINE_FAILED: 'engine_failed',
   /** غير متاح في بيئة الويب تحديدًا (مرادفٌ صريح لِـRHVoice، بند 6). */
   UNAVAILABLE_IN_WEB: 'unavailable_in_web',
   /** متاحٌ عبر غلاف أندرويد أصلي — لا يقع هذا في بناء الويب الحالي. */
@@ -67,6 +76,7 @@ export const PROVENANCE = Object.freeze({
   RHVOICE_GENERATED: 'rhvoice_generated',
   XTTS_GENERATED: 'xtts_generated',
   CLOUD_AI_GENERATED: 'cloud_ai_generated',
+  SUPERTONIC_GENERATED: 'supertonic_generated',
   USER_RECORDING: 'user_recording',
 });
 
@@ -125,6 +135,14 @@ export const PROVENANCE = Object.freeze({
  *
  *   ⚠️ **ولا يُكتَب إلّا عن مصدرٍ حقيقيّ.** «إصدارٌ مُقدَّر» أسوأُ من
  *      لا إصدار: يمنح ثقةً في فصلٍ لم يقع.
+ * @property {string} [settingsKey] — إعدادُ التوليد الثابت، **إن أعلنه المزوّد**،
+ *   يدخل مفتاحَ الذاكرة بدل `speed=…`.
+ *
+ *   ⚠️ **لمزوّدٍ يتجاهل `speed` في التوليد عمدًا** لأنّ السرعةَ تُطبَّق عند
+ *      التشغيل (`playbackRate` في `speaker-adapter.js`) — كما هي فعلًا لكلّ
+ *      مزوّدٍ مولِّد. بلاه يصير كلُّ موضعٍ للمنزلق مفتاحًا جديدًا لصوتٍ
+ *      متطابقٍ بالبايت، ومع Supertonic (أبطأ من الزمن الحقيقيّ) كلُّ مفتاحٍ
+ *      جديد ثوانٍ من الاستدلال بلا داعٍ. ولا مزوّدَ غيرُه يعلنه: مفاتيحُهم كما كانت.
  * @property {() => Promise<{available: boolean, status: string, reason: string}>} isAvailable
  * @property {() => Promise<{id: string, name: string, language: string}[]>} getVoices
  * @property {(request: TTSRequest) => Promise<TTSResult>} synthesize

@@ -15,6 +15,7 @@ import { createRHVoiceProvider } from './rhvoice-provider.js';
 import { createXTTSBridgeProvider } from './xtts-bridge-provider.js';
 import { createCloudAIProvider } from './cloud-provider.js';
 import { createPiperProvider } from './piper-provider.js';
+import { createSupertonicProvider } from './supertonic-provider.js';
 
 let initialized = false;
 
@@ -51,6 +52,22 @@ export function ensureTTSProvidersRegistered() {
  */
 export function registerPiperProviderIfFlagged(options) {
   registerProvider(createPiperProvider(options));
+}
+
+let supertonicProvider = null;
+
+/**
+ * Supertonic 3 على الجهاز (المرحلة 1C) — **خلف علَم بنفس نمط Piper**: ليس
+ * جزءًا من `ensureTTSProvidersRegistered()`، وتستدعيه الشاشةُ وحدها حين يكون
+ * `SUPERTONIC_FLAG_KEY` مفعَّلًا (راجع `supertonic-provider.js`).
+ *
+ * ⚠️ **مزوّدٌ واحدٌ طوال الجلسة**: محرّكُه يحمل النموذجَ في الذاكرة (~350 MB)،
+ *    فنداءٌ ثانٍ يعيد تسجيلَ الكائن نفسِه لا ينشئ محرّكًا آخر.
+ * @param {Parameters<typeof createSupertonicProvider>[0]} [options]
+ */
+export function registerSupertonicProviderIfFlagged(options) {
+  if (!supertonicProvider) supertonicProvider = createSupertonicProvider(options);
+  return registerProvider(supertonicProvider);
 }
 
 export { BROWSER_PROVIDER_ID };

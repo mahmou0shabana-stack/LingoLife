@@ -31,6 +31,11 @@
 <body>
   <h1>Supertonic 3 INT8 — فحص المطوّر</h1>
   <div class="card">
+    <!-- علَمُ المرحلة 1C: يسجّل مزوّدَ Supertonic في شاشة الظلّ (لوحة الصوت). لا يُنزّل شيئًا. -->
+    <button id="flag">…</button>
+    <p id="flag-out"></p>
+  </div>
+  <div class="card">
     <button id="install">ثبّت النموذج من النسخة المحلّيّة</button>
     <button id="status">الحالة</button>
     <pre id="status-out"></pre>
@@ -46,6 +51,8 @@
     import { createModelManager, getSupertonicModel } from '../js/services/shadow/tts/supertonic-model.js';
     import { SUPERTONIC_MANIFEST } from '../js/services/shadow/tts/supertonic-manifest.js';
     import { createSupertonicEngine } from '../js/services/shadow/tts/supertonic-engine.js';
+    import { SUPERTONIC_FLAG_KEY } from '../js/services/shadow/tts/supertonic-provider.js';
+    import { settings } from '../js/db/repositories.js';
 
     const params = new URLSearchParams(location.search);
     const SRC = new URL(params.get('src')
@@ -121,6 +128,18 @@
         show('status-out', await getSupertonicModel().getStatus());
       } catch (e) { show('status-out', `${e.code}: ${e.message}`); }
     };
+    async function paintFlag() {
+      const on = await settings.get(SUPERTONIC_FLAG_KEY, false);
+      $('flag').textContent = on ? 'أطفئ Supertonic في LingoLife' : 'فعّل Supertonic في LingoLife (لوحة الصوت)';
+      $('flag-out').textContent = on
+        ? 'مفعَّل: يظهر في «مصدر الصوت» وقسم «نموذج Supertonic» في لوحة الصوت بشاشة الظلّ. التنزيلُ من هناك بضغطة.'
+        : 'مطفأ (الافتراضيّ): LingoLife لا يعرض Supertonic.';
+    }
+    $('flag').onclick = async () => {
+      await settings.set(SUPERTONIC_FLAG_KEY, !(await settings.get(SUPERTONIC_FLAG_KEY, false)));
+      paintFlag();
+    };
+    paintFlag();
     $('status').onclick = async () => show('status-out', await getSupertonicModel().getStatus());
     let engine = null;
     $('speak').onclick = async () => {

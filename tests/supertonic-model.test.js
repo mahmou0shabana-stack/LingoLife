@@ -515,12 +515,12 @@ describe('Supertonic 1A · البيانُ المُثبَّت والحدود', ()
     } finally { globalThis.fetch = realFetch; }
   });
 
-  it('١٧ · وليس صوتًا متاحًا بعد: لا مزوّدَ Supertonic في السجلّ ولا في الإقلاع', async () => {
+  it('١٧ · ولا يُسجَّل في الإقلاع الافتراضيّ (1C: خلف علَمه — `registerSupertonicProviderIfFlagged` وحدها)', async () => {
     const { ensureTTSProvidersRegistered } = await import('../js/services/shadow/tts/bootstrap.js');
     const { listProviders } = await import('../js/services/shadow/tts/registry.js');
     ensureTTSProvidersRegistered();
     expect(listProviders().some((p) => /supertonic/i.test(p.id))).toBe(false);
     const boot = await (await fetch('../js/services/shadow/tts/bootstrap.js', { cache: 'no-store' })).text();
-    expect(/supertonic/i.test(boot)).toBe(false);
-  });
-});
+    const body = boot.slice(boot.indexOf('export function ensureTTSProvidersRegistered'), boot.indexOf('export function registerPiperProviderIfFlagged'));
+    expect(/supertonic/i.test(body)).toBe(false);
+  });});

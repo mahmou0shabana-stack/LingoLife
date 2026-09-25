@@ -177,7 +177,9 @@ import {
   nativeCacheStats,
   NATIVE_HOSTS,
 } from '../services/shadow/native-audio.js';
-import { ensureTTSProvidersRegistered, BROWSER_PROVIDER_ID } from '../services/shadow/tts/bootstrap.js';
+import { ensureTTSProvidersRegistered, registerSupertonicProviderIfFlagged, BROWSER_PROVIDER_ID } from '../services/shadow/tts/bootstrap.js';
+import { SUPERTONIC_FLAG_KEY } from '../services/shadow/tts/supertonic-provider.js';
+import { modelSectionView, modelSectionHtml, mbText, isolateRuns } from './supertonic-model-section.js';
 import { voiceFor, voicePatch } from '../services/shadow/voice-identity.js';
 import { createTTSSpeaker } from '../services/shadow/tts/speaker-adapter.js';
 import { allAvailability } from '../services/shadow/tts/registry.js';
@@ -961,6 +963,11 @@ export async function renderShadow(main, sessionId) {
   await loadVoices();
   /* ⚠️ قبل الفحص لا بعده — `allAvailability()` تحته تحتاج سجلًّا مسجَّلًا (WS41). */
   ensureTTSProvidersRegistered();
+  /*
+   * ⚠️ **Supertonic خلف علَمه (المرحلة 1C)** — بنمط Piper: لا يُسجَّل إلّا
+   *    والإعدادُ مفعَّل، وقبل الفحص ليظهر فيه. والتسجيلُ لا يُنزّل شيئًا.
+   */
+  if (await settings.get(SUPERTONIC_FLAG_KEY, false).catch(() => false)) registerSupertonicProviderIfFlagged();
 
   const [current, scene, cover, voices, source, ttsProviders, ttsProviderId] = await Promise.all([
     readCurrentSource(session),
@@ -10060,6 +10067,10 @@ function quickVoiceHtml() {
         <button type="button" class="sh-qv-cache-x" data-sh="qv-cache-clear" disabled>امسح الذاكرة</button>
       </div>
     </details>
+    ${raw(supertonicEntry() ? html`<details class="sh-qv-browse sh-qv-mini-sec" data-qv-model data-qv-section="model">
+      <summary>نموذج Supertonic على الجهاز</summary>
+      <div class="sh-qv-model" data-qv-model-body>${raw(modelSectionHtml(modelSectionView({ status: null })))}</div>
+    </details>` : '')}
     </div>
     <button type="button" class="sh-qv-adv" data-sh="qv-advanced">إعدادات الصوت المتقدّمة ‹</button>`;
 }
@@ -10492,6 +10503,7 @@ const PROVIDER_TYPE_LABEL = {
   [PROVIDER_TYPE.RHVOICE]: 'RHVoice',
   [PROVIDER_TYPE.XTTS_BRIDGE]: 'XTTS عبر جسرٍ محلّيّ',
   [PROVIDER_TYPE.CLOUD_AI]: 'سحابيّ',
+  [PROVIDER_TYPE.SUPERTONIC]: 'Supertonic — نموذجٌ على الجهاز',
 };
 
 function provenanceFactsHtml() {
@@ -10548,6 +10560,128 @@ async function clearCacheFromPanel() {
   return toast(`اتمسح ${removed} مقطع من الذاكرة`);
 }
 
+/*
+ * ══════════════════════════════════════════════════════════════════
+ * نموذجُ Supertonic على الجهاز (المرحلة 1C) — قسمٌ في اللوحة لا شاشة
+ *
+ * ⚠️ **الأفعالُ الأربعة تنادي ما بُني ولا تبني شيئًا**: التنزيلُ والتحقّقُ
+ *    مديرُ 1A (`provider.model`)، و«أعد المحاولة» و«احذف» المزوّدُ (يحرّر
+ *    المحرّكَ قبل حذف الملفّات). وبعد كلٍّ منها يُعاد فحصُ المزوّدين
+ *    (`refreshTTSProviders`) فيصير Supertonic متاحًا أو غيرَ متاحٍ في
+ *    القائمة وأسبابِها بلا شيءٍ آخر.
+ *
+ * ⚠️ **لا تنزيلَ إلّا بالزرّ** — ولا يُلغى بإغلاق اللوحة: يكمل في الخلفيّة،
+ *    واللوحةُ المفتوحةُ ثانيةً ترسم تقدّمَه من `modelJob`.
+ * ══════════════════════════════════════════════════════════════════ */
+/** العمليّةُ الجارية على النموذج: `{ kind, controller?, downloaded?, total? }`. */
+let modelJob = null;
+
+function supertonicEntry() {
+  return (ctx?.ttsProviders || []).find(({ provider }) => provider.type === PROVIDER_TYPE.SUPERTONIC && provider.model) || null;
+}
+
+async function paintModelSection() {
+  const body = quickVoice?.querySelector('[data-qv-model-body]');
+  const entry = supertonicEntry();
+  if (!body || !entry) return;
+  const status = await entry.provider.model.getStatus().catch(() => null);
+  const target = quickVoice?.querySelector('[data-qv-model-body]');
+  if (!target) return;
+  target.innerHTML = modelSectionHtml(modelSectionView({ status, availability: supertonicEntry()?.availability, job: modelJob }));
+}
+
+/** التقدّمُ وحده — بلا إعادة رسم الأزرار تحت الإصبع مع كلّ قطعة. */
+function paintModelProgress() {
+  const bar = quickVoice?.querySelector('[data-qv-model-progress]');
+  const text = quickVoice?.querySelector('[data-qv-model-text]');
+  if (!bar || !text || modelJob?.kind !== 'download') return paintModelSection();
+  bar.value = modelJob.downloaded || 0;
+  bar.max = modelJob.total || bar.max;
+  text.innerHTML = isolateRuns(`بينزّل… ${mbText(modelJob.downloaded || 0)} من ${mbText(modelJob.total || 0)}`);
+  return undefined;
+}
+
+async function afterModelChange() {
+  modelJob = null;
+  await refreshTTSProviders();
+  await paintModelSection();
+}
+
+async function downloadSupertonicModel() {
+  const entry = supertonicEntry();
+  if (!entry || modelJob) return;
+  const controller = new AbortController();
+  modelJob = { kind: 'download', controller, downloaded: 0, total: entry.provider.model.totalBytes };
+  const done = entry.provider.model.download((p) => {
+    if (modelJob?.controller !== controller) return;
+    modelJob.downloaded = p.downloadedBytes;
+    modelJob.total = p.totalBytes;
+    paintModelProgress();
+  }, { signal: controller.signal });
+  /* «يُنزَّل» يظهر في القائمة وأسبابها فورًا — التنزيلُ بدأ متزامنًا. */
+  await paintModelSection();
+  refreshTTSProviders();
+  try {
+    await done;
+    toastOk('نزل النموذج — Supertonic جاهز بلا نت');
+  } catch (error) {
+    if (error?.code === 'aborted') toast('اتلغى التنزيل — الملفّات المكتملة محفوظة');
+    else toastError(error?.message || 'فشل التنزيل');
+  } finally {
+    await afterModelChange();
+  }
+}
+
+async function verifySupertonicModel() {
+  const entry = supertonicEntry();
+  if (!entry || modelJob) return;
+  modelJob = { kind: 'verify' };
+  await paintModelSection();
+  try {
+    const r = await entry.provider.model.verify();
+    if (r.ok) toastOk('الملفّات سليمة');
+    else toastError(`ملفّات تالفة اتشالت: ${r.failed.map((f) => f.name).join('، ')} — نزّلها تاني`);
+  } catch (error) {
+    toastError(error?.message || 'تعذّر التحقّق');
+  } finally {
+    await afterModelChange();
+  }
+}
+
+async function retrySupertonicEngine() {
+  const entry = supertonicEntry();
+  if (!entry || modelJob) return;
+  modelJob = { kind: 'retry' };
+  await paintModelSection();
+  try {
+    await entry.provider.retry();
+  } finally {
+    await afterModelChange();
+  }
+}
+
+async function deleteSupertonicModel() {
+  const entry = supertonicEntry();
+  if (!entry || modelJob) return;
+  const ok = await confirmAction({
+    title: 'تحذف نموذج Supertonic؟',
+    message: `هيتمسح ${mbText(entry.provider.model.totalBytes)} من الجهاز، وSupertonic يبقى غير متاح لحدّ ما تنزّله تاني. الصوت المولَّد المحفوظ مش هيتمسح.`,
+    confirmLabel: 'احذف',
+    danger: true,
+  });
+  if (!ok) return;
+  modelJob = { kind: 'delete' };
+  await paintModelSection();
+  try {
+    await entry.provider.deleteModel();
+    toast('اتحذف نموذج Supertonic');
+  } catch (error) {
+    toastError(error?.message || 'تعذّر الحذف');
+  } finally {
+    await afterModelChange();
+  }
+}
+
 /** كلمةٌ لحالة توفّر المزوّد كما قالها — لا فحصَ هنا. */
 const AVAILABILITY_SHORT = {
   [AVAILABILITY.READY_OFFLINE]: 'بلا نت',
@@ -10596,7 +10730,7 @@ const QV_SECTION_KEY = 'lingolife.quickVoice.section';
  */
 let quickVoiceWires = null;
 const panelSignal = () => quickVoiceWires?.signal;
-const QV_SECTIONS = ['voices', 'prov', 'cache'];
+const QV_SECTIONS = ['voices', 'prov', 'cache', 'model'];
 
 function rememberQuickVoiceSection(name) {
   try {
@@ -10667,6 +10801,10 @@ function openQuickVoice() {
   /* ⚠️ والذاكرةُ تُقرأ حين يُفتَح قسمُها وحدَه — لا مع كلّ فتحٍ للوحة. */
   quickVoice.querySelector('[data-qv-cache]')?.addEventListener('toggle', (event) => {
     if (event.target.open) paintCacheInfo();
+  }, wired({}, panelSignal()));
+  /* وحالةُ نموذج Supertonic كذلك — تُقرأ حين يُفتَح قسمُه (قراءةٌ لا تنزيل). */
+  quickVoice.querySelector('[data-qv-model]')?.addEventListener('toggle', (event) => {
+    if (event.target.open) paintModelSection();
   }, wired({}, panelSignal()));
   host.append(quickVoice);
   restoreQuickVoiceSection();
@@ -13646,6 +13784,17 @@ function wireInteractions(main) {
       }
       case 'qv-cache-clear':
         return clearCacheFromPanel();
+      /* نموذجُ Supertonic — راجع الشرح فوق `downloadSupertonicModel`. */
+      case 'qv-model-download':
+        return downloadSupertonicModel();
+      case 'qv-model-cancel':
+        return modelJob?.controller?.abort();
+      case 'qv-model-verify':
+        return verifySupertonicModel();
+      case 'qv-model-retry':
+        return retrySupertonicEngine();
+      case 'qv-model-delete':
+        return deleteSupertonicModel();
       case 'qv-fav':
         /* ⚠️ تفضيلٌ لا اختيار: لا صوتَ ولا مزوّدَ ولا نطقَ يتغيّر. */
         return toggleFavorite(btn.dataset.p, btn.dataset.v);

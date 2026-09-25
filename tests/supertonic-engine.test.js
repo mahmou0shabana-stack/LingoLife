@@ -421,15 +421,15 @@ describe('Supertonic 1B · الحدود', () => {
     }
   });
 
-  it('١٧ · ليس صوتًا متاحًا بعد: لا مزوّدَ ولا تسجيل ولا مرجعَ في الإقلاع أو مركز الأصوات', async () => {
+  it('١٧ · الطريقُ العامّ بلا حالةٍ خاصّة: مُكيِّفُ النطق والذاكرةُ ومختبرُ الأصوات لا يعرفون Supertonic (1C)', async () => {
     const { ensureTTSProvidersRegistered } = await import('../js/services/shadow/tts/bootstrap.js');
     const { listProviders } = await import('../js/services/shadow/tts/registry.js');
     ensureTTSProvidersRegistered();
     expect(listProviders().some((p) => /supertonic/i.test(p.id))).toBe(false);
-    for (const f of ['../js/services/shadow/tts/bootstrap.js', '../js/views/shadow-view.js', '../js/modals/voice-lab.js',
-      '../js/services/shadow/tts/speaker-adapter.js', '../js/services/shadow/tts/audio-cache.js']) {
-      const text = await (await fetch(f, { cache: 'no-store' })).text();
+    const code = (t) => t.replace(/\/\*[\s\S]*?\*\/|\/\/.*$/gm, '');
+    for (const f of ['../js/modals/voice-lab.js', '../js/services/shadow/tts/speaker-adapter.js',
+      '../js/services/shadow/tts/audio-cache.js', '../js/services/shadow/audio-bus.js']) {
+      const text = code(await (await fetch(f, { cache: 'no-store' })).text());
       expect(`${f}: ${/supertonic/i.test(text)}`).toBe(`${f}: false`);
     }
-  });
-});
+  });});
