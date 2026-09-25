@@ -1,0 +1,117 @@
+{
+  "about": "MOSS-TTS Local (1.7B backbone) — guarded CPU smoke test, not a full benchmark.",
+  "watchdog_gb": 14.5,
+  "official_cpu_config": {
+    "model_dtype": "float32",
+    "model_params": 3060606464,
+    "codec_params": 1774566400,
+    "codec_dtype": "float32",
+    "weights_gb": 19.3,
+    "machine_ram_gb": 15.7,
+    "attempted": false,
+    "reason": "weights alone exceed physical RAM (no swap)"
+  },
+  "smoke_config": {
+    "model_dtype": "bfloat16 (as stored)",
+    "codec_dtype": "float32 (as stored)",
+    "weights_gb": 13.2
+  },
+  "steps": [
+    {
+      "step": "imports",
+      "t": 3.25,
+      "rss_mb": 708,
+      "peak_rss_mb": 707
+    },
+    {
+      "step": "processor+codec loaded",
+      "t": 8.4,
+      "rss_mb": 947,
+      "peak_rss_mb": 947,
+      "codec_dtype": "torch.float32"
+    },
+    {
+      "step": "model loaded",
+      "t": 11.9,
+      "rss_mb": 975,
+      "peak_rss_mb": 974,
+      "model_dtype": "torch.bfloat16"
+    },
+    {
+      "step": "reference encoded",
+      "t": 18.91,
+      "rss_mb": 4365,
+      "peak_rss_mb": 4364,
+      "ref_codes_shape": [
+        93,
+        32
+      ]
+    },
+    {
+      "step": "synthesized as-is",
+      "t": 67.92,
+      "rss_mb": 12356,
+      "peak_rss_mb": 12355,
+      "text": "Э́тот ста́рый за́мок стои́т на холме́.",
+      "wall_s": 49.0,
+      "audio_s": 2.88,
+      "rtf": 17.01,
+      "file": "output/moss-local-smoke/04_as-is.wav",
+      "text_tokens": [
+        "Э",
+        "́",
+        "т",
+        "от",
+        " ст",
+        "а",
+        "́",
+        "р",
+        "ый",
+        " за",
+        "́",
+        "м",
+        "ок",
+        " сто",
+        "и",
+        "́",
+        "т",
+        " на",
+        " х",
+        "ол",
+        "ме",
+        "́",
+        "."
+      ]
+    },
+    {
+      "step": "synthesized no-stress-marks",
+      "t": 102.27,
+      "rss_mb": 12363,
+      "peak_rss_mb": 12363,
+      "text": "Этот старый замок стоит на холме.",
+      "wall_s": 34.35,
+      "audio_s": 2.48,
+      "rtf": 13.85,
+      "file": "output/moss-local-smoke/04_no-stress-marks.wav",
+      "text_tokens": [
+        "Э",
+        "т",
+        "от",
+        " стар",
+        "ый",
+        " зам",
+        "ок",
+        " стоит",
+        " на",
+        " х",
+        "ол",
+        "ме",
+        "."
+      ]
+    }
+  ],
+  "outcome": "ok",
+  "exit_code": 0,
+  "wall_total_s": 105.9,
+  "watchdog_peak_rss_mb": 12363
+}

@@ -39,7 +39,10 @@ def readable_frontend(fe):
     come out as U+FFFD. Shown as ⟨byte⟩ on the page; results.json keeps the raw decode."""
     if not fe:
         return fe
-    return {**fe, "tokens": [t.replace("\ufffd", "⟨byte⟩") for t in fe.get("tokens", [])]}
+    toks = fe.get("tokens", [])
+    pairs = sum(1 for x, y in zip(toks, toks[1:]) if x == "<0xCC>" and y == "<0x81>")  # SentencePiece byte fallback
+    return {**fe, "tokens": [t.replace("\ufffd", "⟨byte⟩") for t in toks],
+            **({"u0301_byte_fallback": pairs} if pairs else {})}
 
 
 def main():
@@ -80,6 +83,17 @@ def main():
             clips[r["item_id"]] = base64.b64encode(data).decode("ascii")
         (PAGE / "packs" / name).write_text(json.dumps({"type": kind, "clips": clips}))
         packs[key] = {"file": f"packs/{name}", "type": kind}
+
+    smoke = ROOT / "output" / "moss-local-smoke"
+    if (smoke / "04_as-is.wav").exists():  # MOSS-TTS Local: guarded smoke test only (see results/moss_local_smoke.json)
+        clips = {}
+        for key, f in (("04", "04_as-is.wav"), ("04~no-stress-marks", "04_no-stress-marks.wav")):
+            data, kind = encode(smoke / f)
+            clips[key] = base64.b64encode(data).decode("ascii")
+        (PAGE / "packs" / "moss-local__smoke.json").write_text(json.dumps({"type": kind, "clips": clips}))
+        packs["moss-local/smoke"] = {"file": "packs/moss-local__smoke.json", "type": kind}
+    elif (PAGE / "packs" / "moss-local__smoke.json").exists():
+        packs["moss-local/smoke"] = {"file": "packs/moss-local__smoke.json", "type": "audio/flac"}
 
     engines = summary["engines_meta"]
     data = {

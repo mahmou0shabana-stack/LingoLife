@@ -23,7 +23,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 WATCHDOG_GB = 14.5
-PY = ROOT / "envs" / "moss-nano" / "bin" / "python"
+PY = ROOT / "envs" / "moss-local" / "bin" / "python"  # transformers 5.0.0 + torch 2.9.1 (MOSS-TTS pyproject pins)
 
 WORKER = r'''
 import json, sys, time, resource, torch
@@ -48,7 +48,12 @@ model = AutoModel.from_pretrained(str(ROOT / "models/moss-local"), trust_remote_
                                   attn_implementation="eager", torch_dtype=torch.bfloat16)
 model.eval()
 step("model loaded", model_dtype=str(next(model.parameters()).dtype))
-ref = str(ROOT / "references/ru_female_fleurs.wav")
+import soundfile as sf
+# torchaudio 2.9 needs TorchCodec + system FFmpeg to read files (not installed): read with soundfile and use the
+# processor's own encode_audios_from_wav (it resamples to the codec rate) — same reference codes, no file decoding.
+_w, _sr = sf.read(str(ROOT / "references/ru_female_fleurs.wav"), dtype="float32")
+ref = proc.encode_audios_from_wav([torch.from_numpy(_w).unsqueeze(0)], sampling_rate=_sr)[0]
+step("reference encoded", ref_codes_shape=list(ref.shape))
 for tag, text in [("as-is", "Э́тот ста́рый за́мок стои́т на холме́."), ("no-stress-marks", "Этот старый замок стоит на холме.")]:
     torch.manual_seed(1004)
     t = time.perf_counter()
@@ -59,7 +64,6 @@ for tag, text in [("as-is", "Э́тот ста́рый за́мок стои́т
     audio = msg.audio_codes_list[0]
     wall = time.perf_counter() - t
     sr = proc.model_config.sampling_rate
-    import soundfile as sf
     p = ROOT / "output" / "moss-local-smoke" / f"04_{tag}.wav"
     p.parent.mkdir(parents=True, exist_ok=True)
     sf.write(str(p), audio.float().cpu().numpy().reshape(-1), sr, subtype="PCM_16")

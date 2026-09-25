@@ -1,0 +1,111 @@
+{
+  "about": "MOSS-TTS-Nano CPU/local viability measurements (Phase 1B). Machine: 4-core Xeon 2.1 GHz, 15.7 GB RAM, no GPU.",
+  "model_size_mb": {
+    "pytorch_tts": 235.2,
+    "pytorch_codec": 87.9,
+    "onnx_tts": 672.1,
+    "onnx_codec": 90.6,
+    "note": "ONNX exports are fp32 (external .data weights); PyTorch weights fp32 .bin/.safetensors. Params: ~0.1B TTS + ~20M codec."
+  },
+  "cold_start": {
+    "method": "sync; echo 3 > /proc/sys/vm/drop_caches; then start the worker and send one request (#25 «Где вы живёте?», female FLEURS reference, WeText ON)",
+    "pytorch": {
+      "load_s": 4.916,
+      "rss_after_load_mb": 1160,
+      "first_request_infer_s": 2.179,
+      "first_audio_s": 0.675,
+      "peak_rss_mb": 1338,
+      "process_total_s": 9.51
+    },
+    "onnx_repo_runtime": {
+      "load_s": 7.119,
+      "rss_after_load_mb": 1725,
+      "first_request_infer_s": 4.222,
+      "first_audio_s": 1.019,
+      "peak_rss_mb": 2525,
+      "process_total_s": 11.96,
+      "note": "the repo's onnx_tts_runtime.py imports torch + torchaudio (reference-audio loading/resampling), so this RSS includes torch"
+    },
+    "onnx_sessions_only_torch_free": {
+      "session_create_s": 4.736,
+      "rss_after_sessions_mb": 1262,
+      "torch_imported": false,
+      "note": "ort_cpu_runtime.OrtCpuRuntime alone: all 8 ONNX sessions (prefill, decode, local ×3, codec encode/decode/decode_step)"
+    },
+    "first_ever_load_note": "the very first PyTorch-worker start in this environment took 14.5 s (WeTextProcessing compiles/caches its FST grammars on first use)"
+  },
+  "warm_corpus_run": {
+    "moss-nano": {
+      "ru_female_fleurs": {
+        "warm_wall_median_s": 5.916,
+        "rtf_wall_median": 1.3965,
+        "peak_rss_mb_max": 1433.4,
+        "first_audio_warm_median_s": 0.659
+      },
+      "ru_female_fleurs~no-stress-marks": {
+        "warm_wall_median_s": 5.654,
+        "rtf_wall_median": 1.4274,
+        "peak_rss_mb_max": 1433.4,
+        "first_audio_warm_median_s": 0.65
+      },
+      "ru_male_fleurs": {
+        "warm_wall_median_s": 6.968,
+        "rtf_wall_median": 1.4043,
+        "peak_rss_mb_max": 1471.4,
+        "first_audio_warm_median_s": 0.807
+      },
+      "ru_male_fleurs~no-stress-marks": {
+        "warm_wall_median_s": 5.943,
+        "rtf_wall_median": 1.4116,
+        "peak_rss_mb_max": 1481.8,
+        "first_audio_warm_median_s": 0.816
+      },
+      "ru_female_fleurs+no-wetext": {
+        "warm_wall_median_s": 5.747,
+        "rtf_wall_median": 1.348,
+        "peak_rss_mb_max": 1357.0,
+        "first_audio_warm_median_s": 0.618
+      },
+      "ru_female_fleurs+no-wetext~no-stress-marks": {
+        "warm_wall_median_s": 5.291,
+        "rtf_wall_median": 1.4072,
+        "peak_rss_mb_max": 1357.7,
+        "first_audio_warm_median_s": 0.63
+      }
+    },
+    "moss-nano-onnx": {
+      "ru_female_fleurs": {
+        "warm_wall_median_s": 8.974,
+        "rtf_wall_median": 1.9142,
+        "peak_rss_mb_max": 3036.2,
+        "first_audio_warm_median_s": 0.9
+      },
+      "ru_female_fleurs~no-stress-marks": {
+        "warm_wall_median_s": 7.661,
+        "rtf_wall_median": 1.9328,
+        "peak_rss_mb_max": 3036.2,
+        "first_audio_warm_median_s": 0.895
+      },
+      "ru_male_fleurs": {
+        "warm_wall_median_s": 8.732,
+        "rtf_wall_median": 1.9352,
+        "peak_rss_mb_max": 3197.9,
+        "first_audio_warm_median_s": 1.082
+      },
+      "ru_male_fleurs~no-stress-marks": {
+        "warm_wall_median_s": 8.077,
+        "rtf_wall_median": 1.9991,
+        "peak_rss_mb_max": 3258.2,
+        "first_audio_warm_median_s": 1.092
+      }
+    }
+  },
+  "realtime_on_this_cpu": "No. Median RTF 1.35–1.43 (PyTorch) and 1.91–2.00 (ONNX Runtime CPU): generation is slower than playback, so streamed audio starts in ~0.6–1.1 s but would underrun during playback without buffering. The README's '4-core CPU realtime' claim did not hold on this 2.1 GHz Xeon.",
+  "streaming": "Both official runtimes stream (PyTorch NanoTTSService.synthesize_stream; ONNX codec decode_step session). Time-to-first-audio measured per synthesis (results.json first_audio_s).",
+  "on_device_path": {
+    "browser": "Official: OpenMOSS/MOSS-TTS-Nano-Reader @ c3b2333 runs the full ONNX stack as a browser extension on onnxruntime-web (WASM, SIMD, multi-threaded), no local server. Its JS runtime states WeTextProcessing is NOT available in-browser (robust normalization only) — which avoids the Cyrillic→Chinese-WeText number problem measured here. Not executed in this benchmark (no browser run).",
+    "android": "No official Android build found. Credible route: the same ONNX graphs on ONNX Runtime Mobile (Java/Kotlin API) + SentencePiece for the text tokenizer; ~0.73 GB fp32 assets and ~1.3 GB RSS (torch-free, measured here) are heavy for phones — quantization would be needed. Community ports exist on modelscope.cn (INT8 ONNX: linlinkj/MOSS-TTS-Nano-100M-INT8, hzp2000itb/moss_nano_tts_onnx_100M_INT8; MNN: ZhangZes/MOSS-TTS-Nano-MNN; AXERA NPU; MLX) — unofficial, not tested here.",
+    "text_frontend": "Tokenizer is SentencePiece (portable). Server-side text normalization uses WeTextProcessing (pynini FSTs) — not portable to browser/mobile as-is, and misroutes Russian to its Chinese grammar.",
+    "output_format": "48 kHz stereo (2-channel) — larger buffers than needed for speech on device."
+  }
+}

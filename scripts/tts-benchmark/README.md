@@ -89,3 +89,80 @@ engine and voice, so the engines are deterministic here and every difference in 
 "Different audio" proves the marks reach the model and change the output. It does **not** prove the stress moved to the
 marked syllable — listen to #04/#05/#06/#07/#27 in both variants, and #27 against #28.
 Every record keeps the original text, the exact engine input, the engine's own normalized text and its token sequence.
+
+---
+
+## Phase 1B (2026-09-25): MOSS-TTS-Nano, F5-TTS Russian, MOSS-TTS Local
+
+Same corpus, same record format, same stress variants (as-is vs U+0301 removed, same seed) and the same
+determinism control. Phase-1 results and audio are untouched. Setup: `setup_phase1b.sh`; run:
+`python3 run.py moss-nano moss-nano-onnx` and `python3 moss_local_smoke.py`.
+
+**Native-Russian reference voices.** Every Phase 1B voice-cloning engine uses clips from FLEURS (Google, **CC-BY-4.0**),
+recorded by native Russian speakers, with FLEURS's own transcripts (`references/references.json`). The female and male
+clip were picked **by measurement**: highest estimated SNR in the first 205 dev clips, 6–12 s long, no clipping.
+Phase-1 neural engines used non-native references (English sample for XTTS, Mandarin prompt for CosyVoice, built-in voices
+for Chatterbox/Qwen3).
+
+| Engine | Exact model | OK | Cold load | RAM after load / peak | Warm median / sentence | RTF | First audio (streaming) |
+|---|---|---|---|---|---|---|---|
+| MOSS-TTS-Nano (PyTorch) | MOSS-TTS-Nano-100M @44502f8 + MOSS-Audio-Tokenizer-Nano @6aa02b0, fp32 | 192/192 | 4.9 s | 1.13–1.21 / 1.48 GB | 5.3–7.0 s | **1.35–1.43** | **0.62–0.82 s** |
+| MOSS-TTS-Nano (ONNX Runtime CPU) | …-100M-ONNX @f52645c + …-Tokenizer-Nano-ONNX @ceff0d0, fp32 | 128/128 | 7.1 s | 1.73 / 3.0–3.3 GB | 7.7–9.0 s | **1.91–2.00** | 0.90–1.09 s |
+| F5-TTS Russian | — | blocked | | | | | |
+| MOSS-TTS Local (1.7B backbone) | MOSS-TTS-Local-Transformer @12aa734 (3.06B params, bf16) + MOSS-Audio-Tokenizer @3cd226b (1.77B, fp32) | smoke test (#04 ×2) | 11.9 s | ~1 GB (lazy mmap) / **12.1 GB** | 34–49 s | **13.9–17.0** | — |
+
+Cold load = page cache dropped (`echo 3 > /proc/sys/vm/drop_caches`) before starting the worker. Licenses: MOSS-TTS-Nano,
+its codec, the ONNX exports, MOSS-TTS Local and MOSS-Audio-Tokenizer are all **Apache-2.0**; reference clips CC-BY-4.0.
+MOSS-TTS-Nano voices: `ru_female_fleurs`, `ru_male_fleurs`, plus `ru_female_fleurs+no-wetext` (see below).
+
+### MOSS-TTS-Nano — CPU / on-device viability (`results/moss_nano_viability.json`)
+
+- **Size:** 235 MB TTS + 88 MB codec (PyTorch, fp32); ONNX exports 672 MB + 91 MB (fp32 external data).
+- **Not real-time on this CPU.** Median RTF is 1.35–1.43 (PyTorch) and 1.91–2.00 (ONNX Runtime), so generation is slower
+  than playback. First audio arrives in about 0.6–1.1 s thanks to streaming, but playback would stall without buffering.
+  The README's "realtime on a 4-core CPU" did not hold on this 2.1 GHz Xeon.
+- **ONNX is slower here than PyTorch** and uses more memory as it runs (1.7 → 3.3 GB). The repo's Python ONNX runtime also
+  imports torch + torchaudio (for reference-audio loading). The bare ONNX sessions (`ort_cpu_runtime`) load torch-free in
+  4.7 s cold at **1.26 GB RSS**.
+- **Browser:** official. `OpenMOSS/MOSS-TTS-Nano-Reader` runs the whole ONNX stack in a browser extension on
+  onnxruntime-web (WASM, SIMD, multi-threaded), with no server. Its runtime notes that WeTextProcessing is unavailable
+  in-browser (robust normalization only). This path was not executed here.
+- **Android:** no official build. The credible route is the same ONNX graphs on ONNX Runtime Mobile plus SentencePiece.
+  About 0.76 GB of fp32 assets and ~1.3 GB RSS is heavy for a phone, so quantization would be needed. Unofficial
+  INT8/MNN/NPU ports exist on modelscope.cn; they were not tested here.
+- **Output is 48 kHz stereo.**
+
+### U+0301 findings (Phase 1B, measured)
+
+- **MOSS-TTS-Nano (both paths).** U+0301 survives the repo's text pipeline. It is not in the SentencePiece vocab;
+  byte fallback passes each mark as `<0xCC><0x81>` (no `<unk>`, nothing dropped). **Marked vs unmarked: 90/90 (PyTorch) and
+  60/60 (ONNX) pairs give different audio**; unmarked controls (#25, #28) are byte-identical, so the marks alone change
+  the output. Whether stress lands on the right syllable is for the listener.
+- **MOSS-TTS-Nano text normalization problem.** With WeTextProcessing ON (the repo default), pure-Cyrillic text is routed to
+  WeText's **Chinese** grammar: «3 бра́та» → «三 бра́та», «1250 рубле́й» → «一千二百五十 рубле́й»,
+  «01.09.2026 в 14:30» → «二零二六年九月一日 в 十四点三十分» (items #14–#17). The `+no-wetext` voice config switches it off
+  with the repo's own flag, so the same model can be heard without that step.
+- **MOSS-TTS Local.** Qwen3 BPE keeps U+0301 as its own token; #04 with vs without marks gave different audio (smoke test only).
+- **F5-TTS Russian.** Not measurable (no weights). Static facts: both Russian vocabs contain U+0301 (index 1574, inherited from
+  the base vocab) and `+`. ESpeech's own pipeline writes stress as `+` before the vowel; `engines/f5_espeech.py` is ready with
+  a third variant that converts the corpus marks to that notation.
+
+### Blockers (exact)
+
+- **F5-TTS Russian: blocked by the network.** The only Russian checkpoint listed in F5-TTS `SHARED.md`,
+  `hotstone228/F5-TTS-Russian` (CC-BY-NC-SA-4.0 per its card; SHARED.md says cc-by-nc-4.0; Common Voice 17 + Golos + SOVA +
+  RESD), has its weights only on huggingface.co's large-file CDNs (`us.aws.cdn.hf.co`, `cas-server.xethub.hf.co`: CONNECT 403).
+  The alternative Russian F5 checkpoint `ESpeech/ESpeech-TTS-1_RL-V2` (Apache-2.0) exists byte-identical on modelscope.cn,
+  but every GET redirects to `cdn-lfs-cn-1.modelscope.cn` (403) and its Git-LFS API refuses ("mirror→mirror loop detected").
+  ESpeech's auto-stress models (`ruaccent/accentuator`) are Hugging Face-only too. No non-Russian substitute was used.
+- **MOSS-TTS Local: resources.** The official CPU dtype (fp32) needs ~19.4 GB for weights alone, more than the 15.7 GB of RAM
+  (no swap), so it was not attempted. In the weights' stored dtypes (bf16 model, fp32 codec) it loads and speaks
+  (`results/moss_local_smoke.json`, clips in `output/moss-local-smoke/`), but at RTF 13.9–17 and 12.1 GB RSS the full corpus
+  (>1 h) was stopped after the smoke test. It needs `transformers==5.0.0` + `torch==2.9.1` (its own venv), and torchaudio 2.9
+  needs TorchCodec + FFmpeg to read files, so the reference was read with soundfile and encoded by the processor's own
+  `encode_audios_from_wav`.
+- **Environment notes.** To fit MOSS-TTS Local on disk, the Phase-1 venvs (`envs/xtts|chatterbox|qwen3|cosyvoice`) and the uv
+  cache were deleted after all their results were final. `setup_neural.sh` rebuilds them. FLEURS came from
+  `storage.googleapis.com`; ModelScope *dataset* downloads (via `cdn-lfs-cn-1.modelscope.cn`) are refused. For small files
+  where ModelScope's copy differs from the pinned HF revision (`.gitattributes`, ONNX meta JSON), `fetch_models.py` now uses
+  the official HF copy.

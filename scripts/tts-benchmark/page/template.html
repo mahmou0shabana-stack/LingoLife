@@ -175,9 +175,10 @@ $('#engine-table').innerHTML = `<thead><tr><th>Engine</th><th>Status</th><th>Mod
 }</tbody>`;
 
 $('#blockers').innerHTML = ORDER.map((id) => meta[id]).filter((e) => e.blocker || e.partial_blocker).map((e) => `
-  <div class="blocker"><b>${esc(e.label)}${e.blocker ? ' — blocked' : ' — partly limited'}</b>
+  <div class="blocker"><b>${esc(e.label)}${e.blocker ? ` — ${esc(e.status === 'working' ? 'limited' : e.status || 'blocked')}` : ' — partly limited'}</b>
   <span>${esc(e.blocker ? e.blocker.detail : e.partial_blocker)}</span>
-  ${e.blocker?.unblock ? `<span>To unblock: ${esc(e.blocker.unblock)}</span>` : ''}</div>`).join('');
+  ${e.blocker?.unblock ? `<span>To unblock: ${esc(e.blocker.unblock)}</span>` : ''}
+  ${DATA.packs[`${e.id}/smoke`] ? `<span>Smoke-test audio (#04, same seed): <button type="button" class="seq" data-smoke="${e.id}" data-clip="04">as-is (U+0301)</button> <button type="button" class="seq" data-smoke="${e.id}" data-clip="04~no-stress-marks">U+0301 removed</button></span>` : ''}</div>`).join('');
 
 $('#voice-table').innerHTML = `<thead><tr><th>Engine</th><th>Voice</th><th>Variant</th><th>Model</th><th>First call</th><th>Warm median</th><th>RTF wall</th><th>RTF infer</th><th>Peak RAM</th><th>Model load</th><th>First audio (warm)</th><th>OK</th><th>Voice license</th></tr></thead><tbody>${
   ORDER.flatMap((id) => Object.entries(DATA.summary[id]?.voices || {}).map(([vid, v]) => `<tr>
@@ -222,7 +223,7 @@ function rowHtml(item) {
   const buttons = ORDER.map((id) => {
     const e = meta[id];
     if (e.status !== 'working') {
-      return `<button type="button" class="play" disabled title="${esc(e.blocker?.detail || 'blocked')}">${esc(e.label)} · blocked</button>`;
+      return `<button type="button" class="play" disabled title="${esc(e.blocker?.detail || 'blocked')}">${esc(e.label)} · ${esc(e.status || 'blocked')}</button>`;
     }
     return `<button type="button" class="play" data-play="${id}" data-item="${item.id}" aria-label="Play ${esc(e.label)}, sentence ${item.id}"><span class="tri"></span>${esc(e.label)}</button>`;
   }).join('');
@@ -244,7 +245,7 @@ function metaHtml(eid, iid) {
     ['Stress marks', `<dd>${r.sm} in original · ${r.ss} sent</dd>`],
     r.ph ? ['espeak-ng phonemes', `<dd>${esc(r.ph)}</dd>`] : null,
     r.fe ? ['Engine frontend', `<dd class="ru-in" lang="ru">${esc(r.fe.normalized_text)}</dd>`] : null,
-    r.fe ? ['U+0301 inside engine', `<dd>${r.fe.u0301_in_normalized} after the engine's own normalization · ${r.fe.tokens_containing_u0301} of ${r.fe.tokens.length} tokens carry it · ${r.fe.unk_tokens} [UNK]${r.fe.russian_auto_stress ? ` · auto-stress: ${esc(r.fe.russian_auto_stress)}` : ''}${r.fe.text_frontend ? ` · text frontend: ${esc(r.fe.text_frontend)}` : ''}${r.fe.instruct ? ` · instruct: ${esc(r.fe.instruct)}` : ''}</dd>`] : null,
+    r.fe ? ['U+0301 inside engine', `<dd>${r.fe.u0301_in_normalized} after the engine's own normalization · ${r.fe.tokens_containing_u0301} of ${r.fe.tokens.length} tokens carry it · ${r.fe.unk_tokens} [UNK]${r.fe.u0301_byte_fallback ? ` · ${r.fe.u0301_byte_fallback}× U+0301 passed as byte-fallback pair <0xCC><0x81>` : ''}${r.fe.russian_auto_stress ? ` · auto-stress: ${esc(r.fe.russian_auto_stress)}` : ''}${r.fe.text_frontend ? ` · text frontend: ${esc(r.fe.text_frontend)}` : ''}${r.fe.instruct ? ` · instruct: ${esc(r.fe.instruct)}` : ''}</dd>`] : null,
     r.fe ? ['Tokens', `<dd><details><summary>${r.fe.tokens.length} tokens</summary>${esc(r.fe.tokens.join(' · '))}</details></dd>`] : null,
     r.fe?.normalization_method ? ['Normalization', `<dd>${esc(r.fe.normalization_method)}${r.fe.text_normalization_language ? ` · WeText language routed to: ${esc(r.fe.text_normalization_language)}` : ''}</dd>`] : null,
     r.fa != null ? ['First audio', `<dd>${fmt(r.fa, 3)} s after the request (streaming)</dd>`] : null,
@@ -315,6 +316,18 @@ async function play(btn) {
     player.play().catch(() => stop());
   });
 }
+
+document.addEventListener('click', async (ev) => {
+  const b = ev.target.closest('[data-smoke]');
+  if (!b) return;
+  stop();
+  const pack = await loadPack(`${b.dataset.smoke}/smoke`);
+  const clip = pack?.clips?.[b.dataset.clip];
+  if (!clip) return;
+  player.src = URL.createObjectURL(new Blob([Uint8Array.from(atob(clip), (c) => c.charCodeAt(0))], { type: pack.type }));
+  player.onended = null; player.onerror = null;
+  player.play().catch(() => {});
+});
 
 let seqToken = 0; // any manual click ends a running "Play all in order"
 document.addEventListener('click', async (ev) => {

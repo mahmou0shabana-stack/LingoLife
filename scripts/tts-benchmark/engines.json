@@ -160,7 +160,7 @@
       },
       "commercial_review": "light — Apache-2.0 model and code; reference clips are CC-BY-4.0 (attribution).",
       "rate_support": "none — no speed control; slow items synthesized at default rate",
-      "stress_handling": "pending run"
+      "stress_handling": "U+0301 survives the repo's text pipeline (robust cleanup + WeText) unchanged. It is NOT a SentencePiece vocab piece: byte fallback encodes each mark as the byte pair <0xCC><0x81>, so marks reach the model as bytes (no [UNK], no dropping). Measured: all marked sentence pairs give different audio; unmarked controls (#25, #28) are byte-identical across runs. Separate finding: with WeText ON (repo default), pure-Cyrillic text is routed to WeText's Chinese grammar — digits become Chinese numerals («3 бра́та» → «三 бра́та», «01.09.2026 в 14:30» → «二零二六年九月一日 в 十四点三十分»); the voice config '+no-wetext' turns it off."
     },
     {
       "id": "moss-nano-onnx",
@@ -183,7 +183,7 @@
       },
       "commercial_review": "light — Apache-2.0.",
       "rate_support": "none",
-      "stress_handling": "pending run"
+      "stress_handling": "U+0301 survives the repo's text pipeline (robust cleanup + WeText) unchanged. It is NOT a SentencePiece vocab piece: byte fallback encodes each mark as the byte pair <0xCC><0x81>, so marks reach the model as bytes (no [UNK], no dropping). Measured: all marked sentence pairs give different audio; unmarked controls (#25, #28) are byte-identical across runs. Separate finding: with WeText ON (repo default), pure-Cyrillic text is routed to WeText's Chinese grammar — digits become Chinese numerals («3 бра́та» → «三 бра́та», «01.09.2026 в 14:30» → «二零二六年九月一日 в 十四点三十分»); the voice config '+no-wetext' turns it off. Same tokenizer and text pipeline in the ONNX path."
     },
     {
       "id": "f5-espeech",
@@ -213,16 +213,40 @@
       "phase": "1B",
       "adapter": "moss_local_smoke.py (guarded smoke test only)",
       "model": "OpenMOSS-Team/MOSS-TTS-Local-Transformer @ 12aa734e4f11 (MossTTSLocal; Qwen3-1.7B backbone, 3.06B params total, bf16 6.1 GB) + OpenMOSS-Team/MOSS-Audio-Tokenizer @ 3cd226ba2947 (1.77B params, fp32 7.1 GB)",
-      "python_package": "OpenMOSS/MOSS-TTS @ 934d682 remote code via transformers 4.57.1, torch 2.7.0 CPU",
-      "cpu_only": "pending smoke test",
-      "gpu_required": "pending smoke test",
+      "python_package": "OpenMOSS/MOSS-TTS @ 934d682 remote code; transformers 5.0.0 + torch 2.9.1 CPU (MOSS-TTS pyproject pins); separate envs/moss-local",
+      "cpu_only": "loads and synthesizes on CPU (smoke test) — but only in bf16, not the official fp32 CPU dtype",
+      "gpu_required": "effectively yes for practical use: RTF 13.9–17 on this 4-core CPU",
       "license": {
         "code": "Apache-2.0 (OpenMOSS/MOSS-TTS)",
         "model": "Apache-2.0 (model card)",
         "source": "huggingface.co model card"
       },
       "commercial_review": "light — Apache-2.0.",
-      "stress_handling": "pending smoke test"
+      "stress_handling": "Qwen3 BPE keeps U+0301 as its own token (#04: 5 marks → 5 tokens). Smoke test: as-is 2.88 s audio vs stripped 2.48 s (same seed) — the marks changed the output. Only #04 was synthesized.",
+      "voice": "cloned from the native-Russian FLEURS female clip (references/references.json, CC-BY-4.0)",
+      "smoke_test": {
+        "file": "results/moss_local_smoke.json",
+        "load_s": 11.9,
+        "rss_after_load_mb": 975,
+        "peak_rss_generation_mb": 12363,
+        "item_04_as_is": {
+          "wall_s": 49.0,
+          "audio_s": 2.88,
+          "rtf": 17.01,
+          "file": "output/moss-local-smoke/04_as-is.wav"
+        },
+        "item_04_no_stress_marks": {
+          "wall_s": 34.35,
+          "audio_s": 2.48,
+          "rtf": 13.85,
+          "file": "output/moss-local-smoke/04_no-stress-marks.wav"
+        }
+      },
+      "blocker": {
+        "kind": "resources",
+        "detail": "Official CPU config (float32) needs ~19.4 GB for weights alone (3.06B-param model ×4 B + 1.77B-param fp32 codec) > 15.7 GB RAM, no swap — not attempted. Smoke test with the weights' stored dtypes (model bf16, codec fp32) worked: load 11.9 s (lazy mmap), RSS 12.1 GB during generation, RTF 13.85–17.01 (#04: 49.0 s for 2.88 s of audio). Full corpus (64 syntheses) not run: >1 h at ~79% of RAM in a non-official dtype — stopped after the smoke test as instructed.",
+        "unblock": "A GPU (official bf16 path), or ≥ 24 GB RAM for the official fp32 CPU path."
+      }
     }
   ]
 }
