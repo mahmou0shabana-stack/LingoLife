@@ -1,0 +1,173 @@
+{
+  "version": 1,
+  "about": "Phase 1C Stage A — Russian smoke + stress shootout. `text` carries the intended stress as U+0301. Each engine runs every item as-is (U+0301), with U+0301 removed (engine's own stress handling) and — where the engine has one — in its native stress notation. `target`: the homograph whose stress decides the meaning; `context` says whether the sentence alone decides it ('disambiguating') or only the mark does ('neutral'). Audio changing with the mark is NOT evidence that the stress is correct — only the listener can judge that. Items sharing a `pair` (neutral minimal pairs) are synthesized with ONE shared seed, so the only difference between them is where the mark sits.",
+  "items": [
+    {
+      "id": "S01",
+      "category": "normal",
+      "text": "Я живу́ в Москве́ уже́ пять лет."
+    },
+    {
+      "id": "S02",
+      "category": "short",
+      "text": "Приве́т!"
+    },
+    {
+      "id": "S03",
+      "category": "yo-written",
+      "text": "Ёлка уже́ стои́т, и всё гото́во."
+    },
+    {
+      "id": "S04",
+      "category": "yo-omitted",
+      "text": "Он пришел и принес елку.",
+      "note": "ё written as е, no marks — does the engine restore ё (пришёл, принёс, ёлку)?"
+    },
+    {
+      "id": "S05",
+      "category": "homograph-context",
+      "text": "Э́тот ста́рый за́мок постро́или в пятна́дцатом ве́ке.",
+      "target": "за́мок",
+      "meaning": "castle",
+      "context": "disambiguating"
+    },
+    {
+      "id": "S06",
+      "category": "homograph-context",
+      "text": "Я купи́л но́вый замо́к для две́ри.",
+      "target": "замо́к",
+      "meaning": "lock",
+      "context": "disambiguating"
+    },
+    {
+      "id": "S07",
+      "category": "homograph-neutral",
+      "text": "Он до́лго смотре́л на за́мок.",
+      "target": "за́мок",
+      "meaning": "castle",
+      "context": "neutral",
+      "pair": "P1"
+    },
+    {
+      "id": "S08",
+      "category": "homograph-neutral",
+      "text": "Он до́лго смотре́л на замо́к.",
+      "target": "замо́к",
+      "meaning": "lock",
+      "context": "neutral",
+      "pair": "P1"
+    },
+    {
+      "id": "S09",
+      "category": "homograph-context",
+      "text": "Для пирога́ нам нужна́ мука́ и са́хар.",
+      "target": "мука́",
+      "meaning": "flour",
+      "context": "disambiguating"
+    },
+    {
+      "id": "S10",
+      "category": "homograph-context",
+      "text": "Ждать так до́лго — настоя́щая му́ка.",
+      "target": "му́ка",
+      "meaning": "torment",
+      "context": "disambiguating"
+    },
+    {
+      "id": "S11",
+      "category": "homograph-neutral",
+      "text": "Э́то была́ му́ка.",
+      "target": "му́ка",
+      "meaning": "torment",
+      "context": "neutral",
+      "pair": "P2"
+    },
+    {
+      "id": "S12",
+      "category": "homograph-neutral",
+      "text": "Э́то была́ мука́.",
+      "target": "мука́",
+      "meaning": "flour",
+      "context": "neutral",
+      "pair": "P2"
+    },
+    {
+      "id": "S13",
+      "category": "homograph-context",
+      "text": "Откро́й географи́ческий а́тлас на пя́той страни́це.",
+      "target": "а́тлас",
+      "meaning": "atlas (book)",
+      "context": "disambiguating"
+    },
+    {
+      "id": "S14",
+      "category": "homograph-context",
+      "text": "Её пла́тье сши́то из блестя́щего атла́са.",
+      "target": "атла́са",
+      "meaning": "satin",
+      "context": "disambiguating"
+    },
+    {
+      "id": "S15",
+      "category": "homograph-neutral",
+      "text": "Мне ну́жен а́тлас.",
+      "target": "а́тлас",
+      "meaning": "atlas (book)",
+      "context": "neutral",
+      "pair": "P3"
+    },
+    {
+      "id": "S16",
+      "category": "homograph-neutral",
+      "text": "Мне ну́жен атла́с.",
+      "target": "атла́с",
+      "meaning": "satin",
+      "context": "neutral",
+      "pair": "P3"
+    },
+    {
+      "id": "S17",
+      "category": "homograph-context",
+      "text": "Я всегда́ пла́чу, когда́ смотрю́ э́тот фильм.",
+      "target": "пла́чу",
+      "meaning": "I cry",
+      "context": "disambiguating"
+    },
+    {
+      "id": "S18",
+      "category": "homograph-context",
+      "text": "Сего́дня я плачу́ за у́жин в рестора́не.",
+      "target": "плачу́",
+      "meaning": "I pay",
+      "context": "disambiguating"
+    },
+    {
+      "id": "S19",
+      "category": "homograph-neutral",
+      "text": "Я пла́чу.",
+      "target": "пла́чу",
+      "meaning": "I cry",
+      "context": "neutral",
+      "pair": "P4"
+    },
+    {
+      "id": "S20",
+      "category": "homograph-neutral",
+      "text": "Я плачу́.",
+      "target": "плачу́",
+      "meaning": "I pay",
+      "context": "neutral",
+      "pair": "P4"
+    },
+    {
+      "id": "S21",
+      "category": "numbers-date",
+      "text": "Встре́ча назна́чена на 15 ма́рта 2025 го́да в 10:30, биле́т сто́ит 1250 рубле́й."
+    },
+    {
+      "id": "S22",
+      "category": "long",
+      "text": "Когда́ я впервы́е прие́хал в Санкт-Петербу́рг, я почти́ не понима́л, что говоря́т лю́ди вокру́г, но ка́ждый день я слу́шал, повторя́л и запи́сывал но́вые слова́."
+    }
+  ]
+}

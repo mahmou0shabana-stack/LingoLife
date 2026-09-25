@@ -95,6 +95,41 @@ def main():
     elif (PAGE / "packs" / "moss-local__smoke.json").exists():
         packs["moss-local/smoke"] = {"file": "packs/moss-local__smoke.json", "type": "audio/flac"}
 
+    # Phase 1C Stage A — stress shootout (stress_suite.json), packs per engine/variant keyed by suite item id
+    stage_a = None
+    sa_path = ROOT / "results" / "stage_a.json"
+    if sa_path.exists():
+        sa = json.loads(sa_path.read_text())
+        suite = json.loads((ROOT / "stress_suite.json").read_text())["items"]
+        silero = json.loads((ROOT / "results" / "silero_stress_test.json").read_text()) \
+            if (ROOT / "results" / "silero_stress_test.json").exists() else None
+        stage_a = {"items": suite, "engines": {}, "silero": None}
+        if silero:
+            stage_a["silero"] = {"model": silero["model"], "score": silero["homographs_in_disambiguating_context"],
+                                 "items": {r["id"]: {"plus": r["output_plus"], "ok": r.get("predicted_matches_intended")}
+                                           for r in silero["items"]}}
+        for eid, e in sa["engines"].items():
+            if e.get("status") != "ran":
+                continue
+            ent = {"model_version": e["model_version"], "minimal_pairs": e.get("minimal_pairs"),
+                   "determinism_control": e.get("determinism_control"), "pairs": e.get("pairs"), "variants": {}, "records": {}}
+            for r in e["records"]:
+                ent["records"][f"{r['variant']}/{r['item_id']}"] = {
+                    "in": r["engine_input"], "pp": r["preprocessing"], "d": r.get("audio_duration_s"), "w": r["synthesis_wall_s"],
+                    "rtf": r.get("rtf_wall"), "seed": r.get("seed"), "fa": r.get("first_audio_s"),
+                    "fe": readable_frontend(r.get("frontend")), "voice": r["voice"]}
+            for variant in sorted({r["variant"] for r in e["records"]}):
+                name = f"stage_a__{eid}__{variant}.json"
+                recs = [r for r in e["records"] if r["variant"] == variant and r["success"]]
+                if all((ROOT / r["output_file"]).exists() for r in recs):
+                    clips, kind = {}, None
+                    for r in recs:
+                        data, kind = encode(ROOT / r["output_file"])
+                        clips[r["item_id"]] = base64.b64encode(data).decode("ascii")
+                    (PAGE / "packs" / name).write_text(json.dumps({"type": kind, "clips": clips}))
+                ent["variants"][variant] = {"file": f"packs/{name}", "type": "audio/flac" if sf else "audio/wav"}
+            stage_a["engines"][eid] = ent
+
     engines = summary["engines_meta"]
     data = {
         "generated": datetime.date.today().isoformat(),
@@ -104,6 +139,7 @@ def main():
         "items": corpus["items"],
         "records": records,
         "packs": packs,
+        "stage_a": stage_a,
         "references": json.loads((ROOT / "references" / "references.json").read_text())
         if (ROOT / "references" / "references.json").exists() else None,
     }

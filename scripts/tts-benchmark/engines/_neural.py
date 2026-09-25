@@ -36,7 +36,15 @@ VARIANTS = [
 
 
 def seed_for(out_path):
-    return 1000 + int(Path(out_path).stem)
+    """Same seed for every variant of one sentence: 1000 + the digits of its id (corpus '04', suite 'S04')."""
+    import re
+    stem = Path(out_path).stem
+    if stem in SEED_BY_STEM:  # e.g. Stage A minimal pairs share one seed so only the mark differs
+        return SEED_BY_STEM[stem]
+    return 1000 + int(re.sub(r"\D", "", stem) or 0)
+
+
+SEED_BY_STEM = {}
 
 
 class Worker:

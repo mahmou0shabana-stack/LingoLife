@@ -117,6 +117,14 @@ select { font: 14px var(--sans); color: var(--ink); background: var(--surface); 
     <div class="scroll"><table id="stress-table" style="min-width:880px"></table></div>
   </section>
 
+  <section id="stage-a" hidden>
+    <h2>Stress shootout (Phase 1C, Stage A)</h2>
+    <p class="lede" style="font-size:13px">22 short Russian items: normal text, ё, homograph minimal pairs in a sentence that decides the meaning, and in a <i>neutral</i> sentence where only the U+0301 mark decides it, plus numbers and long text. Each engine speaks every item three ways with the same seed: <b>as-is</b> (U+0301), <b>no marks</b> (the engine's own stress), and <b>Silero auto</b> (marks removed, then added back automatically by Silero Stress). The two sentences of a neutral pair share one seed, so the only difference between them is where the mark sits. <i>Audio that changes is not evidence that the stress is right.</i> That is for your ears.</p>
+    <p class="lede" style="font-size:13px" id="sa-silero"></p>
+    <div class="scroll"><table id="sa-summary" style="min-width:760px"></table></div>
+    <div class="rows" id="sa-rows"></div>
+  </section>
+
   <section>
     <h2>Sentences</h2>
     <div class="controls" id="controls"></div>
@@ -128,7 +136,7 @@ select { font: 14px var(--sans); color: var(--ink); background: var(--surface); 
 
 <script>
 const DATA = /*__DATA__*/null;
-const ORDER = ['rhvoice', 'piper', 'xtts', 'qwen3', 'chatterbox', 'cosyvoice', 'moss-nano', 'moss-nano-onnx', 'f5-espeech', 'moss-local'];
+const ORDER = ['rhvoice', 'piper', 'xtts', 'qwen3', 'chatterbox', 'cosyvoice', 'moss-nano', 'moss-nano-onnx', 'f5-espeech', 'moss-local', 'supertonic', 'omnivoice', 'silero', 'voxtream2-ru'];
 const $ = (s, r = document) => r.querySelector(s);
 const esc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 const meta = Object.fromEntries(DATA.engines.map((e) => [e.id, e]));
@@ -266,9 +274,9 @@ const player = $('#player');
 const packCache = new Map();
 const urlCache = new Map();
 
-async function loadPack(key) {
+async function loadPack(key, explicit) {
   if (!packCache.has(key)) {
-    const p = DATA.packs[key];
+    const p = explicit || DATA.packs[key];
     packCache.set(key, p ? fetch(p.file).then((r) => (r.ok ? r.json() : null)).catch(() => null) : Promise.resolve(null));
   }
   return packCache.get(key);
@@ -327,6 +335,69 @@ document.addEventListener('click', async (ev) => {
   player.src = URL.createObjectURL(new Blob([Uint8Array.from(atob(clip), (c) => c.charCodeAt(0))], { type: pack.type }));
   player.onended = null; player.onerror = null;
   player.play().catch(() => {});
+});
+
+/* ---------- Stage A stress shootout ---------- */
+const SA = DATA.stage_a;
+const SA_VARIANTS = [['as-is', 'as-is (U+0301)'], ['no-marks', 'no marks'], ['silero-auto', 'Silero auto']];
+if (SA && Object.keys(SA.engines).length) {
+  $('#stage-a').hidden = false;
+  if (SA.silero) {
+    $('#sa-silero').innerHTML = `<b>Silero Stress</b> (${esc(SA.silero.model)}) is a text model, not a voice. It put the intended stress on <b>${SA.silero.score.correct}/${SA.silero.score.total}</b> homographs whose sentence decides the meaning. Its prediction for each item is shown in the rows below. Silero's v5 TTS voices could not be downloaded here.`;
+  }
+  $('#sa-summary').innerHTML = `<thead><tr><th>Engine</th><th>U+0301 reaches the model</th><th>Neutral minimal pairs: unmarked identical (same seed)</th><th>…moving the mark changes audio</th><th>Unmarked control identical across runs</th></tr></thead><tbody>${
+    Object.entries(SA.engines).map(([eid, e]) => {
+      const mp = Object.values(e.minimal_pairs || {});
+      const anyRec = Object.values(e.records).find((r) => r.fe && r.fe.u0301_in_normalized > 0);
+      const reach = anyRec ? `${anyRec.fe.tokens_containing_u0301 || anyRec.fe.u0301_byte_fallback || 0} mark tokens in "${esc(anyRec.in.slice(0, 30))}…"` : '—';
+      const ctl = Object.values(e.determinism_control || {});
+      return `<tr><td><b>${esc(meta[eid]?.label || eid)}</b></td><td>${reach}</td>
+        <td class="num">${mp.filter((x) => x.unmarked_control_identical).length}/${mp.length}</td>
+        <td class="num">${mp.filter((x) => x.marked_audio_differs).length}/${mp.length}</td>
+        <td class="num">${ctl.filter(Boolean).length}/${ctl.length}</td></tr>`;
+    }).join('')}</tbody>`;
+  $('#sa-rows').innerHTML = SA.items.map((it) => {
+    const sil = SA.silero?.items?.[it.id];
+    const btns = Object.keys(SA.engines).flatMap((eid) => SA_VARIANTS.filter(([v]) => SA.engines[eid].variants[v]).map(([v, label]) =>
+      `<button type="button" class="play" data-sa="${eid}" data-variant="${v}" data-item="${it.id}"><span class="tri"></span>${esc(meta[eid]?.label || eid)} · ${label}</button>`)).join('');
+    return `<article class="row" data-sarow="${it.id}">
+      <div class="row-head"><span class="sid">${it.id}</span><span class="cat">${esc(it.category)}${it.context ? ` · ${esc(it.context)} context` : ''}${it.pair ? ` · pair ${esc(it.pair)}` : ''}</span>${it.target ? `<span class="note">target «${esc(it.target)}» = ${esc(it.meaning)}</span>` : (it.note ? `<span class="note">${esc(it.note)}</span>` : '')}</div>
+      <p class="ru" lang="ru">${esc(it.text)}</p>
+      ${sil ? `<p class="note" lang="ru">Silero Stress (from unmarked text): ${esc(sil.plus)}${sil.ok === true ? ' ✓ target matches' : sil.ok === false ? ' ✗ target differs (expected in a neutral sentence)' : ''}</p>` : ''}
+      <div class="engines">${btns}</div>
+      <div class="meta" data-meta hidden></div>
+    </article>`;
+  }).join('');
+}
+
+async function playStageA(btn) {
+  const { sa: eid, variant, item } = btn.dataset;
+  const wasThis = playing?.btn === btn;
+  stop();
+  if (wasThis) return;
+  const e = SA.engines[eid]; const r = e.records[`${variant}/${item}`];
+  const box = $('[data-meta]', btn.closest('.row'));
+  box.hidden = false;
+  box.innerHTML = r ? `<p class="mh">${esc(meta[eid]?.label || eid)} · ${esc(r.voice)} · ${esc(variant)}</p><dl>
+    <dt>Sent to engine</dt><dd class="ru-in" lang="ru">${esc(r.in)}</dd>
+    <dt>Preprocessing</dt><dd>${r.pp.length ? esc(r.pp.join('; ')) : 'none'}</dd>
+    ${r.fe ? `<dt>Engine frontend</dt><dd class="ru-in" lang="ru">${esc(r.fe.normalized_text)}</dd><dt>U+0301 inside engine</dt><dd>${r.fe.u0301_in_normalized} after normalization · ${r.fe.tokens_containing_u0301} tokens carry it · ${r.fe.unk_tokens} unknown</dd><dt>Tokens</dt><dd><details><summary>${r.fe.tokens.length} tokens</summary>${esc(r.fe.tokens.join(' · '))}</details></dd>` : ''}
+    <dt>Audio</dt><dd>${fmt(r.d)} s · ${fmt(r.w)} s wall · RTF ${fmt(r.rtf)}${r.fa != null ? ` · first audio ${fmt(r.fa)} s` : ''} · seed ${r.seed}</dd></dl>` : '';
+  btn.classList.add('on');
+  const pack = await loadPack(`sa:${eid}/${variant}`, e.variants[variant]);
+  const clip = pack?.clips?.[item];
+  if (!clip) { stop(); return; }
+  return new Promise((resolve) => {
+    playing = { btn, resolve };
+    player.src = URL.createObjectURL(new Blob([Uint8Array.from(atob(clip), (c) => c.charCodeAt(0))], { type: pack.type }));
+    player.onended = () => stop();
+    player.onerror = () => stop();
+    player.play().catch(() => stop());
+  });
+}
+document.addEventListener('click', (ev) => {
+  const b = ev.target.closest('[data-sa]');
+  if (b) playStageA(b);
 });
 
 let seqToken = 0; // any manual click ends a running "Play all in order"

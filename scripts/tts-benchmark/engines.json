@@ -247,6 +247,94 @@
         "detail": "Official CPU config (float32) needs ~19.4 GB for weights alone (3.06B-param model ×4 B + 1.77B-param fp32 codec) > 15.7 GB RAM, no swap — not attempted. Smoke test with the weights' stored dtypes (model bf16, codec fp32) worked: load 11.9 s (lazy mmap), RSS 12.1 GB during generation, RTF 13.85–17.01 (#04: 49.0 s for 2.88 s of audio). Full corpus (64 syntheses) not run: >1 h at ~79% of RAM in a non-official dtype — stopped after the smoke test as instructed.",
         "unblock": "A GPU (official bf16 path), or ≥ 24 GB RAM for the official fp32 CPU path."
       }
+    },
+    {
+      "id": "silero",
+      "label": "Silero TTS v5 (ru)",
+      "phase": "1C",
+      "adapter": null,
+      "model": "intended: v5_5_ru (latest Russian v5; speakers aidar, baya, kseniya, xenia, eugene; auto-stress / homographs / questions per README) — snakers4/silero-models @ d935534 models.yml → https://models.silero.ai/models/tts/ru/v5_5_ru.pt",
+      "python_package": "torch.hub / silero package (downloads from models.silero.ai)",
+      "cpu_only": "not measured (no weights)",
+      "gpu_required": "not measured",
+      "license": {
+        "code": "silero-models repo LICENSE text: CC BY-NC-SA 4.0 (README badge says CC BY-NC 4.0); v5_cis_base models MIT",
+        "model": "v5_5_ru: CC BY-NC(-SA) 4.0 — non-commercial",
+        "source": "tools/silero-models LICENSE, README"
+      },
+      "commercial_review": "yes — Russian v5 voices are non-commercial (CC BY-NC).",
+      "stress_handling": "TTS not measured. Silero's standalone stress+homograph model (silero-stress 1.5, MIT, PyPI) WAS tested on the Stage A suite: 8/8 homographs in disambiguating context got the intended stress; in neutral sentences it picks one reading (за́мок, му́ка, а́тлас, пла́чу); restores ё (пришёл, принёс, ёлку); leaves digits untouched; non-target slip: «для двер+и» (standard: для две́ри). Load 5.02 s. See results/silero_stress_test.json.",
+      "blocker": {
+        "kind": "network",
+        "detail": "All Silero TTS weights (v5_5_ru … v3) are served only from models.silero.ai, which the environment's proxy refuses (CONNECT 403, policy denial). The GitHub repo has release tags but no model assets; no official mirror on modelscope.cn or huggingface.co (only unrelated third-party v3/v4 uploads). No substitute model used.",
+        "unblock": "Allow models.silero.ai, then add the adapter (torch.hub.load('snakers4/silero-models', 'silero_tts', language='ru', speaker='v5_5_ru'))."
+      }
+    },
+    {
+      "id": "supertonic",
+      "label": "Supertonic 3",
+      "phase": "1C",
+      "adapter": "engines/supertonic.py (+ engines/supertonic_worker.py in envs/supertonic — torch-free)",
+      "model": "Supertone/supertonic-3 @ 3cadd1ee6394 (ONNX: duration_predictor, text_encoder, vector_estimator, vocoder; ~99M params, fp32 398 MB; identical files in supertone-oss-archive/supertonic-3 @ aafc6e32416a); 44.1 kHz mono",
+      "python_package": "official repo supertone-inc/supertonic @ 1e9799e (archived — no further updates) py/helper.py on onnxruntime 1.23.1 CPU; defaults total_step 8, speed 1.05",
+      "cpu_only": "yes (measured)",
+      "gpu_required": "no",
+      "voice": "built-in preset voice styles F1 (female) and M1 (male); the open-weight release has no voice cloning (Supertone's hosted Voice Builder only)",
+      "license": {
+        "code": "MIT (supertone-inc/supertonic LICENSE)",
+        "model": "BigScience OpenRAIL-M (model LICENSE) — commercial use allowed with use-based restrictions (Attachment A)",
+        "voices": {
+          "F1": "preset voice style, OpenRAIL-M",
+          "M1": "preset voice style, OpenRAIL-M"
+        },
+        "source": "models/supertonic3/LICENSE"
+      },
+      "commercial_review": "moderate — OpenRAIL-M use restrictions must be passed on; repo archived (no support).",
+      "rate_support": "speed argument",
+      "stress_handling": "pending"
+    },
+    {
+      "id": "omnivoice",
+      "label": "OmniVoice",
+      "phase": "1C",
+      "adapter": "engines/omnivoice.py (+ engines/omnivoice_worker.py in envs/omnivoice)",
+      "model": "k2-fsa/OmniVoice @ c5fdb5ccb189 (diffusion-LM TTS on Qwen3-0.6B, 600+ languages incl. Russian ~20.3k h; model.safetensors 2.45 GB + audio_tokenizer 0.81 GB); 24 kHz",
+      "python_package": "omnivoice 0.2.1 (PyPI; github k2-fsa/OmniVoice @ 08be0b4), torch 2.8.0 CPU float32, transformers 5.17.0",
+      "cpu_only": "runs on CPU (measured) — very slow",
+      "gpu_required": "effectively yes: RTF ≈ 24 on this CPU (num_step 32)",
+      "voice": "cloned from the native-Russian FLEURS female clip + transcript (CC-BY-4.0)",
+      "license": {
+        "code": "Apache-2.0",
+        "model": "CC-BY-NC (model card: 'due to constraints from its training data (e.g., Emilia)')",
+        "voices": {
+          "ru_female_fleurs": "FLEURS clip, CC-BY-4.0"
+        },
+        "source": "models/omnivoice/README.md"
+      },
+      "commercial_review": "yes — weights non-commercial.",
+      "stress_handling": "pending"
+    },
+    {
+      "id": "voxtream2-ru",
+      "label": "VoXtream2-RU",
+      "phase": "1C",
+      "adapter": null,
+      "model": "simba9/voxtream2-ru @ 79475fec8ada (community Russian fine-tune of herimor/voxtream2, 1.85 GB) — not downloaded",
+      "cpu_only": "not measured",
+      "gpu_required": "model card: GPU with ~4 GB VRAM",
+      "license": {
+        "model": "OpenRAIL-M, 'for scientific and research purposes' (card)",
+        "base": "herimor/voxtream2: card metadata CC-BY-4.0, but the RU card calls it MIT; Depth Transformer (Sesame CSM) Apache-2.0",
+        "data": "base trained on Emilia + HiFiTTS-2 (the RU card says both CC BY 4.0; OmniVoice's card treats Emilia as a non-commercial constraint); Russian fine-tune data only described as 'open Russian speech sets, ~1870 h' — not listed",
+        "source": "huggingface.co model cards"
+      },
+      "commercial_review": "blocked — research-only framing, inconsistent base license, unlisted fine-tune data.",
+      "stress_handling": "not measured; its Russian stack relies on RUAccent (auto-stress) + espeak phonemizer + RUNorm",
+      "blocker": {
+        "kind": "provenance + network",
+        "detail": "Stopped at verification, as instructed. Provenance/licence: research-purpose OpenRAIL-M fine-tune, base licence stated inconsistently (MIT vs CC-BY-4.0), Russian training data not listed. Runtime: the checkpoint (simba9/voxtream2-ru) and its RUAccent/RUNorm models are huggingface.co-only (large files refused here; no modelscope.cn mirror); it also pulls herimor/voxtream2, kyutai Mimi and IDRnD/ReDimNet; the card asks for a GPU (~4 GB VRAM).",
+        "unblock": "Clarify licence and training data with the author; allow huggingface.co large-file CDNs; a GPU is recommended."
+      }
     }
   ]
 }

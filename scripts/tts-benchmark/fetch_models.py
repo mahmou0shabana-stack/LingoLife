@@ -58,6 +58,14 @@ MODELS = {
     "moss-audio-tokenizer": ("OpenMOSS-Team/MOSS-Audio-Tokenizer", "3cd226ba2947efa357ef453bcad111b6eafba782",
                              "openmoss/MOSS-Audio-Tokenizer", None, ("images/arch.png", "images/pesq-nb.png",
                                                                      "images/pesq-wb.png", "images/sim.png", "images/stoi.png")),
+    # ---- Phase 1C ----
+    # Supertonic 3 (Supertone): the official HF repos Supertone/supertonic-3 and supertone-oss-archive/supertonic-3
+    # hold byte-identical ONNX/voice files; README images and audio samples are not needed.
+    "supertonic3": ("Supertone/supertonic-3", "3cadd1ee6394adea1bd021217a0e650ede09a323", "Supertone/supertonic-3", None,
+                    tuple(f"img/{x}" for x in ("Supertonic3_HeroImage.png", "metrics/model_size_comparison.png",
+                          "metrics/runtime_cpu_gpu_latency_memory.png", "metrics/s3_vs_measured_wer_range_voxcpm2.png",
+                          "metrics/supertonic2_vs_3_comparison.png"))),
+    "omnivoice": ("k2-fsa/OmniVoice", "c5fdb5ccb189668d56333f77ba2629f4cd7535f4", "k2-fsa/OmniVoice", None, ()),
     "vocos-mel-24khz": ("charactr/vocos-mel-24khz", "0feb3fdd929bcd6649e0e7c5a688cf7dd012ef21",
                         "pengzhendong/vocos-mel-24khz", None, ()),
 }
